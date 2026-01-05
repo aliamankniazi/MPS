@@ -147,13 +147,21 @@ export default function SalesPage() {
     <header className="bg-background shadow-sm">
         <div className="container mx-auto px-4">
             <nav className="flex items-center space-x-1">
-                 <Button variant="ghost" className="border-b-2 border-primary rounded-none text-primary">
-                    <ShoppingCart className="mr-2"/> Sale
+                 <Button asChild variant="ghost" className="border-b-2 border-primary rounded-none text-primary">
+                    <Link href="/"><ShoppingCart className="mr-2"/> Sale</Link>
                  </Button>
-                 <Button variant="ghost"><Wallet className="mr-2"/> Customer Payment</Button>
-                 <Button variant="ghost"><Redo className="mr-2"/> Supplier Payment</Button>
-                 <Button variant="ghost"><DollarSign className="mr-2"/> Cash Advance</Button>
-                 <Button variant="ghost"><User className="mr-2"/> Salary Payment</Button>
+                 <Button asChild variant="ghost">
+                    <Link href="/customer-payments"><Wallet className="mr-2"/> Customer Payment</Link>
+                 </Button>
+                 <Button asChild variant="ghost">
+                    <Link href="/supplier-payments"><Redo className="mr-2"/> Supplier Payment</Link>
+                 </Button>
+                 <Button asChild variant="ghost">
+                    <Link href="/cash-advances"><DollarSign className="mr-2"/> Cash Advance</Link>
+                 </Button>
+                 <Button asChild variant="ghost">
+                    <Link href="/employees"><User className="mr-2"/> Salary Payment</Link>
+                 </Button>
             </nav>
         </div>
     </header>
@@ -333,4 +341,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
