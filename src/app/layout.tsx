@@ -32,8 +32,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   const pathname = usePathname();
-  const noLayoutPages = ['/customer-payments', '/supplier-payments', '/cash-advances', '/employees'];
-  const hideLayout = pathname === '/' || noLayoutPages.includes(pathname);
+  const noLayoutPages = ['/customer-payments', '/supplier-payments', '/cash-advances', '/employees', '/'];
+  const hideLayout = noLayoutPages.includes(pathname);
 
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
