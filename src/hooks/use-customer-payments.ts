@@ -50,9 +50,9 @@ export function useCustomerPayments() {
     }
   }, [customerPayments, isLoaded]);
 
-  const addCustomerPayment = useCallback((payment: Omit<CustomerPayment, 'id' | 'timestamp'>) => {
+  const addCustomerPayment = useCallback((payment: Omit<CustomerPayment, 'id'>) => {
     setCustomerPayments(prev => [
-      { ...payment, id: crypto.randomUUID(), timestamp: new Date().toISOString() },
+      { ...payment, id: crypto.randomUUID() },
       ...prev,
     ]);
   }, []);

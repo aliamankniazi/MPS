@@ -29,12 +29,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useCustomerPayments } from '@/hooks/use-customer-payments';
 
 type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment';
   debit: number;
   credit: number;
   balance: number;
@@ -48,12 +49,13 @@ export default function LedgerPage() {
   const { otherIncomes, deleteOtherIncome, isLoaded: otherIncomesLoaded } = useOtherIncomes();
   const { supplierPayments, deleteSupplierPayment, isLoaded: supplierPaymentsLoaded } = useSupplierPayments();
   const { investments, deleteInvestment, isLoaded: investmentsLoaded } = useInvestments();
+  const { customerPayments, deleteCustomerPayment, isLoaded: customerPaymentsLoaded } = useCustomerPayments();
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const { toast } = useToast();
 
-  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && purchaseReturnsLoaded && otherIncomesLoaded && supplierPaymentsLoaded && investmentsLoaded;
+  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && purchaseReturnsLoaded && otherIncomesLoaded && supplierPaymentsLoaded && investmentsLoaded && customerPaymentsLoaded;
 
   const { entries, finalBalance, openingBalance, totals } = useMemo(() => {
     if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 } };
@@ -103,6 +105,15 @@ export default function LedgerPage() {
         type: 'Other Income',
         debit: 0,
         credit: oi.amount,
+    }));
+
+    customerPayments.forEach(cp => combined.push({
+        id: `cp-${cp.id}`,
+        timestamp: cp.timestamp,
+        description: `Payment from ${cp.customerName}`,
+        type: 'Customer Payment',
+        debit: 0, // This is a credit to the company's cash, but a credit to the customer's balance. For general journal, it's cash IN.
+        credit: cp.amount,
     }));
 
     supplierPayments.forEach(sp => combined.push({
@@ -171,7 +182,7 @@ export default function LedgerPage() {
         totals: calculatedTotals,
     };
 
-  }, [transactions, purchases, expenses, purchaseReturns, otherIncomes, supplierPayments, investments, isLoaded, selectedDate]);
+  }, [transactions, purchases, expenses, purchaseReturns, otherIncomes, customerPayments, supplierPayments, investments, isLoaded, selectedDate]);
 
   const getBadgeVariant = (type: LedgerEntry['type']) => {
     switch (type) {
@@ -184,6 +195,7 @@ export default function LedgerPage() {
       case 'Purchase Return': 
       case 'Other Income':
       case 'Investment':
+      case 'Customer Payment':
         return 'outline';
       default: 
         return 'default';
@@ -191,7 +203,7 @@ export default function LedgerPage() {
   };
   
   const isCreditEntry = (type: LedgerEntry['type']) => {
-    return type === 'Sale' || type === 'Purchase Return' || type === 'Other Income' || type === 'Investment';
+    return ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment'].includes(type);
   }
   
   const handleDeleteEntry = () => {
@@ -205,6 +217,7 @@ export default function LedgerPage() {
         case 'exp': deleteExpense(id); break;
         case 'pr': deletePurchaseReturn(id); break;
         case 'oi': deleteOtherIncome(id); break;
+        case 'cp': deleteCustomerPayment(id); break;
         case 'sp': deleteSupplierPayment(id); break;
         case 'inv': deleteInvestment(id); break;
         case 'wdr': deleteInvestment(id); break; // Both use same hook
@@ -275,7 +288,7 @@ export default function LedgerPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoaded && entries.length > 0 ? (
+          {isLoaded && (entries.length > 0 || selectedDate) ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -291,10 +304,11 @@ export default function LedgerPage() {
               <TableBody>
                 {selectedDate && (
                   <TableRow className="bg-muted/30">
-                    <TableCell colSpan={6} className="font-bold">Opening Balance</TableCell>
+                    <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
                     <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                       {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
+                    <TableCell />
                   </TableRow>
                 )}
                 {entries.map(entry => (
@@ -364,7 +378,7 @@ export default function LedgerPage() {
             </div>
           )}
         </CardContent>
-        {isLoaded && entries.length > 0 && (
+        {isLoaded && (entries.length > 0 || selectedDate) && (
            <CardFooter className="flex justify-end bg-muted/50 p-4 rounded-b-lg">
               <div className="text-right">
                   <p className="text-sm text-muted-foreground">Final Closing Balance</p>
