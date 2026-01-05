@@ -1,472 +1,291 @@
 
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Numpad } from '@/components/numpad';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { DollarSign, Users, TrendingUp, TrendingDown, Package, ListOrdered, History, Fuel } from 'lucide-react';
 import { useTransactions } from '@/hooks/use-transactions';
-import type { FuelType, PaymentMethod, Customer } from '@/lib/types';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Fuel, Droplets, CreditCard, Wallet, Smartphone, Users, HandCoins, DollarSign, Calendar as CalendarIcon, Edit, HelpCircle, Landmark } from 'lucide-react';
-import { useFuelPrices } from '@/hooks/use-fuel-prices';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { usePurchases } from '@/hooks/use-purchases';
+import { useExpenses } from '@/hooks/use-expenses';
 import { useCustomers } from '@/hooks/use-customers';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { useOtherIncomes } from '@/hooks/use-other-incomes';
 import { useFuelStock } from '@/hooks/use-fuel-stock';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { useBankAccounts } from '@/hooks/use-bank-accounts';
+import Link from 'next/link';
 
-
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
-type SaleMode = 'amount' | 'liters';
-type NumpadTarget = 'sale' | 'payment';
-
-export default function SalePage() {
-  const { addTransaction } = useTransactions();
-  const { addCustomerPayment } = useCustomerPayments();
-  const { toast } = useToast();
-  const { fuelPrices, isLoaded: pricesLoaded } = useFuelPrices();
+export default function DashboardPage() {
+  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
+  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
+  const { expenses, isLoaded: expensesLoaded } = useExpenses();
+  const { otherIncomes, isLoaded: otherIncomesLoaded } = useOtherIncomes();
   const { customers, isLoaded: customersLoaded } = useCustomers();
   const { fuelStock, isLoaded: stockLoaded } = useFuelStock();
-  const { bankAccounts, isLoaded: bankAccountsLoaded } = useBankAccounts();
-  
-  const [saleInput, setSaleInput] = useState('0');
-  const [paymentInput, setPaymentInput] = useState('');
-  const [numpadTarget, setNumpadTarget] = useState<NumpadTarget>('sale');
 
-  const [mode, setMode] = useState<SaleMode>('amount');
-  const [selectedFuel, setSelectedFuel] = useState<FuelType>('Unleaded');
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [selectedBankAccountId, setSelectedBankAccountId] = useState<string | null>(null);
-  const [activePaymentMethod, setActivePaymentMethod] = useState<PaymentMethod | null>(null);
+  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && customersLoaded && otherIncomesLoaded && stockLoaded;
 
-  const [saleDate, setSaleDate] = useState<Date>(new Date());
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [lastTransaction, setLastTransaction] = useState<{ amount: number; volume: number; fuelType: FuelType, customerName?: string } | null>(null);
+  const financialSummary = useMemo(() => {
+    if (!isLoaded) return null;
 
-  const selectedCustomerBalance = useCustomerBalance(selectedCustomerId);
-  
-  const selectedCustomer = useMemo(() => {
-      if (!selectedCustomerId) return null;
-      return customers.find(c => c.id === selectedCustomerId);
-  }, [customers, selectedCustomerId]);
-  
-  const selectedBankAccount = useMemo(() => {
-    if (!selectedBankAccountId) return null;
-    return bankAccounts.find(b => b.id === selectedBankAccountId);
-  }, [bankAccounts, selectedBankAccountId]);
+    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
+    const netProfit = totalRevenue - totalCostOfGoods - totalExpenses;
+    const totalIncome = otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
 
-  const { amount, volume } = useMemo(() => {
-    const pricePerLitre = fuelPrices[selectedFuel] || 1;
-    const inputNum = parseFloat(saleInput) || 0;
-
-    if (mode === 'amount') {
-      const calculatedVolume = pricePerLitre > 0 ? inputNum / pricePerLitre : 0;
-      return { amount: inputNum, volume: calculatedVolume };
-    } else { // mode is 'liters'
-      const calculatedAmount = inputNum * pricePerLitre;
-      return { amount: calculatedAmount, volume: inputNum };
-    }
-  }, [saleInput, mode, selectedFuel, fuelPrices]);
-
-  const handleNumpadPress = useCallback((key: string) => {
-    const isSale = numpadTarget === 'sale';
-    const currentInput = isSale ? saleInput : paymentInput;
-    const setInput = isSale ? setSaleInput : setPaymentInput;
-    
-    if (key === 'C') {
-      setInput(isSale ? '0' : '');
-      return;
-    }
-    if (key === '.' && currentInput.includes('.')) {
-      return;
-    }
-    // Limit length to prevent overflow
-    if (currentInput.replace('.', '').length >= 7) return;
-
-    if (currentInput === '0' && key !== '.') {
-      setInput(key);
-    } else {
-      if (!isSale && currentInput.includes('.') && currentInput.split('.')[1].length >= 2) return;
-      
-      setInput(prev => prev + key);
-    }
-  }, [numpadTarget, saleInput, paymentInput]);
-  
-  const handleModeChange = useCallback((newMode: SaleMode) => {
-      if (mode !== newMode) {
-          setMode(newMode);
-          setSaleInput('0');
-      }
-  }, [mode]);
-
-  const handleSalePayment = useCallback((paymentMethod: PaymentMethod) => {
-    if (amount <= 0 || volume <= 0) return;
-    if ((paymentMethod === 'Card' || paymentMethod === 'Mobile') && !selectedBankAccountId) {
-        toast({
-            variant: "destructive",
-            title: "Bank Account Required",
-            description: "Please select a bank account for Card or Mobile payments.",
-        });
-        return;
-    }
-    
-    const transaction = {
-      timestamp: saleDate.toISOString(),
-      fuelType: selectedFuel,
-      volume: parseFloat(volume.toFixed(2)),
-      pricePerLitre: fuelPrices[selectedFuel],
-      totalAmount: parseFloat(amount.toFixed(2)),
-      paymentMethod,
-      customerId: selectedCustomer?.id,
-      customerName: selectedCustomer?.name,
-      bankAccountId: selectedBankAccountId,
-      bankAccountName: selectedBankAccount?.bankName
+    return {
+      netRevenue: totalRevenue,
+      netProfit,
+      totalIncome,
+      activeCustomers,
     };
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes]);
+
+  const salesChartData = useMemo(() => {
+    if (!isLoaded) return [];
     
-    addTransaction(transaction);
-    setLastTransaction({
-      amount: parseFloat(amount.toFixed(2)),
-      volume: parseFloat(volume.toFixed(2)),
-      fuelType: selectedFuel,
-      customerName: selectedCustomer?.name,
-    });
-    setShowConfirmation(true);
-  }, [amount, volume, saleDate, selectedFuel, selectedCustomer, fuelPrices, addTransaction, selectedBankAccountId, selectedBankAccount, toast]);
-  
-  const handleCustomerPayment = useCallback((paymentMethod: PaymentMethod) => {
-    const amountNum = parseFloat(paymentInput);
-    if (!selectedCustomerId || !amountNum || amountNum <= 0) {
-      toast({
-        variant: "destructive",
-        title: 'Invalid Payment',
-        description: 'Please select a customer and enter a valid payment amount.',
-      });
-      return;
-    }
+    const endDate = new Date();
+    const startDate = subDays(endDate, 30);
     
-    if (!selectedCustomer) return;
+    const dailySales = transactions.reduce((acc, tx) => {
+        const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
+        acc[date] = (acc[date] || 0) + tx.totalAmount;
+        return acc;
+    }, {} as Record<string, number>);
 
-    addCustomerPayment({
-      customerId: selectedCustomer.id,
-      customerName: selectedCustomer.name,
-      amount: amountNum,
-      paymentMethod,
+    return Array.from({ length: 31 }, (_, i) => {
+        const date = subDays(endDate, 30 - i);
+        const formattedDate = format(date, 'yyyy-MM-dd');
+        const shortDate = format(date, 'MMM d');
+        return {
+            date: shortDate,
+            sales: dailySales[formattedDate] || 0,
+        };
     });
 
-    toast({
-      title: 'Payment Recorded',
-      description: `Payment of PKR ${amountNum.toFixed(2)} from ${selectedCustomer.name} has been recorded.`,
-    });
-
-    // Reset form
-    setPaymentInput('');
-  }, [paymentInput, selectedCustomerId, selectedCustomer, addCustomerPayment, toast]);
-
-  useEffect(() => {
-    if (activePaymentMethod !== 'Card' && activePaymentMethod !== 'Mobile') {
-        setSelectedBankAccountId(null);
-    }
-  }, [activePaymentMethod]);
+  }, [isLoaded, transactions]);
   
-  const handlePaymentMethodClick = (method: PaymentMethod) => {
-    setActivePaymentMethod(method);
-    handleSalePayment(method);
-  }
+  const topCustomers = useMemo(() => {
+    if (!isLoaded) return [];
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      // ALT key shortcuts for selection
-      if (event.altKey) {
-        switch (event.key) {
-          case '1':
-            event.preventDefault();
-            setSelectedFuel('Unleaded');
-            break;
-          case '2':
-            event.preventDefault();
-            setSelectedFuel('Premium');
-            break;
-          case '3':
-            event.preventDefault();
-            setSelectedFuel('Diesel');
-            break;
-          case 'm':
-          case 'M':
-            event.preventDefault();
-            handleModeChange(mode === 'amount' ? 'liters' : 'amount');
-            break;
+    const customerTotals = transactions.reduce((acc, tx) => {
+        if (tx.customerId && tx.customerName) {
+            acc[tx.customerId] = {
+                id: tx.customerId,
+                name: tx.customerName,
+                total: (acc[tx.customerId]?.total || 0) + tx.totalAmount,
+            };
         }
-      }
-      
-      // CTRL key shortcuts for payment
-      if (event.ctrlKey) {
-        const target = numpadTarget === 'sale' ? handleSalePayment : handleCustomerPayment;
-        switch (event.key) {
-          case '1':
-            event.preventDefault();
-            target('Cash');
-            break;
-          case '2':
-            event.preventDefault();
-            target('Card');
-            break;
-          case '3':
-            event.preventDefault();
-            target('Mobile');
-            break;
-        }
-      }
-    };
+        return acc;
+    }, {} as Record<string, { id: string; name: string; total: number }>);
+    
+    return Object.values(customerTotals)
+        .sort((a,b) => b.total - a.total)
+        .slice(0, 5);
 
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [mode, numpadTarget, handleModeChange, handleSalePayment, handleCustomerPayment]);
-
-  const resetSale = () => {
-    setSaleInput('0');
-    setPaymentInput('');
-    setMode('amount');
-    setSelectedFuel('Unleaded');
-    setSelectedCustomerId(null);
-    setSelectedBankAccountId(null);
-    setActivePaymentMethod(null);
-    setShowConfirmation(false);
-    setLastTransaction(null);
-    setSaleDate(new Date());
-  };
+  }, [isLoaded, transactions]);
   
-  const numpadTitle = numpadTarget === 'sale' 
-      ? (mode === 'amount' ? 'Amount (PKR)' : 'Volume (L)') 
-      : 'Payment Amount (PKR)';
+  const recentActivity = useMemo(() => {
+    if (!isLoaded) return [];
+    const sales = transactions.map(tx => ({ type: 'Sale' as const, ...tx }));
+    const allActivity = [...sales].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return allActivity.slice(0, 5);
+  }, [isLoaded, transactions]);
 
-  const dataIsReady = pricesLoaded && stockLoaded && bankAccountsLoaded;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 p-4 md:p-8 h-full">
-      <div className="flex-1 lg:flex-grow-[2] flex flex-col">
-        <Card className="flex-1 flex flex-col">
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">A quick overview of the business performance.</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button asChild>
+                <Link href="/">New Sale</Link>
+            </Button>
+        </div>
+      </div>
+      
+      {/* Stat Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">PKR {financialSummary?.netRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+            <p className="text-xs text-muted-foreground">Total sales income</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : ''}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+            <p className="text-xs text-muted-foreground">After all costs and expenses</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Other Income</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">PKR {financialSummary?.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+            <p className="text-xs text-muted-foreground">From non-fuel sources</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
+            <p className="text-xs text-muted-foreground">Customers with recent transactions</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Sales Chart</CardTitle>
+            <CardDescription>A look at your sales performance over the last 30 days.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={salesChartData}>
+                <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <Tooltip 
+                    contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                        fontSize: '12px'
+                    }} 
+                    labelStyle={{ fontWeight: 'bold' }}
+                    formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
+                />
+                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        <Card className="lg:col-span-2">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Fuel /> New Sale / Payment
-                </CardTitle>
+                <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
+                <CardDescription>Based on total value in the whole period.</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col gap-6 flex-grow">
-                <Tabs value={mode} onValueChange={(value) => handleModeChange(value as SaleMode)} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="amount" onClick={() => setNumpadTarget('sale')}>By Amount (PKR)</TabsTrigger>
-                    <TabsTrigger value="liters" onClick={() => setNumpadTarget('sale')}>By Volume (L)</TabsTrigger>
-                    </TabsList>
-                    <div className="text-center bg-muted/50 p-6 rounded-lg shadow-inner mt-4" onClick={() => setNumpadTarget('sale')}>
-                        <div className="text-sm text-muted-foreground">{mode === 'amount' ? 'Amount to Pay' : 'Calculated Amount'}</div>
-                        <div className="text-5xl md:text-7xl font-bold tracking-tighter text-primary">
-                            PKR {amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </div>
-                        <div className="mt-4 text-sm text-muted-foreground">{mode === 'liters' ? 'Volume to Dispense' : 'Calculated Volume'}</div>
-                        <div className="text-lg md:text-xl text-foreground mt-1 flex items-center justify-center gap-2">
-                            <Droplets className="w-5 h-5 text-primary" />
-                            <span>{volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Litres</span>
-                        </div>
-                    </div>
-                </Tabs>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Users /> Customer</Label>
-                        {!customersLoaded ? <Skeleton className="h-10 w-full" /> : (
-                            <Select onValueChange={(value) => setSelectedCustomerId(value === 'walk-in' ? null : value)} value={selectedCustomerId || 'walk-in'}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a customer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="walk-in">Walk-in Customer</SelectItem>
-                                    {customers.map(customer => (
-                                    <SelectItem key={customer.id} value={customer.id}>
-                                        {customer.name}
-                                    </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        )}
-                    </div>
-                     <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><CalendarIcon /> Sale Date</Label>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !saleDate && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {saleDate ? format(saleDate, "PPP") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={saleDate}
-                            onSelect={(date) => setSaleDate(date || new Date())}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                </div>
-
-                {selectedCustomerId && selectedCustomer && (
-                    <Card className="bg-destructive/10 border-destructive/50" onFocus={() => setNumpadTarget('payment')} onClick={() => setNumpadTarget('payment')}>
-                        <CardHeader className='pb-4'>
-                            <CardTitle className="text-base flex justify-between items-center">
-                                <span>{selectedCustomer.name}'s Balance</span>
-                                <span className={cn("text-lg font-bold", selectedCustomerBalance.balance > 0 ? 'text-destructive' : 'text-green-600')}>
-                                    PKR {selectedCustomerBalance.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </span>
-                            </CardTitle>
-                            <CardDescription>Enter an amount below to record a payment for this customer.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <div className="space-y-2">
-                                     <Label htmlFor="payment-amount" className='sr-only'>Amount (PKR)</Label>
-                                     <Input 
-                                        id="payment-amount"
-                                        type="text"
-                                        placeholder="Enter amount to receive..."
-                                        value={paymentInput}
-                                        readOnly
-                                        className="text-lg h-12 text-center font-semibold tracking-wider"
-                                     />
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <Button className="py-4" variant="secondary" onClick={() => handleCustomerPayment('Cash')} disabled={!selectedCustomerId || !paymentInput}>
-                                        <Wallet className="mr-2" /> Cash
-                                    </Button>
-                                    <Button className="py-4" variant="secondary" onClick={() => handleCustomerPayment('Card')} disabled={!selectedCustomerId || !paymentInput}>
-                                        <CreditCard className="mr-2" /> Card
-                                    </Button>
-                                    <Button className="py-4" variant="secondary" onClick={() => handleCustomerPayment('Mobile')} disabled={!selectedCustomerId || !paymentInput}>
-                                        <Smartphone className="mr-2" /> Mobile
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
-
-                <Separator />
-                
-                <div className="lg:max-w-md lg:mx-auto lg:w-full">
-                    <Label className="mb-2 flex items-center gap-2"><Edit /> Keypad</Label>
-                    <Numpad onKeyPress={handleNumpadPress} />
-                </div>
-                
-                <Separator />
-                
-                <div onClick={() => setNumpadTarget('sale')}>
-                    <Label className="mb-2 flex items-center gap-2"><Fuel /> Fuel & Payment</Label>
-                    {!dataIsReady ? <div className="grid grid-cols-3 gap-4"><Skeleton className="h-[5rem]"/><Skeleton className="h-[5rem]"/><Skeleton className="h-[5rem]"/></div> : (
-                        <div className="grid grid-cols-3 gap-4">
-                        {FUEL_TYPES.map((fuel, index) => {
-                            const isSelected = selectedFuel === fuel;
-                            return (
-                                <Button
-                                key={fuel}
-                                variant={isSelected ? 'default' : 'outline'}
-                                className="py-4 text-base flex-col h-auto items-center"
-                                onClick={() => setSelectedFuel(fuel)}
-                                title={`Alt + ${index + 1}`}
-                                >
-                                <span>{fuel}</span>
-                                <span className={cn("text-xs font-mono mt-0.5", isSelected ? 'text-primary-foreground/90' : 'text-muted-foreground')}>PKR {fuelPrices[fuel].toFixed(2)}/L</span>
-                                <span className={cn("text-xs font-mono mt-1", isSelected ? 'text-primary-foreground/90' : 'text-muted-foreground')}>{fuelStock[fuel].toFixed(0)} L</span>
-                                </Button>
-                            )
-                        })}
-                        </div>
-                    )}
-                </div>
-
-                {(activePaymentMethod === 'Card' || activePaymentMethod === 'Mobile') && (
-                    <div className="space-y-2">
-                        <Label className="flex items-center gap-2"><Landmark /> Bank Account</Label>
-                        <Select onValueChange={setSelectedBankAccountId} value={selectedBankAccountId || ''}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Select a bank account" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {bankAccounts.map(account => (
-                                    <SelectItem key={account.id} value={account.id}>
-                                        {account.bankName} - (...{account.accountNumber.slice(-4)})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                )}
-
-                <div className="grid grid-cols-3 gap-4" onClick={() => setNumpadTarget('sale')}>
-                    <Button className="py-6 text-base" onClick={() => handlePaymentMethodClick('Cash')} disabled={amount <= 0 || !dataIsReady} title="Ctrl + 1">
-                    <Wallet className="mr-2" /> Cash
-                    </Button>
-                    <Button className="py-6 text-base" onClick={() => handlePaymentMethodClick('Card')} disabled={amount <= 0 || !dataIsReady} title="Ctrl + 2">
-                    <CreditCard className="mr-2" /> Card
-                    </Button>
-                    <Button className="py-6 text-base" onClick={() => handlePaymentMethodClick('Mobile')} disabled={amount <= 0 || !dataIsReady} title="Ctrl + 3">
-                    <Smartphone className="mr-2" /> Mobile
-                    </Button>
-                </div>
-                <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="shortcuts">
-                        <AccordionTrigger className="text-sm">
-                            <div className="flex items-center gap-2">
-                                <HelpCircle className="w-4 h-4" />
-                                <span>Keyboard Shortcuts</span>
-                            </div>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <ul className="text-xs text-muted-foreground space-y-1 list-disc pl-5">
-                                <li><kbd className="font-mono bg-muted p-1 rounded-sm">Alt + 1</kbd> / <kbd className="font-mono bg-muted p-1 rounded-sm">2</kbd> / <kbd className="font-mono bg-muted p-1 rounded-sm">3</kbd> to select fuel type.</li>
-                                <li><kbd className="font-mono bg-muted p-1 rounded-sm">Alt + M</kbd> to switch between Amount and Volume mode.</li>
-                                <li><kbd className="font-mono bg-muted p-1 rounded-sm">Ctrl + 1</kbd> / <kbd className="font-mono bg-muted p-1 rounded-sm">2</kbd> / <kbd className="font-mono bg-muted p-1 rounded-sm">3</kbd> to process payment (Cash, Card, Mobile).</li>
-                            </ul>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
+            <CardContent>
+                <Table>
+                    <TableBody>
+                        {topCustomers.map((customer, index) => (
+                            <TableRow key={customer.id}>
+                                <TableCell className="p-2">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarFallback>{index + 1}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="font-medium">{customer.name}</div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="p-2 text-right font-mono">PKR {customer.total.toLocaleString()}</TableCell>
+                            </TableRow>
+                        ))}
+                         {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
       </div>
-      
-      <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Transaction Complete</AlertDialogTitle>
-            <AlertDialogDescription>
-              A sale of {lastTransaction?.volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}L of {lastTransaction?.fuelType} for PKR {lastTransaction?.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} has been recorded{lastTransaction?.customerName ? ` for ${lastTransaction.customerName}` : ''}.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={resetSale}>New Sale</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
+       <div className="grid gap-6 lg:grid-cols-5">
+         <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Package /> Product Stock</CardTitle>
+                <CardDescription>A live glance of current inventory levels.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableBody>
+                         <TableRow>
+                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Unleaded</TableCell>
+                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Unleaded.toLocaleString()} L` : 'Loading...'}</TableCell>
+                         </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Premium</TableCell>
+                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Premium.toLocaleString()} L` : 'Loading...'}</TableCell>
+                         </TableRow>
+                          <TableRow>
+                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Diesel</TableCell>
+                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Diesel.toLocaleString()} L` : 'Loading...'}</TableCell>
+                         </TableRow>
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+        
+        <Card className="lg:col-span-3">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><History /> Recent Activity</CardTitle>
+                <CardDescription>A feed of your latest transactions for all sales.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                 <Table>
+                    <TableBody>
+                        {recentActivity.map((activity) => (
+                             <TableRow key={activity.id}>
+                                <TableCell className="p-3">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`p-2 rounded-full bg-opacity-10 ${activity.type === 'Sale' ? 'bg-green-500 text-green-500' : 'bg-blue-500 text-blue-500'}`}>
+                                            <DollarSign className="w-4 h-4" />
+                                        </div>
+                                        <div>
+                                            <div className="font-medium">{activity.type}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                {activity.customerName || 'Walk-in'} - {activity.volume.toFixed(2)}L of {activity.fuelType}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="p-3 text-right">
+                                    <div className={`font-semibold ${activity.type === 'Sale' ? 'text-green-600' : 'text-blue-600'}`}>
+                                        PKR {activity.totalAmount.toLocaleString()}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {format(new Date(activity.timestamp), 'PP pp')}
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                         {recentActivity.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No recent activity.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+       </div>
     </div>
   );
 }
