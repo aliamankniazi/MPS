@@ -1,291 +1,418 @@
 
+
 'use client';
 
-import { useMemo } from 'react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, startOfDay, endOfDay } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users, TrendingUp, TrendingDown, Package, ListOrdered, History, Fuel } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useExpenses } from '@/hooks/use-expenses';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { useToast } from '@/hooks/use-toast';
+import { Fuel, DollarSign, User, CreditCard, Smartphone, Wallet, ScanLine, X, History, Printer } from 'lucide-react';
+import { Numpad } from '@/components/numpad';
+import type { FuelType, PaymentMethod, Transaction } from '@/lib/types';
+import { useFuelPrices } from '@/hooks/use-fuel-prices';
 import { useCustomers } from '@/hooks/use-customers';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
-import { useOtherIncomes } from '@/hooks/use-other-incomes';
-import { useFuelStock } from '@/hooks/use-fuel-stock';
+import { useTransactions } from '@/hooks/use-transactions';
+import { useCustomerPayments } from '@/hooks/use-customer-payments';
+import { useBankAccounts } from '@/hooks/use-bank-accounts';
 import Link from 'next/link';
 
-export default function DashboardPage() {
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
-  const { expenses, isLoaded: expensesLoaded } = useExpenses();
-  const { otherIncomes, isLoaded: otherIncomesLoaded } = useOtherIncomes();
+const transactionSchema = z.object({
+  fuelType: z.enum(['Unleaded', 'Premium', 'Diesel'], { required_error: 'Fuel type is required' }),
+  transactionType: z.enum(['amount', 'volume']),
+  value: z.coerce.number().positive('Value must be a positive number'),
+  paymentMethod: z.enum(['Cash', 'Card', 'Mobile'], { required_error: 'Payment method is required' }),
+  customerId: z.string().optional(),
+  bankAccountId: z.string().optional(),
+});
+
+type TransactionFormValues = z.infer<typeof transactionSchema>;
+
+export default function SalesPage() {
+  const { fuelPrices, isLoaded: pricesLoaded } = useFuelPrices();
   const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { fuelStock, isLoaded: stockLoaded } = useFuelStock();
+  const { addTransaction, transactions } = useTransactions();
+  const { addCustomerPayment } = useCustomerPayments();
+  const { bankAccounts, isLoaded: banksLoaded } = useBankAccounts();
+  
+  const [activeInput, setActiveInput] = useState<'value' | 'customerId'>('value');
+  const [showCustomerList, setShowCustomerList] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
 
-  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && customersLoaded && otherIncomesLoaded && stockLoaded;
+  const { toast } = useToast();
 
-  const financialSummary = useMemo(() => {
-    if (!isLoaded) return null;
+  const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
+    resolver: zodResolver(transactionSchema),
+    defaultValues: {
+      fuelType: 'Unleaded',
+      transactionType: 'amount',
+      value: 0,
+      paymentMethod: 'Cash',
+    },
+  });
 
-    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
-    const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
-    const netProfit = totalRevenue - totalCostOfGoods - totalExpenses;
-    const totalIncome = otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
+  const { fuelType, transactionType, value, customerId, paymentMethod } = watch();
+  
+  const selectedCustomer = useMemo(() => {
+    return customers.find(c => c.id === customerId);
+  }, [customerId, customers]);
 
-    return {
-      netRevenue: totalRevenue,
-      netProfit,
-      totalIncome,
-      activeCustomers,
+  const { balance: customerBalance } = useCustomerBalance(customerId || null);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch) return customers;
+    return customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || (c.contact && c.contact.includes(customerSearch)));
+  }, [customers, customerSearch]);
+
+  const pricePerLitre = useMemo(() => fuelPrices[fuelType] || 0, [fuelType, fuelPrices]);
+
+  const { totalAmount, totalVolume } = useMemo(() => {
+    const numericValue = Number(value) || 0;
+    if (transactionType === 'amount') {
+      const amount = numericValue;
+      const volume = pricePerLitre > 0 ? amount / pricePerLitre : 0;
+      return { totalAmount: amount, totalVolume: volume };
+    } else { // volume
+      const volume = numericValue;
+      const amount = volume * pricePerLitre;
+      return { totalAmount: amount, totalVolume: volume };
+    }
+  }, [value, transactionType, pricePerLitre]);
+  
+  const recentTransactions = useMemo(() => {
+    return [...transactions].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+  }, [transactions]);
+
+
+  const handleNumpadKeyPress = useCallback((key: string) => {
+    if (activeInput === 'value') {
+      const currentValue = value.toString();
+      if (key === '.' && currentValue.includes('.')) return;
+      setValue('value', Number(currentValue + key), { shouldValidate: true });
+    }
+  }, [activeInput, value, setValue]);
+
+  const handleClear = useCallback(() => {
+    if (activeInput === 'value') {
+      setValue('value', 0, { shouldValidate: true });
+    }
+  }, [activeInput, setValue]);
+
+  const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
+    if (totalAmount <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Invalid Transaction',
+        description: 'Total amount must be greater than zero.',
+      });
+      return;
+    }
+    
+    const transactionData: Omit<Transaction, 'id'> = {
+      fuelType: data.fuelType,
+      volume: totalVolume,
+      pricePerLitre: pricePerLitre,
+      totalAmount: totalAmount,
+      paymentMethod: data.paymentMethod,
+      timestamp: new Date().toISOString(),
+      customerId: data.customerId,
+      customerName: selectedCustomer?.name,
+      bankAccountId: data.bankAccountId,
+      bankAccountName: data.paymentMethod === 'Card' ? bankAccounts.find(b => b.id === data.bankAccountId)?.bankName : undefined,
     };
-  }, [isLoaded, transactions, purchases, expenses, otherIncomes]);
 
-  const salesChartData = useMemo(() => {
-    if (!isLoaded) return [];
+    addTransaction(transactionData);
     
-    const endDate = new Date();
-    const startDate = subDays(endDate, 30);
-    
-    const dailySales = transactions.reduce((acc, tx) => {
-        const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
-        acc[date] = (acc[date] || 0) + tx.totalAmount;
-        return acc;
-    }, {} as Record<string, number>);
+    // If it was a cash sale for a credit customer, log it as a payment against their balance.
+    if (data.customerId && (data.paymentMethod === 'Cash' || data.paymentMethod === 'Card' || data.paymentMethod === 'Mobile')) {
+        addCustomerPayment({
+            customerId: data.customerId,
+            customerName: selectedCustomer!.name,
+            amount: totalAmount,
+            paymentMethod: data.paymentMethod,
+            timestamp: new Date().toISOString(),
+        });
+    }
 
-    return Array.from({ length: 31 }, (_, i) => {
-        const date = subDays(endDate, 30 - i);
-        const formattedDate = format(date, 'yyyy-MM-dd');
-        const shortDate = format(date, 'MMM d');
-        return {
-            date: shortDate,
-            sales: dailySales[formattedDate] || 0,
-        };
+    toast({
+      title: 'Transaction Complete',
+      description: `Sale of ${totalVolume.toFixed(2)}L of ${data.fuelType} for PKR ${totalAmount.toFixed(2)} recorded.`,
     });
-
-  }, [isLoaded, transactions]);
-  
-  const topCustomers = useMemo(() => {
-    if (!isLoaded) return [];
-
-    const customerTotals = transactions.reduce((acc, tx) => {
-        if (tx.customerId && tx.customerName) {
-            acc[tx.customerId] = {
-                id: tx.customerId,
-                name: tx.customerName,
-                total: (acc[tx.customerId]?.total || 0) + tx.totalAmount,
-            };
-        }
-        return acc;
-    }, {} as Record<string, { id: string; name: string; total: number }>);
     
-    return Object.values(customerTotals)
-        .sort((a,b) => b.total - a.total)
-        .slice(0, 5);
+    reset({
+      fuelType: 'Unleaded',
+      transactionType: 'amount',
+      value: 0,
+      paymentMethod: 'Cash',
+      customerId: undefined,
+      bankAccountId: undefined,
+    });
+  };
 
-  }, [isLoaded, transactions]);
-  
-  const recentActivity = useMemo(() => {
-    if (!isLoaded) return [];
-    const sales = transactions.map(tx => ({ type: 'Sale' as const, ...tx }));
-    const allActivity = [...sales].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    return allActivity.slice(0, 5);
-  }, [isLoaded, transactions]);
-
+  if (showCustomerList) {
+    return (
+      <div className="p-4 md:p-8">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Select a Customer</CardTitle>
+              <Button variant="ghost" size="icon" onClick={() => setShowCustomerList(false)}><X /></Button>
+            </div>
+            <Input 
+              placeholder="Search customers..."
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              className="mt-4"
+            />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
+              {customersLoaded ? filteredCustomers.map(c => (
+                <Button key={c.id} variant="outline" className="justify-start h-auto py-3" onClick={() => {
+                  setValue('customerId', c.id);
+                  setShowCustomerList(false);
+                }}>
+                  <div>
+                    <p className="font-semibold text-base">{c.name}</p>
+                    <p className="text-muted-foreground text-sm">{c.contact}</p>
+                  </div>
+                </Button>
+              )) : <p>Loading customers...</p>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">A quick overview of the business performance.</p>
-        </div>
-        <div className="flex items-center gap-2">
-            <Button asChild>
-                <Link href="/">New Sale</Link>
-            </Button>
-        </div>
-      </div>
-      
-      {/* Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 p-4 md:p-8">
+      <div className="lg:col-span-2 space-y-4 md:space-y-8">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">PKR {financialSummary?.netRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">Total sales income</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : ''}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">After all costs and expenses</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Other Income</CardTitle>
-            <TrendingDown className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">PKR {financialSummary?.totalIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">From non-fuel sources</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
-            <p className="text-xs text-muted-foreground">Customers with recent transactions</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Sales Chart</CardTitle>
-            <CardDescription>A look at your sales performance over the last 30 days.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={salesChartData}>
-                <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-                <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <Tooltip 
-                    contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)',
-                        fontSize: '12px'
-                    }} 
-                    labelStyle={{ fontWeight: 'bold' }}
-                    formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
-                />
-                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        <Card className="lg:col-span-2">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
-                <CardDescription>Based on total value in the whole period.</CardDescription>
+                <CardTitle>Fuel Type</CardTitle>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableBody>
-                        {topCustomers.map((customer, index) => (
-                            <TableRow key={customer.id}>
-                                <TableCell className="p-2">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarFallback>{index + 1}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <div className="font-medium">{customer.name}</div>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="p-2 text-right font-mono">PKR {customer.total.toLocaleString()}</TableCell>
-                            </TableRow>
-                        ))}
-                         {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-      </div>
-
-       <div className="grid gap-6 lg:grid-cols-5">
-         <Card className="lg:col-span-2">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Package /> Product Stock</CardTitle>
-                <CardDescription>A live glance of current inventory levels.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableBody>
-                         <TableRow>
-                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Unleaded</TableCell>
-                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Unleaded.toLocaleString()} L` : 'Loading...'}</TableCell>
-                         </TableRow>
-                          <TableRow>
-                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Premium</TableCell>
-                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Premium.toLocaleString()} L` : 'Loading...'}</TableCell>
-                         </TableRow>
-                          <TableRow>
-                            <TableCell className="font-medium flex items-center gap-2"><Fuel className="text-primary"/> Diesel</TableCell>
-                            <TableCell className="text-right font-mono">{stockLoaded ? `${fuelStock.Diesel.toLocaleString()} L` : 'Loading...'}</TableCell>
-                         </TableRow>
-                    </TableBody>
-                </Table>
+                 <Controller
+                    name="fuelType"
+                    control={control}
+                    render={({ field }) => (
+                        <RadioGroup
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+                        >
+                            {(['Unleaded', 'Premium', 'Diesel'] as FuelType[]).map(type => (
+                                <Label key={type} htmlFor={type} className={`relative flex flex-col items-center justify-center rounded-md border-2 p-4 font-bold text-lg hover:bg-accent focus:outline-none ${field.value === type ? 'border-primary' : ''}`}>
+                                    <RadioGroupItem value={type} id={type} className="sr-only" />
+                                    <Fuel className="mb-3 h-8 w-8" />
+                                    {type}
+                                    <p className="font-normal text-sm text-muted-foreground">PKR {fuelPrices[type]}/L</p>
+                                </Label>
+                            ))}
+                        </RadioGroup>
+                    )}
+                 />
             </CardContent>
         </Card>
         
-        <Card className="lg:col-span-3">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-8">
+            <div className="grid md:grid-cols-2 gap-4 md:gap-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Transaction Value</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <Controller
+                            name="transactionType"
+                            control={control}
+                            render={({ field }) => (
+                                <RadioGroup 
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    className="flex items-center space-x-4 mb-4"
+                                >
+                                    <Label htmlFor="type-amount" className="flex items-center gap-2 cursor-pointer">
+                                        <RadioGroupItem value="amount" id="type-amount"/>Amount (PKR)
+                                    </Label>
+                                    <Label htmlFor="type-volume" className="flex items-center gap-2 cursor-pointer">
+                                        <RadioGroupItem value="volume" id="type-volume"/>Volume (L)
+                                    </Label>
+                                </RadioGroup>
+                            )}
+                        />
+                        <div className="relative">
+                             <Input
+                                {...register('value')}
+                                className="h-20 text-5xl font-bold text-right pr-16"
+                                onFocus={() => setActiveInput('value')}
+                            />
+                             <span className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-semibold">
+                                {transactionType === 'amount' ? 'PKR' : 'L'}
+                            </span>
+                        </div>
+                        {errors.value && <p className="text-sm text-destructive mt-2">{errors.value.message}</p>}
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Summary</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                         <div className="flex items-baseline justify-between border-b pb-2">
+                             <p className="text-muted-foreground">Total Volume</p>
+                             <p className="text-2xl font-bold">{totalVolume.toFixed(3)} <span className="text-base font-normal text-muted-foreground">L</span></p>
+                         </div>
+                         <div className="flex items-baseline justify-between">
+                             <p className="text-muted-foreground">Total Amount</p>
+                             <p className="text-2xl font-bold">{totalAmount.toFixed(2)} <span className="text-base font-normal text-muted-foreground">PKR</span></p>
+                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>Payment & Customer</CardTitle>
+                </CardHeader>
+                <CardContent className="grid md:grid-cols-2 gap-8">
+                     <div>
+                        <Label className="mb-4 block">Payment Method</Label>
+                        <Controller
+                            name="paymentMethod"
+                            control={control}
+                            render={({ field }) => (
+                                <RadioGroup
+                                    value={field.value}
+                                    onValueChange={(value) => {
+                                      field.onChange(value as PaymentMethod);
+                                      if(value !== 'Card') setValue('bankAccountId', undefined);
+                                    }}
+                                    className="flex items-center space-x-2"
+                                >
+                                    <Label htmlFor="pay-cash" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Cash' ? 'checked' : 'unchecked'}>
+                                        <RadioGroupItem value="Cash" id="pay-cash" className="sr-only" />
+                                        <Wallet className="w-8 h-8" />
+                                        <span>Cash</span>
+                                    </Label>
+                                    <Label htmlFor="pay-card" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Card' ? 'checked' : 'unchecked'}>
+                                        <RadioGroupItem value="Card" id="pay-card" className="sr-only" />
+                                        <CreditCard className="w-8 h-8" />
+                                        <span>Card</span>
+                                    </Label>
+                                    <Label htmlFor="pay-mobile" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Mobile' ? 'checked' : 'unchecked'}>
+                                        <RadioGroupItem value="Mobile" id="pay-mobile" className="sr-only" />
+                                        <Smartphone className="w-8 h-8" />
+                                        <span>Mobile</span>
+                                    </Label>
+                                </RadioGroup>
+                            )}
+                        />
+                        {paymentMethod === 'Card' && (
+                             <div className="mt-4 space-y-2">
+                                <Label htmlFor="bank-account">Bank Account</Label>
+                                <Controller
+                                  name="bankAccountId"
+                                  control={control}
+                                  render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select a bank account" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {banksLoaded ? bankAccounts.map(b => (
+                                          <SelectItem key={b.id} value={b.id}>{b.bankName} - (...{b.accountNumber.slice(-4)})</SelectItem>
+                                        )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                             </div>
+                        )}
+                     </div>
+                     <div className="space-y-4">
+                         <div className="flex justify-between items-center">
+                            <Label>Customer (Optional)</Label>
+                            <Button variant="outline" size="sm" onClick={() => setShowCustomerList(true)}>
+                                <ScanLine className="mr-2 h-4 w-4" /> Select Customer
+                            </Button>
+                         </div>
+                        {selectedCustomer ? (
+                            <Card className="p-4">
+                                <div className="flex items-start justify-between">
+                                    <div>
+                                        <p className="font-semibold">{selectedCustomer.name}</p>
+                                        <p className="text-sm text-muted-foreground">{selectedCustomer.contact}</p>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setValue('customerId', undefined)}><X className="h-4 w-4"/></Button>
+                                </div>
+                                <div className="border-t mt-2 pt-2">
+                                    <p className="text-sm text-muted-foreground">Current Balance</p>
+                                    <p className={`font-semibold ${customerBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>{customerBalance.toLocaleString(undefined, {style: 'currency', currency: 'PKR'})}</p>
+                                </div>
+                            </Card>
+                        ) : (
+                             <div className="flex items-center justify-center h-24 border-2 border-dashed rounded-md">
+                                <p className="text-muted-foreground">No customer selected</p>
+                            </div>
+                        )}
+                     </div>
+                </CardContent>
+                <CardFooter className="flex justify-end">
+                    <Button size="lg" type="submit" disabled={totalAmount <= 0}>Complete Transaction</Button>
+                </CardFooter>
+            </Card>
+        </form>
+      </div>
+
+      <div className="space-y-4 md:space-y-8">
+        <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History /> Recent Activity</CardTitle>
-                <CardDescription>A feed of your latest transactions for all sales.</CardDescription>
+                <CardTitle>Numpad</CardTitle>
             </CardHeader>
             <CardContent>
-                 <Table>
-                    <TableBody>
-                        {recentActivity.map((activity) => (
-                             <TableRow key={activity.id}>
-                                <TableCell className="p-3">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-2 rounded-full bg-opacity-10 ${activity.type === 'Sale' ? 'bg-green-500 text-green-500' : 'bg-blue-500 text-blue-500'}`}>
-                                            <DollarSign className="w-4 h-4" />
-                                        </div>
-                                        <div>
-                                            <div className="font-medium">{activity.type}</div>
-                                            <div className="text-xs text-muted-foreground">
-                                                {activity.customerName || 'Walk-in'} - {activity.volume.toFixed(2)}L of {activity.fuelType}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="p-3 text-right">
-                                    <div className={`font-semibold ${activity.type === 'Sale' ? 'text-green-600' : 'text-blue-600'}`}>
-                                        PKR {activity.totalAmount.toLocaleString()}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                        {format(new Date(activity.timestamp), 'PP pp')}
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                         {recentActivity.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No recent activity.</TableCell></TableRow>}
-                    </TableBody>
-                </Table>
+                <Numpad onKeyPress={(key) => {
+                  if (key === 'C') {
+                    handleClear();
+                  } else {
+                    handleNumpadKeyPress(key);
+                  }
+                }}/>
             </CardContent>
         </Card>
-       </div>
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><History/> Recent Sales</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {recentTransactions.length > 0 ? recentTransactions.map(tx => (
+                        <div key={tx.id} className="flex items-center justify-between border-b pb-2">
+                            <div>
+                                <p className="font-semibold">{tx.customerName || 'Walk-in'}</p>
+                                <p className="text-sm text-muted-foreground">{tx.volume.toFixed(2)}L {tx.fuelType}</p>
+                            </div>
+                             <div className="text-right">
+                                <p className="font-semibold">PKR {tx.totalAmount.toFixed(2)}</p>
+                                <Button asChild variant="link" size="sm" className="p-0 h-auto">
+                                    <Link href={`/invoice/sale/${tx.id}`} target="_blank"><Printer className="w-3 h-3 mr-1" />Print</Link>
+                                </Button>
+                             </div>
+                        </div>
+                    )) : (
+                        <p className="text-sm text-center text-muted-foreground py-8">No transactions yet.</p>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

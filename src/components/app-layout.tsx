@@ -31,8 +31,8 @@ import type { Permission } from '@/hooks/use-roles';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
-  { href: '/new-transaction', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
+  { href: '/', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
   { 
     group: 'Transactions',
     icon: BookOpen,
@@ -116,7 +116,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         }
       }
     }
-    return 'Dashboard';
+    return 'New Transaction';
   }
 
   const pageTitle = getPageTitle();
@@ -125,7 +125,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
     if ('href' in item && hasPermission(item.permission)) {
         return (
             <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={pathname === item.href || (item.href === '/' && pathname === '/new-transaction') || (item.href !=='/' && item.href !=='/new-transaction' && pathname.startsWith(item.href))} tooltip={item.label}>
+                <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label}>
                     <Link href={item.href} legacyBehavior={false}>
                         <item.icon />
                         <span>{item.label}</span>
