@@ -11,18 +11,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, DollarSign, User, CreditCard, Smartphone, Wallet, ScanLine, X, History, Printer, UserPlus, ShoppingCart, Redo } from 'lucide-react';
-import { Numpad } from '@/components/numpad';
-import type { FuelType, PaymentMethod, Transaction } from '@/lib/types';
-import { useFuelPrices } from '@/hooks/use-fuel-prices';
+import { UserPlus } from 'lucide-react';
+import type { PaymentMethod, Transaction } from '@/lib/types';
 import { useCustomers } from '@/hooks/use-customers';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { useTransactions } from '@/hooks/use-transactions';
 import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useBankAccounts } from '@/hooks/use-bank-accounts';
-import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -143,28 +138,6 @@ export default function SalesPage() {
   };
 
   return (
-    <div className="bg-muted/30 min-h-screen">
-    <header className="bg-background shadow-sm">
-        <div className="container mx-auto px-4">
-            <nav className="flex items-center space-x-1">
-                 <Button asChild variant="ghost" className="border-b-2 border-primary rounded-none text-primary">
-                    <Link href="/"><ShoppingCart className="mr-2"/> Sale</Link>
-                 </Button>
-                 <Button asChild variant="ghost">
-                    <Link href="/customer-payments"><Wallet className="mr-2"/> Customer Payment</Link>
-                 </Button>
-                 <Button asChild variant="ghost">
-                    <Link href="/supplier-payments"><Redo className="mr-2"/> Supplier Payment</Link>
-                 </Button>
-                 <Button asChild variant="ghost">
-                    <Link href="/cash-advances"><DollarSign className="mr-2"/> Cash Advance</Link>
-                 </Button>
-                 <Button asChild variant="ghost">
-                    <Link href="/employees"><User className="mr-2"/> Salary Payment</Link>
-                 </Button>
-            </nav>
-        </div>
-    </header>
     <main className="container mx-auto p-4 grid lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
             <Card>
@@ -338,6 +311,5 @@ export default function SalesPage() {
             </form>
         </div>
     </main>
-    </div>
   );
 }

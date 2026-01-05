@@ -31,6 +31,10 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  const noLayoutPages = ['/customer-payments', '/supplier-payments', '/cash-advances', '/employees'];
+  const hideLayout = pathname === '/' || noLayoutPages.includes(pathname);
+
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
@@ -39,7 +43,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <AuthProvider>
             <RolesProvider>
-                {children}
+                {hideLayout ? children : <>{children}</>}
             </RolesProvider>
         </AuthProvider>
         <Toaster />
