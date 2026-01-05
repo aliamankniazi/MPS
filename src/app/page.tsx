@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -13,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, DollarSign, User, CreditCard, Smartphone, Wallet, ScanLine, X, History, Printer } from 'lucide-react';
+import { Fuel, DollarSign, User, CreditCard, Smartphone, Wallet, ScanLine, X, History, Printer, UserPlus, ShoppingCart, Redo } from 'lucide-react';
 import { Numpad } from '@/components/numpad';
 import type { FuelType, PaymentMethod, Transaction } from '@/lib/types';
 import { useFuelPrices } from '@/hooks/use-fuel-prices';
@@ -23,396 +22,313 @@ import { useTransactions } from '@/hooks/use-transactions';
 import { useCustomerPayments } from '@/hooks/use-customer-payments';
 import { useBankAccounts } from '@/hooks/use-bank-accounts';
 import Link from 'next/link';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+
+const saleItemSchema = z.object({
+  product: z.string().min(1, "Product is required"),
+  unit: z.string().min(1, "Unit is required"),
+  quantity: z.coerce.number().min(0.01, "Quantity must be positive"),
+  price: z.coerce.number().min(0, "Price cannot be negative"),
+  totalAmount: z.coerce.number().min(0.01, "Total must be positive"),
+});
+
+type SaleItemFormValues = z.infer<typeof saleItemSchema>;
 
 const transactionSchema = z.object({
-  fuelType: z.enum(['Unleaded', 'Premium', 'Diesel'], { required_error: 'Fuel type is required' }),
-  transactionType: z.enum(['amount', 'volume']),
-  value: z.coerce.number().positive('Value must be a positive number'),
-  paymentMethod: z.enum(['Cash', 'Card', 'Mobile'], { required_error: 'Payment method is required' }),
   customerId: z.string().optional(),
-  bankAccountId: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  invoiceDate: z.date().optional(),
+  notes: z.string().optional(),
+  paidAmount: z.coerce.number().min(0),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
-export default function SalesPage() {
-  const { fuelPrices, isLoaded: pricesLoaded } = useFuelPrices();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { addTransaction, transactions } = useTransactions();
-  const { addCustomerPayment } = useCustomerPayments();
-  const { bankAccounts, isLoaded: banksLoaded } = useBankAccounts();
-  
-  const [activeInput, setActiveInput] = useState<'value' | 'customerId'>('value');
-  const [showCustomerList, setShowCustomerList] = useState(false);
-  const [customerSearch, setCustomerSearch] = useState('');
 
+export default function SalesPage() {
+  const { customers, isLoaded: customersLoaded } = useCustomers();
+  const { addTransaction } = useTransactions();
+  const { addCustomerPayment } = useCustomerPayments();
+  
+  const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
+
+  const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
+    resolver: zodResolver(saleItemSchema),
+  });
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
-      fuelType: 'Unleaded',
-      transactionType: 'amount',
-      value: 0,
-      paymentMethod: 'Cash',
-    },
+      paidAmount: 0,
+    }
   });
 
-  const { fuelType, transactionType, value, customerId, paymentMethod } = watch();
-  
+  const { customerId, paidAmount } = watch();
+  const { quantity, price } = watchItem();
+
+  useEffect(() => {
+    const total = (quantity || 0) * (price || 0);
+    setItemValue('totalAmount', total);
+  }, [quantity, price, setItemValue]);
+
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
   }, [customerId, customers]);
 
   const { balance: customerBalance } = useCustomerBalance(customerId || null);
 
-  const filteredCustomers = useMemo(() => {
-    if (!customerSearch) return customers;
-    return customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || (c.contact && c.contact.includes(customerSearch)));
-  }, [customers, customerSearch]);
+  const cartTotal = useMemo(() => {
+    return cart.reduce((total, item) => total + item.totalAmount, 0);
+  }, [cart]);
 
-  const pricePerLitre = useMemo(() => fuelPrices[fuelType] || 0, [fuelType, fuelPrices]);
-
-  const { totalAmount, totalVolume } = useMemo(() => {
-    const numericValue = Number(value) || 0;
-    if (transactionType === 'amount') {
-      const amount = numericValue;
-      const volume = pricePerLitre > 0 ? amount / pricePerLitre : 0;
-      return { totalAmount: amount, totalVolume: volume };
-    } else { // volume
-      const volume = numericValue;
-      const amount = volume * pricePerLitre;
-      return { totalAmount: amount, totalVolume: volume };
-    }
-  }, [value, transactionType, pricePerLitre]);
+  const invoiceBalance = useMemo(() => {
+    return cartTotal - (paidAmount || 0);
+  }, [cartTotal, paidAmount]);
   
-  const recentTransactions = useMemo(() => {
-    return [...transactions].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
-  }, [transactions]);
+  const newAccountBalance = useMemo(() => {
+    return customerBalance + invoiceBalance;
+  }, [customerBalance, invoiceBalance]);
 
 
-  const handleNumpadKeyPress = useCallback((key: string) => {
-    if (activeInput === 'value') {
-      const currentValue = value.toString();
-      if (key === '.' && currentValue.includes('.')) return;
-      setValue('value', Number(currentValue + key), { shouldValidate: true });
-    }
-  }, [activeInput, value, setValue]);
-
-  const handleClear = useCallback(() => {
-    if (activeInput === 'value') {
-      setValue('value', 0, { shouldValidate: true });
-    }
-  }, [activeInput, setValue]);
+  const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
+    setCart(currentCart => [...currentCart, data]);
+    resetItem();
+  };
 
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
-    if (totalAmount <= 0) {
+    if (cart.length === 0) {
       toast({
         variant: 'destructive',
-        title: 'Invalid Transaction',
-        description: 'Total amount must be greater than zero.',
+        title: 'Empty Cart',
+        description: 'Please add at least one item to the cart.',
       });
       return;
     }
     
+    // For simplicity, we'll create a single transaction representing the whole cart.
+    // A more complex system might save each cart item individually.
     const transactionData: Omit<Transaction, 'id'> = {
-      fuelType: data.fuelType,
-      volume: totalVolume,
-      pricePerLitre: pricePerLitre,
-      totalAmount: totalAmount,
-      paymentMethod: data.paymentMethod,
+      fuelType: 'Unleaded', // Placeholder as the new UI is generic
+      volume: cart.reduce((sum, item) => sum + item.quantity, 0),
+      pricePerLitre: 1, // Placeholder
+      totalAmount: cartTotal,
+      paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
       timestamp: new Date().toISOString(),
       customerId: data.customerId,
       customerName: selectedCustomer?.name,
-      bankAccountId: data.bankAccountId,
-      bankAccountName: data.paymentMethod === 'Card' ? bankAccounts.find(b => b.id === data.bankAccountId)?.bankName : undefined,
     };
 
     addTransaction(transactionData);
     
-    // If it was a cash sale for a credit customer, log it as a payment against their balance.
-    if (data.customerId && (data.paymentMethod === 'Cash' || data.paymentMethod === 'Card' || data.paymentMethod === 'Mobile')) {
+    if (data.customerId && data.paidAmount > 0) {
         addCustomerPayment({
             customerId: data.customerId,
             customerName: selectedCustomer!.name,
-            amount: totalAmount,
-            paymentMethod: data.paymentMethod,
+            amount: data.paidAmount,
+            paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
             timestamp: new Date().toISOString(),
         });
     }
 
     toast({
-      title: 'Transaction Complete',
-      description: `Sale of ${totalVolume.toFixed(2)}L of ${data.fuelType} for PKR ${totalAmount.toFixed(2)} recorded.`,
+      title: 'Sale Complete',
+      description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
     });
     
-    reset({
-      fuelType: 'Unleaded',
-      transactionType: 'amount',
-      value: 0,
-      paymentMethod: 'Cash',
-      customerId: undefined,
-      bankAccountId: undefined,
-    });
+    reset();
+    setCart([]);
   };
 
-  if (showCustomerList) {
-    return (
-      <div className="p-4 md:p-8">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Select a Customer</CardTitle>
-              <Button variant="ghost" size="icon" onClick={() => setShowCustomerList(false)}><X /></Button>
-            </div>
-            <Input 
-              placeholder="Search customers..."
-              value={customerSearch}
-              onChange={(e) => setCustomerSearch(e.target.value)}
-              className="mt-4"
-            />
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto">
-              {customersLoaded ? filteredCustomers.map(c => (
-                <Button key={c.id} variant="outline" className="justify-start h-auto py-3" onClick={() => {
-                  setValue('customerId', c.id);
-                  setShowCustomerList(false);
-                }}>
-                  <div>
-                    <p className="font-semibold text-base">{c.name}</p>
-                    <p className="text-muted-foreground text-sm">{c.contact}</p>
-                  </div>
-                </Button>
-              )) : <p>Loading customers...</p>}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8 p-4 md:p-8">
-      <div className="lg:col-span-2 space-y-4 md:space-y-8">
-        <Card>
-            <CardHeader>
-                <CardTitle>Fuel Type</CardTitle>
-            </CardHeader>
-            <CardContent>
-                 <Controller
-                    name="fuelType"
-                    control={control}
-                    render={({ field }) => (
-                        <RadioGroup
-                            value={field.value}
-                            onValueChange={field.onChange}
-                            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-                        >
-                            {(['Unleaded', 'Premium', 'Diesel'] as FuelType[]).map(type => (
-                                <Label key={type} htmlFor={type} className={`relative flex flex-col items-center justify-center rounded-md border-2 p-4 font-bold text-lg hover:bg-accent focus:outline-none ${field.value === type ? 'border-primary' : ''}`}>
-                                    <RadioGroupItem value={type} id={type} className="sr-only" />
-                                    <Fuel className="mb-3 h-8 w-8" />
-                                    {type}
-                                    <p className="font-normal text-sm text-muted-foreground">PKR {fuelPrices[type]}/L</p>
-                                </Label>
-                            ))}
-                        </RadioGroup>
-                    )}
-                 />
-            </CardContent>
-        </Card>
-        
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 md:space-y-8">
-            <div className="grid md:grid-cols-2 gap-4 md:gap-8">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Transaction Value</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <Controller
-                            name="transactionType"
-                            control={control}
-                            render={({ field }) => (
-                                <RadioGroup 
-                                    value={field.value}
-                                    onValueChange={field.onChange}
-                                    className="flex items-center space-x-4 mb-4"
-                                >
-                                    <Label htmlFor="type-amount" className="flex items-center gap-2 cursor-pointer">
-                                        <RadioGroupItem value="amount" id="type-amount"/>Amount (PKR)
-                                    </Label>
-                                    <Label htmlFor="type-volume" className="flex items-center gap-2 cursor-pointer">
-                                        <RadioGroupItem value="volume" id="type-volume"/>Volume (L)
-                                    </Label>
-                                </RadioGroup>
-                            )}
-                        />
-                        <div className="relative">
-                             <Input
-                                {...register('value')}
-                                className="h-20 text-5xl font-bold text-right pr-16"
-                                onFocus={() => setActiveInput('value')}
-                            />
-                             <span className="absolute right-6 top-1/2 -translate-y-1/2 text-2xl text-muted-foreground font-semibold">
-                                {transactionType === 'amount' ? 'PKR' : 'L'}
-                            </span>
-                        </div>
-                        {errors.value && <p className="text-sm text-destructive mt-2">{errors.value.message}</p>}
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Summary</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                         <div className="flex items-baseline justify-between border-b pb-2">
-                             <p className="text-muted-foreground">Total Volume</p>
-                             <p className="text-2xl font-bold">{totalVolume.toFixed(3)} <span className="text-base font-normal text-muted-foreground">L</span></p>
-                         </div>
-                         <div className="flex items-baseline justify-between">
-                             <p className="text-muted-foreground">Total Amount</p>
-                             <p className="text-2xl font-bold">{totalAmount.toFixed(2)} <span className="text-base font-normal text-muted-foreground">PKR</span></p>
-                         </div>
-                    </CardContent>
-                </Card>
-            </div>
-            
+    <div className="bg-muted/30 min-h-screen">
+    <header className="bg-background shadow-sm">
+        <div className="container mx-auto px-4">
+            <nav className="flex items-center space-x-1">
+                 <Button variant="ghost" className="border-b-2 border-primary rounded-none text-primary">
+                    <ShoppingCart className="mr-2"/> Sale
+                 </Button>
+                 <Button variant="ghost" disabled><Wallet className="mr-2"/> Customer Payment</Button>
+                 <Button variant="ghost" disabled><Redo className="mr-2"/> Supplier Payment</Button>
+                 <Button variant="ghost" disabled><DollarSign className="mr-2"/> Cash Advance</Button>
+                 <Button variant="ghost" disabled><User className="mr-2"/> Salary Payment</Button>
+            </nav>
+        </div>
+    </header>
+    <main className="container mx-auto p-4 grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Payment & Customer</CardTitle>
+                    <CardTitle>Add Items to Sale</CardTitle>
                 </CardHeader>
-                <CardContent className="grid md:grid-cols-2 gap-8">
-                     <div>
-                        <Label className="mb-4 block">Payment Method</Label>
-                        <Controller
-                            name="paymentMethod"
-                            control={control}
-                            render={({ field }) => (
-                                <RadioGroup
-                                    value={field.value}
-                                    onValueChange={(value) => {
-                                      field.onChange(value as PaymentMethod);
-                                      if(value !== 'Card') setValue('bankAccountId', undefined);
-                                    }}
-                                    className="flex items-center space-x-2"
-                                >
-                                    <Label htmlFor="pay-cash" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Cash' ? 'checked' : 'unchecked'}>
-                                        <RadioGroupItem value="Cash" id="pay-cash" className="sr-only" />
-                                        <Wallet className="w-8 h-8" />
-                                        <span>Cash</span>
-                                    </Label>
-                                    <Label htmlFor="pay-card" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Card' ? 'checked' : 'unchecked'}>
-                                        <RadioGroupItem value="Card" id="pay-card" className="sr-only" />
-                                        <CreditCard className="w-8 h-8" />
-                                        <span>Card</span>
-                                    </Label>
-                                    <Label htmlFor="pay-mobile" className="flex flex-col items-center justify-center gap-2 rounded-md border-2 p-4 flex-1 hover:bg-accent cursor-pointer data-[state=checked]:border-primary" data-state={field.value === 'Mobile' ? 'checked' : 'unchecked'}>
-                                        <RadioGroupItem value="Mobile" id="pay-mobile" className="sr-only" />
-                                        <Smartphone className="w-8 h-8" />
-                                        <span>Mobile</span>
-                                    </Label>
-                                </RadioGroup>
-                            )}
-                        />
-                        {paymentMethod === 'Card' && (
-                             <div className="mt-4 space-y-2">
-                                <Label htmlFor="bank-account">Bank Account</Label>
-                                <Controller
-                                  name="bankAccountId"
-                                  control={control}
-                                  render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                      <SelectTrigger>
-                                        <SelectValue placeholder="Select a bank account" />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {banksLoaded ? bankAccounts.map(b => (
-                                          <SelectItem key={b.id} value={b.id}>{b.bankName} - (...{b.accountNumber.slice(-4)})</SelectItem>
-                                        )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                />
-                             </div>
-                        )}
-                     </div>
-                     <div className="space-y-4">
-                         <div className="flex justify-between items-center">
-                            <Label>Customer (Optional)</Label>
-                            <Button variant="outline" size="sm" onClick={() => setShowCustomerList(true)}>
-                                <ScanLine className="mr-2 h-4 w-4" /> Select Customer
-                            </Button>
-                         </div>
-                        {selectedCustomer ? (
-                            <Card className="p-4">
-                                <div className="flex items-start justify-between">
-                                    <div>
-                                        <p className="font-semibold">{selectedCustomer.name}</p>
-                                        <p className="text-sm text-muted-foreground">{selectedCustomer.contact}</p>
-                                    </div>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setValue('customerId', undefined)}><X className="h-4 w-4"/></Button>
-                                </div>
-                                <div className="border-t mt-2 pt-2">
-                                    <p className="text-sm text-muted-foreground">Current Balance</p>
-                                    <p className={`font-semibold ${customerBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>{customerBalance.toLocaleString(undefined, {style: 'currency', currency: 'PKR'})}</p>
-                                </div>
-                            </Card>
-                        ) : (
-                             <div className="flex items-center justify-center h-24 border-2 border-dashed rounded-md">
-                                <p className="text-muted-foreground">No customer selected</p>
+                <CardContent>
+                    <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                            <div className="md:col-span-2 space-y-2">
+                                <Label htmlFor="product">Product</Label>
+                                <Input id="product" {...registerItem('product')} placeholder="Select a product..."/>
+                                {itemErrors.product && <p className="text-sm text-destructive">{itemErrors.product.message}</p>}
                             </div>
-                        )}
-                     </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="unit">Unit</Label>
+                                <Input id="unit" {...registerItem('unit')} placeholder="e.g., Ltr, Kg, Pcs" />
+                                 {itemErrors.unit && <p className="text-sm text-destructive">{itemErrors.unit.message}</p>}
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="quantity">Quantity</Label>
+                                <Input id="quantity" type="number" {...registerItem('quantity')} step="0.01" />
+                                {itemErrors.quantity && <p className="text-sm text-destructive">{itemErrors.quantity.message}</p>}
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="price">Price</Label>
+                                <Input id="price" type="number" {...registerItem('price')} step="0.01" />
+                                 {itemErrors.price && <p className="text-sm text-destructive">{itemErrors.price.message}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="totalAmount">Total Amount</Label>
+                                <Input id="totalAmount" type="number" {...registerItem('totalAmount')} readOnly className="bg-muted/50 font-bold" />
+                            </div>
+                             <div className="md:col-span-1 flex items-end">
+                                <Button type="submit" className="w-full">Add to Cart</Button>
+                            </div>
+                        </div>
+                    </form>
                 </CardContent>
-                <CardFooter className="flex justify-end">
-                    <Button size="lg" type="submit" disabled={totalAmount <= 0}>Complete Transaction</Button>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Current Cart</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Item</TableHead>
+                                    <TableHead className="text-right">Qty</TableHead>
+                                    <TableHead className="text-right">Price</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {cart.length > 0 ? cart.map((item, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{item.product}</TableCell>
+                                        <TableCell className="text-right">{item.quantity}</TableCell>
+                                        <TableCell className="text-right">{item.price.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-medium">{item.totalAmount.toFixed(2)}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                                            List is empty
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="lg:col-span-1">
+            <form onSubmit={handleSubmit(onSubmit)}>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Customer & Payment</CardTitle>
+                    <CardDescription>Select customer and finalize payment details.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                        <Label>Customer</Label>
+                        <div className="flex gap-2">
+                             <Controller
+                              name="customerId"
+                              control={control}
+                              render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Walk-in Customer" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="walkin">Walk-in Customer</SelectItem>
+                                    {customersLoaded ? customers.map(c => (
+                                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                                    )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            />
+                            <Button variant="outline" size="icon" disabled><UserPlus/></Button>
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Payment Method</Label>
+                        <Controller
+                          name="paymentMethod"
+                          control={control}
+                          render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select payment method" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Cash">Cash</SelectItem>
+                                <SelectItem value="Card">Card</SelectItem>
+                                <SelectItem value="Mobile">Mobile Wallet</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Invoice Date</Label>
+                        <Input type="date" defaultValue={new Date().toISOString().split('T')[0]}/>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="notes">Notes</Label>
+                        <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..."/>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                        <div className="flex justify-between font-semibold text-base">
+                            <span>Total</span>
+                            <span>{cartTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor="paidAmount">Paid Amount</Label>
+                            <Input id="paidAmount" type="number" {...register('paidAmount')} className="w-32 h-8 text-right" />
+                        </div>
+                         <div className="flex justify-between font-bold text-red-500">
+                            <span>Invoice Balance</span>
+                            <span>{invoiceBalance.toFixed(2)}</span>
+                        </div>
+                    </div>
+                    
+                    {selectedCustomer && (
+                        <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                             <h4 className="font-semibold mb-2">Customer Account</h4>
+                             <div className="flex justify-between">
+                                <span className="text-muted-foreground">Previous Balance</span>
+                                <span>{customerBalance.toFixed(2)}</span>
+                            </div>
+                             <div className="flex justify-between font-bold">
+                                <span>New Account Balance</span>
+                                <span>{newAccountBalance.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2">
+                    <Button type="submit" size="lg" className="w-full">Complete & Print Invoice</Button>
+                    <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
                 </CardFooter>
             </Card>
-        </form>
-      </div>
-
-      <div className="space-y-4 md:space-y-8">
-        <Card>
-            <CardHeader>
-                <CardTitle>Numpad</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <Numpad onKeyPress={(key) => {
-                  if (key === 'C') {
-                    handleClear();
-                  } else {
-                    handleNumpadKeyPress(key);
-                  }
-                }}/>
-            </CardContent>
-        </Card>
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><History/> Recent Sales</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
-                    {recentTransactions.length > 0 ? recentTransactions.map(tx => (
-                        <div key={tx.id} className="flex items-center justify-between border-b pb-2">
-                            <div>
-                                <p className="font-semibold">{tx.customerName || 'Walk-in'}</p>
-                                <p className="text-sm text-muted-foreground">{tx.volume.toFixed(2)}L {tx.fuelType}</p>
-                            </div>
-                             <div className="text-right">
-                                <p className="font-semibold">PKR {tx.totalAmount.toFixed(2)}</p>
-                                <Button asChild variant="link" size="sm" className="p-0 h-auto">
-                                    <Link href={`/invoice/sale/${tx.id}`} target="_blank"><Printer className="w-3 h-3 mr-1" />Print</Link>
-                                </Button>
-                             </div>
-                        </div>
-                    )) : (
-                        <p className="text-sm text-center text-muted-foreground py-8">No transactions yet.</p>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
-      </div>
+            </form>
+        </div>
+    </main>
     </div>
   );
 }
