@@ -149,10 +149,10 @@ export default function SalesPage() {
                  <Button variant="ghost" className="border-b-2 border-primary rounded-none text-primary">
                     <ShoppingCart className="mr-2"/> Sale
                  </Button>
-                 <Button variant="ghost" disabled><Wallet className="mr-2"/> Customer Payment</Button>
-                 <Button variant="ghost" disabled><Redo className="mr-2"/> Supplier Payment</Button>
-                 <Button variant="ghost" disabled><DollarSign className="mr-2"/> Cash Advance</Button>
-                 <Button variant="ghost" disabled><User className="mr-2"/> Salary Payment</Button>
+                 <Button variant="ghost"><Wallet className="mr-2"/> Customer Payment</Button>
+                 <Button variant="ghost"><Redo className="mr-2"/> Supplier Payment</Button>
+                 <Button variant="ghost"><DollarSign className="mr-2"/> Cash Advance</Button>
+                 <Button variant="ghost"><User className="mr-2"/> Salary Payment</Button>
             </nav>
         </div>
     </header>
