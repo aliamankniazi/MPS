@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSuppliers } from '@/hooks/use-suppliers';
 import { useSupplierPayments } from '@/hooks/use-supplier-payments';
@@ -19,6 +19,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { PaymentMethod } from '@/lib/types';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
 
 const supplierPaymentSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -29,6 +32,68 @@ const supplierPaymentSchema = z.object({
 });
 
 type SupplierPaymentFormValues = z.infer<typeof supplierPaymentSchema>;
+
+function PageHeader() {
+    const [currentTime, setCurrentTime] = useState('');
+    
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date().toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            }));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+      <header className="bg-background shadow-sm sticky top-0 z-20">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+            <p className="text-sm font-medium">{currentTime}</p>
+            <div className="flex items-center gap-4">
+                <span className="text-sm">ziakniazi@gmail.com</span>
+                <Button variant="ghost" size="icon">
+                    <Sun className="h-5 w-5" />
+                </Button>
+            </div>
+        </div>
+      </header>
+    );
+}
+
+function TransactionNav() {
+    const pathname = usePathname();
+    const navItems = [
+        { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
+        { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
+        { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
+        { href: '/employees', label: 'Salary Payment', icon: User },
+    ];
+    return (
+        <nav className="bg-background shadow-sm">
+            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
+                {navItems.map(item => (
+                    <Button
+                        asChild
+                        key={item.href}
+                        variant="ghost"
+                        className={cn(
+                            "border-b-2 rounded-none flex-shrink-0",
+                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
+                        )}
+                    >
+                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
+                    </Button>
+                ))}
+            </div>
+        </nav>
+    );
+}
 
 export default function SupplierPaymentsPage() {
   const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
@@ -61,107 +126,111 @@ export default function SupplierPaymentsPage() {
   };
 
   return (
-    <main className="container mx-auto p-4">
-    <div className="max-w-2xl mx-auto">
-      <Card>
-        <CardHeader>
-          <CardTitle>New Supplier Payment</CardTitle>
-          <CardDescription>Record a payment made to a supplier.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            <div className="space-y-2">
-              <Label>Supplier</Label>
-              <Controller
-                name="supplierId"
-                control={control}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a supplier..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {suppliersLoaded ? suppliers.map(s => (
-                        <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                      )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-            </div>
+    <div className="bg-muted/30 min-h-screen">
+      <PageHeader />
+      <TransactionNav />
+      <main className="container mx-auto p-4">
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>New Supplier Payment</CardTitle>
+              <CardDescription>Record a payment made to a supplier.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2">
+                  <Label>Supplier</Label>
+                  <Controller
+                    name="supplierId"
+                    control={control}
+                    render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a supplier..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {suppliersLoaded ? suppliers.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                          )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                  {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (PKR)</Label>
-              <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 50000" step="0.01" />
-              {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="amount">Amount (PKR)</Label>
+                  <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 50000" step="0.01" />
+                  {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                </div>
 
-            <div className="space-y-2">
-                <Label>Payment Method</Label>
-                <Controller
-                  name="paymentMethod"
-                  control={control}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cash"><div className="flex items-center gap-2"><Wallet/>Cash</div></SelectItem>
-                        <SelectItem value="Card"><div className="flex items-center gap-2"><CreditCard/>Card</div></SelectItem>
-                        <SelectItem value="Mobile"><div className="flex items-center gap-2"><Smartphone/>Mobile</div></SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                 {errors.paymentMethod && <p className="text-sm text-destructive">{errors.paymentMethod.message}</p>}
-              </div>
+                <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Controller
+                      name="paymentMethod"
+                      control={control}
+                      render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select payment method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cash"><div className="flex items-center gap-2"><Wallet/>Cash</div></SelectItem>
+                            <SelectItem value="Card"><div className="flex items-center gap-2"><CreditCard/>Card</div></SelectItem>
+                            <SelectItem value="Mobile"><div className="flex items-center gap-2"><Smartphone/>Mobile</div></SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                     {errors.paymentMethod && <p className="text-sm text-destructive">{errors.paymentMethod.message}</p>}
+                  </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (Optional)</Label>
-              <Textarea id="notes" {...register('notes')} placeholder="e.g., Invoice #123, full settlement" />
-              {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Controller
-                name="date"
-                control={control}
-                render={({ field }) => (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                )}
-              />
-              {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-            </div>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea id="notes" {...register('notes')} placeholder="e.g., Invoice #123, full settlement" />
+                  {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Controller
+                    name="date"
+                    control={control}
+                    render={({ field }) => (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant={"outline"}
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !field.value && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  />
+                  {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                </div>
 
-            <Button type="submit" className="w-full">Record Payment</Button>
-          </form>
-        </CardContent>
-      </Card>
-      </div>
-    </main>
+                <Button type="submit" className="w-full">Record Payment</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
+    </div>
   );
 }
