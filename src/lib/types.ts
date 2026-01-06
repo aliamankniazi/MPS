@@ -38,6 +38,17 @@ export interface PurchaseReturn {
   timestamp: string;
 }
 
+export interface SaleReturn {
+  id: string;
+  customerId: string;
+  customerName: string;
+  fuelType: FuelType;
+  volume: number;
+  totalRefund: number;
+  reason: string;
+  timestamp: string;
+}
+
 export type ExpenseCategory = 'Utilities' | 'Salaries' | 'Maintenance' | 'Other';
 
 export interface Expense {

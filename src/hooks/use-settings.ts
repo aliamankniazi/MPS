@@ -19,11 +19,13 @@ import { useSupplierPayments } from './use-supplier-payments';
 import { useSuppliers } from './use-suppliers';
 import { useInvestments } from './use-investments';
 import { useBusinessPartners } from './use-business-partners';
+import { useSaleReturns } from './use-sale-returns';
 
 export function useSettings() {
   const { clearTransactions } = useTransactions();
   const { clearPurchases } = usePurchases();
   const { clearPurchaseReturns } = usePurchaseReturns();
+  const { clearSaleReturns } = useSaleReturns();
   const { clearExpenses } = useExpenses();
   const { clearCustomers } = useCustomers();
   const { clearSuppliers } = useSuppliers();
@@ -43,6 +45,7 @@ export function useSettings() {
     clearTransactions();
     clearPurchases();
     clearPurchaseReturns();
+    clearSaleReturns();
     clearExpenses();
     clearCustomers();
     clearSuppliers();

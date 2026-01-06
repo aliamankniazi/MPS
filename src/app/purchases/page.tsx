@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Truck, Calendar as CalendarIcon, Sun, Redo, DollarSign, User, Wallet } from 'lucide-react';
+import { ShoppingCart, Truck, Calendar as CalendarIcon, Sun, Redo, DollarSign, User, Wallet, Undo, Undo2 } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { usePurchases } from '@/hooks/use-purchases';
@@ -70,7 +70,9 @@ function TransactionNav() {
     const pathname = usePathname();
     const navItems = [
         { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/sale-returns', label: 'Sale Return', icon: Undo },
         { href: '/purchases', label: 'Purchase', icon: Truck },
+        { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
         { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
         { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Truck } from 'lucide-react';
+import { UserPlus, Sun, Truck, Undo } from 'lucide-react';
 import type { PaymentMethod, Transaction } from '@/lib/types';
 import { useCustomers } from '@/hooks/use-customers';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { DollarSign, Redo, ShoppingCart, User, Wallet } from 'lucide-react';
+import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
 
 const saleItemSchema = z.object({
   product: z.string().min(1, "Product is required"),
@@ -82,7 +82,9 @@ function TransactionNav() {
     const pathname = usePathname();
     const navItems = [
         { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/sale-returns', label: 'Sale Return', icon: Undo },
         { href: '/purchases', label: 'Purchase', icon: Truck },
+        { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
         { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
         { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
