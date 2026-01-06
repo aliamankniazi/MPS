@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays } from 'date-fns';
+import { format, subDays, isValid } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
@@ -40,8 +40,11 @@ export default function DashboardPage() {
     const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
 
     const salesByDay = transactions.reduce((acc, tx) => {
-        const date = new Date(tx.timestamp).toDateString();
-        acc[date] = (acc[date] || 0) + tx.totalAmount;
+        const txDate = new Date(tx.timestamp);
+        if (tx.timestamp && isValid(txDate)) {
+            const date = txDate.toDateString();
+            acc[date] = (acc[date] || 0) + tx.totalAmount;
+        }
         return acc;
     }, {} as Record<string, number>);
 
@@ -65,11 +68,13 @@ export default function DashboardPage() {
     if (!isLoaded) return [];
     
     const endDate = new Date();
-    const startDate = subDays(endDate, 30);
     
     const dailySales = transactions.reduce((acc, tx) => {
-        const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
-        acc[date] = (acc[date] || 0) + tx.totalAmount;
+        const txDate = new Date(tx.timestamp);
+        if (tx.timestamp && isValid(txDate)) {
+            const date = format(txDate, 'yyyy-MM-dd');
+            acc[date] = (acc[date] || 0) + tx.totalAmount;
+        }
         return acc;
     }, {} as Record<string, number>);
 
