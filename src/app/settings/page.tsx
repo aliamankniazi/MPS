@@ -24,12 +24,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import { useFuelPrices } from '@/hooks/use-fuel-prices';
 import type { FuelType, Supplier } from '@/lib/types';
-import { useFuelStock } from '@/hooks/use-fuel-stock';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useSettings } from '@/hooks/use-settings';
-import { useSuppliers } from '@/hooks/use-suppliers';
+import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
 
@@ -54,10 +51,17 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 
 export default function SettingsPage() {
-  const { clearAllData } = useSettings();
-  const { fuelPrices, updateFuelPrice, isLoaded: pricesLoaded } = useFuelPrices();
-  const { fuelStock, setFuelStock, isLoaded: stockLoaded } = useFuelStock();
-  const { suppliers, addSupplier, deleteSupplier, isLoaded: suppliersLoaded } = useSuppliers();
+  const { 
+    clearAllData,
+    fuelPrices, 
+    updateFuelPrice, 
+    fuelStock, 
+    setFuelStock, 
+    suppliers, 
+    addSupplier, 
+    deleteSupplier, 
+    isLoaded 
+  } = useDatabase();
   const { toast } = useToast();
   const [supplierToDelete, setSupplierToDelete] = React.useState<Supplier | null>(null);
 
@@ -197,7 +201,7 @@ export default function SettingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {suppliersLoaded && suppliers.length > 0 ? suppliers.map(s => (
+                                {isLoaded && suppliers.length > 0 ? suppliers.map(s => (
                                     <TableRow key={s.id}>
                                         <TableCell>
                                             <div className="font-medium">{s.name}</div>
@@ -222,7 +226,7 @@ export default function SettingsPage() {
                                 )) : (
                                     <TableRow>
                                         <TableCell colSpan={3} className="h-24 text-center">
-                                            {suppliersLoaded ? 'No suppliers added yet.' : 'Loading suppliers...'}
+                                            {isLoaded ? 'No suppliers added yet.' : 'Loading suppliers...'}
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -238,7 +242,7 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Fuel Prices</h3>
             <div className="space-y-4">
-              {pricesLoaded && FUEL_TYPES.map(fuel => (
+              {isLoaded && FUEL_TYPES.map(fuel => (
                 <div key={fuel} className="flex items-center justify-between rounded-lg border p-4">
                   <div>
                     <Label htmlFor={`${fuel}-price`} className="flex items-center gap-2"><Droplets className="w-4 h-4" /> {fuel} Price (PKR/L)</Label>
@@ -256,7 +260,7 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
-              {!pricesLoaded && Array.from({length: 3}).map((_, i) => (
+              {!isLoaded && Array.from({length: 3}).map((_, i) => (
                 <div key={i} className="flex items-center justify-between rounded-lg border p-4">
                   <div className='space-y-2'>
                     <div className="h-6 w-48 bg-muted rounded-md animate-pulse" />
@@ -304,7 +308,7 @@ export default function SettingsPage() {
                     </div>
                     <div className="space-y-2 md:col-span-1">
                       <Label htmlFor="currentStock">Current Stock (L)</Label>
-                      <Input id="currentStock" type="number" value={stockLoaded ? currentStock.toFixed(2) : "Loading..."} readOnly disabled className="bg-muted/50" />
+                      <Input id="currentStock" type="number" value={isLoaded ? currentStock.toFixed(2) : "Loading..."} readOnly disabled className="bg-muted/50" />
                     </div>
                     <div className="space-y-2 md:col-span-1">
                       <Label htmlFor="adjustment">Adjustment (L)</Label>
@@ -316,7 +320,7 @@ export default function SettingsPage() {
                       <Input id="newStock" type="number" value={selectedFuelType ? newStock.toFixed(2) : "..."} readOnly disabled className="bg-muted/50 font-bold" />
                     </div>
                   </div>
-                  <Button type="submit" disabled={!selectedFuelType || !stockLoaded}>Adjust Stock</Button>
+                  <Button type="submit" disabled={!selectedFuelType || !isLoaded}>Adjust Stock</Button>
                 </form>
               </CardContent>
             </Card>
@@ -393,4 +397,5 @@ export default function SettingsPage() {
       </AlertDialog>
     </div>
   );
-}
+
+    
