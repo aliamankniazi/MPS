@@ -88,11 +88,16 @@ export default function CreditRecoveryPage() {
                 currentBalance,
             };
         }).filter(row => {
-            // If a date range is selected, only show customers with activity in that range
+            // Filter out customers with no activity or zero balance unless a specific customer is selected
+            if (selectedCustomerId !== 'all') return true;
+
             if (dateRange?.from || dateRange?.to) {
-                return row.sale > 0 || row.recovery > 0 || row.previousBalance !== row.currentBalance;
+                // Show if there was a balance or any activity in the range
+                return row.previousBalance !== 0 || row.sale > 0 || row.recovery > 0;
             }
-            return true; // If no date range, show all
+            
+            // If no date range, only show those with a non-zero final balance
+            return row.currentBalance !== 0;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
