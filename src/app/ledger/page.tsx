@@ -212,7 +212,7 @@ export default function LedgerPage() {
     const productWiseSalesData = Object.entries(salesByProduct).map(([product, data]) => ({
         product,
         totalSold: `${data.totalSold.toFixed(2)} ${data.unit}`,
-        averagePrice: (data.totalRevenue / data.totalSold).toFixed(2),
+        averagePrice: data.totalSold > 0 ? (data.totalRevenue / data.totalSold).toFixed(2) : '0.00',
         totalRevenue: data.totalRevenue.toFixed(2),
     }));
 
