@@ -98,7 +98,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: isSalary ? `Salary for ${format(new Date(p.timestamp), 'MMMM yyyy')}` : `Payment Received (${p.paymentMethod})`,
+              description: isSalary && isValid(new Date(p.timestamp)) ? `Salary for ${format(new Date(p.timestamp), 'MMMM yyyy')}` : `Payment Received (${p.paymentMethod})`,
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
@@ -168,7 +168,7 @@ export default function CustomerLedgerPage() {
     let runningBalance = 0;
     const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
       const date = new Date(entry.timestamp);
-      if(!isValid(date)) return { ...entry, balance: runningBalance }; // Skip invalid entries
+      if(!isValid(date)) return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
       
       // For customers/suppliers, a positive balance means they owe us.
       // For partners, a positive balance means the business owes them (net investment).
@@ -405,5 +405,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    
