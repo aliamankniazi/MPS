@@ -92,7 +92,7 @@ export default function PartnerLedgerPage() {
           entityName: tx.customerName || 'N/A',
           entityType: 'Customer',
           type: 'Sale',
-          description: `${tx.volume.toFixed(2)}L of ${tx.fuelType}`,
+          description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
           debit: tx.totalAmount,
           credit: 0,
         });
