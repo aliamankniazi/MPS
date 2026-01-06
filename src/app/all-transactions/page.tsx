@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Archive, XCircle, Printer, MessageSquare, Trash2, Pencil, AlertTriangle } from 'lucide-react';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -205,10 +205,11 @@ export default function AllTransactionsPage() {
                 {filteredEntries.map(entry => {
                   const customer = getCustomerForEntry(entry);
                   const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
+                  const date = new Date(entry.timestamp);
                   return (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium whitespace-nowrap">
-                      {format(new Date(entry.timestamp), 'PP pp')}
+                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                     </TableCell>
                     <TableCell>
                       <Badge 
