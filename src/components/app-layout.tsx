@@ -17,7 +17,7 @@ import {
   SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
@@ -30,8 +30,8 @@ const navItems = [
   { href: '/purchases', label: 'Purchases & Suppliers', icon: ShoppingCart, permission: 'view_purchases' as Permission },
   { href: '/customers', label: 'People & Partners', icon: Users, permission: 'view_customers' as Permission },
   { href: '/inventory', label: 'Inventory', icon: Package, permission: 'view_inventory' as Permission },
-  { href: '/ledger', label: 'Financials', icon: DollarSign, permission: 'view_ledger' as Permission },
-  { href: '/summary', label: 'Reports', icon: FileText, permission: 'view_summary' as Permission },
+  { href: '/financials', label: 'Financials', icon: DollarSign, permission: 'view_ledger' as Permission },
+  { href: '/reports', label: 'Reports', icon: FileBarChart, permission: 'view_summary' as Permission },
   { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
 ];
 
@@ -51,23 +51,7 @@ const AppLogo = () => (
 export function AppLayout({ children, hasPermission }: { children: React.ReactNode, hasPermission: (permission: Permission) => boolean }) {
   const { signOut, user } = useAuth();
   const pathname = usePathname();
-  const [currentTime, setCurrentTime] = React.useState('');
 
-  React.useEffect(() => {
-    const timer = setInterval(() => {
-        setCurrentTime(new Date().toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-        }));
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  
   const getPageTitle = () => {
     for (const item of navItems) {
       if ('href' in item && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))) {
@@ -89,7 +73,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
 
   const renderNavItem = (item: any) => {
     if (hasPermission(item.permission)) {
-        const isActive = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href);
+        const isActive = item.href === '/' ? pathname === '/' : (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href));
         return (
             <SidebarMenuItem key={item.href}>
                 <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
@@ -107,7 +91,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
   return (
     <SidebarProvider>
       <Sidebar>
-        <SidebarHeader className='p-4 border-b border-sidebar-border'>
+        <SidebarHeader className='p-4'>
             <AppLogo />
         </SidebarHeader>
         <SidebarContent>
@@ -127,15 +111,14 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:justify-end">
-          <SidebarTrigger className="md:hidden" />
-          <h2 className="text-xl font-semibold md:hidden">{pageTitle}</h2>
-          <div className="hidden md:flex items-center gap-4">
-              <p className="text-sm">{currentTime}</p>
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <SidebarTrigger />
+          <h2 className="text-xl font-semibold">{pageTitle}</h2>
+          <div className="flex items-center gap-4">
               <span className="text-sm">{user?.email}</span>
           </div>
         </header>
-        <main className="flex-1">{children}</main>
+        <main className="flex-1 bg-muted/30">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );
