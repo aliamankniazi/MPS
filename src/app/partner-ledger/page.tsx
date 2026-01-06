@@ -3,10 +3,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useCustomers } from '@/hooks/use-customers';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useCashAdvances } from '@/hooks/use-cash-advances';
+import { useDatabase } from '@/hooks/use-database';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isSameDay, startOfDay, isValid } from 'date-fns';
@@ -17,12 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { useSuppliers } from '@/hooks/use-suppliers';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useSupplierPayments } from '@/hooks/use-supplier-payments';
 import Link from 'next/link';
-import { useBusinessPartners } from '@/hooks/use-business-partners';
-import { useInvestments } from '@/hooks/use-investments';
 
 type CombinedEntry = {
   id: string;
@@ -38,20 +30,21 @@ type CombinedEntry = {
 };
 
 export default function PartnerLedgerPage() {
-  const { customerPayments, isLoaded: paymentsLoaded } = useCustomerPayments();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { cashAdvances, isLoaded: advancesLoaded } = useCashAdvances();
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
-  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
-  const { supplierPayments, isLoaded: supplierPaymentsLoaded } = useSupplierPayments();
-  const { businessPartners, isLoaded: partnersLoaded } = useBusinessPartners();
-  const { investments, isLoaded: investmentsLoaded } = useInvestments();
+  const { 
+      customerPayments, 
+      customers, 
+      transactions, 
+      cashAdvances, 
+      suppliers, 
+      purchases, 
+      supplierPayments, 
+      businessPartners, 
+      investments, 
+      isLoaded 
+  } = useDatabase();
   
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
-
-  const isLoaded = paymentsLoaded && customersLoaded && transactionsLoaded && advancesLoaded && suppliersLoaded && purchasesLoaded && supplierPaymentsLoaded && partnersLoaded && investmentsLoaded;
 
   const entities = useMemo(() => {
     if (!isLoaded) return [];
