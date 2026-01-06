@@ -87,6 +87,12 @@ export default function CreditRecoveryPage() {
                 recovery,
                 currentBalance,
             };
+        }).filter(row => {
+            // If a date range is selected, only show customers with activity in that range
+            if (dateRange?.from || dateRange?.to) {
+                return row.sale > 0 || row.recovery > 0 || row.previousBalance !== row.currentBalance;
+            }
+            return true; // If no date range, show all
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
