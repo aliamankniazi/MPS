@@ -19,6 +19,7 @@ import {
   Boxes,
   HandCoins,
   LayoutDashboard,
+  BookOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -96,6 +97,12 @@ const reportList: ReportCardProps[] = [
     description: 'Individual customer transaction history.',
     href: '/partner-ledger',
     icon: HandCoins,
+  },
+   {
+    title: 'General Journal / Ledger',
+    description: 'View all financial transactions chronologically.',
+    href: '/ledger',
+    icon: BookOpen,
   },
 ];
 
