@@ -98,7 +98,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: isSalary && isValid(new Date(p.timestamp)) ? `Salary for ${format(new Date(p.timestamp), 'MMMM yyyy')}` : `Payment Received (${p.paymentMethod})`,
+              description: isValid(new Date(p.timestamp)) ? `Payment Received (${p.paymentMethod})` : `Payment Received (${p.paymentMethod})`,
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
@@ -170,13 +170,12 @@ export default function CustomerLedgerPage() {
       const date = new Date(entry.timestamp);
       if(!isValid(date)) return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
       
-      // For customers/suppliers, a positive balance means they owe us.
-      // For partners, a positive balance means the business owes them (net investment).
-      // To keep it consistent visually (debit increases balance, credit decreases), we'll adjust the sign for partners.
-      if (entityType === 'Partner') {
-          runningBalance += entry.credit - entry.debit;
-      } else {
-          runningBalance += entry.debit - entry.credit;
+      if (entityType === 'Customer') {
+        runningBalance += entry.debit - entry.credit;
+      } else if (entityType === 'Supplier') {
+        runningBalance += entry.credit - entry.debit;
+      } else if (entityType === 'Partner') {
+        runningBalance += entry.credit - entry.debit;
       }
       return { ...entry, balance: runningBalance };
     });
