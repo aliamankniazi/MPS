@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -13,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Fuel, List, PlusCircle, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
-import type { FuelType, Tank } from '@/lib/types';
+import type { FuelType, Machine } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -22,62 +23,61 @@ import React from 'react';
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
-const tankSchema = z.object({
-  name: z.string().min(1, 'Tank name is required'),
+const machineSchema = z.object({
+  name: z.string().min(1, 'Machine name is required'),
   fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
 });
 
-type TankFormValues = z.infer<typeof tankSchema>;
+type MachineFormValues = z.infer<typeof machineSchema>;
 
-const tankReadingSchema = z.object({
-  tankId: z.string().min(1, 'Please select a tank.'),
+const machineReadingSchema = z.object({
+  machineId: z.string().min(1, 'Please select a machine.'),
   volume: z.coerce.number().min(0, 'Volume cannot be negative'),
   date: z.date({ required_error: "A date is required."}),
 });
 
-type TankReadingFormValues = z.infer<typeof tankReadingSchema>;
+type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
 
-export default function TankManagementPage() {
-  const { tanks, tankReadings, addTank, deleteTank, addTankReading, setFuelStock } = useDatabase();
+export default function MachineManagementPage() {
+  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, setFuelStock } = useDatabase();
   const { toast } = useToast();
 
-  const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<TankReadingFormValues>({
-    resolver: zodResolver(tankReadingSchema),
+  const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
+    resolver: zodResolver(machineReadingSchema),
     defaultValues: {
         date: new Date(),
     }
   });
   
-  const { register: registerTank, handleSubmit: handleSubmitTank, control: controlTank, reset: resetTank, formState: { errors: tankErrors } } = useForm<TankFormValues>();
+  const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors } } = useForm<MachineFormValues>();
 
-  const onReadingSubmit: SubmitHandler<TankReadingFormValues> = (data) => {
-    const tank = tanks.find(t => t.id === data.tankId);
-    if (!tank) return;
+  const onReadingSubmit: SubmitHandler<MachineReadingFormValues> = (data) => {
+    const machine = machines.find(t => t.id === data.machineId);
+    if (!machine) return;
 
-    addTankReading({ 
-        tankId: tank.id,
-        tankName: tank.name,
-        fuelType: tank.fuelType,
+    addMachineReading({ 
+        machineId: machine.id,
+        machineName: machine.name,
+        fuelType: machine.fuelType,
         volume: data.volume,
-        timestamp: data.date.toISOString(),
     });
-    // This assumes one tank reading overrides the stock for that fuel type.
-    // For multiple tanks of the same fuel, this logic would need to be more complex.
-    setFuelStock(tank.fuelType, data.volume);
+    // This assumes one machine reading overrides the stock for that fuel type.
+    // For multiple machines of the same fuel, this logic would need to be more complex.
+    setFuelStock(machine.fuelType, data.volume);
     toast({
-      title: 'Tank Reading Logged',
-      description: `New volume for ${tank.name} has been recorded as ${data.volume}L.`,
+      title: 'Machine Reading Logged',
+      description: `New volume for ${machine.name} has been recorded as ${data.volume}L.`,
     });
-    resetReading({ tankId: '', volume: 0, date: new Date() });
+    resetReading({ machineId: '', volume: 0, date: new Date() });
   };
   
-  const onTankSubmit: SubmitHandler<TankFormValues> = (data) => {
-    addTank(data);
+  const onMachineSubmit: SubmitHandler<MachineFormValues> = (data) => {
+    addMachine(data);
     toast({
-      title: 'Tank Added',
-      description: `${data.name} has been added to your tank list.`,
+      title: 'Machine Added',
+      description: `${data.name} has been added to your machine list.`,
     });
-    resetTank();
+    resetMachine();
   };
 
   return (
@@ -86,31 +86,31 @@ export default function TankManagementPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <PlusCircle /> New Tank Reading
+              <PlusCircle /> New Machine Reading
             </CardTitle>
-            <CardDescription>Enter the current volume for a fuel tank.</CardDescription>
+            <CardDescription>Enter the current volume for a fuel machine.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmitReading(onReadingSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label>Tank</Label>
+                <Label>Machine</Label>
                 <Controller
-                  name="tankId"
+                  name="machineId"
                   control={controlReading}
                   render={({ field }) => (
                     <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a tank" />
+                        <SelectValue placeholder="Select a machine" />
                       </SelectTrigger>
                       <SelectContent>
-                        {tanks.map(tank => (
-                          <SelectItem key={tank.id} value={tank.id}>{tank.name}</SelectItem>
+                        {machines.map(machine => (
+                          <SelectItem key={machine.id} value={machine.id}>{machine.name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   )}
                 />
-                {readingErrors.tankId && <p className="text-sm text-destructive">{readingErrors.tankId.message}</p>}
+                {readingErrors.machineId && <p className="text-sm text-destructive">{readingErrors.machineId.message}</p>}
               </div>
               
               <div className="space-y-2">
@@ -159,20 +159,20 @@ export default function TankManagementPage() {
         
         <Card>
             <CardHeader>
-                <CardTitle>Add a New Tank</CardTitle>
+                <CardTitle>Add a New Machine</CardTitle>
             </CardHeader>
             <CardContent>
-                <form onSubmit={handleSubmitTank(onTankSubmit)} className="space-y-4">
+                <form onSubmit={handleSubmitMachine(onMachineSubmit)} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="tankName">Tank Name</Label>
-                        <Input id="tankName" {...registerTank('name')} placeholder="e.g. Unleaded Tank 1 (A+B Side)" />
-                        {tankErrors.name && <p className="text-sm text-destructive">{tankErrors.name.message}</p>}
+                        <Label htmlFor="machineName">Machine Name</Label>
+                        <Input id="machineName" {...registerMachine('name')} placeholder="e.g. Unleaded Machine 1 (A+B Side)" />
+                        {machineErrors.name && <p className="text-sm text-destructive">{machineErrors.name.message}</p>}
                     </div>
                      <div className="space-y-2">
                         <Label>Fuel Type</Label>
                         <Controller
                         name="fuelType"
-                        control={controlTank}
+                        control={controlMachine}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                             <SelectTrigger><SelectValue placeholder="Select fuel type" /></SelectTrigger>
@@ -184,9 +184,9 @@ export default function TankManagementPage() {
                             </Select>
                         )}
                         />
-                        {tankErrors.fuelType && <p className="text-sm text-destructive">{tankErrors.fuelType.message}</p>}
+                        {machineErrors.fuelType && <p className="text-sm text-destructive">{machineErrors.fuelType.message}</p>}
                     </div>
-                    <Button type="submit" className="w-full">Add Tank</Button>
+                    <Button type="submit" className="w-full">Add Machine</Button>
                 </form>
             </CardContent>
         </Card>
@@ -196,27 +196,27 @@ export default function TankManagementPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <List /> Tank Reading History
+              <List /> Machine Reading History
             </CardTitle>
             <CardDescription>
-              A historical record of all tank volume entries.
+              A historical record of all machine volume entries.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {tankReadings.length > 0 ? (
+            {machineReadings && machineReadings.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date & Time</TableHead>
-                    <TableHead>Tank</TableHead>
+                    <TableHead>Machine</TableHead>
                     <TableHead className="text-right">Volume (L)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tankReadings.map(reading => (
+                  {machineReadings.map(reading => (
                       <TableRow key={reading.id}>
                         <TableCell className="font-medium">{format(new Date(reading.timestamp), 'PP pp')}</TableCell>
-                        <TableCell>{reading.tankName} ({reading.fuelType})</TableCell>
+                        <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
                         <TableCell className="text-right">{reading.volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       </TableRow>
                     ))}
@@ -225,38 +225,38 @@ export default function TankManagementPage() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Fuel className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Tank Readings Found</h3>
-                <p>Use the form to log your first tank volume reading.</p>
+                <h3 className="text-xl font-semibold">No Machine Readings Found</h3>
+                <p>Use the form to log your first machine volume reading.</p>
               </div>
             )}
           </CardContent>
         </Card>
         
         <Card className="mt-8">
-            <CardHeader><CardTitle>Manage Tanks</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Manage Machines</CardTitle></CardHeader>
             <CardContent>
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>Tank Name</TableHead>
+                            <TableHead>Machine Name</TableHead>
                             <TableHead>Fuel Type</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {tanks.length > 0 ? tanks.map(tank => (
-                            <TableRow key={tank.id}>
-                                <TableCell>{tank.name}</TableCell>
-                                <TableCell>{tank.fuelType}</TableCell>
+                        {machines && machines.length > 0 ? machines.map(machine => (
+                            <TableRow key={machine.id}>
+                                <TableCell>{machine.name}</TableCell>
+                                <TableCell>{machine.fuelType}</TableCell>
                                 <TableCell className="text-right">
-                                    <Button variant="ghost" size="icon" onClick={() => deleteTank(tank.id)}>
+                                    <Button variant="ghost" size="icon" onClick={() => deleteMachine(machine.id)}>
                                         <Trash2 className="w-4 h-4 text-destructive" />
                                     </Button>
                                 </TableCell>
                             </TableRow>
                         )) : (
                             <TableRow>
-                                <TableCell colSpan={3} className="h-24 text-center">No tanks configured yet.</TableCell>
+                                <TableCell colSpan={3} className="h-24 text-center">No machines configured yet.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
