@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isSameDay, startOfDay } from 'date-fns';
+import { format, isSameDay, startOfDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle } from 'lucide-react';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -311,41 +311,44 @@ export default function LedgerPage() {
                     <TableCell />
                   </TableRow>
                 )}
-                {entries.map(entry => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {format(new Date(entry.timestamp), 'dd/MM/yy hh:mm a')}
-                    </TableCell>
-                    <TableCell>{entry.description}</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={getBadgeVariant(entry.type)}
-                        className={cn('text-xs', isCreditEntry(entry.type) && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                      >
-                        {entry.type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-destructive">
-                        {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-green-600">
-                        {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                    </TableCell>
-                    <TableCell className={`text-right font-semibold font-mono ${entry.balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                        {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-center">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setEntryToDelete(entry)}
+                {entries.map(entry => {
+                  const date = new Date(entry.timestamp);
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-medium whitespace-nowrap">
+                        {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
+                      </TableCell>
+                      <TableCell>{entry.description}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={getBadgeVariant(entry.type)}
+                          className={cn('text-xs', isCreditEntry(entry.type) && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
                         >
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                          {entry.type}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-destructive">
+                          {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-green-600">
+                          {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                      </TableCell>
+                      <TableCell className={`text-right font-semibold font-mono ${entry.balance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                          {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="text-center">
+                          <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => setEntryToDelete(entry)}
+                          >
+                              <Trash2 className="w-4 h-4" />
+                          </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
                <TableFooter>
                 <TableRow className="bg-muted/50 font-bold">
