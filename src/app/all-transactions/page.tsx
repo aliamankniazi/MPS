@@ -105,9 +105,9 @@ export default function AllTransactionsPage() {
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return combinedEntries;
     return combinedEntries.filter(entry =>
-      entry.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      entry.details.toLowerCase().includes(searchTerm.toLowerCase())
+      (entry.partner && entry.partner.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.type && entry.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [combinedEntries, searchTerm]);
 
