@@ -565,35 +565,35 @@ export default function LedgerPage() {
             </div>
         </CardHeader>
         <CardContent>
-            <DataTable columns={journalColumns} data={entries}>
-                 {selectedDate && (
-                  <Table>
-                    <TableBody>
-                        <TableRow className="bg-muted/30">
-                            <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
-                            <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                            {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell />
-                        </TableRow>
-                    </TableBody>
-                  </Table>
+            <DataTable 
+                columns={journalColumns} 
+                data={entries}
+                header={selectedDate && (
+                    <TableRow className="bg-muted/30 hover:bg-muted/30">
+                        <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
+                        <TableCell className={cn("text-right font-semibold font-mono", openingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
+                        {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell />
+                    </TableRow>
                 )}
-                 <TableFooter>
-                    <TableRow className="bg-muted/50 font-bold">
-                    <TableCell colSpan={3} className="text-right">Period Totals</TableCell>
-                    <TableCell className="text-right font-mono text-destructive">{totals.debit.toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-mono text-green-600">{totals.credit.toFixed(2)}</TableCell>
-                    <TableCell colSpan={2}/>
-                    </TableRow>
-                    <TableRow className="bg-muted/50 font-bold text-lg">
-                    <TableCell colSpan={5} className="text-right">Closing Balance</TableCell>
-                    <TableCell colSpan={2} className={cn("text-right font-mono", finalBalance >= 0 ? 'text-primary' : 'text-destructive')}>
-                        {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    </TableRow>
-                </TableFooter>
-            </DataTable>
+                footer={(
+                    <TableFooter>
+                        <TableRow className="bg-muted/50 font-bold">
+                        <TableCell colSpan={3} className="text-right">Period Totals</TableCell>
+                        <TableCell className="text-right font-mono text-destructive">{totals.debit.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-mono text-green-600">{totals.credit.toFixed(2)}</TableCell>
+                        <TableCell colSpan={2}/>
+                        </TableRow>
+                        <TableRow className="bg-muted/50 font-bold text-lg">
+                        <TableCell colSpan={5} className="text-right">Closing Balance</TableCell>
+                        <TableCell colSpan={2} className={cn("text-right font-mono", finalBalance >= 0 ? 'text-primary' : 'text-destructive')}>
+                            {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        </TableRow>
+                    </TableFooter>
+                )}
+            />
         </CardContent>
       </Card>
     </div>

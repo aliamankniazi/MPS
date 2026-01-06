@@ -21,15 +21,15 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
-  children?: React.ReactNode
-  hideHeader?: boolean
+  header?: React.ReactNode
+  footer?: React.ReactNode
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
-  children,
-  hideHeader = false,
+  header,
+  footer,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
@@ -43,10 +43,8 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div>
-        <div className="rounded-md border">
+    <div className="rounded-md border">
         <Table>
-            {!hideHeader && (
             <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
@@ -65,8 +63,8 @@ export function DataTable<TData, TValue>({
                 </TableRow>
             ))}
             </TableHeader>
-            )}
             <TableBody>
+            {header}
             {table.getRowModel().rows?.length ? (
                 table.getRowModel().rows.map((row) => (
                 <TableRow
@@ -88,9 +86,8 @@ export function DataTable<TData, TValue>({
                 </TableRow>
             )}
             </TableBody>
-            {children}
+            {footer}
         </Table>
-        </div>
     </div>
   )
 }
