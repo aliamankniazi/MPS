@@ -16,25 +16,75 @@ import {
   SidebarInset,
   SidebarTrigger,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
 import type { Permission } from '@/hooks/use-roles';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
+import { cn } from '@/lib/utils';
 
-const navItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
-  { href: '/', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
-  { href: '/all-transactions', label: 'Transactions', icon: BookOpen, permission: 'view_all_transactions' as Permission },
-  { href: '/purchases', label: 'Purchases & Suppliers', icon: ShoppingCart, permission: 'view_purchases' as Permission },
-  { href: '/customers', label: 'People & Partners', icon: Users, permission: 'view_customers' as Permission },
-  { href: '/inventory', label: 'Inventory', icon: Package, permission: 'view_inventory' as Permission },
-  { href: '/financials', label: 'Financials', icon: DollarSign, permission: 'view_ledger' as Permission },
-  { href: '/reports', label: 'Reports', icon: FileBarChart, permission: 'view_summary' as Permission },
-  { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
-];
 
+const navGroups = [
+    {
+        title: 'Transactions',
+        icon: History,
+        permission: 'view_all_transactions' as Permission,
+        links: [
+            { href: '/all-transactions', label: 'All Transactions', icon: History, permission: 'view_all_transactions' as Permission },
+            { href: '/all-invoices', label: 'All Invoices', icon: Receipt, permission: 'view_all_transactions' as Permission },
+            { href: '/ledger', label: 'General Journal', icon: BookOpen, permission: 'view_ledger' as Permission },
+            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins, permission: 'view_credit_recovery' as Permission },
+        ]
+    },
+    {
+        title: 'Purchases & Suppliers',
+        icon: ShoppingCart,
+        permission: 'view_purchases' as Permission,
+        links: [
+            { href: '/purchases', label: 'Purchases', icon: ShoppingCart, permission: 'view_purchases' as Permission },
+            { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo, permission: 'view_purchase_returns' as Permission },
+            { href: '/suppliers', label: 'Suppliers', icon: Contact, permission: 'view_settings' as Permission },
+            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen, permission: 'view_partner_ledger' as Permission },
+        ]
+    },
+    {
+        title: 'People & Partners',
+        icon: Users,
+        permission: 'view_customers' as Permission,
+        links: [
+            { href: '/customers', label: 'Customers & Partners', icon: Users, permission: 'view_customers' as Permission },
+            { href: '/employees', label: 'Employees', icon: Contact, permission: 'manage_employees' as Permission },
+            { href: '/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'manage_employees' as Permission },
+            { href: '/investments', label: 'Partner Investments', icon: PiggyBank, permission: 'view_investments' as Permission },
+        ]
+    },
+    {
+        title: 'Inventory',
+        icon: Package,
+        permission: 'view_inventory' as Permission,
+        links: [
+            { href: '/inventory', label: 'Stock Levels', icon: Box, permission: 'view_inventory' as Permission },
+            { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench, permission: 'view_settings' as Permission },
+            { href: '/tanks', label: 'Machine Reading', icon: Fuel, permission: 'view_tank_readings' as Permission },
+        ]
+    },
+    {
+        title: 'Financials',
+        icon: DollarSign,
+        permission: 'view_ledger' as Permission,
+        links: [
+            { href: '/expenses', label: 'Expenses', icon: Receipt, permission: 'view_expenses' as Permission },
+            { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign, permission: 'view_other_incomes' as Permission },
+            { href: '/bank-management', label: 'Bank Management', icon: Landmark, permission: 'manage_banks' as Permission },
+        ]
+    }
+]
 
 const AppLogo = () => (
     <div className="flex items-center gap-2.5">
@@ -47,45 +97,24 @@ const AppLogo = () => (
     </div>
 );
 
+const topNavItems = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
+  { href: '/', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
+];
+
+const bottomNavItems = [
+  { href: '/reports', label: 'Reports', icon: FileBarChart, permission: 'view_summary' as Permission },
+  { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
+]
 
 export function AppLayout({ children, hasPermission }: { children: React.ReactNode, hasPermission: (permission: Permission) => boolean }) {
   const { signOut, user } = useAuth();
   const pathname = usePathname();
 
-  const getPageTitle = () => {
-    for (const item of navItems) {
-      if ('href' in item && (pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))) {
-        return item.label;
-      }
-    }
-    // Fallback titles for dynamic routes
-    if (pathname.includes('/customers/') && pathname.includes('/ledger')) return 'Partner Ledger';
-    if (pathname.includes('/invoice/')) return 'Invoice';
-    if (pathname.includes('/all-transactions')) return 'Transactions';
-    if (pathname.includes('/credit-recovery')) return 'Credit Recovery';
-    if (pathname.includes('/partner-ledger')) return 'Unified Ledger';
-
-
-    return 'New Transaction';
-  }
-
-  const pageTitle = getPageTitle();
-
-  const renderNavItem = (item: any) => {
-    if (hasPermission(item.permission)) {
-        const isActive = item.href === '/' ? pathname === '/' : (item.href === '/dashboard' ? pathname === item.href : pathname.startsWith(item.href));
-        return (
-            <SidebarMenuItem key={item.href}>
-                <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-                    <Link href={item.href} legacyBehavior={false}>
-                        <item.icon />
-                        <span>{item.label}</span>
-                    </Link>
-                </SidebarMenuButton>
-            </SidebarMenuItem>
-        );
-    }
-    return null;
+  const isLinkActive = (href: string) => {
+    if (href === '/') return pathname === '/';
+    if (href === '/dashboard') return pathname === href;
+    return pathname.startsWith(href);
   }
 
   return (
@@ -96,11 +125,59 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {navItems.map(item => renderNavItem(item))}
+            {topNavItems.map(item => hasPermission(item.permission) && (
+              <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
+                      <Link href={item.href} legacyBehavior={false}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                      </Link>
+                  </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+            
+            <SidebarMenuItem>
+              <div className="w-full h-px bg-sidebar-border my-2" />
+            </SidebarMenuItem>
+
+            {navGroups.map((group) => hasPermission(group.permission) && (
+                <Collapsible key={group.title} defaultOpen={group.links.some(l => isLinkActive(l.href))}>
+                    <CollapsibleTrigger className="w-full">
+                        <SidebarMenuButton variant="ghost" className="w-full justify-start" isActive={group.links.some(l => isLinkActive(l.href))}>
+                            <group.icon/>
+                            <span>{group.title}</span>
+                        </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <SidebarMenuSub>
+                           {group.links.map(link => hasPermission(link.permission) && (
+                            <SidebarMenuSubItem key={link.href}>
+                               <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
+                                    <Link href={link.href}>
+                                       <link.icon/>
+                                       <span>{link.label}</span>
+                                    </Link>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                           ))}
+                        </SidebarMenuSub>
+                    </CollapsibleContent>
+                </Collapsible>
+            ))}
           </SidebarMenu>
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
+            {bottomNavItems.map(item => hasPermission(item.permission) && (
+              <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
+                      <Link href={item.href} legacyBehavior={false}>
+                          <item.icon />
+                          <span>{item.label}</span>
+                      </Link>
+                  </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
             <SidebarMenuItem>
               <Button variant="ghost" className="w-full justify-start gap-2" onClick={signOut}>
                 <LogOut />
@@ -111,12 +188,8 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:hidden">
+        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:hidden">
           <SidebarTrigger />
-          <h2 className="text-xl font-semibold">{pageTitle}</h2>
-          <div className="flex items-center gap-4">
-              <span className="text-sm">{user?.email}</span>
-          </div>
         </header>
         <main className="flex-1 bg-muted/30">{children}</main>
       </SidebarInset>
