@@ -65,7 +65,7 @@ export default function LedgerPage() {
     transactions.forEach(tx => combined.push({
       id: `tx-${tx.id}`,
       timestamp: tx.timestamp,
-      description: `Sale: ${tx.volume.toFixed(2)}L of ${tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
+      description: `Sale: ${tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : tx.product} to ${tx.customerName || 'Walk-in'}`,
       type: 'Sale',
       debit: 0,
       credit: tx.totalAmount,
@@ -74,7 +74,7 @@ export default function LedgerPage() {
     purchases.forEach(p => combined.push({
       id: `pur-${p.id}`,
       timestamp: p.timestamp,
-      description: `Purchase from ${p.supplier}: ${p.volume.toFixed(2)}L of ${p.fuelType}`,
+      description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
       debit: p.totalCost,
       credit: 0,
