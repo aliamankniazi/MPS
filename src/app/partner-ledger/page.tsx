@@ -136,7 +136,7 @@ export default function PartnerLedgerPage() {
             entityName: p.supplier,
             entityType: 'Supplier',
             type: 'Purchase',
-            description: `${p.volume.toFixed(2)}L of ${p.fuelType}`,
+            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
             debit: 0,
             credit: p.totalCost,
         });
