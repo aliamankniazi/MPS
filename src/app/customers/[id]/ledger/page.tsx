@@ -32,6 +32,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { useBusinessPartners } from '@/hooks/use-business-partners';
 import { useInvestments } from '@/hooks/use-investments';
+import React from 'react';
 
 
 type LedgerEntry = {
@@ -45,7 +46,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const params = useParams();
+  const params = React.use(useParams());
   const entityId = params.id as string;
 
   const { customers, isLoaded: customersLoaded } = useCustomers();

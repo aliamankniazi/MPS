@@ -11,9 +11,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomers } from '@/hooks/use-customers';
 import { useSuppliers } from '@/hooks/use-suppliers';
 import { useBankAccounts } from '@/hooks/use-bank-accounts';
+import React from 'react';
 
 export default function InvoicePage() {
-  const params = useParams();
+  const params = React.use(useParams());
   const { type, id } = params as { type: 'sale' | 'purchase'; id: string };
 
   const { transactions, isLoaded: transactionsLoaded } = useTransactions();
