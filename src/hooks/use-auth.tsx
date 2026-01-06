@@ -19,8 +19,6 @@ import {
 import { auth, db, isFirebaseConfigValid, firebaseConfig } from '@/lib/firebase';
 import type { AuthFormValues, RoleId } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
-import { AppLayout } from '@/components/app-layout';
-import { useRoles } from './use-roles';
 import { ref, onValue, set } from 'firebase/database';
 
 
