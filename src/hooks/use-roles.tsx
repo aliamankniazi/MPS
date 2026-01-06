@@ -7,7 +7,7 @@ import { useAuth } from './use-auth';
 import { AppLayout } from '@/components/app-layout';
 import { usePathname } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set, push } from 'firebase/database';
+import { ref, onValue, set, push, update } from 'firebase/database';
 
 const DB_PATH = 'roles';
 
@@ -46,7 +46,7 @@ const DEFAULT_ROLES: Role[] = [
 interface RolesContextType {
     roles: Role[];
     addRole: (role: Omit<Role, 'id'>) => void;
-    updateRole: (id: RoleId, updatedRole: Role) => void;
+    updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => void;
     deleteRole: (id: RoleId) => void;
     hasPermission: (permission: Permission) => boolean;
 }
@@ -81,7 +81,7 @@ export function RolesProvider({ children }: { children: ReactNode }) {
                 DEFAULT_ROLES.forEach(r => {
                     updates[`${DB_PATH}/${r.id}`] = { name: r.name, permissions: r.permissions };
                 });
-                set(ref(db), updates);
+                update(ref(db), updates);
                 setRoles(DEFAULT_ROLES);
             }
             setIsLoaded(true);
@@ -96,11 +96,10 @@ export function RolesProvider({ children }: { children: ReactNode }) {
         set(newRoleRef, role);
     }, []);
 
-    const updateRole = useCallback((id: RoleId, updatedRole: Role) => {
+    const updateRole = useCallback((id: RoleId, updatedRole: Omit<Role, 'id'>) => {
         if (!db) return;
         const roleRef = ref(db, `${DB_PATH}/${id}`);
-        const { id: _, ...roleData } = updatedRole;
-        set(roleRef, roleData);
+        set(roleRef, updatedRole);
     }, []);
 
     const deleteRole = useCallback((id: RoleId) => {
