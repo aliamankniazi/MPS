@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -344,7 +343,7 @@ export default function SettingsPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isLoaded && products.length > 0 ? products.map(p => (
+                                {isLoaded && products && products.length > 0 ? products.map(p => (
                                     <TableRow key={p.id}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>{p.category}</TableCell>
@@ -508,6 +507,4 @@ export default function SettingsPage() {
     </div>
     </>
   );
-
-    
-
+}
