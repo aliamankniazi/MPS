@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -95,15 +96,18 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     // Sales and Payments
-    transactions.forEach(tx => combined.push({
-      id: `tx-${tx.id}`,
-      timestamp: tx.timestamp,
-      description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
-      type: 'Sale',
-      debit: 0,
-      credit: tx.totalAmount,
-      original: tx,
-    }));
+    transactions.forEach(tx => {
+      const isCreditSale = tx.customerId && tx.customerName !== 'Walk-in Customer';
+      combined.push({
+        id: `tx-${tx.id}`,
+        timestamp: tx.timestamp,
+        description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
+        type: 'Sale',
+        debit: isCreditSale ? tx.totalAmount : 0,
+        credit: !isCreditSale ? tx.totalAmount : 0,
+        original: tx,
+      })
+    });
     customerPayments.forEach(cp => {
       const isSalary = cp.paymentMethod === 'Salary';
       combined.push({
@@ -331,13 +335,16 @@ export default function LedgerPage() {
     { accessorKey: 'description', header: 'Particulars' },
     { accessorKey: 'type', header: 'Type', cell: ({row}: any) => {
         const type = row.original.type;
-        const isCreditEntry = ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment', 'Salary'].includes(type);
+        const isCreditEntry = ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment', 'Salary'].includes(type) && row.original.credit > 0;
         return <Badge 
             variant={isCreditEntry ? 'outline' : 'destructive'}
             className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
             >{type}</Badge>
     }},
-    { accessorKey: 'debit', header: 'Debit (PKR)', cell: ({row}: any) => <span className="font-mono text-destructive">{row.original.debit > 0 ? row.original.debit.toFixed(2) : '-'}</span>, meta: { className: 'text-right' } },
+    { accessorKey: 'debit', header: 'Debit (PKR)', cell: ({row}: any) => {
+      const isCreditSale = row.original.type === 'Sale' && row.original.debit > 0;
+      return <span className={cn("font-mono", isCreditSale ? 'text-blue-600' : 'text-destructive')}>{row.original.debit > 0 ? row.original.debit.toFixed(2) : '-'}</span>
+    }, meta: { className: 'text-right' } },
     { accessorKey: 'credit', header: 'Credit (PKR)', cell: ({row}: any) => <span className="font-mono text-green-600">{row.original.credit > 0 ? row.original.credit.toFixed(2) : '-'}</span>, meta: { className: 'text-right' } },
     { accessorKey: 'balance', header: 'Balance (PKR)', cell: ({row}: any) => <span className={cn("font-semibold font-mono", row.original.balance >= 0 ? 'text-primary' : 'text-destructive')}>{row.original.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>, meta: { className: 'text-right' } },
     {
@@ -618,3 +625,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
