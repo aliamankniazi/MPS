@@ -98,7 +98,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: isValid(new Date(p.timestamp)) ? `Payment Received (${p.paymentMethod})` : `Payment Received (${p.paymentMethod})`,
+              description: `Payment Received (${p.paymentMethod})`,
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
@@ -168,7 +168,9 @@ export default function CustomerLedgerPage() {
     let runningBalance = 0;
     const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
       const date = new Date(entry.timestamp);
-      if(!isValid(date)) return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
+      if(!isValid(date)) {
+        return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
+      }
       
       if (entityType === 'Customer') {
         runningBalance += entry.debit - entry.credit;
@@ -263,6 +265,9 @@ export default function CustomerLedgerPage() {
 
   const rowBalanceColorClass = (balance: number) => {
     if (isPartner) {
+        return balance >= 0 ? 'text-green-600' : 'text-destructive';
+    }
+     if (entityType === 'Supplier') {
         return balance >= 0 ? 'text-green-600' : 'text-destructive';
     }
     return balance > 0 ? 'text-destructive' : 'text-green-600';
