@@ -14,8 +14,7 @@ import { useBankAccounts } from '@/hooks/use-bank-accounts';
 import React from 'react';
 
 export default function InvoicePage() {
-  const params = useParams();
-  const { type, id } = params as { type: 'sale' | 'purchase'; id: string };
+  const { type, id } = useParams() as { type: 'sale' | 'purchase'; id: string };
 
   const { transactions, isLoaded: transactionsLoaded } = useTransactions();
   const { purchases, isLoaded: purchasesLoaded } = usePurchases();

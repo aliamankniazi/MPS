@@ -46,8 +46,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const params = useParams();
-  const entityId = params.id as string;
+  const { id: entityId } = useParams() as { id: string };
 
   const { customers, isLoaded: customersLoaded } = useCustomers();
   const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
