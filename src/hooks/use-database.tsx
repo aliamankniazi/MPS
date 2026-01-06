@@ -135,7 +135,9 @@ interface DatabaseActions {
     addBankAccount: (account: Omit<BankAccount, 'id' | 'timestamp'>) => void;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
-    addEmployee: (employee: Omit<Employee, 'id' | 'timestamp' | 'hireDate'> & { hireDate: Date }) => void;
+    addEmployee: (employee: Omit<Employee, 'id' | 'timestamp'>) => void;
+    updateEmployee: (id: string, updates: Partial<Employee>) => void;
+    deleteEmployee: (id: string) => void;
     addCustomerPayment: (payment: Omit<CustomerPayment, 'id' | 'timestamp'>) => void;
     deleteCustomerPayment: (id: string) => void;
     addSupplierPayment: (payment: Omit<SupplierPayment, 'id' | 'timestamp'>) => void;
@@ -311,9 +313,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateBankAccount = (id: string, u: Partial<BankAccount>) => updateEntity(PATHS.bankAccounts, id, u);
     const deleteBankAccount = (id: string) => deleteEntity(PATHS.bankAccounts, id);
 
-    const addEmployee = (e: Omit<Employee, 'id' | 'timestamp' | 'hireDate'> & { hireDate: Date }) => {
-        addEntity(PATHS.employees, { ...e, hireDate: e.hireDate.toISOString() });
-    };
+    const addEmployee = (e: Omit<Employee, 'id' | 'timestamp'>) => addEntity(PATHS.employees, e);
+    const updateEmployee = (id: string, u: Partial<Employee>) => updateEntity(PATHS.employees, id, u);
+    const deleteEmployee = (id: string) => deleteEntity(PATHS.employees, id);
 
     const addCustomerPayment = (p: Omit<CustomerPayment, 'id' | 'timestamp'>) => addEntity(PATHS.customerPayments, p);
     const deleteCustomerPayment = (id: string) => deleteEntity(PATHS.customerPayments, id);
@@ -404,6 +406,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateBankAccount,
         deleteBankAccount,
         addEmployee,
+        updateEmployee,
+        deleteEmployee,
         addCustomerPayment,
         deleteCustomerPayment,
         addSupplierPayment,

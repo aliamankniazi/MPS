@@ -105,6 +105,7 @@ export interface Employee {
   position: string;
   salary: number;
   hireDate: string;
+  terminationDate?: string;
   timestamp: string;
 }
 
