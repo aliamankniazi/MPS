@@ -72,6 +72,9 @@ export interface Supplier {
   id: string;
   name: string;
   contact?: string;
+  vehicleNumber?: string;
+  driverName?: string;
+  helperName?: string;
   timestamp: string;
 }
 

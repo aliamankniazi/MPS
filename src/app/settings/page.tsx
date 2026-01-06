@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Settings, Trash2, AlertTriangle, Droplets, Package, Edit, Truck, UserPlus, BookText } from 'lucide-react';
+import { Settings, Trash2, AlertTriangle, Droplets, Package, Edit, Truck, UserPlus, BookText, Car, User } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +46,9 @@ type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
   contact: z.string().optional(),
+  vehicleNumber: z.string().optional(),
+  driverName: z.string().optional(),
+  helperName: z.string().optional(),
 });
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
@@ -157,7 +160,7 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                     <form onSubmit={handleSubmitSupplier(onSupplierSubmit)} className="space-y-4">
-                        <div className="grid sm:grid-cols-2 gap-4">
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="supplierName">Supplier Name</Label>
                                 <Input id="supplierName" {...registerSupplier('name')} placeholder="e.g., PSO" />
@@ -166,6 +169,18 @@ export default function SettingsPage() {
                             <div className="space-y-2">
                                 <Label htmlFor="supplierContact">Contact (Optional)</Label>
                                 <Input id="supplierContact" {...registerSupplier('contact')} placeholder="e.g., 0300-1234567" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="vehicleNumber">Vehicle Number (Optional)</Label>
+                                <Input id="vehicleNumber" {...registerSupplier('vehicleNumber')} placeholder="e.g., TKA-123" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="driverName">Driver's Name (Optional)</Label>
+                                <Input id="driverName" {...registerSupplier('driverName')} placeholder="e.g., Ali Khan" />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="helperName">Helper's Name (Optional)</Label>
+                                <Input id="helperName" {...registerSupplier('helperName')} placeholder="e.g., Ahmed" />
                             </div>
                         </div>
                         <Button type="submit">Add Supplier</Button>
@@ -176,16 +191,23 @@ export default function SettingsPage() {
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Contact</TableHead>
+                                    <TableHead>Supplier</TableHead>
+                                    <TableHead>Vehicle / Crew</TableHead>
                                     <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {suppliersLoaded && suppliers.length > 0 ? suppliers.map(s => (
                                     <TableRow key={s.id}>
-                                        <TableCell className="font-medium">{s.name}</TableCell>
-                                        <TableCell>{s.contact || 'N/A'}</TableCell>
+                                        <TableCell>
+                                            <div className="font-medium">{s.name}</div>
+                                            <div className="text-sm text-muted-foreground">{s.contact || 'N/A'}</div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2 text-sm"><Car className="w-4 h-4"/> {s.vehicleNumber || 'N/A'}</div>
+                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.driverName || 'N/A'} (Driver)</div>
+                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.helperName || 'N/A'} (Helper)</div>
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <Button asChild variant="ghost" size="icon" title="View Ledger">
                                                <Link href={`/customers/${s.id}/ledger`}>
