@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -5,7 +6,6 @@ import {
   ColumnDef,
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table"
 
@@ -17,14 +17,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   children?: React.ReactNode
   hideHeader?: boolean
-  showPagination?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -32,13 +30,16 @@ export function DataTable<TData, TValue>({
   data,
   children,
   hideHeader = false,
-  showPagination = false,
 }: DataTableProps<TData, TValue>) {
   const table = useReactTable({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    initialState: {
+        pagination: {
+            pageSize: 1000, // Show a large number of rows
+        }
+    }
   })
 
   return (
@@ -90,26 +91,6 @@ export function DataTable<TData, TValue>({
             {children}
         </Table>
         </div>
-        {showPagination && (
-             <div className="flex items-center justify-end space-x-2 py-4">
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.previousPage()}
-                    disabled={!table.getCanPreviousPage()}
-                >
-                    Previous
-                </Button>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => table.nextPage()}
-                    disabled={!table.getCanNextPage()}
-                >
-                    Next
-                </Button>
-            </div>
-        )}
     </div>
   )
 }

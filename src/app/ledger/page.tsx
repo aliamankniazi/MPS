@@ -238,9 +238,8 @@ export default function LedgerPage() {
     }));
 
     // Calculate Profit Summary based on the filtered entries
-    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
-    const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0) 
-                      - entriesForSummary.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
+    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income', 'Purchase Return'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
+    const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0);
     const totalExpenses = entriesForSummary.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
     const grossProfit = totalRevenue - costOfGoods;
     const netProfit = grossProfit - totalExpenses;
@@ -448,12 +447,12 @@ export default function LedgerPage() {
             </div>
         </CardHeader>
         <CardContent>
-            <DataTable columns={journalColumns} data={entries} showPagination>
+            <DataTable columns={journalColumns} data={entries}>
                  {selectedDate && (
                   <Table>
                     <TableBody>
                         <TableRow className="bg-muted/30">
-                            <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
+                            <TableCell colSpan={6} className="font-bold">Opening Balance</TableCell>
                             <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
                             {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
@@ -470,7 +469,7 @@ export default function LedgerPage() {
                     <TableCell colSpan={2}/>
                     </TableRow>
                     <TableRow className="bg-muted/50 font-bold text-lg">
-                    <TableCell colSpan={5} className="text-right">Closing Balance</TableCell>
+                    <TableCell colSpan={6} className="text-right">Closing Balance</TableCell>
                     <TableCell colSpan={2} className={cn("text-right font-mono", finalBalance >= 0 ? 'text-primary' : 'text-destructive')}>
                         {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
@@ -501,5 +500,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-    
