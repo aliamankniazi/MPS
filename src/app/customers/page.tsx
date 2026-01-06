@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -65,7 +65,7 @@ export default function CustomersPage() {
     const lowercasedTerm = searchTerm.toLowerCase();
     return customers.filter(c =>
         c.name.toLowerCase().includes(lowercasedTerm) ||
-        (c.contact && c.contact.toLowerCase().includes(lowercasedTerm)) ||
+        (c.contact && String(c.contact).toLowerCase().includes(lowercasedTerm)) ||
         (c.area && c.area.toLowerCase().includes(lowercasedTerm)) ||
         (c.vehicleNumber && c.vehicleNumber.toLowerCase().includes(lowercasedTerm))
     );
@@ -109,8 +109,8 @@ export default function CustomersPage() {
   }
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
-    if (typeof phone !== 'string') return '';
-    return phone.replace(/[^0-9]/g, '');
+    if (typeof phone !== 'string' && typeof phone !== 'number') return '';
+    return String(phone).replace(/[^0-9]/g, '');
   }
   
   const handleRowClick = (customerId: string, e: React.MouseEvent) => {
@@ -121,6 +121,17 @@ export default function CustomersPage() {
     }
     router.push(`/customers/${customerId}/ledger`);
   };
+
+  useEffect(() => {
+    if (customerToEdit) {
+      setEditValue('name', customerToEdit.name);
+      setEditValue('contact', customerToEdit.contact);
+      setEditValue('vehicleNumber', customerToEdit.vehicleNumber || '');
+      setEditValue('area', customerToEdit.area || '');
+    } else {
+      resetEdit();
+    }
+  }, [customerToEdit, setEditValue, resetEdit]);
 
   return (
     <>
