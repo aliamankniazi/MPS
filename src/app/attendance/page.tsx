@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -83,6 +83,14 @@ export default function EmployeeManagementPage() {
     });
     setEmployeeToDelete(null);
   };
+
+  const handleReactivate = (employee: Employee) => {
+    updateEmployee(employee.id, { ...employee, terminationDate: undefined });
+    toast({
+        title: 'Employee Reactivated',
+        description: `${employee.name} is now an active employee.`,
+    });
+  }
 
   const filteredEmployees = useMemo(() => {
     if (showTerminated) return employees;
@@ -213,6 +221,15 @@ export default function EmployeeManagementPage() {
                            <Button variant="ghost" size="icon" title="Edit" onClick={() => setEmployeeToEdit(emp)}>
                                 <Edit className="w-4 h-4" />
                            </Button>
+                           {emp.terminationDate ? (
+                             <Button variant="ghost" size="icon" title="Reactivate Employee" className="text-green-600 hover:text-green-700" onClick={() => handleReactivate(emp)}>
+                                <UserCheck className="w-4 h-4" />
+                             </Button>
+                           ) : (
+                             <Button variant="ghost" size="icon" title="Terminate Employee" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToEdit(emp)}>
+                                <UserX className="w-4 h-4" />
+                             </Button>
+                           )}
                            <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToDelete(emp)}>
                                 <Trash2 className="w-4 h-4" />
                            </Button>
