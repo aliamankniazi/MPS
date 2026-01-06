@@ -94,7 +94,8 @@ export default function CustomersPage() {
     setEditValue('area', customer.area || '');
   }
 
-  const formatPhoneNumberForWhatsApp = (phone: string) => {
+  const formatPhoneNumberForWhatsApp = (phone: string | number) => {
+    if (typeof phone !== 'string') return '';
     return phone.replace(/[^0-9]/g, '');
   }
 

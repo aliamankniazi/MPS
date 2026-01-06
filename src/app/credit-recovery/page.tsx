@@ -105,11 +105,12 @@ export default function CreditRecoveryPage() {
         if (!searchTerm) return reportData;
         return reportData.filter(row => 
             row.customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            row.customer.contact?.toLowerCase().includes(searchTerm.toLowerCase())
+            (row.customer.contact && typeof row.customer.contact === 'string' && row.customer.contact.toLowerCase().includes(searchTerm.toLowerCase()))
         );
     }, [reportData, searchTerm]);
 
-    const formatPhoneNumberForWhatsApp = (phone: string) => {
+    const formatPhoneNumberForWhatsApp = (phone: string | number) => {
+        if (typeof phone !== 'string') return '';
         return phone.replace(/[^0-9]/g, '');
     }
     
@@ -264,4 +265,3 @@ Mianwali Petroleum Service Mianwali`;
         </div>
     );
 }
-
