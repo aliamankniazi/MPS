@@ -72,7 +72,7 @@ export default function AllTransactionsPage() {
       timestamp: tx.timestamp,
       type: 'Sale',
       partner: tx.customerName || 'Walk-in Customer',
-      details: `${tx.volume.toFixed(2)}L of ${tx.fuelType}`,
+      details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
       amount: tx.totalAmount,
       original: tx,
     }));

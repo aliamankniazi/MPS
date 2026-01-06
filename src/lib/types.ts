@@ -5,12 +5,13 @@ export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary';
 
 export interface Transaction {
   id: string;
-  fuelType: FuelType;
+  fuelType: FuelType | string;
   volume: number;
   pricePerLitre: number;
   totalAmount: number;
   paymentMethod: PaymentMethod;
   timestamp: string;
+  product?: string;
   customerId?: string;
   customerName?: string;
   bankAccountId?: string;

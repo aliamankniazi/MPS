@@ -176,9 +176,10 @@ export default function SalesPage() {
     // For simplicity, we'll create a single transaction representing the whole cart.
     // A more complex system might save each cart item individually.
     const transactionData: Omit<Transaction, 'id'> = {
-      fuelType: 'Unleaded', // Placeholder as the new UI is generic
+      fuelType: cart.map(i => i.product).join(', '),
       volume: cart.reduce((sum, item) => sum + item.quantity, 0),
       pricePerLitre: 1, // Placeholder
+      product: cart.length === 1 ? cart[0].product : `${cart.length} items`,
       totalAmount: cartTotal,
       paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
       timestamp: data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString(),
