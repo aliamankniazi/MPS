@@ -40,7 +40,7 @@ const navItems = [
       { href: '/all-transactions', label: 'All Transactions', icon: Archive, permission: 'view_all_transactions' as Permission },
       { href: '/all-invoices', label: 'All Invoices', icon: FileText, permission: 'view_all_transactions' as Permission },
       { href: '/ledger', label: 'General Journal', icon: BookOpen, permission: 'view_ledger' as Permission },
-      { href: '/credit-recovery', label: 'Credit Recovery', icon: BarChartHorizontal, permission: 'view_credit_recovery' as Permission },
+      { href: '/credit-recovery', label: 'Customer Recovery', icon: BarChartHorizontal, permission: 'view_credit_recovery' as Permission },
     ]
   },
   {
