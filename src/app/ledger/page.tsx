@@ -233,8 +233,8 @@ export default function LedgerPage() {
       .filter(e => e.type === 'Sale')
       .reduce((acc, saleEntry) => {
         const tx = saleEntry.original as import('@/lib/types').Transaction;
-        // Handle cases where `product` might be something like "Product1, Product2"
-        const products = (tx.product || tx.fuelType).split(',').map(p => p.trim());
+        const productNameSource = tx.product || tx.fuelType || 'Uncategorized Sale';
+        const products = productNameSource.split(',').map(p => p.trim());
 
         products.forEach(productName => {
            if (!acc[productName]) {
@@ -513,7 +513,7 @@ export default function LedgerPage() {
             </div>
         </CardHeader>
         <CardContent>
-            <DataTable columns={journalColumns} data={entries} showPagination={false}>
+            <DataTable columns={journalColumns} data={entries}>
                  {selectedDate && (
                   <Table>
                     <TableBody>
