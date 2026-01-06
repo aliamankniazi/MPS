@@ -21,6 +21,8 @@ import type {
     Expense,
     FuelType,
     Investment,
+    Machine,
+    MachineReading,
     OtherIncome,
     Purchase,
     PurchaseReturn,
@@ -28,8 +30,6 @@ import type {
     StockAdjustment,
     Supplier,
     SupplierPayment,
-    Tank,
-    TankReading,
     Transaction,
 } from '@/lib/types';
 import { db } from '@/lib/firebase';
@@ -50,8 +50,8 @@ const PATHS = {
     customerPayments: 'customerPayments',
     supplierPayments: 'supplierPayments',
     cashAdvances: 'cashAdvances',
-    tanks: 'tanks',
-    tankReadings: 'tankReadings',
+    machines: 'machines',
+    machineReadings: 'machineReadings',
     investments: 'investments',
     businessPartners: 'businessPartners',
     fuelPrices: 'fuelPrices',
@@ -86,8 +86,8 @@ interface DatabaseState {
     customerPayments: Record<string, Omit<CustomerPayment, 'id'>>;
     supplierPayments: Record<string, Omit<SupplierPayment, 'id'>>;
     cashAdvances: Record<string, Omit<CashAdvance, 'id'>>;
-    tanks: Record<string, Omit<Tank, 'id'>>;
-    tankReadings: Record<string, Omit<TankReading, 'id'>>;
+    machines: Record<string, Omit<Machine, 'id'>>;
+    machineReadings: Record<string, Omit<MachineReading, 'id'>>;
     investments: Record<string, Omit<Investment, 'id'>>;
     businessPartners: Record<string, Omit<BusinessPartner, 'id'>>;
     stockAdjustments: Record<string, Omit<StockAdjustment, 'id'>>;
@@ -110,8 +110,8 @@ interface ProcessedDatabaseState {
     customerPayments: CustomerPayment[];
     supplierPayments: SupplierPayment[];
     cashAdvances: CashAdvance[];
-    tanks: Tank[];
-    tankReadings: TankReading[];
+    machines: Machine[];
+    machineReadings: MachineReading[];
     investments: Investment[];
     businessPartners: BusinessPartner[];
     stockAdjustments: StockAdjustment[];
@@ -150,9 +150,9 @@ interface DatabaseActions {
     deleteSupplierPayment: (id: string) => void;
     addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => void;
     deleteCashAdvance: (id: string) => void;
-    addTank: (tank: Omit<Tank, 'id'>) => void;
-    deleteTank: (id: string) => void;
-    addTankReading: (reading: Omit<TankReading, 'id'>) => void;
+    addMachine: (machine: Omit<Machine, 'id'>) => void;
+    deleteMachine: (id: string) => void;
+    addMachineReading: (reading: Omit<MachineReading, 'id'>) => void;
     addInvestment: (investment: Omit<Investment, 'id'>) => void;
     deleteInvestment: (id: string) => void;
     addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => void;
@@ -168,7 +168,7 @@ type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { fuelStoc
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
-const objectToArray = <T>(obj: Record<string, Omit<T, 'id'>> | undefined): T[] => {
+const objectToArray = <T extends { id: string }>(obj: Record<string, Omit<T, 'id'>> | undefined): T[] => {
     if (!obj) return [];
     return Object.keys(obj).map(key => ({ id: key, ...obj[key] } as T));
 };
@@ -179,7 +179,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         transactions: {}, purchases: {}, purchaseReturns: {}, saleReturns: {},
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
-        cashAdvances: {}, tanks: {}, tankReadings: {}, investments: {}, businessPartners: {},
+        cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
         stockAdjustments: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
@@ -210,7 +210,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, []);
     
     const processedState = useMemo((): ProcessedDatabaseState => {
-        const createSorter = (key: string, order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
+        const createSorter = (key: keyof (Transaction & { name: string }), order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
             const valA = a[key];
             const valB = b[key];
 
@@ -240,8 +240,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             customerPayments: objectToArray<CustomerPayment>(state.customerPayments).sort(createSorter('timestamp')),
             supplierPayments: objectToArray<SupplierPayment>(state.supplierPayments).sort(createSorter('timestamp')),
             cashAdvances: objectToArray<CashAdvance>(state.cashAdvances).sort(createSorter('timestamp')),
-            tanks: objectToArray<Tank>(state.tanks).sort(createSorter('name', 'asc')),
-            tankReadings: objectToArray<TankReading>(state.tankReadings).sort(createSorter('timestamp')),
+            machines: objectToArray<Machine>(state.machines).sort(createSorter('name', 'asc')),
+            machineReadings: objectToArray<MachineReading>(state.machineReadings).sort(createSorter('timestamp')),
             investments: objectToArray<Investment>(state.investments).sort(createSorter('timestamp')),
             businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(createSorter('name', 'asc')),
             stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(createSorter('timestamp')),
@@ -260,7 +260,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             const ft = fuelType as FuelType;
             
             // Start with the last known reading for that fuel type, or initial stock
-            const lastReading = processedState.tankReadings
+            const lastReading = processedState.machineReadings
                 .filter(r => r.fuelType === ft)
                 .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
@@ -293,10 +293,10 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         return stock;
 
-    }, [state.isLoaded, state.initialFuelStock, processedState.tankReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
+    }, [state.isLoaded, state.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends {timestamp?: string}>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
+    const addEntity = useCallback(<T extends { id: string, timestamp?: any }>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
         const newEntityWithTimestamp = { ...entity, timestamp: serverTimestamp() };
         if (db) {
             const newEntityRef = push(ref(db, path));
@@ -362,10 +362,10 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const addCashAdvance = (a: Omit<CashAdvance, 'id'>) => addEntity(PATHS.cashAdvances, a);
     const deleteCashAdvance = (id: string) => deleteEntity(PATHS.cashAdvances, id);
     
-    const addTank = (t: Omit<Tank, 'id'>) => addEntity(PATHS.tanks, t);
-    const deleteTank = (id: string) => deleteEntity(PATHS.tanks, id);
+    const addMachine = (m: Omit<Machine, 'id'>) => addEntity(PATHS.machines, m);
+    const deleteMachine = (id: string) => deleteEntity(PATHS.machines, id);
 
-    const addTankReading = (r: Omit<TankReading, 'id'>) => addEntity(PATHS.tankReadings, r);
+    const addMachineReading = (r: Omit<MachineReading, 'id'>) => addEntity(PATHS.machineReadings, r);
     
     const addInvestment = (i: Omit<Investment, 'id'>) => addEntity(PATHS.investments, i);
     const deleteInvestment = (id: string) => deleteEntity(PATHS.investments, id);
@@ -418,7 +418,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             transactions: {}, purchases: {}, purchaseReturns: {}, saleReturns: {},
             expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
             bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
-            cashAdvances: {}, tanks: {}, tankReadings: {}, investments: {}, businessPartners: {},
+            cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
             stockAdjustments: {},
             fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
             isLoaded: true
@@ -459,9 +459,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         deleteSupplierPayment,
         addCashAdvance,
         deleteCashAdvance,
-        addTank,
-        deleteTank,
-        addTankReading,
+        addMachine,
+        deleteMachine,
+        addMachineReading,
         addInvestment,
         deleteInvestment,
         addBusinessPartner,

@@ -71,7 +71,7 @@ const navGroups = [
         links: [
             { href: '/inventory', label: 'Stock Levels', icon: Box, permission: 'view_inventory' as Permission },
             { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench, permission: 'view_settings' as Permission },
-            { href: '/tanks', label: 'Machine Reading', icon: Fuel, permission: 'view_tank_readings' as Permission },
+            { href: '/machines', label: 'Machine Reading', icon: Fuel, permission: 'view_tank_readings' as Permission },
         ]
     },
     {

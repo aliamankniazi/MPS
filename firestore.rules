@@ -9,7 +9,7 @@
  * - /fuel_types: Stores information about available fuel.
  * - /transactions: Records all sales transactions.
  * - /settings: Holds application-wide configuration data.
- * - /tanks: Stores physical tank information.
+ * - /machines: Stores physical machine information.
  * This flat structure is simple and performant, with no nested user-specific data.
  *
  * Key Security Decisions:
@@ -25,7 +25,7 @@
  * user-specific roles or collaborative features. All authorization decisions are based solely on the user's
  * authentication state (`request.auth != null`).
  *
- * Structural Segregation: The use of separate collections for `fuel_types`, `transactions`, `settings`, and `tanks` provides
+ * Structural Segregation: The use of separate collections for `fuel_types`, `transactions`, `settings`, and `machines` provides
  * clear separation of concerns. This allows for more granular security rules to be applied to each data type in
  * the future without impacting the others.
  */
@@ -90,13 +90,13 @@ service cloud.firestore {
     }
 
     /**
-     * @description Allows any authenticated user to manage tanks.
-     * @path /tanks/{tankId}
-     * @allow (create) An authenticated user can add a new tank.
+     * @description Allows any authenticated user to manage machines.
+     * @path /machines/{machineId}
+     * @allow (create) An authenticated user can add a new machine.
      * @deny (list) An unauthenticated user (request.auth == null) is denied list access.
      * @principle Requires user authentication for all data access.
      */
-    match /tanks/{tankId} {
+    match /machines/{machineId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();

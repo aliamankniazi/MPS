@@ -129,16 +129,16 @@ export interface AuthFormValues {
   password: string;
 }
 
-export interface Tank {
+export interface Machine {
   id: string;
   name: string;
   fuelType: FuelType;
 }
 
-export interface TankReading {
+export interface MachineReading {
     id: string;
-    tankId: string;
-    tankName: string;
+    machineId: string;
+    machineName: string;
     fuelType: FuelType;
     volume: number;
 }
