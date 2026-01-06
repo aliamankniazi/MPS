@@ -46,8 +46,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const params = useParams();
-  const entityId = params.id as string;
+  const { id: entityId } = useParams() as { id: string };
 
   const { customers, isLoaded: customersLoaded } = useCustomers();
   const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
@@ -122,7 +121,7 @@ export default function CustomerLedgerPage() {
         supplierPurchases.forEach(p => combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
-            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
+            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase'),
             type: 'Purchase',
             credit: p.totalCost, // Credit to supplier's account
             debit: 0,
@@ -174,9 +173,7 @@ export default function CustomerLedgerPage() {
       
       if (entityType === 'Customer') {
         runningBalance += entry.debit - entry.credit;
-      } else if (entityType === 'Supplier') {
-        runningBalance += entry.credit - entry.debit;
-      } else if (entityType === 'Partner') {
+      } else if (entityType === 'Supplier' || entityType === 'Partner') {
         runningBalance += entry.credit - entry.debit;
       }
       return { ...entry, balance: runningBalance };
@@ -190,28 +187,32 @@ export default function CustomerLedgerPage() {
     
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
 
-    switch(typePrefix) {
-        case 'tx': deleteTransaction(id); break;
-        case 'pur': deletePurchase(id); break;
-        case 'pay': deleteCustomerPayment(id); break;
-        case 'adv': deleteCashAdvance(id); break;
-        case 'spay': deleteSupplierPayment(id); break;
-        case 'inv': deleteInvestment(id); break;
-        case 'wdr': deleteInvestment(id); break;
-        default:
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'Could not delete entry of unknown type.',
-            });
-            return;
-    }
+    try {
+        switch(typePrefix) {
+            case 'tx': deleteTransaction(id); break;
+            case 'pur': deletePurchase(id); break;
+            case 'pay': deleteCustomerPayment(id); break;
+            case 'adv': deleteCashAdvance(id); break;
+            case 'spay': deleteSupplierPayment(id); break;
+            case 'inv': deleteInvestment(id); break;
+            case 'wdr': deleteInvestment(id); break;
+            default:
+                throw new Error('Could not delete entry of unknown type.');
+        }
 
-    toast({
-        title: 'Entry Deleted',
-        description: `The ${entryToDelete.type} entry has been successfully deleted.`,
-    });
-    setEntryToDelete(null);
+        toast({
+            title: 'Entry Deleted',
+            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error Deleting',
+            description: error.message || 'An unexpected error occurred.',
+        });
+    } finally {
+        setEntryToDelete(null);
+    }
   };
 
 
@@ -255,22 +256,23 @@ export default function CustomerLedgerPage() {
   const isPartner = entityType === 'Partner';
 
   const balanceColorClass = () => {
-      if (isPartner) {
-          // For partners, positive balance is net investment (good), negative is net withdrawal (bad)
+      if (entityType === 'Customer') {
+          return finalBalance > 0 ? 'text-destructive' : 'text-green-600';
+      }
+      if (entityType === 'Supplier' || entityType === 'Partner') {
           return finalBalance >= 0 ? 'text-green-600' : 'text-destructive';
       }
-      // For customers/suppliers, positive balance means they owe us (bad), negative means we owe them (good)
-      return finalBalance > 0 ? 'text-destructive' : 'text-green-600';
+      return '';
   }
 
   const rowBalanceColorClass = (balance: number) => {
-    if (isPartner) {
+    if (entityType === 'Customer') {
+        return balance > 0 ? 'text-destructive' : 'text-green-600';
+    }
+    if (entityType === 'Supplier' || entityType === 'Partner') {
         return balance >= 0 ? 'text-green-600' : 'text-destructive';
     }
-     if (entityType === 'Supplier') {
-        return balance >= 0 ? 'text-green-600' : 'text-destructive';
-    }
-    return balance > 0 ? 'text-destructive' : 'text-green-600';
+    return '';
   }
 
   return (
@@ -409,3 +411,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
