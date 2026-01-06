@@ -86,3 +86,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .animate-flash {
+    animation: flash 0.5s ease-out;
+  }
+
+  @keyframes flash {
+    0% {
+      background-color: hsl(var(--accent));
+    }
+    100% {
+      background-color: transparent;
+    }
+  }
+}

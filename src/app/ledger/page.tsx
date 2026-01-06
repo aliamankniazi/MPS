@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isSameDay, startOfDay, isValid } from 'date-fns';
@@ -79,7 +78,16 @@ export default function LedgerPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [highlight, setHighlight] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (isLoaded) {
+        setHighlight(true);
+        const timer = setTimeout(() => setHighlight(false), 500); // Duration of the highlight
+        return () => clearTimeout(timer);
+    }
+  }, [selectedDate, searchTerm, isLoaded]);
 
   const { entries, finalBalance, openingBalance, totals, productWiseSales, profitSummary, salesChartData } = useMemo(() => {
     if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: { totalRevenue: 0, costOfGoods: 0, grossProfit: 0, totalExpenses: 0, netProfit: 0 }, salesChartData: [] };
@@ -543,7 +551,7 @@ export default function LedgerPage() {
             </div>
         </div>
 
-      <Card>
+      <Card className={cn(highlight && 'animate-flash')}>
         <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                  <div>
@@ -610,4 +618,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
