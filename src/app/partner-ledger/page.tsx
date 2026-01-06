@@ -9,7 +9,7 @@ import { useTransactions } from '@/hooks/use-transactions';
 import { useCashAdvances } from '@/hooks/use-cash-advances';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isSameDay, startOfDay } from 'date-fns';
+import { format, isSameDay, startOfDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -376,10 +376,12 @@ export default function PartnerLedgerPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map(entry => (
+                {entries.map(entry => {
+                  const date = new Date(entry.timestamp);
+                  return (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(entry.timestamp), 'PP pp')}
+                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                     </TableCell>
                     <TableCell>
                       <div>{entry.entityName}</div>
@@ -411,7 +413,7 @@ export default function PartnerLedgerPage() {
                         </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
                <TableFooter>
                 <TableRow>
