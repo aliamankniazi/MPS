@@ -202,7 +202,7 @@ export default function MachineManagementPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {machineReadings.length > 0 ? (
+            {machineReadings && machineReadings.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -243,7 +243,7 @@ export default function MachineManagementPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {machines.length > 0 ? machines.map(machine => (
+                        {machines && machines.length > 0 ? machines.map(machine => (
                             <TableRow key={machine.id}>
                                 <TableCell>{machine.name}</TableCell>
                                 <TableCell>{machine.fuelType}</TableCell>
