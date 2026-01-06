@@ -13,16 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Sun, Truck, Undo } from 'lucide-react';
 import type { PaymentMethod, Transaction } from '@/lib/types';
-import { useCustomers } from '@/hooks/use-customers';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
+import { useDatabase } from '@/hooks/use-database';
 
 const saleItemSchema = z.object({
   product: z.string().min(1, "Product is required"),
@@ -113,9 +111,7 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { addTransaction } = useTransactions();
-  const { addCustomerPayment } = useCustomerPayments();
+  const { customers, addTransaction, addCustomerPayment, isLoaded: customersLoaded } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -175,14 +171,13 @@ export default function SalesPage() {
     
     // For simplicity, we'll create a single transaction representing the whole cart.
     // A more complex system might save each cart item individually.
-    const transactionData: Omit<Transaction, 'id'> = {
+    const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
       fuelType: cart.map(i => i.product).join(', '),
       volume: cart.reduce((sum, item) => sum + item.quantity, 0),
       pricePerLitre: 1, // Placeholder
       product: cart.length === 1 ? cart[0].product : `${cart.length} items`,
       totalAmount: cartTotal,
       paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
-      timestamp: data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString(),
       customerId: data.customerId,
       customerName: selectedCustomer?.name,
     };
@@ -195,7 +190,6 @@ export default function SalesPage() {
             customerName: selectedCustomer!.name,
             amount: data.paidAmount,
             paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
-            timestamp: data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString(),
         });
     }
 
