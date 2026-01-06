@@ -78,8 +78,8 @@ function TransactionNav() {
         { href: '/purchases', label: 'Purchase', icon: Truck },
         { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
         { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-        { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
+        { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/employees', label: 'Salary Payment', icon: User },
     ];
     return (
