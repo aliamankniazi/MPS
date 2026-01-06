@@ -140,15 +140,17 @@ export default function LedgerPage() {
         credit: pr.totalRefund,
         original: pr,
     }));
-    saleReturns.forEach(sr => combined.push({
-      id: `sr-${sr.id}`,
-      timestamp: sr.timestamp,
-      description: `Return from ${sr.customerName}: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
-      type: 'Sale Return',
-      debit: sr.totalRefund,
-      credit: 0,
-      original: sr,
-    }));
+    saleReturns.forEach(sr => {
+      combined.push({
+        id: `sr-${sr.id}`,
+        timestamp: sr.timestamp,
+        description: `Return from ${sr.customerName}: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+        type: 'Sale Return',
+        debit: sr.totalRefund,
+        credit: 0,
+        original: sr,
+      });
+    });
 
 
     // Incomes
