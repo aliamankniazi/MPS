@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Sun, Truck, Undo } from 'lucide-react';
-import type { PaymentMethod, Transaction } from '@/lib/types';
+import type { PaymentMethod, Transaction, Product } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
@@ -112,12 +112,12 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded, products } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
 
-  const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
+  const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
   });
 
@@ -129,12 +129,23 @@ export default function SalesPage() {
   });
 
   const { customerId, paidAmount } = watch();
-  const { quantity, price } = watchItem();
+  const { quantity, price, product: selectedProductName } = watchItem();
 
   useEffect(() => {
     const total = (quantity || 0) * (price || 0);
     setItemValue('totalAmount', total);
   }, [quantity, price, setItemValue]);
+
+  useEffect(() => {
+    if (selectedProductName) {
+        const productDetails = products.find(p => p.id === selectedProductName);
+        if (productDetails) {
+            setItemValue('price', productDetails.price);
+            setItemValue('unit', productDetails.unit);
+            setItemValue('product', productDetails.name);
+        }
+    }
+  }, [selectedProductName, products, setItemValue]);
 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
@@ -182,6 +193,7 @@ export default function SalesPage() {
           customerId: data.customerId,
           customerName: selectedCustomer?.name,
           notes: data.notes,
+          timestamp: new Date().toISOString(),
         };
         addTransaction(transactionData);
     });
@@ -193,6 +205,7 @@ export default function SalesPage() {
             amount: data.paidAmount,
             paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
             notes: `Payment for invoice created on ${new Date().toLocaleDateString()}`,
+            timestamp: new Date().toISOString(),
         });
     }
 
@@ -220,7 +233,22 @@ export default function SalesPage() {
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="product">Product</Label>
-                                  <Input id="product" {...registerItem('product')} placeholder="e.g., Diesel, Mobile Oil"/>
+                                   <Controller
+                                    name="product"
+                                    control={controlItem}
+                                    render={({ field }) => (
+                                      <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select a product" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {isLoaded ? products.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                          )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                                        </SelectContent>
+                                      </Select>
+                                    )}
+                                  />
                                   {itemErrors.product && <p className="text-sm text-destructive">{itemErrors.product.message}</p>}
                               </div>
                               <div className="space-y-2">

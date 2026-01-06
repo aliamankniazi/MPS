@@ -16,6 +16,7 @@ export interface Transaction {
   customerName?: string;
   bankAccountId?: string;
   bankAccountName?: string;
+  timestamp: string;
 }
 
 export interface Purchase {
@@ -25,6 +26,7 @@ export interface Purchase {
   fuelType: FuelType;
   volume: number;
   totalCost: number;
+  timestamp: string;
 }
 
 export interface PurchaseReturn {
@@ -35,6 +37,7 @@ export interface PurchaseReturn {
   volume: number;
   totalRefund: number;
   reason: string;
+  timestamp: string;
 }
 
 export interface SaleReturn {
@@ -45,6 +48,7 @@ export interface SaleReturn {
   volume: number;
   totalRefund: number;
   reason: string;
+  timestamp: string;
 }
 
 export type ExpenseCategory = 'Utilities' | 'Salaries' | 'Maintenance' | 'Other';
@@ -54,6 +58,7 @@ export interface Expense {
   description: string;
   category: ExpenseCategory;
   amount: number;
+  timestamp: string;
 }
 
 export type OtherIncomeCategory = 'Service Station' | 'Tire Shop' | 'Tuck Shop' | 'Other';
@@ -63,6 +68,7 @@ export interface OtherIncome {
     description: string;
     category: OtherIncomeCategory;
     amount: number;
+    timestamp: string;
 }
 
 export interface Customer {
@@ -72,6 +78,7 @@ export interface Customer {
   vehicleNumber?: string;
   area?: string;
   isPartner?: boolean;
+  timestamp: string;
 }
 
 export interface Supplier {
@@ -81,6 +88,7 @@ export interface Supplier {
   vehicleNumber?: string;
   driverName?: string;
   helperName?: string;
+  timestamp: string;
 }
 
 export interface BankAccount {
@@ -88,6 +96,7 @@ export interface BankAccount {
   bankName: string;
   accountNumber: string;
   balance: number;
+  timestamp: string;
 }
 
 export interface Employee {
@@ -98,6 +107,7 @@ export interface Employee {
   salary: number;
   hireDate: string;
   terminationDate?: string;
+  timestamp: string;
 }
 
 export interface CustomerPayment {
@@ -106,6 +116,8 @@ export interface CustomerPayment {
   customerName: string;
   amount: number;
   paymentMethod: PaymentMethod | 'Credit';
+  notes?: string;
+  timestamp: string;
 }
 
 export interface SupplierPayment {
@@ -114,6 +126,7 @@ export interface SupplierPayment {
   supplierName: string;
   amount: number;
   paymentMethod: PaymentMethod;
+  timestamp: string;
 }
 
 export interface CashAdvance {
@@ -122,6 +135,7 @@ export interface CashAdvance {
   customerName: string;
   amount: number;
   notes?: string;
+  timestamp: string;
 }
 
 export interface AuthFormValues {
@@ -133,6 +147,7 @@ export interface Machine {
   id: string;
   name: string;
   fuelType: FuelType;
+  timestamp: string;
 }
 
 export interface MachineReading {
@@ -141,6 +156,7 @@ export interface MachineReading {
     machineName: string;
     fuelType: FuelType;
     volume: number;
+    timestamp: string;
 }
 
 export interface Investment {
@@ -150,6 +166,7 @@ export interface Investment {
   type: 'Investment' | 'Withdrawal';
   amount: number;
   notes?: string;
+  timestamp: string;
 }
 
 export interface BusinessPartner {
@@ -157,6 +174,7 @@ export interface BusinessPartner {
   name: string;
   sharePercentage: number;
   contact?: string;
+  timestamp: string;
 }
 
 export interface StockAdjustment {
@@ -164,7 +182,18 @@ export interface StockAdjustment {
   fuelType: FuelType;
   adjustment: number;
   newStock: number;
+  timestamp: string;
 }
+
+export interface Product {
+    id: string;
+    name: string;
+    price: number;
+    unit: string;
+    category: 'Main Product' | 'Supplementary Product';
+    timestamp: string;
+}
+
 
 // RBAC Types
 export const PERMISSIONS = [
@@ -174,7 +203,7 @@ export const PERMISSIONS = [
     'view_cash_advances', 'add_cash_advance', 'delete_cash_advance',
     'view_inventory', 'view_purchases', 'add_purchase', 'delete_purchase',
     'view_purchase_returns', 'add_purchase_return', 'delete_purchase_return',
-    'view_tank_readings', 'add_tank_reading',
+    'view_machine_readings', 'add_machine_reading',
     'view_supplier_payments', 'add_supplier_payment', 'delete_supplier_payment',
     'view_investments', 'add_investment', 'delete_investment',
     'view_expenses', 'add_expense', 'delete_expense',

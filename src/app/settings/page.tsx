@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus } from 'lucide-react';
+import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus, Package, Edit, PlusCircle } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,17 +18,18 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
-import type { FuelType, Supplier } from '@/lib/types';
+import type { FuelType, Supplier, Product } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
-import { useForm, type SubmitHandler } from 'react-hook-form';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { Dialog, DialogHeader, DialogFooter, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
@@ -42,6 +43,14 @@ const supplierSchema = z.object({
 });
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
+const productSchema = z.object({
+  name: z.string().min(1, 'Product name is required'),
+  price: z.coerce.number().min(0, 'Price must be non-negative'),
+  unit: z.string().min(1, 'Unit is required'),
+  category: z.enum(['Main Product', 'Supplementary Product'], { required_error: 'Category is required' }),
+});
+type ProductFormValues = z.infer<typeof productSchema>;
+
 
 export default function SettingsPage() {
   const { 
@@ -50,11 +59,18 @@ export default function SettingsPage() {
     updateFuelPrice, 
     suppliers, 
     addSupplier, 
-    deleteSupplier, 
+    deleteSupplier,
+    products,
+    addProduct,
+    updateProduct,
+    deleteProduct,
     isLoaded 
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToDelete, setSupplierToDelete] = React.useState<Supplier | null>(null);
+  const [productToEdit, setProductToEdit] = React.useState<Product | null>(null);
+  const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
+
 
   const { 
     register: registerSupplier, 
@@ -64,6 +80,27 @@ export default function SettingsPage() {
   } = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
   });
+  
+  const { 
+      register: registerProduct, 
+      handleSubmit: handleSubmitProduct, 
+      reset: resetProduct, 
+      control: controlProduct,
+      setValue: setProductValue,
+      formState: { errors: productErrors } 
+  } = useForm<ProductFormValues>({
+      resolver: zodResolver(productSchema)
+  });
+
+  React.useEffect(() => {
+      if (productToEdit) {
+          setProductValue('name', productToEdit.name);
+          setProductValue('price', productToEdit.price);
+          setProductValue('unit', productToEdit.unit);
+          setProductValue('category', productToEdit.category);
+      }
+  }, [productToEdit, setProductValue]);
+
 
   const handleClearData = () => {
     clearAllData();
@@ -89,6 +126,18 @@ export default function SettingsPage() {
     resetSupplier();
   };
   
+  const onProductSubmit: SubmitHandler<ProductFormValues> = (data) => {
+    if (productToEdit) {
+        updateProduct(productToEdit.id, data);
+        toast({ title: "Product Updated", description: "The product has been saved."});
+    } else {
+        addProduct(data);
+        toast({ title: "Product Added", description: `${data.name} has been added.`});
+    }
+    setProductToEdit(null);
+    resetProduct({name: '', price: 0, unit: '', category: undefined});
+  };
+
   const handleDeleteSupplier = () => {
     if (!supplierToDelete) return;
     deleteSupplier(supplierToDelete.id);
@@ -98,8 +147,16 @@ export default function SettingsPage() {
     });
     setSupplierToDelete(null);
   }
+  
+  const handleDeleteProduct = () => {
+      if (!productToDelete) return;
+      deleteProduct(productToDelete.id);
+      toast({ title: 'Product Deleted', description: `${productToDelete.name} has been removed.`});
+      setProductToDelete(null);
+  }
 
   return (
+    <>
     <div className="p-4 md:p-8">
       <Card>
         <CardHeader>
@@ -226,6 +283,90 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+          
+          <Separator />
+          
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium flex items-center gap-2"><Package/> Product Management</h3>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="text-xl flex items-center gap-2"><PlusCircle /> Add New Product</CardTitle>
+                    <CardDescription>Add a new main or supplementary product to your catalog.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                     <form onSubmit={handleSubmitProduct(onProductSubmit)} className="space-y-4">
+                         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                            <div className="space-y-2">
+                                <Label htmlFor="productName">Product Name</Label>
+                                <Input id="productName" {...registerProduct('name')} placeholder="e.g., Engine Oil" />
+                                {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="productPrice">Price</Label>
+                                <Input id="productPrice" type="number" step="0.01" {...registerProduct('price')} placeholder="e.g., 1200" />
+                                {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="productUnit">Unit</Label>
+                                <Input id="productUnit" {...registerProduct('unit')} placeholder="e.g., Pcs, Ltr, Kg" />
+                                {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Category</Label>
+                                <Controller
+                                    name="category"
+                                    control={controlProduct}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="Main Product">Main Product</SelectItem>
+                                                <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
+                                {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
+                            </div>
+                         </div>
+                         <Button type="submit">Add Product</Button>
+                     </form>
+                     <Separator className="my-6" />
+                     <h4 className="text-md font-medium mb-4">Product Catalog</h4>
+                     <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Product Name</TableHead>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead className="text-right">Price</TableHead>
+                                    <TableHead className="text-center">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoaded && products.length > 0 ? products.map(p => (
+                                    <TableRow key={p.id}>
+                                        <TableCell className="font-medium">{p.name}</TableCell>
+                                        <TableCell>{p.category}</TableCell>
+                                        <TableCell className="text-right font-mono">PKR {p.price.toFixed(2)} / {p.unit}</TableCell>
+                                        <TableCell className="text-center">
+                                            <Button variant="ghost" size="icon" title="Edit Product" onClick={() => setProductToEdit(p)}><Edit className="w-4 h-4" /></Button>
+                                            <Button variant="ghost" size="icon" title="Delete Product" className="text-destructive" onClick={() => setProductToDelete(p)}><Trash2 className="w-4 h-4" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            {isLoaded ? 'No products added yet.' : 'Loading products...'}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                     </div>
+                 </CardContent>
+             </Card>
+          </div>
 
           <Separator />
 
@@ -296,7 +437,77 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      <Dialog open={!!productToEdit} onOpenChange={(isOpen) => {if(!isOpen) setProductToEdit(null)}}>
+        <DialogContent>
+            <form onSubmit={handleSubmitProduct(onProductSubmit)}>
+                <DialogHeader>
+                    <DialogTitle>Edit Product</DialogTitle>
+                    <DialogDescription>Update the details for this product.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="space-y-2">
+                        <Label htmlFor="editProductName">Product Name</Label>
+                        <Input id="editProductName" {...registerProduct('name')} />
+                        {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="editProductPrice">Price</Label>
+                        <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('price')} />
+                        {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="editProductUnit">Unit</Label>
+                        <Input id="editProductUnit" {...registerProduct('unit')} />
+                        {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Controller
+                            name="category"
+                            control={controlProduct}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Main Product">Main Product</SelectItem>
+                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                         {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setProductToEdit(null)}>Cancel</Button>
+                    <Button type="submit">Save Changes</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!productToDelete} onOpenChange={(isOpen) => !isOpen && setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the product: <br />
+              <strong className="font-medium text-foreground">{productToDelete?.name}</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProduct} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete product
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
+    </>
   );
 
     
+
