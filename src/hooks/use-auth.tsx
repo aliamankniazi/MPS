@@ -7,6 +7,7 @@ import {
   useEffect,
   useContext,
   type ReactNode,
+  useCallback,
 } from 'react';
 import {
   onAuthStateChanged,
@@ -15,13 +16,13 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth, isFirebaseConfigValid, firebaseConfig } from '@/lib/firebase';
+import { auth, db, isFirebaseConfigValid, firebaseConfig } from '@/lib/firebase';
 import type { AuthFormValues, RoleId } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
 import { useRoles } from './use-roles';
+import { ref, onValue, set } from 'firebase/database';
 
-const USER_ROLE_STORAGE_KEY = 'pumppal-user-role';
 
 interface AuthContextType {
   user: User | null;
@@ -47,26 +48,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isConfigValid = isFirebaseConfigValid(firebaseConfig);
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-  // Effect to load user role from localStorage
+  // Effect to load user role from RTDB
   useEffect(() => {
-    if (user) {
-      const storedRole = localStorage.getItem(`${USER_ROLE_STORAGE_KEY}:${user.uid}`);
-      setUserRole(storedRole as RoleId || 'admin'); // Default to admin if no role is set
+    if (user && db) {
+      const userRoleRef = ref(db, `userRoles/${user.uid}`);
+      const unsubscribe = onValue(userRoleRef, (snapshot) => {
+        const role = snapshot.val();
+        setUserRole(role || 'admin'); // Default to admin if no role is set
+      });
+      return () => unsubscribe();
     } else {
       setUserRole(null);
     }
   }, [user]);
 
-  const assignRoleToUser = (userId: string, roleId: RoleId) => {
+  const assignRoleToUser = useCallback((userId: string, roleId: RoleId) => {
+    if (!db) return;
     try {
-      localStorage.setItem(`${USER_ROLE_STORAGE_KEY}:${userId}`, roleId);
+      const userRoleRef = ref(db, `userRoles/${userId}`);
+      set(userRoleRef, roleId);
       if (user && user.uid === userId) {
         setUserRole(roleId);
       }
     } catch (error) {
-      console.error("Failed to save user role to localStorage", error);
+      console.error("Failed to save user role to RTDB", error);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!isConfigValid) {
@@ -85,17 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // This listener handles the auth state changes from Firebase.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && !localStorage.getItem(`${USER_ROLE_STORAGE_KEY}:${currentUser.uid}`)) {
-        // Assign admin role to the first user who signs up
-        const allUserRoles = Object.keys(localStorage).filter(key => key.startsWith(USER_ROLE_STORAGE_KEY));
-        if (allUserRoles.length === 0) {
-            assignRoleToUser(currentUser.uid, 'admin');
-        }
+      if (currentUser && db) {
+        // Check if any roles exist. If not, this is the first user.
+        const rolesRef = ref(db, 'userRoles');
+        onValue(rolesRef, (snapshot) => {
+            if (!snapshot.exists()) {
+                assignRoleToUser(currentUser.uid, 'admin');
+            }
+        }, { onlyOnce: true });
       }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isConfigValid]);
+  }, [isConfigValid, assignRoleToUser]);
   
   // This effect handles route protection.
   useEffect(() => {
@@ -147,8 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
   }
   
-  // This component now defers the rendering of the main app layout to the RolesProvider
-  // which will have access to the auth context.
   return (
       <AuthContext.Provider value={value}>
         {children}

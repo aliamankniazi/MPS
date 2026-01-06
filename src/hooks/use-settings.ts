@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useTransactions } from '@/hooks/use-transactions';
@@ -20,6 +19,8 @@ import { useSuppliers } from './use-suppliers';
 import { useInvestments } from './use-investments';
 import { useBusinessPartners } from './use-business-partners';
 import { useSaleReturns } from './use-sale-returns';
+import { db } from '@/lib/firebase';
+import { ref, remove } from 'firebase/database';
 
 export function useSettings() {
   const { clearTransactions } = useTransactions();
@@ -42,6 +43,7 @@ export function useSettings() {
   const { clearBusinessPartners } = useBusinessPartners();
 
   const clearAllData = () => {
+    // This will clear all local state via the individual hooks.
     clearTransactions();
     clearPurchases();
     clearPurchaseReturns();
@@ -60,6 +62,11 @@ export function useSettings() {
     clearSupplierPayments();
     clearInvestments();
     clearBusinessPartners();
+
+    // Additionally, wipe the entire RTDB database.
+    if (db) {
+        remove(ref(db));
+    }
   };
 
   return {

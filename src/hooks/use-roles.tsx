@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
@@ -7,8 +6,10 @@ import type { Role, RoleId, Permission } from '@/lib/types';
 import { useAuth } from './use-auth';
 import { AppLayout } from '@/components/app-layout';
 import { usePathname } from 'next/navigation';
+import { db } from '@/lib/firebase';
+import { ref, onValue, set } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-roles';
+const DB_PATH = 'roles';
 
 export const PERMISSIONS = [
     'view_dashboard', 'view_all_transactions', 'delete_transaction',
@@ -55,64 +56,52 @@ const RolesContext = createContext<RolesContextType | undefined>(undefined);
 export function RolesProvider({ children }: { children: ReactNode }) {
     const [roles, setRoles] = useState<Role[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
-    const { user, userRole } = useAuth(); // Now this hook can be called safely.
+    const { user, userRole } = useAuth();
     const pathname = usePathname();
     const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-
-    const loadData = useCallback(() => {
-        try {
-            const storedItems = localStorage.getItem(STORAGE_KEY);
-            if (storedItems) {
-                setRoles(JSON.parse(storedItems));
+    useEffect(() => {
+        if (!db) {
+            setRoles(DEFAULT_ROLES);
+            setIsLoaded(true);
+            return;
+        }
+        const rolesRef = ref(db, DB_PATH);
+        const unsubscribe = onValue(rolesRef, (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const rolesList: Role[] = Object.keys(data).map(key => ({
+                    id: key,
+                    ...data[key]
+                }));
+                setRoles(rolesList);
             } else {
                 setRoles(DEFAULT_ROLES);
             }
-        } catch (error) {
-            console.error("Failed to parse roles from localStorage", error);
-            setRoles(DEFAULT_ROLES);
-        } finally {
             setIsLoaded(true);
-        }
+        });
+
+        return () => unsubscribe();
     }, []);
-    
-    useEffect(() => {
-        loadData();
-
-        const handleStorageChange = (e: StorageEvent) => {
-          if (e.key === STORAGE_KEY) {
-            loadData();
-          }
-        };
-    
-        window.addEventListener('storage', handleStorageChange);
-        return () => {
-          window.removeEventListener('storage', handleStorageChange);
-        };
-    }, [loadData]);
-
-
-    useEffect(() => {
-        if (isLoaded) {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(roles));
-            } catch (error) {
-                console.error("Failed to save roles to localStorage", error);
-            }
-        }
-    }, [roles, isLoaded]);
 
     const addRole = useCallback((role: Omit<Role, 'id'>) => {
-        setRoles(prev => [...prev, { ...role, id: crypto.randomUUID() }]);
+        if (!db) return;
+        const newRoleId = crypto.randomUUID();
+        const roleRef = ref(db, `${DB_PATH}/${newRoleId}`);
+        set(roleRef, role);
     }, []);
 
     const updateRole = useCallback((id: RoleId, updatedRole: Role) => {
-        setRoles(prev => prev.map(r => r.id === id ? { ...r, ...updatedRole } : r));
+        if (!db) return;
+        const roleRef = ref(db, `${DB_PATH}/${id}`);
+        const { id: _, ...roleData } = updatedRole;
+        set(roleRef, roleData);
     }, []);
 
     const deleteRole = useCallback((id: RoleId) => {
-        if (id === 'admin') return; // Prevent deleting admin role
-        setRoles(prev => prev.filter(r => r.id !== id));
+        if (!db || id === 'admin') return;
+        const roleRef = ref(db, `${DB_PATH}/${id}`);
+        set(roleRef, null);
     }, []);
 
     const hasPermission = useCallback((permission: Permission): boolean => {
@@ -130,7 +119,6 @@ export function RolesProvider({ children }: { children: ReactNode }) {
         hasPermission,
     };
     
-    // The RolesProvider now decides whether to render the main app layout or the auth pages.
     return (
         <RolesContext.Provider value={value}>
             {user && !isAuthPage ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}

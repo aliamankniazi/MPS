@@ -1,9 +1,12 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import type { FuelType } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { ref, onValue, update } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-fuel-prices';
+const DB_PATH = 'fuelPrices';
 
 const DEFAULT_FUEL_PRICES: Record<FuelType, number> = {
   'Unleaded': 275.98,
@@ -16,46 +19,39 @@ export function useFuelPrices() {
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setFuelPrices(JSON.parse(storedItems));
-      } else {
-        setFuelPrices(DEFAULT_FUEL_PRICES);
-      }
-    } catch (error) {
-      console.error("Failed to parse fuel prices from localStorage", error);
-      setFuelPrices(DEFAULT_FUEL_PRICES);
-    } finally {
+    if (!db) {
       setIsLoaded(true);
+      return;
     }
-  }, []);
+    const pricesRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(pricesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            setFuelPrices(data);
+        } else {
+            setFuelPrices(DEFAULT_FUEL_PRICES);
+        }
+        setIsLoaded(true);
+    });
 
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(fuelPrices));
-      } catch (error) {
-        console.error("Failed to save fuel prices to localStorage", error);
-      }
-    }
-  }, [fuelPrices, isLoaded]);
+    return () => unsubscribe();
+  }, []);
   
   const updateFuelPrice = useCallback((fuelType: FuelType, newPrice: number) => {
-    if (isNaN(newPrice) || newPrice < 0) return;
-    setFuelPrices(prev => ({
-      ...prev,
-      [fuelType]: newPrice,
-    }));
+    if (!db || isNaN(newPrice) || newPrice < 0) return;
+    const updates: Record<string, number> = {};
+    updates[`${DB_PATH}/${fuelType}`] = newPrice;
+    update(ref(db), updates);
   }, []);
 
   const clearFuelPrices = useCallback(() => {
+    if (!db) return;
+    const updates: Record<string, null> = {};
+    Object.keys(DEFAULT_FUEL_PRICES).forEach(fuelType => {
+      updates[`${DB_PATH}/${fuelType}`] = null;
+    });
+    update(ref(db), updates);
     setFuelPrices({...DEFAULT_FUEL_PRICES});
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.error("Failed to remove fuel prices from localStorage", error);
-    }
   }, []);
 
   return { fuelPrices, updateFuelPrice, clearFuelPrices, isLoaded };

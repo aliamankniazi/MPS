@@ -3,71 +3,54 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Supplier } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { ref, onValue, push, remove, set } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-suppliers';
+const DB_PATH = 'suppliers';
 
 export function useSuppliers() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const loadData = useCallback(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setSuppliers(JSON.parse(storedItems));
-      }
-    } catch (error) {
-      console.error("Failed to parse suppliers from localStorage", error);
-      setSuppliers([]);
-    } finally {
-      setIsLoaded(true);
+  useEffect(() => {
+    if (!db) {
+        setIsLoaded(true);
+        return;
     }
+    const suppliersRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(suppliersRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const suppliersList: Supplier[] = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).sort((a,b) => a.name.localeCompare(b.name));
+            setSuppliers(suppliersList);
+        } else {
+            setSuppliers([]);
+        }
+        setIsLoaded(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    loadData();
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadData]);
-
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(suppliers));
-      } catch (error) {
-        console.error("Failed to save suppliers to localStorage", error);
-      }
-    }
-  }, [suppliers, isLoaded]);
 
   const addSupplier = useCallback((supplier: Omit<Supplier, 'id' | 'timestamp'>) => {
-    setSuppliers(prev => [
-      { ...supplier, id: crypto.randomUUID(), timestamp: new Date().toISOString() },
-      ...prev,
-    ]);
+    if (!db) return;
+    const newSupplierRef = push(ref(db, DB_PATH));
+    set(newSupplierRef, { ...supplier, timestamp: new Date().toISOString() });
   }, []);
   
   const deleteSupplier = useCallback((id: string) => {
-    setSuppliers(prev => prev.filter(s => s.id !== id));
+    if (!db) return;
+    const supplierRef = ref(db, `${DB_PATH}/${id}`);
+    remove(supplierRef);
   }, []);
 
   const clearSuppliers = useCallback(() => {
-    setSuppliers([]);
-    try {
-        localStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-        console.error("Failed to clear suppliers from localStorage", error);
-    }
+    if (!db) return;
+    const suppliersRef = ref(db, DB_PATH);
+    remove(suppliersRef);
   }, []);
 
   return { suppliers, addSupplier, deleteSupplier, clearSuppliers, isLoaded };

@@ -3,65 +3,54 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { CashAdvance } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { ref, onValue, push, remove, set } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-cash-advances';
+const DB_PATH = 'cashAdvances';
 
 export function useCashAdvances() {
   const [cashAdvances, setCashAdvances] = useState<CashAdvance[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const loadData = useCallback(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setCashAdvances(JSON.parse(storedItems));
-      }
-    } catch (error) {
-      console.error("Failed to parse cash advances from localStorage", error);
-      setCashAdvances([]);
-    } finally {
-      setIsLoaded(true);
+  useEffect(() => {
+    if (!db) {
+        setIsLoaded(true);
+        return;
     }
+    const advancesRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(advancesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const advancesList: CashAdvance[] = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setCashAdvances(advancesList);
+        } else {
+            setCashAdvances([]);
+        }
+        setIsLoaded(true);
+    });
+
+    return () => unsubscribe();
   }, []);
-  
-  useEffect(() => {
-    loadData();
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadData]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(cashAdvances));
-      } catch (error) {
-        console.error("Failed to save cash advances to localStorage", error);
-      }
-    }
-  }, [cashAdvances, isLoaded]);
 
   const addCashAdvance = useCallback((advance: Omit<CashAdvance, 'id'>) => {
-    setCashAdvances(prev => [
-      { ...advance, id: crypto.randomUUID() },
-      ...prev,
-    ]);
+    if (!db) return;
+    const newAdvanceRef = push(ref(db, DB_PATH));
+    set(newAdvanceRef, advance);
   }, []);
   
   const deleteCashAdvance = useCallback((id: string) => {
-    setCashAdvances(prev => prev.filter(ca => ca.id !== id));
+    if (!db) return;
+    const advanceRef = ref(db, `${DB_PATH}/${id}`);
+    remove(advanceRef);
   }, []);
 
   const clearCashAdvances = useCallback(() => {
-    setCashAdvances([]);
+    if (!db) return;
+    const advancesRef = ref(db, DB_PATH);
+    remove(advancesRef);
   }, []);
 
   return { cashAdvances, addCashAdvance, deleteCashAdvance, clearCashAdvances, isLoaded };

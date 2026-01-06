@@ -3,70 +3,55 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { OtherIncome } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { ref, onValue, push, remove, set } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-other-incomes';
+const DB_PATH = 'otherIncomes';
 
 export function useOtherIncomes() {
   const [otherIncomes, setOtherIncomes] = useState<OtherIncome[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const loadData = useCallback(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setOtherIncomes(JSON.parse(storedItems));
-      }
-    } catch (error) {
-      console.error("Failed to parse other incomes from localStorage", error);
-      setOtherIncomes([]);
-    } finally {
-      setIsLoaded(true);
+  useEffect(() => {
+    if (!db) {
+        setIsLoaded(true);
+        return;
     }
+
+    const incomesRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(incomesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const incomesList: OtherIncome[] = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setOtherIncomes(incomesList);
+        } else {
+            setOtherIncomes([]);
+        }
+        setIsLoaded(true);
+    });
+
+    return () => unsubscribe();
   }, []);
-  
-  useEffect(() => {
-    loadData();
 
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadData]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(otherIncomes));
-      } catch (error) {
-        console.error("Failed to save other incomes to localStorage", error);
-      }
-    }
-  }, [otherIncomes, isLoaded]);
-
-  const addOtherIncome = useCallback((income: Omit<OtherIncome, 'id' | 'timestamp'>) => {
-    setOtherIncomes(prev => [
-      { ...income, id: crypto.randomUUID(), timestamp: new Date().toISOString() },
-      ...prev,
-    ]);
+  const addOtherIncome = useCallback((income: Omit<OtherIncome, 'id'>) => {
+    if (!db) return;
+    const newIncomeRef = push(ref(db, DB_PATH));
+    set(newIncomeRef, income);
   }, []);
 
   const deleteOtherIncome = useCallback((id: string) => {
-    setOtherIncomes(prev => prev.filter(oi => oi.id !== id));
+    if (!db) return;
+    const incomeRef = ref(db, `${DB_PATH}/${id}`);
+    remove(incomeRef);
   }, []);
   
   const clearOtherIncomes = useCallback(() => {
-    setOtherIncomes([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (error) {
-      console.error("Failed to remove other incomes from localStorage", error);
-    }
+    if (!db) return;
+    const incomesRef = ref(db, DB_PATH);
+    remove(incomesRef);
   }, []);
 
   return { otherIncomes, addOtherIncome, deleteOtherIncome, clearOtherIncomes, isLoaded };

@@ -3,65 +3,55 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { Expense } from '@/lib/types';
+import { db } from '@/lib/firebase';
+import { ref, onValue, push, remove, set } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-expenses';
+const DB_PATH = 'expenses';
 
 export function useExpenses() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const loadData = useCallback(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setExpenses(JSON.parse(storedItems));
-      }
-    } catch (error) {
-      console.error("Failed to parse expenses from localStorage", error);
-      setExpenses([]);
-    } finally {
-      setIsLoaded(true);
+  useEffect(() => {
+    if (!db) {
+        setIsLoaded(true);
+        return;
     }
+
+    const expensesRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(expensesRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const expensesList: Expense[] = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            setExpenses(expensesList);
+        } else {
+            setExpenses([]);
+        }
+        setIsLoaded(true);
+    });
+
+    return () => unsubscribe();
   }, []);
-  
-  useEffect(() => {
-    loadData();
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadData]);
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(expenses));
-      } catch (error) {
-        console.error("Failed to save expenses to localStorage", error);
-      }
-    }
-  }, [expenses, isLoaded]);
 
   const addExpense = useCallback((expense: Omit<Expense, 'id'>) => {
-    setExpenses(prev => {
-        const newExpenses = [{ ...expense, id: crypto.randomUUID() }, ...prev];
-        return newExpenses.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    });
+    if (!db) return;
+    const newExpenseRef = push(ref(db, DB_PATH));
+    set(newExpenseRef, expense);
   }, []);
   
   const deleteExpense = useCallback((id: string) => {
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    if (!db) return;
+    const expenseRef = ref(db, `${DB_PATH}/${id}`);
+    remove(expenseRef);
   }, []);
 
   const clearExpenses = useCallback(() => {
-    setExpenses([]);
+    if (!db) return;
+    const expensesRef = ref(db, DB_PATH);
+    remove(expensesRef);
   }, []);
 
   return { expenses, addExpense, deleteExpense, clearExpenses, isLoaded };

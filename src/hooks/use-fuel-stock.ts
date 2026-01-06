@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -5,9 +6,11 @@ import type { FuelType } from '@/lib/types';
 import { useTransactions } from './use-transactions';
 import { usePurchases } from './use-purchases';
 import { usePurchaseReturns } from './use-purchase-returns';
+import { db } from '@/lib/firebase';
+import { ref, onValue, set } from 'firebase/database';
 
-const MANUAL_STOCK_KEY = 'pumppal-manual-fuel-stock';
-const INITIAL_STOCK_KEY = 'pumppal-initial-fuel-stock';
+const MANUAL_STOCK_PATH = 'manualFuelStock';
+const INITIAL_STOCK_PATH = 'initialFuelStock';
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
   'Unleaded': 10000,
@@ -25,29 +28,29 @@ export function useFuelStock() {
   const [initialStock, setInitialStock] = useState<Record<FuelType, number>>(DEFAULT_INITIAL_STOCK);
 
   useEffect(() => {
-    try {
-      const storedManual = localStorage.getItem(MANUAL_STOCK_KEY);
-      if (storedManual) setManualStock(JSON.parse(storedManual));
-      
-      const storedInitial = localStorage.getItem(INITIAL_STOCK_KEY);
-      if(storedInitial) setInitialStock(JSON.parse(storedInitial));
+    if (!db) {
+        setIsLoaded(true);
+        return;
+    }
+    let manualUnsubscribe = () => {};
+    let initialUnsubscribe = () => {};
 
-    } catch (error) {
-      console.error("Failed to parse fuel stock from localStorage", error);
-    } finally {
-      setIsLoaded(true);
+    const manualRef = ref(db, MANUAL_STOCK_PATH);
+    manualUnsubscribe = onValue(manualRef, (snapshot) => {
+        setManualStock(snapshot.val() || {});
+    });
+    
+    const initialRef = ref(db, INITIAL_STOCK_PATH);
+    initialUnsubscribe = onValue(initialRef, (snapshot) => {
+        setInitialStock(snapshot.val() || DEFAULT_INITIAL_STOCK);
+        setIsLoaded(true);
+    });
+
+    return () => {
+        manualUnsubscribe();
+        initialUnsubscribe();
     }
   }, []);
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(MANUAL_STOCK_KEY, JSON.stringify(manualStock));
-      } catch (error) {
-        console.error("Failed to save manual fuel stock to localStorage", error);
-      }
-    }
-  }, [manualStock, isLoaded]);
 
   const fuelStock = useMemo(() => {
     if (!transactionsLoaded || !purchasesLoaded || !purchaseReturnsLoaded) {
@@ -58,7 +61,6 @@ export function useFuelStock() {
 
     for (const fuelType in stock) {
         const ft = fuelType as FuelType;
-
         const manualAdjustment = manualStock[ft];
         
         if (manualAdjustment) {
@@ -84,23 +86,18 @@ export function useFuelStock() {
   }, [initialStock, manualStock, transactions, purchases, purchaseReturns, transactionsLoaded, purchasesLoaded, purchaseReturnsLoaded]);
 
   const setFuelStock = useCallback((fuelType: FuelType, newStock: number) => {
-    if (isNaN(newStock) || newStock < 0) return;
+    if (!db || isNaN(newStock) || newStock < 0) return;
     
-    setManualStock(prev => ({
-      ...prev,
-      [fuelType]: { value: newStock, timestamp: new Date().toISOString() },
-    }));
+    const stockRef = ref(db, `${MANUAL_STOCK_PATH}/${fuelType}`);
+    set(stockRef, { value: newStock, timestamp: new Date().toISOString() });
   }, []);
 
   const clearFuelStock = useCallback(() => {
-    setManualStock({});
-    setInitialStock(DEFAULT_INITIAL_STOCK);
-    try {
-      localStorage.removeItem(MANUAL_STOCK_KEY);
-      localStorage.removeItem(INITIAL_STOCK_KEY);
-    } catch (error) {
-      console.error("Failed to remove fuel stock from localStorage", error);
-    }
+    if (!db) return;
+    const manualRef = ref(db, MANUAL_STOCK_PATH);
+    remove(manualRef);
+    const initialRef = ref(db, INITIAL_STOCK_PATH);
+    remove(initialRef);
   }, []);
 
   return { fuelStock, setFuelStock, clearFuelStock, isLoaded: isLoaded && transactionsLoaded && purchasesLoaded && purchaseReturnsLoaded };

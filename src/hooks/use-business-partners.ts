@@ -4,56 +4,41 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { BusinessPartner } from '@/lib/types';
 import { useCustomers } from './use-customers';
+import { db } from '@/lib/firebase';
+import { ref, onValue, set, push, remove, update } from 'firebase/database';
 
-const STORAGE_KEY = 'pumppal-business-partners';
+const DB_PATH = 'businessPartners';
 
 export function useBusinessPartners() {
   const [businessPartners, setBusinessPartners] = useState<BusinessPartner[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
-  const { customers, addCustomer, updateCustomer } = useCustomers();
+  const { customers, addCustomer, updateCustomer: updateCustomerRecord } = useCustomers();
 
-  const loadData = useCallback(() => {
-    try {
-      const storedItems = localStorage.getItem(STORAGE_KEY);
-      if (storedItems) {
-        setBusinessPartners(JSON.parse(storedItems));
-      }
-    } catch (error) {
-      console.error("Failed to parse business partners from localStorage", error);
-    } finally {
-      setIsLoaded(true);
+  useEffect(() => {
+    if (!db) {
+        setIsLoaded(true);
+        return;
     }
+    const partnersRef = ref(db, DB_PATH);
+    const unsubscribe = onValue(partnersRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            const partnersList: BusinessPartner[] = Object.keys(data).map(key => ({
+                id: key,
+                ...data[key]
+            })).sort((a,b) => a.name.localeCompare(b.name));
+            setBusinessPartners(partnersList);
+        } else {
+            setBusinessPartners([]);
+        }
+        setIsLoaded(true);
+    });
+    return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    loadData();
-
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        loadData();
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, [loadData]);
-
-
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(businessPartners));
-      } catch (error) {
-        console.error("Failed to save business partners to localStorage", error);
-      }
-    }
-  }, [businessPartners, isLoaded]);
 
   const addBusinessPartner = useCallback((partner: Omit<BusinessPartner, 'id' | 'timestamp'>): BusinessPartner => {
-    // Also add as a customer first to get a consistent ID
-    const newCustomer = addCustomer({
+    const customerRecord = addCustomer({
         name: partner.name,
         contact: partner.contact || '',
         area: 'Business Partner',
@@ -62,44 +47,41 @@ export function useBusinessPartners() {
 
     const newPartner: BusinessPartner = { 
         ...partner, 
-        id: newCustomer.id, // Use the ID from the customer record
-        timestamp: newCustomer.timestamp 
+        id: customerRecord.id,
+        timestamp: customerRecord.timestamp 
     };
 
-    setBusinessPartners(prev => [
-      newPartner,
-      ...prev,
-    ].sort((a,b) => a.name.localeCompare(b.name)));
-
+    if (db) {
+        const partnerRef = ref(db, `${DB_PATH}/${customerRecord.id}`);
+        set(partnerRef, { ...partner, timestamp: customerRecord.timestamp });
+    }
+    
     return newPartner;
   }, [addCustomer]);
 
   const updateBusinessPartner = useCallback((id: string, updatedPartner: Partial<Omit<BusinessPartner, 'id' | 'timestamp'>>) => {
-    setBusinessPartners(prev =>
-      prev.map(p => (p.id === id ? { ...p, ...updatedPartner, name: updatedPartner.name!, sharePercentage: updatedPartner.sharePercentage! } : p))
-    );
+    if (db) {
+      const partnerRef = ref(db, `${DB_PATH}/${id}`);
+      update(partnerRef, updatedPartner);
+    }
     
     // Also update the corresponding customer record
-    const customer = customers.find(c => c.id === id);
-    if(customer) {
-        updateCustomer(id, { name: updatedPartner.name, contact: updatedPartner.contact });
+    if(updatedPartner.name || updatedPartner.contact) {
+        updateCustomerRecord(id, { name: updatedPartner.name, contact: updatedPartner.contact });
     }
-  }, [customers, updateCustomer]);
+  }, [updateCustomerRecord]);
 
   const deleteBusinessPartner = useCallback((id: string) => {
+    if (!db) return;
     // Note: We don't delete the customer record to preserve their ledger history.
-    // We can filter them out in the UI if needed.
-    setBusinessPartners(prev => prev.filter(p => p.id !== id));
+    const partnerRef = ref(db, `${DB_PATH}/${id}`);
+    remove(partnerRef);
   }, []);
 
   const clearBusinessPartners = useCallback(() => {
-    setBusinessPartners([]);
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (error)
-      {
-      console.error("Failed to remove business partners from localStorage", error);
-    }
+    if (!db) return;
+    const partnersRef = ref(db, DB_PATH);
+    remove(partnersRef);
   }, []);
 
   return { businessPartners, addBusinessPartner, updateBusinessPartner, deleteBusinessPartner, clearBusinessPartners, isLoaded };
