@@ -1,8 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useMemo, useState, useParams } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -46,7 +45,8 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const { id: entityId } = useParams() as { id: string };
+  const params = useParams();
+  const entityId = params.id as string;
 
   const { customers, isLoaded: customersLoaded } = useCustomers();
   const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
@@ -121,7 +121,7 @@ export default function CustomerLedgerPage() {
         supplierPurchases.forEach(p => combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
-            description: `${p.volume.toFixed(2)}L of ${p.fuelType}`,
+            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
             type: 'Purchase',
             credit: p.totalCost, // Credit to supplier's account
             debit: 0,
@@ -404,5 +404,7 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
 
     
