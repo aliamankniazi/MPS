@@ -27,7 +27,6 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
 import type { Permission } from '@/hooks/use-roles';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
 import { cn } from '@/lib/utils';
 
 
@@ -142,28 +141,24 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
             </SidebarMenuItem>
 
             {navGroups.map((group) => hasPermission(group.permission) && (
-                <Collapsible key={group.title} defaultOpen={group.links.some(l => isLinkActive(l.href))}>
-                    <CollapsibleTrigger className="w-full">
-                        <SidebarMenuButton variant="ghost" className="w-full justify-start" isActive={group.links.some(l => isLinkActive(l.href))}>
-                            <group.icon/>
-                            <span>{group.title}</span>
-                        </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                        <SidebarMenuSub>
-                           {group.links.map(link => hasPermission(link.permission) && (
-                            <SidebarMenuSubItem key={link.href}>
-                               <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
-                                    <Link href={link.href}>
-                                       <link.icon/>
-                                       <span>{link.label}</span>
-                                    </Link>
-                                </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                           ))}
-                        </SidebarMenuSub>
-                    </CollapsibleContent>
-                </Collapsible>
+                <SidebarGroup key={group.title}>
+                    <SidebarGroupLabel className="flex items-center">
+                        <group.icon className="mr-2"/>
+                        {group.title}
+                    </SidebarGroupLabel>
+                    <SidebarMenuSub>
+                        {group.links.map(link => hasPermission(link.permission) && (
+                        <SidebarMenuSubItem key={link.href}>
+                            <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
+                                <Link href={link.href}>
+                                    <link.icon/>
+                                    <span>{link.label}</span>
+                                </Link>
+                            </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        ))}
+                    </SidebarMenuSub>
+                </SidebarGroup>
             ))}
           </SidebarMenu>
         </SidebarContent>
