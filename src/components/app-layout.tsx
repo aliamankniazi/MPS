@@ -20,7 +20,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, PiggyBank, Archive, BarChartHorizontal, CalendarCheck, SlidersHorizontal, Gauge, Sun } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, PiggyBank, Archive, BarChartHorizontal, CalendarCheck, SlidersHorizontal, Gauge, Sun, Landmark } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
@@ -75,6 +75,7 @@ const navItems = [
     items: [
         { href: '/expenses', label: 'Expenses', icon: Receipt, permission: 'view_expenses' as Permission },
         { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign, permission: 'view_other_incomes' as Permission },
+        { href: '/bank-management', label: 'Bank Management', icon: Landmark, permission: 'manage_banks' as Permission },
     ]
   },
   { href: '/reports', label: 'Reports', icon: FileText, permission: 'view_summary' as Permission },
