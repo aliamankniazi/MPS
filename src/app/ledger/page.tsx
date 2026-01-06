@@ -66,7 +66,7 @@ export default function LedgerPage() {
   const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && purchaseReturnsLoaded && otherIncomesLoaded && supplierPaymentsLoaded && investmentsLoaded && customerPaymentsLoaded;
 
   const { entries, finalBalance, openingBalance, totals, productWiseSales, profitSummary } = useMemo(() => {
-    if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: {} };
+    if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: { totalRevenue: 0, costOfGoods: 0, grossProfit: 0, totalExpenses: 0, netProfit: 0 } };
 
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
@@ -177,10 +177,11 @@ export default function LedgerPage() {
     let entriesForSummary = combined;
 
     if (selectedDate) {
+      const dayStart = startOfDay(selectedDate);
       calculatedOpeningBalance = combined
         .filter(entry => {
             const entryDate = new Date(entry.timestamp);
-            return isValid(entryDate) && entryDate < startOfDay(selectedDate)
+            return isValid(entryDate) && entryDate < dayStart
         })
         .reduce((acc, entry) => acc + entry.credit - entry.debit, 0);
       
@@ -232,7 +233,7 @@ export default function LedgerPage() {
     }));
 
     // Calculate Profit Summary based on the filtered entries
-    const totalRevenue = entriesForSummary.filter(e => e.type === 'Sale' || e.type === 'Other Income').reduce((sum, e) => sum + e.credit, 0);
+    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income', 'Customer Payment'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
     const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0) 
                       - entriesForSummary.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
     const totalExpenses = entriesForSummary.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
@@ -265,9 +266,9 @@ export default function LedgerPage() {
             className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
             >{type}</Badge>
     }},
-    { accessorKey: 'debit', header: 'Debit (PKR)', cell: ({row}: any) => <span className="font-mono text-destructive">{row.original.debit > 0 ? row.original.debit.toFixed(2) : '-'}</span>, className: 'text-right' },
-    { accessorKey: 'credit', header: 'Credit (PKR)', cell: ({row}: any) => <span className="font-mono text-green-600">{row.original.credit > 0 ? row.original.credit.toFixed(2) : '-'}</span>, className: 'text-right' },
-    { accessorKey: 'balance', header: 'Balance (PKR)', cell: ({row}: any) => <span className={cn("font-semibold font-mono", row.original.balance >= 0 ? 'text-primary' : 'text-destructive')}>{row.original.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>, className: 'text-right' },
+    { accessorKey: 'debit', header: 'Debit (PKR)', cell: ({row}: any) => <span className="font-mono text-destructive">{row.original.debit > 0 ? row.original.debit.toFixed(2) : '-'}</span>, meta: { className: 'text-right' } },
+    { accessorKey: 'credit', header: 'Credit (PKR)', cell: ({row}: any) => <span className="font-mono text-green-600">{row.original.credit > 0 ? row.original.credit.toFixed(2) : '-'}</span>, meta: { className: 'text-right' } },
+    { accessorKey: 'balance', header: 'Balance (PKR)', cell: ({row}: any) => <span className={cn("font-semibold font-mono", row.original.balance >= 0 ? 'text-primary' : 'text-destructive')}>{row.original.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>, meta: { className: 'text-right' } },
     {
       id: 'actions',
       cell: ({ row }: any) => (
@@ -280,9 +281,9 @@ export default function LedgerPage() {
 
   const productSalesColumns = [
     { accessorKey: 'product', header: 'Product' },
-    { accessorKey: 'totalSold', header: 'Total Sold', className: 'text-right' },
-    { accessorKey: 'averagePrice', header: 'Average Price / Unit', className: 'text-right' },
-    { accessorKey: 'totalRevenue', header: 'Total Revenue', className: 'text-right font-semibold' },
+    { accessorKey: 'totalSold', header: 'Total Sold', meta: { className: 'text-right' } },
+    { accessorKey: 'averagePrice', header: 'Average Price / Unit', meta: { className: 'text-right' } },
+    { accessorKey: 'totalRevenue', header: 'Total Revenue', meta: { className: 'text-right font-semibold' } },
   ];
 
   const exportToExcel = (data: any[], fileName: string) => {

@@ -207,10 +207,10 @@ export default function PartnerLedgerPage() {
     
     if (selectedDate) {
       openingBalance = entityFilteredEntries
-        .filter(entry => new Date(entry.timestamp) < startOfDay(selectedDate))
+        .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfDay(selectedDate))
         .reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
 
-      entriesForDisplay = entityFilteredEntries.filter(entry => isSameDay(new Date(entry.timestamp), selectedDate));
+      entriesForDisplay = entityFilteredEntries.filter(entry => isValid(new Date(entry.timestamp)) && isSameDay(new Date(entry.timestamp), selectedDate));
     }
 
     let runningBalance = openingBalance;
