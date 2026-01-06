@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isSameDay, startOfDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package } from 'lucide-react';
+import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,9 @@ import Link from 'next/link';
 import { DataTable } from '@/components/ui/data-table';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import type { Transaction } from '@/lib/types';
 
 
 type LedgerEntry = {
@@ -41,6 +44,14 @@ type LedgerEntry = {
   balance: number;
   original: any;
 };
+
+const chartConfig = {
+  liters: {
+    label: "Liters",
+    color: "hsl(var(--chart-1))",
+  },
+} satisfies ChartConfig;
+
 
 export default function LedgerPage() {
   const { 
@@ -65,13 +76,13 @@ export default function LedgerPage() {
     deleteCustomerPayment,
   } = useDatabase();
   
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
-  const { entries, finalBalance, openingBalance, totals, productWiseSales, profitSummary } = useMemo(() => {
-    if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: { totalRevenue: 0, costOfGoods: 0, grossProfit: 0, totalExpenses: 0, netProfit: 0 } };
+  const { entries, finalBalance, openingBalance, totals, productWiseSales, profitSummary, salesChartData } = useMemo(() => {
+    if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: { totalRevenue: 0, costOfGoods: 0, grossProfit: 0, totalExpenses: 0, netProfit: 0 }, salesChartData: [] };
 
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
@@ -234,15 +245,16 @@ export default function LedgerPage() {
     const salesByProduct = entriesForSummary
       .filter(e => e.type === 'Sale')
       .reduce((acc, saleEntry) => {
-        const tx = saleEntry.original as import('@/lib/types').Transaction;
+        const tx = saleEntry.original as Transaction;
         const productNameSource = tx.product || tx.fuelType || 'Uncategorized Sale';
+        if (!productNameSource) return acc;
         const products = productNameSource.split(',').map(p => p.trim());
 
         products.forEach(productName => {
            if (!acc[productName]) {
                 acc[productName] = { totalSold: 0, totalRevenue: 0, count: 0, unit: 'items' };
                 // A simple heuristic for units based on product name
-                if (productName.toLowerCase().includes('diesel') || productName.toLowerCase().includes('unleaded') || productName.toLowerCase().includes('premium')) {
+                if (['Unleaded', 'Premium', 'Diesel'].includes(productName)) {
                     acc[productName].unit = 'Liters';
                 } else if (productName.toLowerCase().includes('oil')) {
                      acc[productName].unit = 'Cans';
@@ -266,6 +278,13 @@ export default function LedgerPage() {
         averagePrice: data.totalSold > 0 ? (data.totalRevenue / data.totalSold).toFixed(2) : '0.00',
         totalRevenue: data.totalRevenue.toFixed(2),
     }));
+    
+    const salesChartData = Object.entries(salesByProduct)
+      .filter(([_, data]) => data.unit === 'Liters')
+      .map(([product, data]) => ({
+        product,
+        liters: data.totalSold
+      }));
 
     // Calculate Profit Summary based on the filtered entries
     const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
@@ -291,6 +310,7 @@ export default function LedgerPage() {
         totals: calculatedTotals,
         productWiseSales: productWiseSalesData,
         profitSummary: profitSummaryData,
+        salesChartData
     };
 
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, selectedDate, searchTerm]);
@@ -411,12 +431,12 @@ export default function LedgerPage() {
        </header>
         
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            <div className="xl:col-span-2">
-                <Card>
+            <div className="xl:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <Card>
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Summary</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale</CardTitle>
                         <CardDescription>
-                          A summary of all product sales for {selectedDate ? format(selectedDate, "PPP") : 'all time'}.
+                          Summary of product sales for {selectedDate ? format(selectedDate, "PPP") : 'all time'}.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -426,7 +446,6 @@ export default function LedgerPage() {
                                 <TableRow>
                                     <TableHead>Product</TableHead>
                                     <TableHead className="text-right">Total Sold</TableHead>
-                                    <TableHead className="text-right">Average Price / Unit</TableHead>
                                     <TableHead className="text-right">Total Revenue</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -436,7 +455,6 @@ export default function LedgerPage() {
                                         <TableRow key={item.product}>
                                             <TableCell className="font-medium">{item.product}</TableCell>
                                             <TableCell className="text-right">{item.totalSold}</TableCell>
-                                            <TableCell className="text-right font-mono">{item.averagePrice}</TableCell>
                                             <TableCell className="text-right font-semibold font-mono">{parseFloat(item.totalRevenue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                         </TableRow>
                                     ))
@@ -450,7 +468,7 @@ export default function LedgerPage() {
                             </TableBody>
                              <TableFooter>
                                 <TableRow className="font-bold text-base">
-                                <TableCell colSpan={3} className="text-right">Total Revenue</TableCell>
+                                <TableCell colSpan={2} className="text-right">Total Revenue</TableCell>
                                 <TableCell className="text-right font-mono">
                                     PKR {productWiseSales.reduce((sum, item) => sum + parseFloat(item.totalRevenue), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </TableCell>
@@ -458,6 +476,30 @@ export default function LedgerPage() {
                             </TableFooter>
                         </Table>
                         </div>
+                    </CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Volume Chart</CardTitle>
+                        <CardDescription>Total liters sold for {selectedDate ? format(selectedDate, 'PPP') : 'all time'}.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isLoaded && salesChartData.length > 0 ? (
+                        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                            <BarChart accessibilityLayer data={salesChartData}>
+                                <CartesianGrid vertical={false} />
+                                <XAxis dataKey="product" tickLine={false} tickMargin={10} axisLine={false} />
+                                <YAxis />
+                                <ChartTooltip content={<ChartTooltipContent />} />
+                                <Bar dataKey="liters" fill="var(--color-liters)" radius={4} />
+                            </BarChart>
+                        </ChartContainer>
+                        ) : (
+                             <div className="flex flex-col items-center justify-center h-[200px] text-center text-muted-foreground">
+                                <Package className="w-12 h-12 mb-2" />
+                                <p>{isLoaded ? 'No fuel sales data for this period.' : 'Loading chart data...'}</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -568,3 +610,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
