@@ -1,0 +1,90 @@
+/**
+ * Core Philosophy: This ruleset establishes a simple, clear security model where all authenticated users, including
+ * those signed in anonymously, have full read and write access to the application's data. The primary security
+ * boundary is authentication itself; if a user is signed in, they are considered a trusted actor within the system.
+ * Unauthenticated access is completely disallowed.
+ *
+ * Data Structure: The data is organized into three distinct, top-level collections:
+ * - /fuel_types: Stores information about available fuel.
+ * - /transactions: Records all sales transactions.
+ * - /settings: Holds application-wide configuration data.
+ * This flat structure is simple and performant, with no nested user-specific data.
+ *
+ * Key Security Decisions:
+ * - Authenticated-Only Access: The core principle is that any form of sign-in (anonymous or password-based)
+ *   is sufficient to grant full permissions. This is suitable for applications where the app instance itself
+ *   is the security domain, rather than individual user accounts.
+ * - No User-Specific Data: The rules do not enforce any concept of data ownership. All authenticated users
+ *   can view and modify all data.
+ * - Robustness on Writes: All update and delete operations explicitly check that the document being modified
+ *   already exists, preventing operations on non-existent data.
+ *
+ * Denormalization for Authorization: Denormalization is not required for this security model because there are no
+ * user-specific roles or collaborative features. All authorization decisions are based solely on the user's
+ * authentication state (`request.auth != null`).
+ *
+ * Structural Segregation: The use of separate collections for `fuel_types`, `transactions`, and `settings` provides
+ * clear separation of concerns. This allows for more granular security rules to be applied to each data type in
+ * the future without impacting the others.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+
+    /**
+     * Checks if the user is authenticated, including anonymous users.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Collection Rules
+
+    /**
+     * @description Allows any authenticated user to manage fuel types.
+     * @path /fuel_types/{fuelTypeId}
+     * @allow (create) An authenticated user can add a new fuel type.
+     * @deny (get) An unauthenticated user (request.auth == null) is denied read access.
+     * @principle Requires user authentication for all data access.
+     */
+    match /fuel_types/{fuelTypeId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
+    }
+
+    /**
+     * @description Allows any authenticated user to manage transactions.
+     * @path /transactions/{transactionId}
+     * @allow (create) An authenticated user can create a new transaction record.
+     * @deny (list) An unauthenticated user (request.auth == null) is denied list access.
+     * @principle Requires user authentication for all data access.
+     */
+    match /transactions/{transactionId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
+    }
+
+    /**
+     * @description Allows any authenticated user to manage application settings.
+     * @path /settings/{settingId}
+     * @allow (update) An authenticated user can modify an existing setting.
+     * @deny (delete) An unauthenticated user (request.auth == null) is denied delete access.
+     * @principle Requires user authentication for all data access.
+     */
+    match /settings/{settingId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
+    }
+  }
+}

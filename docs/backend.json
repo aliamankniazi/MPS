@@ -1,0 +1,162 @@
+{
+  "entities": {
+    "FuelType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FuelType",
+      "type": "object",
+      "description": "Represents the type of fuel sold at the petrol pump.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FuelType entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the fuel type (e.g., Unleaded, Diesel)."
+        },
+        "pricePerLitre": {
+          "type": "number",
+          "description": "Price of the fuel per litre."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the fuel type."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "pricePerLitre"
+      ]
+    },
+    "Transaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Transaction",
+      "type": "object",
+      "description": "Represents a single transaction at the petrol pump.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Transaction entity."
+        },
+        "fuelTypeId": {
+          "type": "string",
+          "description": "Reference to FuelType. (Relationship: FuelType 1:N Transaction)"
+        },
+        "quantityLitres": {
+          "type": "number",
+          "description": "Quantity of fuel dispensed in litres."
+        },
+        "paymentType": {
+          "type": "string",
+          "description": "Type of payment used (e.g., Cash, Card, Mobile)."
+        },
+        "transactionDate": {
+          "type": "string",
+          "description": "Date and time of the transaction.",
+          "format": "date-time"
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "Total amount of the transaction."
+        }
+      },
+      "required": [
+        "id",
+        "fuelTypeId",
+        "quantityLitres",
+        "paymentType",
+        "transactionDate",
+        "totalAmount"
+      ]
+    },
+    "Setting": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Setting",
+      "type": "object",
+      "description": "Represents a configuration setting for the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Setting entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the setting (e.g., Tax Rate, Currency)."
+        },
+        "value": {
+          "type": "string",
+          "description": "Value of the setting."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the setting."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "value"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/fuel_types/{fuelTypeId}",
+        "definition": {
+          "entityName": "FuelType",
+          "schema": {
+            "$ref": "#/backend/entities/FuelType"
+          },
+          "description": "Stores fuel type information. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "fuelTypeId",
+              "description": "Unique identifier for the fuel type."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Stores transaction data. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "transactionId",
+              "description": "Unique identifier for the transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/settings/{settingId}",
+        "definition": {
+          "entityName": "Setting",
+          "schema": {
+            "$ref": "#/backend/entities/Setting"
+          },
+          "description": "Stores application settings. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "settingId",
+              "description": "Unique identifier for the setting."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to securely store and manage data for the PumpPal application. It prioritizes clarity, security, and scalability.  Authorization Independence is achieved by avoiding `get()` calls in security rules, ensuring atomic operations.  We ensure data is structured with the same security requirements in each collection, and all authorization relies solely on `request.auth.uid`.\n\nAuthorization Independence (Denormalization): There is no explicit collaborative data or user roles, so no denormalization is required in this specific structure. If in the future collaborative features are added (e.g., multiple users managing the same settings), the membership map pattern should be used and the members map denormalized to each relevant document.\n\nStructural Segregation: The separation of FuelType, Transaction, and Setting into dedicated collections ensures that each type of data can have its own specific security rules without impacting the others.\n\nQAPs (Rules are not Filters): The simple collection structure ensures that list operations can be secured without the need for complex filtering in rules. Since access to each collection is based on authentication, listing is inherently secured.\n\nAccess Modeling: Currently, all data is considered globally accessible within the context of a logged-in user (or anonymous user). If user-specific settings or transactions become necessary, a hierarchical path-based ownership model (`/users/{userId}/settings/{settingId}`) should be adopted.\n\nExplicit State Modeling:  Future consideration for entities with a lifecycle (e.g., Transactions) would involve adding a `status` field to represent their state (e.g., `PENDING`, `COMPLETED`, `REFUNDED`)."
+  }
+}
