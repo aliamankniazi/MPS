@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
 import { format } from 'date-fns';
-import { useOtherIncomes } from '@/hooks/use-other-incomes';
+import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,7 @@ const incomeSchema = z.object({
 type IncomeFormValues = z.infer<typeof incomeSchema>;
 
 export default function OtherIncomesPage() {
-  const { otherIncomes, addOtherIncome, deleteOtherIncome } = useOtherIncomes();
+  const { otherIncomes, addOtherIncome, deleteOtherIncome } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
 

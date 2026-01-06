@@ -12,8 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useSuppliers } from '@/hooks/use-suppliers';
-import { useSupplierPayments } from '@/hooks/use-supplier-payments';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -99,8 +98,7 @@ function TransactionNav() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
-  const { addSupplierPayment } = useSupplierPayments();
+  const { suppliers, addSupplierPayment, isLoaded } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
@@ -152,7 +150,7 @@ export default function SupplierPaymentsPage() {
                           <SelectValue placeholder="Select a supplier..." />
                         </SelectTrigger>
                         <SelectContent>
-                          {suppliersLoaded ? suppliers.map(s => (
+                          {isLoaded ? suppliers.map(s => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                           )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>

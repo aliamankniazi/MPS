@@ -10,17 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
-import { useEmployees } from '@/hooks/use-employees';
-import { useExpenses } from '@/hooks/use-expenses';
-import { useCustomers } from '@/hooks/use-customers';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { PaymentMethod } from '@/lib/types';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
@@ -104,10 +100,7 @@ function TransactionNav() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, isLoaded: employeesLoaded } = useEmployees();
-  const { customers, addCustomer } = useCustomers();
-  const { addCustomerPayment } = useCustomerPayments();
-  const { addExpense } = useExpenses();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded } = useDatabase();
   const { toast } = useToast();
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
@@ -133,23 +126,32 @@ export default function SalaryPaymentPage() {
 
     // 2. Find or create a customer record for the employee to track payments in their ledger
     let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employee.name.toLowerCase() && c.area === 'Employee');
+    
+    let customerId = employeeAsCustomer?.id;
     if (!employeeAsCustomer) {
-        employeeAsCustomer = addCustomer({
+        const newCustomer = addCustomer({
             name: employee.name,
             contact: employee.mobileNumber || '',
             area: 'Employee',
             isPartner: false,
         });
+        customerId = newCustomer.id;
+        employeeAsCustomer = newCustomer;
     }
 
+
     // 3. Log a payment against the employee's customer record (acts as a CREDIT to balance their account)
-    addCustomerPayment({
-        customerId: employeeAsCustomer.id,
-        customerName: employeeAsCustomer.name,
-        amount: employee.salary,
-        paymentMethod: 'Salary',
-        timestamp: data.postingDate.toISOString(),
-    });
+    if (customerId) {
+        addCustomerPayment({
+            customerId: customerId,
+            customerName: employee.name,
+            amount: employee.salary,
+            paymentMethod: 'Salary',
+            timestamp: data.postingDate.toISOString(),
+            notes: `Salary for ${data.salaryMonth} ${data.salaryYear}`,
+        });
+    }
+
 
     toast({
       title: 'Salary Paid',
@@ -189,7 +191,7 @@ export default function SalaryPaymentPage() {
                                     <SelectValue placeholder="Select an employee..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {employeesLoaded ? employees.map(e => (
+                                    {isLoaded ? employees.map(e => (
                                         <SelectItem key={e.id} value={e.id}>{e.name} - {e.position}</SelectItem>
                                     )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                                 </SelectContent>

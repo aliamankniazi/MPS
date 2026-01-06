@@ -7,10 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCustomers } from '@/hooks/use-customers';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useCashAdvances } from '@/hooks/use-cash-advances';
+import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, subDays, isValid } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -42,10 +39,7 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, isLoaded: customersLoaded } = useCustomers();
-    const { transactions, isLoaded: txLoaded } = useTransactions();
-    const { customerPayments, isLoaded: paymentsLoaded } = useCustomerPayments();
-    const { cashAdvances, isLoaded: advancesLoaded } = useCashAdvances();
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -54,10 +48,8 @@ export default function CreditRecoveryPage() {
     });
     const [searchTerm, setSearchTerm] = useState('');
 
-    const isDataLoaded = customersLoaded && txLoaded && paymentsLoaded && advancesLoaded;
-
     const reportData = useMemo(() => {
-        if (!isDataLoaded) return [];
+        if (!isLoaded) return [];
 
         let targetCustomers = customers;
         if (selectedCustomerId !== 'all') {
@@ -99,7 +91,7 @@ export default function CreditRecoveryPage() {
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isDataLoaded, selectedCustomerId, dateRange]);
+    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -228,7 +220,7 @@ Mianwali Petroleum Service Mianwali`;
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isDataLoaded && filteredReportData.map((row, index) => (
+                                {isLoaded && filteredReportData.map((row, index) => (
                                     <TableRow key={row.id}>
                                         <TableCell>{index + 1}</TableCell>
                                         <TableCell className="font-medium">{row.customer.name}</TableCell>
@@ -258,8 +250,8 @@ Mianwali Petroleum Service Mianwali`;
                             </TableBody>
                         </Table>
                     </div>
-                    {!isDataLoaded && <p className="text-center p-8 text-muted-foreground">Loading report data...</p>}
-                    {isDataLoaded && filteredReportData.length === 0 && <p className="text-center p-8 text-muted-foreground">No matching records found.</p>}
+                    {!isLoaded && <p className="text-center p-8 text-muted-foreground">Loading report data...</p>}
+                    {isLoaded && filteredReportData.length === 0 && <p className="text-center p-8 text-muted-foreground">No matching records found.</p>}
                 </CardContent>
              </Card>
         </div>

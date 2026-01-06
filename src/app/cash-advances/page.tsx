@@ -10,10 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRightLeft, ListChecks, Wallet, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2, Wallet } from 'lucide-react';
 import { format } from 'date-fns';
-import { useCustomers } from '@/hooks/use-customers';
-import { useCashAdvances } from '@/hooks/use-cash-advances';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -99,8 +98,7 @@ function TransactionNav() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { addCashAdvance } = useCashAdvances();
+  const { customers, addCashAdvance, isLoaded } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),
@@ -152,7 +150,7 @@ export default function CashAdvancesPage() {
                             <SelectValue placeholder="Select a person..." />
                         </SelectTrigger>
                         <SelectContent>
-                            {customersLoaded ? customers.map(c => (
+                            {isLoaded ? customers.map(c => (
                             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                             )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>

@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Landmark, List, PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
-import { useBankAccounts } from '@/hooks/use-bank-accounts';
+import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState, useEffect } from 'react';
@@ -27,7 +27,7 @@ const bankAccountSchema = z.object({
 type BankAccountFormValues = z.infer<typeof bankAccountSchema>;
 
 export default function BankManagementPage() {
-  const { bankAccounts, addBankAccount, updateBankAccount, deleteBankAccount } = useBankAccounts();
+  const { bankAccounts, addBankAccount, updateBankAccount, deleteBankAccount } = useDatabase();
   const { toast } = useToast();
   
   const [accountToEdit, setAccountToEdit] = useState<BankAccount | null>(null);

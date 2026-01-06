@@ -14,8 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Fuel, List, PlusCircle, Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import type { FuelType } from '@/lib/types';
-import { useTankReadings } from '@/hooks/use-tank-readings';
-import { useFuelStock } from '@/hooks/use-fuel-stock';
+import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -31,8 +30,7 @@ const tankReadingSchema = z.object({
 type TankReadingFormValues = z.infer<typeof tankReadingSchema>;
 
 export default function TankManagementPage() {
-  const { tankReadings, addTankReading } = useTankReadings();
-  const { setFuelStock } = useFuelStock();
+  const { tankReadings, addTankReading, setFuelStock } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, control, reset, formState: { errors } } = useForm<TankReadingFormValues>({
     resolver: zodResolver(tankReadingSchema),

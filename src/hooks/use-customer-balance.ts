@@ -1,9 +1,8 @@
+
 'use client';
 
 import { useMemo } from 'react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useCashAdvances } from '@/hooks/use-cash-advances';
+import { useDatabase } from '@/hooks/use-database';
 
 /**
  * A custom hook to calculate the current balance for a specific customer.
@@ -13,11 +12,7 @@ import { useCashAdvances } from '@/hooks/use-cash-advances';
  * @returns An object containing the calculated balance and a loading state.
  */
 export function useCustomerBalance(customerId: string | null) {
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { customerPayments, isLoaded: paymentsLoaded } = useCustomerPayments();
-  const { cashAdvances, isLoaded: advancesLoaded } = useCashAdvances();
-
-  const isLoaded = transactionsLoaded && paymentsLoaded && advancesLoaded;
+  const { transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
   const balance = useMemo(() => {
     if (!customerId || !isLoaded) {

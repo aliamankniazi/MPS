@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
 import { format } from 'date-fns';
-import { useExpenses } from '@/hooks/use-expenses';
+import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -34,7 +34,7 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense } = useExpenses();
+  const { expenses, addExpense, deleteExpense } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
 

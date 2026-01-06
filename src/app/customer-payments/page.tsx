@@ -12,8 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { useCustomers } from '@/hooks/use-customers';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -100,8 +99,7 @@ function TransactionNav() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { addCustomerPayment } = useCustomerPayments();
+  const { customers, addCustomerPayment, isLoaded } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),
@@ -153,7 +151,7 @@ export default function CustomerPaymentsPage() {
                         <SelectValue placeholder="Select a person..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {customersLoaded ? customers.map(c => (
+                        {isLoaded ? customers.map(c => (
                           <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                         )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                       </SelectContent>

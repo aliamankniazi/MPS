@@ -9,26 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, Package, ListOrdered, History, Fuel, ArrowRight } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useExpenses } from '@/hooks/use-expenses';
-import { useCustomers } from '@/hooks/use-customers';
-import { useOtherIncomes } from '@/hooks/use-other-incomes';
-import { useFuelStock } from '@/hooks/use-fuel-stock';
+import { DollarSign, Users, TrendingUp, ArrowRight, ListOrdered } from 'lucide-react';
+import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
 
 export default function DashboardPage() {
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
-  const { expenses, isLoaded: expensesLoaded } = useExpenses();
-  const { otherIncomes, isLoaded: otherIncomesLoaded } = useOtherIncomes();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { fuelStock, isLoaded: stockLoaded } = useFuelStock();
-
-  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && customersLoaded && otherIncomesLoaded && stockLoaded;
+  const { transactions, purchases, expenses, otherIncomes, isLoaded } = useDatabase();
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
@@ -241,41 +227,6 @@ export default function DashboardPage() {
         </Card>
         
       </div>
-
-       <div className="grid gap-6">
-         <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Package /> Product Stock</CardTitle>
-                <CardDescription>A quick glance at current inventory levels.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {stockLoaded ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        {Object.entries(fuelStock).map(([fuel, stock]) => {
-                            const [name, oil] = fuel.split(' ');
-                            return (
-                                <div key={fuel} className="flex items-center justify-between p-4 border rounded-lg">
-                                    <div>
-                                        <p className="font-semibold">{name}</p>
-                                        <p className="text-sm text-muted-foreground">{oil || 'Fuel'}</p>
-                                    </div>
-                                    <p className="text-xl font-bold">{stock.toLocaleString()} L</p>
-                                </div>
-                            )
-                        })}
-                         <div className="flex items-center justify-between p-4 border rounded-lg">
-                            <div><p className="font-semibold">Elco 20W-50</p><p className="text-sm text-muted-foreground">Qingi Oil</p></div><p className="text-xl font-bold">5 L</p>
-                        </div>
-                        <div className="flex items-center justify-between p-4 border rounded-lg">
-                            <div><p className="font-semibold">SAE 20W-50</p></div><p className="text-xl font-bold">1 L</p>
-                        </div>
-                    </div>
-                ) : (
-                    <p>Loading stock...</p>
-                )}
-            </CardContent>
-        </Card>
-       </div>
     </div>
   );
 }

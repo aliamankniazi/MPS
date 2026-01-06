@@ -9,17 +9,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Undo2, PackageMinus, ListRestart, Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Wallet, Redo, DollarSign, User, Undo } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Wallet, Redo, DollarSign, User, Undo, Undo2 } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
-import { usePurchaseReturns } from '@/hooks/use-purchase-returns';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useSuppliers } from '@/hooks/use-suppliers';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
@@ -106,10 +104,9 @@ function TransactionNav() {
 
 
 export default function PurchaseReturnsPage() {
-  const { purchaseReturns, addPurchaseReturn } = usePurchaseReturns();
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
+  const { addPurchaseReturn, suppliers, isLoaded } = useDatabase();
   const { toast } = useToast();
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
     defaultValues: {
         date: new Date(),
@@ -162,7 +159,7 @@ export default function PurchaseReturnsPage() {
                             <SelectValue placeholder="Select a supplier" />
                         </SelectTrigger>
                         <SelectContent>
-                            {suppliersLoaded ? suppliers.map(s => (
+                            {isLoaded ? suppliers.map(s => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                             )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>

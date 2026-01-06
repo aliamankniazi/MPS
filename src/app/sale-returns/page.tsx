@@ -13,12 +13,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Undo, Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Undo2, Wallet, Redo, DollarSign, User } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
-import { useSaleReturns } from '@/hooks/use-sale-returns';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useCustomers } from '@/hooks/use-customers';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
@@ -102,8 +101,7 @@ function TransactionNav() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn } = useSaleReturns();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
+  const { addSaleReturn, customers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
@@ -158,7 +156,7 @@ export default function SaleReturnsPage() {
                             <SelectValue placeholder="Select a customer" />
                         </SelectTrigger>
                         <SelectContent>
-                            {customersLoaded ? customers.map(c => (
+                            {isLoaded ? customers.map(c => (
                             <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                             )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>

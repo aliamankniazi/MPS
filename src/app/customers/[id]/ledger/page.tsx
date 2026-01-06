@@ -8,17 +8,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
-import { useCashAdvances } from '@/hooks/use-cash-advances';
-import { useCustomers } from '@/hooks/use-customers';
+import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useSupplierPayments } from '@/hooks/use-supplier-payments';
-import { useSuppliers } from '@/hooks/use-suppliers';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +24,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useBusinessPartners } from '@/hooks/use-business-partners';
-import { useInvestments } from '@/hooks/use-investments';
 import React from 'react';
 
 
@@ -48,19 +40,27 @@ type LedgerEntry = {
 export default function CustomerLedgerPage() {
   const { id: entityId } = useParams() as { id: string };
 
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
-  const { businessPartners, isLoaded: partnersLoaded } = useBusinessPartners();
-  const { transactions, deleteTransaction, isLoaded: transactionsLoaded } = useTransactions();
-  const { customerPayments, deleteCustomerPayment, isLoaded: paymentsLoaded } = useCustomerPayments();
-  const { cashAdvances, deleteCashAdvance, isLoaded: advancesLoaded } = useCashAdvances();
-  const { purchases, deletePurchase, isLoaded: purchasesLoaded } = usePurchases();
-  const { supplierPayments, deleteSupplierPayment, isLoaded: supplierPaymentsLoaded } = useSupplierPayments();
-  const { investments, deleteInvestment, isLoaded: investmentsLoaded } = useInvestments();
+  const { 
+    customers, 
+    suppliers, 
+    businessPartners, 
+    transactions, 
+    customerPayments, 
+    cashAdvances, 
+    purchases, 
+    supplierPayments, 
+    investments,
+    deleteTransaction, 
+    deletePurchase, 
+    deleteCustomerPayment, 
+    deleteCashAdvance, 
+    deleteSupplierPayment, 
+    deleteInvestment,
+    isLoaded
+  } = useDatabase();
+  
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const { toast } = useToast();
-
-  const isLoaded = customersLoaded && suppliersLoaded && partnersLoaded && transactionsLoaded && paymentsLoaded && advancesLoaded && purchasesLoaded && supplierPaymentsLoaded && investmentsLoaded;
 
   const { entity, entityType } = useMemo(() => {
     if (!isLoaded) return { entity: null, entityType: null };
@@ -97,7 +97,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: `Payment Received (${p.paymentMethod})`,
+              description: p.notes || `Payment Received (${p.paymentMethod})`,
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
@@ -162,7 +162,13 @@ export default function CustomerLedgerPage() {
     }
 
 
-    combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    combined.sort((a, b) => {
+        const dateA = new Date(a.timestamp);
+        const dateB = new Date(b.timestamp);
+        if (!isValid(dateA)) return 1;
+        if (!isValid(dateB)) return -1;
+        return dateA.getTime() - dateB.getTime();
+    });
 
     let runningBalance = 0;
     const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
@@ -180,7 +186,7 @@ export default function CustomerLedgerPage() {
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -411,5 +417,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    

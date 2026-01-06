@@ -7,13 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { format, isSameDay, startOfDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useExpenses } from '@/hooks/use-expenses';
-import { usePurchaseReturns } from '@/hooks/use-purchase-returns';
-import { useOtherIncomes } from '@/hooks/use-other-incomes';
-import { useSupplierPayments } from '@/hooks/use-supplier-payments';
-import { useInvestments } from '@/hooks/use-investments';
+import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -29,7 +23,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useCustomerPayments } from '@/hooks/use-customer-payments';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import { DataTable } from '@/components/ui/data-table';
@@ -41,7 +34,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary';
   debit: number;
   credit: number;
   balance: number;
@@ -49,21 +42,30 @@ type LedgerEntry = {
 };
 
 export default function LedgerPage() {
-  const { transactions, deleteTransaction, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, deletePurchase, isLoaded: purchasesLoaded } = usePurchases();
-  const { expenses, deleteExpense, isLoaded: expensesLoaded } = useExpenses();
-  const { purchaseReturns, deletePurchaseReturn, isLoaded: purchaseReturnsLoaded } = usePurchaseReturns();
-  const { otherIncomes, deleteOtherIncome, isLoaded: otherIncomesLoaded } = useOtherIncomes();
-  const { supplierPayments, deleteSupplierPayment, isLoaded: supplierPaymentsLoaded } = useSupplierPayments();
-  const { investments, deleteInvestment, isLoaded: investmentsLoaded } = useInvestments();
-  const { customerPayments, deleteCustomerPayment, isLoaded: customerPaymentsLoaded } = useCustomerPayments();
+  const { 
+    transactions, 
+    purchases, 
+    expenses, 
+    purchaseReturns, 
+    otherIncomes, 
+    supplierPayments, 
+    investments, 
+    customerPayments, 
+    isLoaded,
+    deleteTransaction,
+    deletePurchase,
+    deleteExpense,
+    deletePurchaseReturn,
+    deleteOtherIncome,
+    deleteSupplierPayment,
+    deleteInvestment,
+    deleteCustomerPayment,
+  } = useDatabase();
   
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-
-  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && purchaseReturnsLoaded && otherIncomesLoaded && supplierPaymentsLoaded && investmentsLoaded && customerPaymentsLoaded;
 
   const { entries, finalBalance, openingBalance, totals, productWiseSales, profitSummary } = useMemo(() => {
     if (!isLoaded) return { entries: [], finalBalance: 0, openingBalance: 0, totals: { debit: 0, credit: 0 }, productWiseSales: [], profitSummary: { totalRevenue: 0, costOfGoods: 0, grossProfit: 0, totalExpenses: 0, netProfit: 0 } };
@@ -80,15 +82,18 @@ export default function LedgerPage() {
       credit: tx.totalAmount,
       original: tx,
     }));
-    customerPayments.forEach(cp => combined.push({
+    customerPayments.forEach(cp => {
+      const isSalary = cp.paymentMethod === 'Salary';
+      combined.push({
         id: `cp-${cp.id}`,
         timestamp: cp.timestamp,
-        description: `Payment from ${cp.customerName}`,
-        type: 'Customer Payment',
+        description: cp.notes || `Payment from ${cp.customerName}`,
+        type: isSalary ? 'Salary' : 'Customer Payment',
         debit: 0,
         credit: cp.amount,
         original: cp,
-    }));
+      })
+    });
 
     // Purchases and Supplier Payments
     purchases.forEach(p => combined.push({
@@ -233,7 +238,7 @@ export default function LedgerPage() {
     }));
 
     // Calculate Profit Summary based on the filtered entries
-    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income', 'Customer Payment'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
+    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
     const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0) 
                       - entriesForSummary.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
     const totalExpenses = entriesForSummary.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
@@ -260,7 +265,7 @@ export default function LedgerPage() {
     { accessorKey: 'description', header: 'Particulars' },
     { accessorKey: 'type', header: 'Type', cell: ({row}: any) => {
         const type = row.original.type;
-        const isCreditEntry = ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment'].includes(type);
+        const isCreditEntry = ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment', 'Salary'].includes(type);
         return <Badge 
             variant={isCreditEntry ? 'outline' : 'destructive'}
             className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
@@ -496,3 +501,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
+    

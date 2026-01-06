@@ -2,27 +2,17 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
 import { Invoice } from '@/components/invoice';
 import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCustomers } from '@/hooks/use-customers';
-import { useSuppliers } from '@/hooks/use-suppliers';
-import { useBankAccounts } from '@/hooks/use-bank-accounts';
+import { useDatabase } from '@/hooks/use-database';
 import React from 'react';
 
 export default function InvoicePage() {
   const { type, id } = useParams() as { type: 'sale' | 'purchase'; id: string };
 
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
-  const { bankAccounts, isLoaded: bankAccountsLoaded } = useBankAccounts();
-
-  const isLoaded = transactionsLoaded && purchasesLoaded && customersLoaded && suppliersLoaded && bankAccountsLoaded;
+  const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
   let invoiceData = null;
 

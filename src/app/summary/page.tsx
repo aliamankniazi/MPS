@@ -1,19 +1,17 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
-import { useExpenses } from '@/hooks/use-expenses';
-import { useOtherIncomes } from '@/hooks/use-other-incomes';
+import { useDatabase } from '@/hooks/use-database';
 import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Sparkles, Terminal, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2 } from 'lucide-react';
+import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isToday } from 'date-fns';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 
 const chartConfig = {
@@ -33,17 +31,11 @@ const chartConfig = {
 
 
 export default function SummaryPage() {
-  const { transactions, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, isLoaded: purchasesLoaded } = usePurchases();
-  const { expenses, isLoaded: expensesLoaded } = useExpenses();
-  const { otherIncomes, isLoaded: otherIncomesLoaded } = useOtherIncomes();
-
+  const { transactions, purchases, expenses, otherIncomes, isLoaded } = useDatabase();
 
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
-
-  const isLoaded = transactionsLoaded && purchasesLoaded && expensesLoaded && otherIncomesLoaded;
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;

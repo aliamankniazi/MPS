@@ -13,11 +13,10 @@ import { useToast } from '@/hooks/use-toast';
 import { ShoppingCart, Truck, Calendar as CalendarIcon, Sun, Redo, DollarSign, User, Wallet, Undo, Undo2 } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
-import { usePurchases } from '@/hooks/use-purchases';
+import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useSuppliers } from '@/hooks/use-suppliers';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import React, { useState, useEffect } from 'react';
@@ -101,8 +100,7 @@ function TransactionNav() {
 
 
 export default function PurchasesPage() {
-  const { addPurchase } = usePurchases();
-  const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
+  const { addPurchase, suppliers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
@@ -156,7 +154,7 @@ export default function PurchasesPage() {
                             <SelectValue placeholder="Select a supplier" />
                         </SelectTrigger>
                         <SelectContent>
-                            {suppliersLoaded ? suppliers.map(s => (
+                            {isLoaded ? suppliers.map(s => (
                             <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                             )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                         </SelectContent>

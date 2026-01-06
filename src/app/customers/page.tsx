@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { useCustomers } from '@/hooks/use-customers';
+import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import Barcode from 'react-barcode';
 import { Badge } from '@/components/ui/badge';
@@ -44,7 +44,7 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export default function CustomersPage() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
+  const { customers, addCustomer, updateCustomer, deleteCustomer } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
   

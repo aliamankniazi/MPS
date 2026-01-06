@@ -6,14 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, MessageSquare, Trash2, Pencil, AlertTriangle } from 'lucide-react';
-import { useTransactions } from '@/hooks/use-transactions';
-import { usePurchases } from '@/hooks/use-purchases';
-import { usePurchaseReturns } from '@/hooks/use-purchase-returns';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle } from 'lucide-react';
+import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { useCustomers } from '@/hooks/use-customers';
 import type { Customer, Purchase, PurchaseReturn, Transaction } from '@/lib/types';
 import {
   AlertDialog,
@@ -53,15 +50,19 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 
 export default function AllTransactionsPage() {
-  const { transactions, deleteTransaction, isLoaded: transactionsLoaded } = useTransactions();
-  const { purchases, deletePurchase, isLoaded: purchasesLoaded } = usePurchases();
-  const { purchaseReturns, deletePurchaseReturn, isLoaded: purchaseReturnsLoaded } = usePurchaseReturns();
-  const { customers, isLoaded: customersLoaded } = useCustomers();
+  const { 
+    transactions, 
+    purchases, 
+    purchaseReturns, 
+    customers, 
+    deleteTransaction, 
+    deletePurchase, 
+    deletePurchaseReturn, 
+    isLoaded 
+  } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
   const { toast } = useToast();
-
-  const isLoaded = transactionsLoaded && purchasesLoaded && purchaseReturnsLoaded && customersLoaded;
 
   const combinedEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -99,7 +100,13 @@ export default function AllTransactionsPage() {
       original: pr,
     }));
 
-    return [...sales, ...allPurchases, ...returns].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return [...sales, ...allPurchases, ...returns].sort((a, b) => {
+        const dateA = new Date(a.timestamp);
+        const dateB = new Date(b.timestamp);
+        if (!isValid(dateA)) return 1;
+        if (!isValid(dateB)) return -1;
+        return dateB.getTime() - dateA.getTime()
+    });
   }, [isLoaded, transactions, purchases, purchaseReturns]);
 
   const filteredEntries = useMemo(() => {

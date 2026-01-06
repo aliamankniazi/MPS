@@ -7,7 +7,7 @@ import { useAuth } from './use-auth';
 import { AppLayout } from '@/components/app-layout';
 import { usePathname } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { ref, onValue, set } from 'firebase/database';
+import { ref, onValue, set, push } from 'firebase/database';
 
 const DB_PATH = 'roles';
 
@@ -56,7 +56,7 @@ const RolesContext = createContext<RolesContextType | undefined>(undefined);
 export function RolesProvider({ children }: { children: ReactNode }) {
     const [roles, setRoles] = useState<Role[]>([]);
     const [isLoaded, setIsLoaded] = useState(false);
-    const { user, userRole } = useAuth();
+    const { user, userRole, loading: authLoading } = useAuth();
     const pathname = usePathname();
     const isAuthPage = pathname === '/login' || pathname === '/signup';
 
@@ -76,6 +76,12 @@ export function RolesProvider({ children }: { children: ReactNode }) {
                 }));
                 setRoles(rolesList);
             } else {
+                // If no roles in DB, set the default ones
+                const updates: Record<string, Omit<Role, 'id'>> = {};
+                DEFAULT_ROLES.forEach(r => {
+                    updates[`${DB_PATH}/${r.id}`] = { name: r.name, permissions: r.permissions };
+                });
+                set(ref(db), updates);
                 setRoles(DEFAULT_ROLES);
             }
             setIsLoaded(true);
@@ -86,9 +92,8 @@ export function RolesProvider({ children }: { children: ReactNode }) {
 
     const addRole = useCallback((role: Omit<Role, 'id'>) => {
         if (!db) return;
-        const newRoleId = crypto.randomUUID();
-        const roleRef = ref(db, `${DB_PATH}/${newRoleId}`);
-        set(roleRef, role);
+        const newRoleRef = push(ref(db, DB_PATH));
+        set(newRoleRef, role);
     }, []);
 
     const updateRole = useCallback((id: RoleId, updatedRole: Role) => {
@@ -106,6 +111,8 @@ export function RolesProvider({ children }: { children: ReactNode }) {
 
     const hasPermission = useCallback((permission: Permission): boolean => {
         if (!userRole) return false;
+        // The admin role ALWAYS has all permissions.
+        if (userRole === 'admin') return true;
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;
         return role.permissions.includes(permission);
@@ -118,6 +125,14 @@ export function RolesProvider({ children }: { children: ReactNode }) {
         deleteRole,
         hasPermission,
     };
+    
+    if (authLoading || !isLoaded) {
+      return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <p>Loading user permissions...</p>
+        </div>
+      );
+    }
     
     return (
         <RolesContext.Provider value={value}>

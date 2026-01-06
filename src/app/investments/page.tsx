@@ -11,16 +11,15 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, PlusCircle, List, TrendingUp, TrendingDown, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone } from 'lucide-react';
+import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone } from 'lucide-react';
 import { format } from 'date-fns';
-import { useInvestments } from '@/hooks/use-investments';
+import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { useBusinessPartners } from '@/hooks/use-business-partners';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { BusinessPartner } from '@/lib/types';
@@ -46,8 +45,15 @@ type PartnerFormValues = z.infer<typeof partnerSchema>;
 
 
 export default function InvestmentsPage() {
-  const { investments, addInvestment, isLoaded: investmentsLoaded } = useInvestments();
-  const { businessPartners, addBusinessPartner, updateBusinessPartner, deleteBusinessPartner, isLoaded: partnersLoaded } = useBusinessPartners();
+  const { 
+    investments, 
+    addInvestment, 
+    businessPartners, 
+    addBusinessPartner, 
+    updateBusinessPartner, 
+    deleteBusinessPartner, 
+    isLoaded 
+  } = useDatabase();
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
   
@@ -63,8 +69,6 @@ export default function InvestmentsPage() {
   const { register: registerPartner, handleSubmit: handleSubmitPartner, reset: resetPartner, setValue: setPartnerValue, formState: { errors: partnerErrors } } = useForm<PartnerFormValues>({
     resolver: zodResolver(partnerSchema),
   });
-  
-  const isLoaded = investmentsLoaded && partnersLoaded;
   
   const onInvestmentSubmit: SubmitHandler<InvestmentFormValues> = (data) => {
     const partner = businessPartners.find(p => p.id === data.partnerId);
@@ -112,7 +116,6 @@ export default function InvestmentsPage() {
     if (!isLoaded) return [];
     
     const summary = investments.reduce((acc, curr) => {
-        const amount = curr.type === 'Investment' ? curr.amount : -curr.amount;
         if (!acc[curr.partnerId]) {
             acc[curr.partnerId] = { investment: 0, withdrawal: 0 };
         }
@@ -222,7 +225,7 @@ export default function InvestmentsPage() {
                             <SelectValue placeholder="Select a partner" />
                         </SelectTrigger>
                         <SelectContent>
-                            {partnersLoaded ? businessPartners.map(p => (
+                            {isLoaded ? businessPartners.map(p => (
                                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                             )) : <SelectItem value="loading" disabled>Loading partners...</SelectItem>}
                         </SelectContent>

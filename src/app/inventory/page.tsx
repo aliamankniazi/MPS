@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Package, Droplets } from 'lucide-react';
-import { useFuelStock } from '@/hooks/use-fuel-stock';
+import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import type { FuelType } from '@/lib/types';
@@ -19,7 +20,7 @@ const MAX_CAPACITY: Record<FuelType, number> = {
 };
 
 export default function InventoryPage() {
-  const { fuelStock, isLoaded } = useFuelStock();
+  const { fuelStock, isLoaded } = useDatabase();
 
   const getProgressColor = (value: number) => {
     if (value < 15) return 'bg-red-500';
