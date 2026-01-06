@@ -47,7 +47,6 @@ const navItems = [
     group: 'Purchases & Suppliers',
     icon: ShoppingCart,
     items: [
-        { href: '/purchases', label: 'Purchases', icon: ShoppingCart, permission: 'view_purchases' as Permission },
         { href: '/purchase-returns', label: 'Purchase Returns', icon: Undo2, permission: 'view_purchase_returns' as Permission },
         { href: '/suppliers', label: 'Suppliers', icon: Users, permission: 'view_settings' as Permission },
         { href: '/partner-ledger', label: 'Unified Ledger', icon: HandCoins, permission: 'view_partner_ledger' as Permission },

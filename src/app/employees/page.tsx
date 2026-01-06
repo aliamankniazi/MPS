@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { useEmployees } from '@/hooks/use-employees';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -74,6 +74,7 @@ function TransactionNav() {
     const pathname = usePathname();
     const navItems = [
         { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/purchases', label: 'Purchase', icon: Truck },
         { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
         { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
@@ -278,4 +279,3 @@ export default function SalaryPaymentPage() {
     </div>
   );
 }
-

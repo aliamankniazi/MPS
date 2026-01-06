@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -12,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun } from 'lucide-react';
+import { UserPlus, Sun, Truck } from 'lucide-react';
 import type { PaymentMethod, Transaction } from '@/lib/types';
 import { useCustomers } from '@/hooks/use-customers';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
@@ -83,6 +82,7 @@ function TransactionNav() {
     const pathname = usePathname();
     const navItems = [
         { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/purchases', label: 'Purchase', icon: Truck },
         { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
         { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
         { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },

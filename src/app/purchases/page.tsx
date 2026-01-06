@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { ShoppingCart, Package, Truck, Calendar as CalendarIcon } from 'lucide-react';
+import { ShoppingCart, Truck, Calendar as CalendarIcon, Sun, Redo, DollarSign, User, Wallet } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { usePurchases } from '@/hooks/use-purchases';
@@ -19,6 +18,9 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useSuppliers } from '@/hooks/use-suppliers';
+import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import React, { useState, useEffect } from 'react';
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
@@ -32,11 +34,75 @@ const purchaseSchema = z.object({
 
 type PurchaseFormValues = z.infer<typeof purchaseSchema>;
 
+function PageHeader() {
+    const [currentTime, setCurrentTime] = useState('');
+    
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date().toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            }));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+      <header className="bg-background shadow-sm sticky top-0 z-20">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+            <p className="text-sm font-medium">{currentTime}</p>
+            <div className="flex items-center gap-4">
+                <span className="text-sm">ziakniazi@gmail.com</span>
+                <Button variant="ghost" size="icon">
+                    <Sun className="h-5 w-5" />
+                </Button>
+            </div>
+        </div>
+      </header>
+    );
+}
+
+function TransactionNav() {
+    const pathname = usePathname();
+    const navItems = [
+        { href: '/', label: 'Sale', icon: ShoppingCart },
+        { href: '/purchases', label: 'Purchase', icon: Truck },
+        { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
+        { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
+        { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
+        { href: '/employees', label: 'Salary Payment', icon: User },
+    ];
+    return (
+        <nav className="bg-background shadow-sm">
+            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
+                {navItems.map(item => (
+                    <Button
+                        asChild
+                        key={item.href}
+                        variant="ghost"
+                        className={cn(
+                            "border-b-2 rounded-none flex-shrink-0",
+                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
+                        )}
+                    >
+                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
+                    </Button>
+                ))}
+            </div>
+        </nav>
+    );
+}
+
+
 export default function PurchasesPage() {
-  const { purchases, addPurchase } = usePurchases();
+  const { addPurchase } = usePurchases();
   const { suppliers, isLoaded: suppliersLoaded } = useSuppliers();
   const { toast } = useToast();
-  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<PurchaseFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
       date: new Date(),
@@ -65,160 +131,112 @@ export default function PurchasesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Truck /> New Purchase
-            </CardTitle>
-            <CardDescription>Record a new fuel delivery.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="supplierId">Supplier</Label>
-                <Controller
-                  name="supplierId"
-                  control={control}
-                  render={({ field }) => (
-                     <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a supplier" />
-                      </SelectTrigger>
-                      <SelectContent>
-                         {suppliersLoaded ? suppliers.map(s => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                        )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Fuel Type</Label>
-                <Controller
-                  name="fuelType"
-                  control={control}
-                  render={({ field }) => (
-                     <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a fuel type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {FUEL_TYPES.map(fuel => (
-                          <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+    <div className="bg-muted/30 min-h-screen">
+      <PageHeader />
+      <TransactionNav />
+      <main className="container mx-auto p-4">
+        <div className="max-w-2xl mx-auto">
+            <Card>
+            <CardHeader>
+                <CardTitle>New Purchase</CardTitle>
+                <CardDescription>Record a new fuel delivery from a supplier.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="volume">Volume (Litres)</Label>
-                  <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="0.01" />
-                  {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="totalCost">Total Cost (PKR)</Label>
-                  <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="0.01" />
-                  {errors.totalCost && <p className="text-sm text-destructive">{errors.totalCost.message}</p>}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Controller
-                    name="date"
+                    <Label htmlFor="supplierId">Supplier</Label>
+                    <Controller
+                    name="supplierId"
                     control={control}
                     render={({ field }) => (
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a supplier" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {suppliersLoaded ? suppliers.map(s => (
+                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
+                        </SelectContent>
+                        </Select>
                     )}
-                  />
-                  {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                    />
+                    {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
                 </div>
 
-              <Button type="submit" className="w-full">Record Purchase</Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
+                <div className="space-y-2">
+                    <Label>Fuel Type</Label>
+                    <Controller
+                    name="fuelType"
+                    control={control}
+                    render={({ field }) => (
+                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                        <SelectTrigger>
+                            <SelectValue placeholder="Select a fuel type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {FUEL_TYPES.map(fuel => (
+                            <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                            ))}
+                        </SelectContent>
+                        </Select>
+                    )}
+                    />
+                    {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
+                </div>
 
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ShoppingCart /> Purchase History
-            </CardTitle>
-            <CardDescription>
-              A record of all incoming stock and fuel deliveries.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {purchases.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Fuel Type</TableHead>
-                    <TableHead className="text-right">Volume (L)</TableHead>
-                    <TableHead className="text-right">Cost/Litre</TableHead>
-                    <TableHead className="text-right">Total Cost</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {purchases.map(p => {
-                    const rate = p.totalCost / p.volume;
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-medium">{format(new Date(p.timestamp), 'PP')}</TableCell>
-                        <TableCell>{p.supplier}</TableCell>
-                        <TableCell>{p.fuelType}</TableCell>
-                        <TableCell className="text-right">{p.volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-right">PKR {rate.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">PKR {p.totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                <Package className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Purchases Recorded</h3>
-                <p>Use the form to log your first fuel delivery.</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                    <Label htmlFor="volume">Volume (Litres)</Label>
+                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="0.01" />
+                    {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                    <Label htmlFor="totalCost">Total Cost (PKR)</Label>
+                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="0.01" />
+                    {errors.totalCost && <p className="text-sm text-destructive">{errors.totalCost.message}</p>}
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Date</Label>
+                    <Controller
+                        name="date"
+                        control={control}
+                        render={({ field }) => (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                        )}
+                    />
+                    {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                    </div>
+
+                <Button type="submit" className="w-full">Record Purchase</Button>
+                </form>
+            </CardContent>
+            </Card>
+        </div>
+      </main>
     </div>
   );
 }
