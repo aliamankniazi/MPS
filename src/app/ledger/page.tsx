@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -232,7 +233,7 @@ export default function LedgerPage() {
         profitSummary: profitSummaryData,
     };
 
-  }, [transactions, purchases, expenses, purchaseReturns, otherIncomes, customerPayments, supplierPayments, investments, isLoaded, selectedDate, searchTerm]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, otherIncomes, customerPayments, supplierPayments, investments, selectedDate, searchTerm]);
   
   const journalColumns = [
     { accessorKey: 'timestamp', header: 'Date & Time', cell: ({row}: any) => {
