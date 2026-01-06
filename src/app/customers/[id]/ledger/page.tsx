@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent } from 'lucide-react';
 import { useTransactions } from '@/hooks/use-transactions';
@@ -166,6 +166,9 @@ export default function CustomerLedgerPage() {
 
     let runningBalance = 0;
     const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
+      const date = new Date(entry.timestamp);
+      if(!isValid(date)) return { ...entry, balance: runningBalance }; // Skip invalid entries
+      
       // For customers/suppliers, a positive balance means they owe us.
       // For partners, a positive balance means the business owes them (net investment).
       // To keep it consistent visually (debit increases balance, credit decreases), we'll adjust the sign for partners.
@@ -328,10 +331,12 @@ export default function CustomerLedgerPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map(entry => (
+                {entries.map(entry => {
+                  const date = new Date(entry.timestamp);
+                  return (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">
-                      {format(new Date(entry.timestamp), 'PP pp')}
+                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                     </TableCell>
                     <TableCell>{entry.description}</TableCell>
                     <TableCell>
@@ -362,7 +367,7 @@ export default function CustomerLedgerPage() {
                         </Button>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           ) : (
@@ -399,3 +404,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
