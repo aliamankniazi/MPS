@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -111,7 +112,7 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded: customersLoaded } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -169,27 +170,29 @@ export default function SalesPage() {
       return;
     }
     
-    // For simplicity, we'll create a single transaction representing the whole cart.
-    // A more complex system might save each cart item individually.
-    const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
-      fuelType: cart.map(i => i.product).join(', '),
-      volume: cart.reduce((sum, item) => sum + item.quantity, 0),
-      pricePerLitre: 1, // Placeholder
-      product: cart.length === 1 ? cart[0].product : `${cart.length} items`,
-      totalAmount: cartTotal,
-      paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
-      customerId: data.customerId,
-      customerName: selectedCustomer?.name,
-    };
+    // Create one transaction per cart item to maintain detail
+    cart.forEach(item => {
+        const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
+          fuelType: 'Unleaded', // Placeholder, as we have product now
+          volume: item.quantity,
+          pricePerLitre: item.price,
+          product: item.product,
+          totalAmount: item.totalAmount,
+          paymentMethod: 'Cash', // Default payment method
+          customerId: data.customerId,
+          customerName: selectedCustomer?.name,
+          notes: data.notes,
+        };
+        addTransaction(transactionData);
+    });
 
-    addTransaction(transactionData);
-    
     if (data.customerId && data.paidAmount > 0) {
         addCustomerPayment({
             customerId: data.customerId,
             customerName: selectedCustomer!.name,
             amount: data.paidAmount,
             paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
+            notes: `Payment for invoice created on ${new Date().toLocaleDateString()}`,
         });
     }
 
@@ -217,7 +220,7 @@ export default function SalesPage() {
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="product">Product</Label>
-                                  <Input id="product" {...registerItem('product')} placeholder="Select a product..."/>
+                                  <Input id="product" {...registerItem('product')} placeholder="e.g., Diesel, Mobile Oil"/>
                                   {itemErrors.product && <p className="text-sm text-destructive">{itemErrors.product.message}</p>}
                               </div>
                               <div className="space-y-2">
@@ -269,7 +272,7 @@ export default function SalesPage() {
                                   {cart.length > 0 ? cart.map((item, index) => (
                                       <TableRow key={index}>
                                           <TableCell>{item.product}</TableCell>
-                                          <TableCell className="text-right">{item.quantity}</TableCell>
+                                          <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
                                           <TableCell className="text-right">{item.price.toFixed(2)}</TableCell>
                                           <TableCell className="text-right font-medium">{item.totalAmount.toFixed(2)}</TableCell>
                                       </TableRow>
@@ -308,7 +311,7 @@ export default function SalesPage() {
                                     </SelectTrigger>
                                     <SelectContent>
                                       <SelectItem value="walkin">Walk-in Customer</SelectItem>
-                                      {customersLoaded ? customers.map(c => (
+                                      {isLoaded ? customers.map(c => (
                                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                       )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                                     </SelectContent>
@@ -332,6 +335,7 @@ export default function SalesPage() {
                                   <SelectItem value="Cash">Cash</SelectItem>
                                   <SelectItem value="Card">Card</SelectItem>
                                   <SelectItem value="Mobile">Mobile Wallet</SelectItem>
+                                  <SelectItem value="Credit">Credit</SelectItem>
                                 </SelectContent>
                               </Select>
                             )}

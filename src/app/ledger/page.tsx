@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isSameDay, startOfDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download } from 'lucide-react';
+import { BookOpen, DollarSign, Calendar as CalendarIcon, X, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -34,7 +35,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Sale Return';
   debit: number;
   credit: number;
   balance: number;
@@ -46,7 +47,8 @@ export default function LedgerPage() {
     transactions, 
     purchases, 
     expenses, 
-    purchaseReturns, 
+    purchaseReturns,
+    saleReturns,
     otherIncomes, 
     supplierPayments, 
     investments, 
@@ -56,6 +58,7 @@ export default function LedgerPage() {
     deletePurchase,
     deleteExpense,
     deletePurchaseReturn,
+    deleteSaleReturn,
     deleteOtherIncome,
     deleteSupplierPayment,
     deleteInvestment,
@@ -137,6 +140,16 @@ export default function LedgerPage() {
         credit: pr.totalRefund,
         original: pr,
     }));
+    saleReturns.forEach(sr => combined.push({
+      id: `sr-${sr.id}`,
+      timestamp: sr.timestamp,
+      description: `Return from ${sr.customerName}: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+      type: 'Sale Return',
+      debit: sr.totalRefund,
+      credit: 0,
+      original: sr,
+    }));
+
 
     // Incomes
     otherIncomes.forEach(oi => combined.push({
@@ -220,13 +233,28 @@ export default function LedgerPage() {
       .filter(e => e.type === 'Sale')
       .reduce((acc, saleEntry) => {
         const tx = saleEntry.original as import('@/lib/types').Transaction;
-        const product = tx.product || tx.fuelType;
-        if (!acc[product]) {
-            acc[product] = { totalSold: 0, totalRevenue: 0, count: 0, unit: tx.product ? 'Cans' : 'Liters' };
-        }
-        acc[product].totalSold += tx.volume || 1;
-        acc[product].totalRevenue += tx.totalAmount;
-        acc[product].count++;
+        // Handle cases where `product` might be something like "Product1, Product2"
+        const products = (tx.product || tx.fuelType).split(',').map(p => p.trim());
+
+        products.forEach(productName => {
+           if (!acc[productName]) {
+                acc[productName] = { totalSold: 0, totalRevenue: 0, count: 0, unit: 'items' };
+                // A simple heuristic for units based on product name
+                if (productName.toLowerCase().includes('diesel') || productName.toLowerCase().includes('unleaded') || productName.toLowerCase().includes('premium')) {
+                    acc[productName].unit = 'Liters';
+                } else if (productName.toLowerCase().includes('oil')) {
+                     acc[productName].unit = 'Cans';
+                }
+            }
+            // For multi-product sales, we approximate the contribution
+            const productRevenue = tx.totalAmount / products.length;
+            const productVolume = (tx.volume || products.length) / products.length;
+            
+            acc[productName].totalSold += productVolume;
+            acc[productName].totalRevenue += productRevenue;
+            acc[productName].count++;
+        });
+
         return acc;
     }, {} as Record<string, { totalSold: number, totalRevenue: number, count: number, unit: string }>);
 
@@ -238,12 +266,21 @@ export default function LedgerPage() {
     }));
 
     // Calculate Profit Summary based on the filtered entries
-    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income', 'Purchase Return'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
+    const totalRevenue = entriesForSummary.filter(e => ['Sale', 'Other Income'].includes(e.type)).reduce((sum, e) => sum + e.credit, 0);
+    const totalReturns = entriesForSummary.filter(e => e.type === 'Sale Return').reduce((sum, e) => sum + e.debit, 0);
+    
     const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0);
+    const costOfReturns = entriesForSummary.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
+    
     const totalExpenses = entriesForSummary.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
-    const grossProfit = totalRevenue - costOfGoods;
+    
+    const netRevenue = totalRevenue - totalReturns;
+    const netCOGS = costOfGoods - costOfReturns;
+    
+    const grossProfit = netRevenue - netCOGS;
     const netProfit = grossProfit - totalExpenses;
-    const profitSummaryData = { totalRevenue, costOfGoods, grossProfit, totalExpenses, netProfit };
+    
+    const profitSummaryData = { totalRevenue: netRevenue, costOfGoods: netCOGS, grossProfit, totalExpenses, netProfit };
 
     return { 
         entries: entriesWithBalance.reverse(), 
@@ -254,7 +291,7 @@ export default function LedgerPage() {
         profitSummary: profitSummaryData,
     };
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, otherIncomes, customerPayments, supplierPayments, investments, selectedDate, searchTerm]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, selectedDate, searchTerm]);
   
   const journalColumns = [
     { accessorKey: 'timestamp', header: 'Date & Time', cell: ({row}: any) => {
@@ -311,6 +348,7 @@ export default function LedgerPage() {
             case 'sp': deleteSupplierPayment(id); break;
             case 'exp': deleteExpense(id); break;
             case 'pr': deletePurchaseReturn(id); break;
+            case 'sr': deleteSaleReturn(id); break;
             case 'oi': deleteOtherIncome(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
@@ -339,7 +377,7 @@ export default function LedgerPage() {
     <div className="p-4 md:p-8 space-y-6">
        <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">General Journal</h1>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><BookOpen /> General Journal</h1>
           <p className="text-muted-foreground">A chronological record of all financial transactions.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -374,22 +412,50 @@ export default function LedgerPage() {
             <div className="xl:col-span-2">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Product Wise Sale Summary</CardTitle>
+                        <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Summary</CardTitle>
                         <CardDescription>
                           A summary of all product sales for {selectedDate ? format(selectedDate, "PPP") : 'all time'}.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <DataTable columns={productSalesColumns} data={productWiseSales} hideHeader>
+                       <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Product</TableHead>
+                                    <TableHead className="text-right">Total Sold</TableHead>
+                                    <TableHead className="text-right">Average Price / Unit</TableHead>
+                                    <TableHead className="text-right">Total Revenue</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoaded && productWiseSales.length > 0 ? (
+                                    productWiseSales.map(item => (
+                                        <TableRow key={item.product}>
+                                            <TableCell className="font-medium">{item.product}</TableCell>
+                                            <TableCell className="text-right">{item.totalSold}</TableCell>
+                                            <TableCell className="text-right font-mono">{item.averagePrice}</TableCell>
+                                            <TableCell className="text-right font-semibold font-mono">{parseFloat(item.totalRevenue).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            {isLoaded ? 'No sales data for this period.' : 'Loading sales data...'}
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
                              <TableFooter>
                                 <TableRow className="font-bold text-base">
                                 <TableCell colSpan={3} className="text-right">Total Revenue</TableCell>
                                 <TableCell className="text-right font-mono">
-                                    {productWiseSales.reduce((sum, item) => sum + parseFloat(item.totalRevenue), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                                    PKR {productWiseSales.reduce((sum, item) => sum + parseFloat(item.totalRevenue), 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                 </TableCell>
                                 </TableRow>
                             </TableFooter>
-                        </DataTable>
+                        </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -403,7 +469,7 @@ export default function LedgerPage() {
                         {isLoaded && profitSummary ? (
                             <>
                                 <div className="flex justify-between items-center py-2 border-b">
-                                    <span className="flex items-center gap-2 text-muted-foreground"><TrendingUp className="text-green-500"/>Total Revenue</span>
+                                    <span className="flex items-center gap-2 text-muted-foreground"><TrendingUp className="text-green-500"/>Net Revenue</span>
                                     <span className="font-semibold font-mono">{profitSummary.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                 </div>
                                  <div className="flex justify-between items-center py-2 border-b">
@@ -447,12 +513,12 @@ export default function LedgerPage() {
             </div>
         </CardHeader>
         <CardContent>
-            <DataTable columns={journalColumns} data={entries}>
+            <DataTable columns={journalColumns} data={entries} showPagination={false}>
                  {selectedDate && (
                   <Table>
                     <TableBody>
                         <TableRow className="bg-muted/30">
-                            <TableCell colSpan={6} className="font-bold">Opening Balance</TableCell>
+                            <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
                             <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
                             {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
@@ -469,7 +535,7 @@ export default function LedgerPage() {
                     <TableCell colSpan={2}/>
                     </TableRow>
                     <TableRow className="bg-muted/50 font-bold text-lg">
-                    <TableCell colSpan={6} className="text-right">Closing Balance</TableCell>
+                    <TableCell colSpan={5} className="text-right">Closing Balance</TableCell>
                     <TableCell colSpan={2} className={cn("text-right font-mono", finalBalance >= 0 ? 'text-primary' : 'text-destructive')}>
                         {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
