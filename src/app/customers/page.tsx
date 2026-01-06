@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useCustomers } from '@/hooks/use-customers';
 import Link from 'next/link';
@@ -50,6 +50,7 @@ export default function CustomersPage() {
   
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -58,6 +59,17 @@ export default function CustomersPage() {
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, formState: { errors: editErrors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
   });
+  
+  const filteredCustomers = useMemo(() => {
+    if (!searchTerm) return customers;
+    const lowercasedTerm = searchTerm.toLowerCase();
+    return customers.filter(c =>
+        c.name.toLowerCase().includes(lowercasedTerm) ||
+        (c.contact && c.contact.toLowerCase().includes(lowercasedTerm)) ||
+        (c.area && c.area.toLowerCase().includes(lowercasedTerm)) ||
+        (c.vehicleNumber && c.vehicleNumber.toLowerCase().includes(lowercasedTerm))
+    );
+  }, [customers, searchTerm]);
 
   const onAddSubmit: SubmitHandler<CustomerFormValues> = (data) => {
     addCustomer({ ...data, isPartner: false });
@@ -156,15 +168,28 @@ export default function CustomersPage() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <List /> Customer & Partner List
-            </CardTitle>
-            <CardDescription>
-              A record of all your customers and business partners.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                    <List /> Customer & Partner List
+                    </CardTitle>
+                    <CardDescription>
+                    A record of all your customers and business partners.
+                    </CardDescription>
+                </div>
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                        placeholder="Search by name, contact, area..." 
+                        className="pl-10"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {customers.length > 0 ? (
+            {filteredCustomers.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -174,7 +199,7 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {customers.map(c => (
+                  {filteredCustomers.map(c => (
                       <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
                           <div className="font-medium flex items-center gap-2">
@@ -220,8 +245,8 @@ export default function CustomersPage() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Users className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Customers Recorded</h3>
-                <p>Use the form to add your first customer.</p>
+                <h3 className="text-xl font-semibold">{searchTerm ? 'No Matching Customers' : 'No Customers Recorded'}</h3>
+                <p>{searchTerm ? 'Try a different search term.' : 'Use the form to add your first customer.'}</p>
               </div>
             )}
           </CardContent>
