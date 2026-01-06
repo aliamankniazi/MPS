@@ -20,7 +20,7 @@ import {
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, PiggyBank, Archive, BarChartHorizontal, CalendarCheck, SlidersHorizontal, Gauge } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, PiggyBank, Archive, BarChartHorizontal, CalendarCheck, SlidersHorizontal, Gauge, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
