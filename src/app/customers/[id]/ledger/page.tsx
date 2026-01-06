@@ -86,7 +86,7 @@ export default function CustomerLedgerPage() {
         customerTransactions.forEach(tx => combined.push({
           id: `tx-${tx.id}`,
           timestamp: tx.timestamp,
-          description: `${tx.volume.toFixed(2)}L of ${tx.fuelType}`,
+          description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'Sale'),
           type: 'Sale',
           debit: tx.totalAmount,
           credit: 0,
