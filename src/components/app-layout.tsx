@@ -16,14 +16,11 @@ import {
   SidebarInset,
   SidebarTrigger,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
-import { History, FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Landmark, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, Beaker, Handshake, PiggyBank, Archive, BarChartHorizontal, Shield, FileBarChart, CalendarCheck, SlidersHorizontal, Gauge } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, Receipt, Undo2, Users, Briefcase, Package, BookOpen, HandCoins, ArrowRightLeft, LogOut, Fuel, DollarSign, PiggyBank, Archive, BarChartHorizontal, CalendarCheck, SlidersHorizontal, Gauge } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
@@ -40,13 +37,14 @@ const navItems = [
       { href: '/all-transactions', label: 'All Transactions', icon: Archive, permission: 'view_all_transactions' as Permission },
       { href: '/all-invoices', label: 'All Invoices', icon: FileText, permission: 'view_all_transactions' as Permission },
       { href: '/ledger', label: 'General Journal', icon: BookOpen, permission: 'view_ledger' as Permission },
-      { href: '/credit-recovery', label: 'Customer Recovery', icon: BarChartHorizontal, permission: 'view_credit_recovery' as Permission },
+      { href: '/credit-recovery', label: 'Credit Recovery', icon: BarChartHorizontal, permission: 'view_credit_recovery' as Permission },
     ]
   },
   {
     group: 'Purchases & Suppliers',
     icon: ShoppingCart,
     items: [
+        { href: '/purchases', label: 'Purchases', icon: ShoppingCart, permission: 'view_purchases' as Permission },
         { href: '/purchase-returns', label: 'Purchase Returns', icon: Undo2, permission: 'view_purchase_returns' as Permission },
         { href: '/suppliers', label: 'Suppliers', icon: Users, permission: 'view_settings' as Permission },
         { href: '/partner-ledger', label: 'Unified Ledger', icon: HandCoins, permission: 'view_partner_ledger' as Permission },
@@ -77,10 +75,9 @@ const navItems = [
     items: [
         { href: '/expenses', label: 'Expenses', icon: Receipt, permission: 'view_expenses' as Permission },
         { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign, permission: 'view_other_incomes' as Permission },
-        { href: '/bank-management', label: 'Bank Management', icon: Landmark, permission: 'manage_banks' as Permission },
     ]
   },
-  { href: '/reports', label: 'Reports', icon: FileBarChart, permission: 'view_summary' as Permission },
+  { href: '/reports', label: 'Reports', icon: FileText, permission: 'view_summary' as Permission },
   { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
 ];
 
@@ -91,8 +88,7 @@ const AppLogo = () => (
         <Fuel className="w-6 h-6" />
       </div>
       <div className="flex flex-col">
-        <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali</h2>
-        <p className="text-xs text-muted-foreground -mt-1">Petroleum Service</p>
+        <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali Petroleum</h2>
       </div>
     </div>
 );
@@ -115,6 +111,11 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         }
       }
     }
+    // Fallback titles for dynamic routes
+    if (pathname.includes('/customers/') && pathname.includes('/ledger')) return 'Partner Ledger';
+    if (pathname.includes('/invoice/')) return 'Invoice';
+
+
     return 'New Transaction';
   }
 
@@ -155,7 +156,6 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
                              <SidebarMenuSubItem key={sub.href}>
                                 <SidebarMenuSubButton asChild isActive={pathname.startsWith(sub.href)}>
                                     <Link href={sub.href} legacyBehavior={false}>
-                                        <sub.icon />
                                         {sub.label}
                                     </Link>
                                 </SidebarMenuSubButton>
@@ -192,19 +192,16 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
         </SidebarFooter>
       </Sidebar>
       <SidebarInset>
-        <div className="fixed inset-0 flex items-center justify-center -z-10 pointer-events-none">
-          <div className="flex flex-col items-center text-center -rotate-12 opacity-5 dark:opacity-[0.02]">
-            <h1 className="text-8xl font-black text-foreground/50 tracking-widest leading-none">
-              Mianwali
-            </h1>
-            <h2 className="text-6xl font-bold text-foreground/50 tracking-wider">
-              Petroleum Service
-            </h2>
-          </div>
-        </div>
         <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:justify-end">
           <SidebarTrigger className="md:hidden" />
           <h2 className="text-xl font-semibold md:hidden">{pageTitle}</h2>
+          <div className="hidden md:flex items-center gap-4">
+              <p className="text-sm">Jan 6, 2026 1:55 PM</p>
+              <span className="text-sm">ziakniazi@gmail.com</span>
+                <Button variant="ghost" size="icon">
+                    <Sun className="h-5 w-5" />
+                </Button>
+          </div>
         </header>
         <main className="flex-1">{children}</main>
       </SidebarInset>
