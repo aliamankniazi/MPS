@@ -1,7 +1,8 @@
 
 'use client';
 
-import { useMemo, useState, useParams } from 'react';
+import { useMemo, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -86,7 +87,7 @@ export default function CustomerLedgerPage() {
         customerTransactions.forEach(tx => combined.push({
           id: `tx-${tx.id}`,
           timestamp: tx.timestamp,
-          description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'Sale'),
+          description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
           type: 'Sale',
           debit: tx.totalAmount,
           credit: 0,
@@ -404,7 +405,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    
 
     
