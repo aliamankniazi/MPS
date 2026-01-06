@@ -1,4 +1,5 @@
 
+
 export type FuelType = 'Unleaded' | 'Premium' | 'Diesel';
 
 export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary';
@@ -163,6 +164,14 @@ export interface BusinessPartner {
   name: string;
   sharePercentage: number;
   contact?: string;
+  timestamp: string;
+}
+
+export interface StockAdjustment {
+  id: string;
+  fuelType: FuelType;
+  adjustment: number;
+  newStock: number;
   timestamp: string;
 }
 

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -24,6 +25,7 @@ import type {
     Purchase,
     PurchaseReturn,
     SaleReturn,
+    StockAdjustment,
     Supplier,
     SupplierPayment,
     TankReading,
@@ -52,7 +54,7 @@ const PATHS = {
     businessPartners: 'businessPartners',
     fuelPrices: 'fuelPrices',
     initialFuelStock: 'initialFuelStock',
-    manualFuelStock: 'manualFuelStock',
+    stockAdjustments: 'stockAdjustments',
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -85,9 +87,9 @@ interface DatabaseState {
     tankReadings: Record<string, Omit<TankReading, 'id'>>;
     investments: Record<string, Omit<Investment, 'id'>>;
     businessPartners: Record<string, Omit<BusinessPartner, 'id'>>;
+    stockAdjustments: Record<string, Omit<StockAdjustment, 'id'>>;
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
-    manualFuelStock: Partial<Record<FuelType, { value: number; timestamp: string }>>;
     isLoaded: boolean;
 }
 
@@ -108,9 +110,9 @@ interface ProcessedDatabaseState {
     tankReadings: TankReading[];
     investments: Investment[];
     businessPartners: BusinessPartner[];
+    stockAdjustments: StockAdjustment[];
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
-    manualFuelStock: Partial<Record<FuelType, { value: number; timestamp: string }>>;
     isLoaded: boolean;
 }
 
@@ -150,9 +152,8 @@ interface DatabaseActions {
     addBusinessPartner: (partner: Omit<BusinessPartner, 'id' | 'timestamp'>) => void;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
+    addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'timestamp'>) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
-    setFuelStock: (fuelType: FuelType, newStock: number) => void;
-
     clearAllData: () => void;
 }
 
@@ -172,9 +173,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
         cashAdvances: {}, tankReadings: {}, investments: {}, businessPartners: {},
+        stockAdjustments: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
-        manualFuelStock: {},
         isLoaded: false,
     });
 
@@ -222,42 +223,47 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             tankReadings: objectToArray<TankReading>(state.tankReadings).sort(timestampSort),
             investments: objectToArray<Investment>(state.investments).sort(timestampSort),
             businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(nameSort),
+            stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(timestampSort),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
-            manualFuelStock: state.manualFuelStock,
             isLoaded: state.isLoaded,
         };
     }, [state]);
     
     const fuelStock = useMemo(() => {
-        if (!state.isLoaded) return DEFAULT_INITIAL_STOCK;
-
-        const stock = { ...state.initialFuelStock };
+        const stock = { ...DEFAULT_INITIAL_STOCK };
+        
+        if (!state.isLoaded) return stock;
 
         for (const fuelType in stock) {
             const ft = fuelType as FuelType;
-            const manualAdjustment = state.manualFuelStock[ft];
+
+            const totalPurchased = processedState.purchases
+                .filter(p => p.fuelType === ft)
+                .reduce((sum, p) => sum + p.volume, 0);
+
+            const totalSold = processedState.transactions
+                .filter(t => t.fuelType === ft && t.volume)
+                .reduce((sum, t) => sum + t.volume, 0);
+
+            const totalReturnedToSupplier = processedState.purchaseReturns
+                .filter(pr => pr.fuelType === ft)
+                .reduce((sum, pr) => sum + pr.volume, 0);
             
-            if (manualAdjustment) {
-                stock[ft] = manualAdjustment.value;
-            } else {
-                const totalSold = processedState.transactions
-                    .filter(t => t.fuelType === ft && t.volume)
-                    .reduce((sum, t) => sum + t.volume, 0);
+            const totalReturnedFromCustomer = processedState.saleReturns
+                .filter(sr => sr.fuelType === ft)
+                .reduce((sum, sr) => sum + sr.volume, 0);
 
-                const totalPurchased = processedState.purchases
-                    .filter(p => p.fuelType === ft)
-                    .reduce((sum, p) => sum + p.volume, 0);
+            const netAdjustments = processedState.stockAdjustments
+                .filter(adj => adj.fuelType === ft)
+                .reduce((sum, adj) => sum + adj.adjustment, 0);
 
-                const totalReturned = processedState.purchaseReturns
-                    .filter(pr => pr.fuelType === ft)
-                    .reduce((sum, pr) => sum + pr.volume, 0);
-                
-                stock[ft] = (state.initialFuelStock[ft] || 0) + totalPurchased - totalSold - totalReturned;
-            }
+            stock[ft] = (state.initialFuelStock[ft] || 0) + totalPurchased - totalSold - totalReturnedToSupplier + totalReturnedFromCustomer + netAdjustments;
         }
+
         return stock;
-    }, [state.initialFuelStock, state.manualFuelStock, processedState.transactions, processedState.purchases, processedState.purchaseReturns, state.isLoaded]);
+
+    }, [state.isLoaded, state.initialFuelStock, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
     const addEntity = useCallback(<T extends {timestamp: string}>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
@@ -331,6 +337,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const addInvestment = (i: Omit<Investment, 'id' | 'timestamp'>) => addEntity(PATHS.investments, i);
     const deleteInvestment = (id: string) => deleteEntity(PATHS.investments, id);
 
+    const addStockAdjustment = (adj: Omit<StockAdjustment, 'id' | 'timestamp'>) => addEntity(PATHS.stockAdjustments, adj);
+
+
     const addBusinessPartner = (partner: Omit<BusinessPartner, 'id' | 'timestamp'>) => {
         const customerRecord = addCustomer({
             name: partner.name,
@@ -358,11 +367,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         if (!db || isNaN(newPrice) || newPrice < 0) return;
         update(ref(db), { [`${PATHS.fuelPrices}/${fuelType}`]: newPrice });
     };
-
-    const setFuelStock = (fuelType: FuelType, newStock: number) => {
-        if (!db || isNaN(newStock) || newStock < 0) return;
-        set(ref(db, `${PATHS.manualFuelStock}/${fuelType}`), { value: newStock, timestamp: new Date().toISOString() });
-    };
     
     const clearAllData = () => {
         if(db) {
@@ -375,8 +379,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
             bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
             cashAdvances: {}, tankReadings: {}, investments: {}, businessPartners: {},
+            stockAdjustments: {},
             fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
-            manualFuelStock: {}, isLoaded: true
+            isLoaded: true
         });
     };
 
@@ -420,8 +425,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addBusinessPartner,
         updateBusinessPartner,
         deleteBusinessPartner,
+        addStockAdjustment,
         updateFuelPrice,
-        setFuelStock,
         clearAllData,
     };
 

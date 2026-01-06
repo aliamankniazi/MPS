@@ -1,16 +1,14 @@
 
+
 'use client';
 
 import * as React from 'react';
-import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Settings, Trash2, AlertTriangle, Droplets, Package, Edit, Truck, UserPlus, BookText, Car, User } from 'lucide-react';
+import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,20 +23,15 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import type { FuelType, Supplier } from '@/lib/types';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
+import { useForm, type SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
-const adjustmentSchema = z.object({
-  fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
-  adjustment: z.coerce.number(),
-});
-
-type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
 
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
@@ -55,8 +48,6 @@ export default function SettingsPage() {
     clearAllData,
     fuelPrices, 
     updateFuelPrice, 
-    fuelStock, 
-    setFuelStock, 
     suppliers, 
     addSupplier, 
     deleteSupplier, 
@@ -64,13 +55,6 @@ export default function SettingsPage() {
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToDelete, setSupplierToDelete] = React.useState<Supplier | null>(null);
-
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<AdjustmentFormValues>({
-    resolver: zodResolver(adjustmentSchema),
-    defaultValues: {
-      adjustment: 0,
-    }
-  });
 
   const { 
     register: registerSupplier, 
@@ -80,15 +64,6 @@ export default function SettingsPage() {
   } = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
   });
-
-  const selectedFuelType = watch('fuelType');
-  const adjustmentValue = watch('adjustment');
-  const currentStock = selectedFuelType ? (fuelStock[selectedFuelType] || 0) : 0;
-  
-  const newStock = React.useMemo(() => {
-    const adj = Number(adjustmentValue) || 0;
-    return Number(currentStock) + adj;
-  }, [currentStock, adjustmentValue]);
 
   const handleClearData = () => {
     clearAllData();
@@ -103,26 +78,6 @@ export default function SettingsPage() {
     if (!isNaN(price)) {
       updateFuelPrice(fuelType, price);
     }
-  };
-
-  const onAdjustmentSubmit: SubmitHandler<AdjustmentFormValues> = (data) => {
-    const currentStockValue = fuelStock[data.fuelType] || 0;
-    const finalNewStock = currentStockValue + data.adjustment;
-
-    if (finalNewStock < 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Invalid Adjustment',
-        description: 'Stock level cannot be negative.',
-      });
-      return;
-    }
-    setFuelStock(data.fuelType, finalNewStock);
-    toast({
-      title: 'Stock Adjusted',
-      description: `${data.fuelType} stock has been set to ${finalNewStock.toLocaleString()} L.`,
-    });
-    reset({ fuelType: data.fuelType, adjustment: 0 });
   };
   
   const onSupplierSubmit: SubmitHandler<SupplierFormValues> = (data) => {
@@ -151,7 +106,7 @@ export default function SettingsPage() {
           <CardTitle className="flex items-center gap-2">
             <Settings /> Settings
           </CardTitle>
-          <CardDescription>Customize application settings, fuel prices, and inventory.</CardDescription>
+          <CardDescription>Customize application settings, fuel prices, and suppliers.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
         
@@ -270,60 +225,6 @@ export default function SettingsPage() {
                 </div>
               ))}
             </div>
-          </div>
-
-          <Separator />
-          
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium flex items-center gap-2"><Package /> Product Adjustment</h3>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-xl flex items-center gap-2"><Edit /> Manual Stock Adjustment</CardTitle>
-                <CardDescription>
-                  Manually adjust the current stock level for a fuel type.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit(onAdjustmentSubmit)} className="space-y-4">
-                   <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="space-y-2 md:col-span-1">
-                      <Label>Fuel Type</Label>
-                       <Controller
-                        name="fuelType"
-                        control={control}
-                        render={({ field }) => (
-                          <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a fuel type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {FUEL_TYPES.map(fuel => (
-                                <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                       {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
-                    </div>
-                    <div className="space-y-2 md:col-span-1">
-                      <Label htmlFor="currentStock">Current Stock (L)</Label>
-                      <Input id="currentStock" type="number" value={isLoaded ? currentStock.toFixed(2) : "Loading..."} readOnly disabled className="bg-muted/50" />
-                    </div>
-                    <div className="space-y-2 md:col-span-1">
-                      <Label htmlFor="adjustment">Adjustment (L)</Label>
-                      <Input id="adjustment" type="number" {...register('adjustment')} placeholder="e.g., -50 or 100" step="0.01" />
-                       {errors.adjustment && <p className="text-sm text-destructive">{errors.adjustment.message}</p>}
-                    </div>
-                     <div className="space-y-2 md:col-span-1">
-                      <Label htmlFor="newStock">New Stock (L)</Label>
-                      <Input id="newStock" type="number" value={selectedFuelType ? newStock.toFixed(2) : "..."} readOnly disabled className="bg-muted/50 font-bold" />
-                    </div>
-                  </div>
-                  <Button type="submit" disabled={!selectedFuelType || !isLoaded}>Adjust Stock</Button>
-                </form>
-              </CardContent>
-            </Card>
           </div>
 
           <Separator />
