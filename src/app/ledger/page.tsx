@@ -45,6 +45,7 @@ type LedgerEntry = {
   debit: number;
   credit: number;
   balance: number;
+  original: any;
 };
 
 export default function LedgerPage() {
@@ -77,6 +78,7 @@ export default function LedgerPage() {
       type: 'Sale',
       debit: 0,
       credit: tx.totalAmount,
+      original: tx,
     }));
     customerPayments.forEach(cp => combined.push({
         id: `cp-${cp.id}`,
@@ -85,6 +87,7 @@ export default function LedgerPage() {
         type: 'Customer Payment',
         debit: 0,
         credit: cp.amount,
+        original: cp,
     }));
 
     // Purchases and Supplier Payments
@@ -95,6 +98,7 @@ export default function LedgerPage() {
       type: 'Purchase',
       debit: p.totalCost,
       credit: 0,
+      original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
       id: `sp-${sp.id}`,
@@ -103,6 +107,7 @@ export default function LedgerPage() {
       type: 'Supplier Payment',
       debit: sp.amount,
       credit: 0,
+      original: sp,
     }));
 
 
@@ -114,6 +119,7 @@ export default function LedgerPage() {
         type: 'Expense',
         debit: e.amount,
         credit: 0,
+        original: e,
     }));
       
     // Returns
@@ -124,6 +130,7 @@ export default function LedgerPage() {
         type: 'Purchase Return',
         debit: 0,
         credit: pr.totalRefund,
+        original: pr,
     }));
 
     // Incomes
@@ -134,6 +141,7 @@ export default function LedgerPage() {
         type: 'Other Income',
         debit: 0,
         credit: oi.amount,
+        original: oi,
     }));
 
 
@@ -147,6 +155,7 @@ export default function LedgerPage() {
                 type: 'Investment',
                 debit: 0,
                 credit: inv.amount,
+                original: inv,
             });
         } else {
             combined.push({
@@ -156,6 +165,7 @@ export default function LedgerPage() {
                 type: 'Withdrawal',
                 debit: inv.amount,
                 credit: 0,
+                original: inv,
             });
         }
     });
@@ -164,6 +174,7 @@ export default function LedgerPage() {
 
     let calculatedOpeningBalance = 0;
     let entriesForDisplay = combined;
+    let entriesForSummary = combined;
 
     if (selectedDate) {
       calculatedOpeningBalance = combined
@@ -174,6 +185,7 @@ export default function LedgerPage() {
         .reduce((acc, entry) => acc + entry.credit - entry.debit, 0);
       
       entriesForDisplay = combined.filter(entry => isValid(new Date(entry.timestamp)) && isSameDay(new Date(entry.timestamp), selectedDate));
+      entriesForSummary = entriesForDisplay;
     }
     
     if (searchTerm) {
@@ -197,8 +209,11 @@ export default function LedgerPage() {
         { debit: 0, credit: 0 }
     );
 
-    // Calculate Product Wise Sales
-    const salesByProduct = transactions.reduce((acc, tx) => {
+    // Calculate Product Wise Sales based on the filtered entries
+    const salesByProduct = entriesForSummary
+      .filter(e => e.type === 'Sale')
+      .reduce((acc, saleEntry) => {
+        const tx = saleEntry.original as import('@/lib/types').Transaction;
         const product = tx.product || tx.fuelType;
         if (!acc[product]) {
             acc[product] = { totalSold: 0, totalRevenue: 0, count: 0, unit: tx.product ? 'Cans' : 'Liters' };
@@ -216,10 +231,11 @@ export default function LedgerPage() {
         totalRevenue: data.totalRevenue.toFixed(2),
     }));
 
-    // Calculate Profit Summary
-    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const costOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0) - purchaseReturns.reduce((sum, pr) => sum + pr.totalRefund, 0);
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    // Calculate Profit Summary based on the filtered entries
+    const totalRevenue = entriesForSummary.filter(e => e.type === 'Sale' || e.type === 'Other Income').reduce((sum, e) => sum + e.credit, 0);
+    const costOfGoods = entriesForSummary.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0) 
+                      - entriesForSummary.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
+    const totalExpenses = entriesForSummary.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
     const grossProfit = totalRevenue - costOfGoods;
     const netProfit = grossProfit - totalExpenses;
     const profitSummaryData = { totalRevenue, costOfGoods, grossProfit, totalExpenses, netProfit };
@@ -251,7 +267,7 @@ export default function LedgerPage() {
     }},
     { accessorKey: 'debit', header: 'Debit (PKR)', cell: ({row}: any) => <span className="font-mono text-destructive">{row.original.debit > 0 ? row.original.debit.toFixed(2) : '-'}</span>, className: 'text-right' },
     { accessorKey: 'credit', header: 'Credit (PKR)', cell: ({row}: any) => <span className="font-mono text-green-600">{row.original.credit > 0 ? row.original.credit.toFixed(2) : '-'}</span>, className: 'text-right' },
-    { accessorKey: 'balance', header: 'Balance (PKR)', cell: ({row}: any) => <span className={cn("font-semibold font-mono", row.original.balance >= 0 ? 'text-green-600' : 'text-destructive')}>{row.original.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>, className: 'text-right' },
+    { accessorKey: 'balance', header: 'Balance (PKR)', cell: ({row}: any) => <span className={cn("font-semibold font-mono", row.original.balance >= 0 ? 'text-primary' : 'text-destructive')}>{row.original.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>, className: 'text-right' },
     {
       id: 'actions',
       cell: ({ row }: any) => (
@@ -276,6 +292,42 @@ export default function LedgerPage() {
     const blob = new Blob([excelBuffer], {type: "application/octet-stream"});
     saveAs(blob, `${fileName}.xlsx`);
   }
+  
+  const handleDeleteEntry = () => {
+    if (!entryToDelete) return;
+    
+    const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
+
+    try {
+        switch(typePrefix) {
+            case 'tx': deleteTransaction(id); break;
+            case 'pur': deletePurchase(id); break;
+            case 'cp': deleteCustomerPayment(id); break;
+            case 'sp': deleteSupplierPayment(id); break;
+            case 'exp': deleteExpense(id); break;
+            case 'pr': deletePurchaseReturn(id); break;
+            case 'oi': deleteOtherIncome(id); break;
+            case 'inv': deleteInvestment(id); break;
+            case 'wdr': deleteInvestment(id); break;
+            default:
+                throw new Error('Could not delete entry of unknown type.');
+        }
+
+        toast({
+            title: 'Entry Deleted',
+            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
+        });
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error Deleting',
+            description: error.message || 'An unexpected error occurred.',
+        });
+    } finally {
+        setEntryToDelete(null);
+    }
+  };
+
 
   return (
     <>
@@ -318,7 +370,9 @@ export default function LedgerPage() {
                 <Card>
                     <CardHeader>
                         <CardTitle>Product Wise Sale Summary</CardTitle>
-                        <CardDescription>A summary of all product sales for all time.</CardDescription>
+                        <CardDescription>
+                          A summary of all product sales for {selectedDate ? format(selectedDate, "PPP") : 'all time'}.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <DataTable columns={productSalesColumns} data={productWiseSales} hideHeader>
@@ -338,7 +392,7 @@ export default function LedgerPage() {
                  <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><DollarSign/> Profit Summary</CardTitle>
-                        <CardDescription>A summary of overall profit for all time.</CardDescription>
+                        <CardDescription>A summary of overall profit for {selectedDate ? format(selectedDate, "PPP") : 'all time'}.</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2 text-sm">
                         {isLoaded && profitSummary ? (
@@ -394,7 +448,7 @@ export default function LedgerPage() {
                     <TableBody>
                         <TableRow className="bg-muted/30">
                             <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
-                            <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                            <TableCell className={`text-right font-semibold font-mono ${openingBalance >= 0 ? 'text-primary' : 'text-destructive'}`}>
                             {openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell />
@@ -432,13 +486,7 @@ export default function LedgerPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-                 if (!entryToDelete) return;
-                // Simplified delete logic would go here
-                 console.log("Deleting", entryToDelete.id);
-                 toast({ title: "Entry Deleted" });
-                 setEntryToDelete(null);
-            }} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>
           </AlertDialogFooter>
