@@ -20,6 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Customer } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 
 const customerSchema = z.object({
@@ -45,6 +46,7 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function CustomersPage() {
   const { customers, addCustomer, updateCustomer, deleteCustomer } = useCustomers();
   const { toast } = useToast();
+  const router = useRouter();
   
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
@@ -98,6 +100,15 @@ export default function CustomersPage() {
     if (typeof phone !== 'string') return '';
     return phone.replace(/[^0-9]/g, '');
   }
+  
+  const handleRowClick = (customerId: string, e: React.MouseEvent) => {
+    // Prevent navigation if the click was on a button or an interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('a')) {
+      return;
+    }
+    router.push(`/customers/${customerId}/ledger`);
+  };
 
   return (
     <>
@@ -164,7 +175,7 @@ export default function CustomersPage() {
                 </TableHeader>
                 <TableBody>
                   {customers.map(c => (
-                      <TableRow key={c.id}>
+                      <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
                           <div className="font-medium flex items-center gap-2">
                             {c.name}
