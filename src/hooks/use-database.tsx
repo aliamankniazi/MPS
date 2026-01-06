@@ -28,11 +28,12 @@ import type {
     StockAdjustment,
     Supplier,
     SupplierPayment,
+    Tank,
     TankReading,
     Transaction,
 } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { ref, onValue, push, remove, set, update } from 'firebase/database';
+import { ref, onValue, push, remove, set, update, serverTimestamp } from 'firebase/database';
 
 // Centralized paths
 const PATHS = {
@@ -49,6 +50,7 @@ const PATHS = {
     customerPayments: 'customerPayments',
     supplierPayments: 'supplierPayments',
     cashAdvances: 'cashAdvances',
+    tanks: 'tanks',
     tankReadings: 'tankReadings',
     investments: 'investments',
     businessPartners: 'businessPartners',
@@ -84,6 +86,7 @@ interface DatabaseState {
     customerPayments: Record<string, Omit<CustomerPayment, 'id'>>;
     supplierPayments: Record<string, Omit<SupplierPayment, 'id'>>;
     cashAdvances: Record<string, Omit<CashAdvance, 'id'>>;
+    tanks: Record<string, Omit<Tank, 'id'>>;
     tankReadings: Record<string, Omit<TankReading, 'id'>>;
     investments: Record<string, Omit<Investment, 'id'>>;
     businessPartners: Record<string, Omit<BusinessPartner, 'id'>>;
@@ -107,6 +110,7 @@ interface ProcessedDatabaseState {
     customerPayments: CustomerPayment[];
     supplierPayments: SupplierPayment[];
     cashAdvances: CashAdvance[];
+    tanks: Tank[];
     tankReadings: TankReading[];
     investments: Investment[];
     businessPartners: BusinessPartner[];
@@ -117,42 +121,45 @@ interface ProcessedDatabaseState {
 }
 
 interface DatabaseActions {
-    addTransaction: (transaction: Omit<Transaction, 'id' | 'timestamp'>) => void;
+    addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
     deleteTransaction: (id: string) => void;
-    addPurchase: (purchase: Omit<Purchase, 'id' | 'timestamp'>) => void;
+    addPurchase: (purchase: Omit<Purchase, 'id'>) => void;
     deletePurchase: (id: string) => void;
-    addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id' | 'timestamp'>) => void;
+    addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id'>) => void;
     deletePurchaseReturn: (id: string) => void;
-    addSaleReturn: (sr: Omit<SaleReturn, 'id' | 'timestamp'>) => void;
+    addSaleReturn: (sr: Omit<SaleReturn, 'id'>) => void;
     deleteSaleReturn: (id: string) => void;
-    addExpense: (expense: Omit<Expense, 'id' | 'timestamp'>) => void;
+    addExpense: (expense: Omit<Expense, 'id'>) => void;
     deleteExpense: (id: string) => void;
-    addOtherIncome: (income: Omit<OtherIncome, 'id' | 'timestamp'>) => void;
+    addOtherIncome: (income: Omit<OtherIncome, 'id'>) => void;
     deleteOtherIncome: (id: string) => void;
-    addCustomer: (customer: Omit<Customer, 'id' | 'timestamp'>) => Customer;
+    addCustomer: (customer: Omit<Customer, 'id'>) => Customer;
     updateCustomer: (id: string, updates: Partial<Customer>) => void;
     deleteCustomer: (id: string) => void;
-    addSupplier: (supplier: Omit<Supplier, 'id' | 'timestamp'>) => void;
+    addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
     deleteSupplier: (id: string) => void;
-    addBankAccount: (account: Omit<BankAccount, 'id' | 'timestamp'>) => void;
+    addBankAccount: (account: Omit<BankAccount, 'id'>) => void;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
-    addEmployee: (employee: Omit<Employee, 'id' | 'timestamp'>) => void;
+    addEmployee: (employee: Omit<Employee, 'id'>) => void;
     updateEmployee: (id: string, updates: Partial<Employee>) => void;
     deleteEmployee: (id: string) => void;
-    addCustomerPayment: (payment: Omit<CustomerPayment, 'id' | 'timestamp'>) => void;
+    addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => void;
     deleteCustomerPayment: (id: string) => void;
-    addSupplierPayment: (payment: Omit<SupplierPayment, 'id' | 'timestamp'>) => void;
+    addSupplierPayment: (payment: Omit<SupplierPayment, 'id'>) => void;
     deleteSupplierPayment: (id: string) => void;
-    addCashAdvance: (advance: Omit<CashAdvance, 'id' | 'timestamp'>) => void;
+    addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => void;
     deleteCashAdvance: (id: string) => void;
-    addTankReading: (reading: Omit<TankReading, 'id' | 'timestamp'>) => void;
-    addInvestment: (investment: Omit<Investment, 'id' | 'timestamp'>) => void;
+    addTank: (tank: Omit<Tank, 'id'>) => void;
+    deleteTank: (id: string) => void;
+    addTankReading: (reading: Omit<TankReading, 'id'>) => void;
+    addInvestment: (investment: Omit<Investment, 'id'>) => void;
     deleteInvestment: (id: string) => void;
-    addBusinessPartner: (partner: Omit<BusinessPartner, 'id' | 'timestamp'>) => void;
+    addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => void;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
-    addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'timestamp'>) => void;
+    addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id'>) => void;
+    setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     clearAllData: () => void;
 }
@@ -172,7 +179,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         transactions: {}, purchases: {}, purchaseReturns: {}, saleReturns: {},
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
-        cashAdvances: {}, tankReadings: {}, investments: {}, businessPartners: {},
+        cashAdvances: {}, tanks: {}, tankReadings: {}, investments: {}, businessPartners: {},
         stockAdjustments: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
@@ -203,27 +210,41 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, []);
     
     const processedState = useMemo((): ProcessedDatabaseState => {
-        const timestampSort = (a: { timestamp: string }, b: { timestamp: string }) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
-        const nameSort = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+        const createSorter = (key: string, order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
+            const valA = a[key];
+            const valB = b[key];
 
+            if (typeof valA === 'string' && typeof valB === 'string') {
+                if (Date.parse(valA) && Date.parse(valB)) { // It's a date string
+                    return order === 'desc' ? new Date(valB).getTime() - new Date(valA).getTime() : new Date(valA).getTime() - new Date(valB).getTime();
+                }
+                return order === 'desc' ? valB.localeCompare(valA) : valA.localeCompare(valB);
+            }
+             if (typeof valA === 'number' && typeof valB === 'number') {
+                return order === 'desc' ? valB - valA : valA - valB;
+            }
+            return 0;
+        }
+        
         return {
-            transactions: objectToArray<Transaction>(state.transactions).sort(timestampSort),
-            purchases: objectToArray<Purchase>(state.purchases).sort(timestampSort),
-            purchaseReturns: objectToArray<PurchaseReturn>(state.purchaseReturns).sort(timestampSort),
-            saleReturns: objectToArray<SaleReturn>(state.saleReturns).sort(timestampSort),
-            expenses: objectToArray<Expense>(state.expenses).sort(timestampSort),
-            otherIncomes: objectToArray<OtherIncome>(state.otherIncomes).sort(timestampSort),
-            customers: objectToArray<Customer>(state.customers).sort(nameSort),
-            suppliers: objectToArray<Supplier>(state.suppliers).sort(nameSort),
-            bankAccounts: objectToArray<BankAccount>(state.bankAccounts).sort(timestampSort),
-            employees: objectToArray<Employee>(state.employees).sort(timestampSort),
-            customerPayments: objectToArray<CustomerPayment>(state.customerPayments).sort(timestampSort),
-            supplierPayments: objectToArray<SupplierPayment>(state.supplierPayments).sort(timestampSort),
-            cashAdvances: objectToArray<CashAdvance>(state.cashAdvances).sort(timestampSort),
-            tankReadings: objectToArray<TankReading>(state.tankReadings).sort(timestampSort),
-            investments: objectToArray<Investment>(state.investments).sort(timestampSort),
-            businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(nameSort),
-            stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(timestampSort),
+            transactions: objectToArray<Transaction>(state.transactions).sort(createSorter('timestamp')),
+            purchases: objectToArray<Purchase>(state.purchases).sort(createSorter('timestamp')),
+            purchaseReturns: objectToArray<PurchaseReturn>(state.purchaseReturns).sort(createSorter('timestamp')),
+            saleReturns: objectToArray<SaleReturn>(state.saleReturns).sort(createSorter('timestamp')),
+            expenses: objectToArray<Expense>(state.expenses).sort(createSorter('timestamp')),
+            otherIncomes: objectToArray<OtherIncome>(state.otherIncomes).sort(createSorter('timestamp')),
+            customers: objectToArray<Customer>(state.customers).sort(createSorter('name', 'asc')),
+            suppliers: objectToArray<Supplier>(state.suppliers).sort(createSorter('name', 'asc')),
+            bankAccounts: objectToArray<BankAccount>(state.bankAccounts).sort(createSorter('timestamp')),
+            employees: objectToArray<Employee>(state.employees).sort(createSorter('timestamp')),
+            customerPayments: objectToArray<CustomerPayment>(state.customerPayments).sort(createSorter('timestamp')),
+            supplierPayments: objectToArray<SupplierPayment>(state.supplierPayments).sort(createSorter('timestamp')),
+            cashAdvances: objectToArray<CashAdvance>(state.cashAdvances).sort(createSorter('timestamp')),
+            tanks: objectToArray<Tank>(state.tanks).sort(createSorter('name', 'asc')),
+            tankReadings: objectToArray<TankReading>(state.tankReadings).sort(createSorter('timestamp')),
+            investments: objectToArray<Investment>(state.investments).sort(createSorter('timestamp')),
+            businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(createSorter('name', 'asc')),
+            stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(createSorter('timestamp')),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
             isLoaded: state.isLoaded,
@@ -237,44 +258,53 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         for (const fuelType in stock) {
             const ft = fuelType as FuelType;
+            
+            // Start with the last known reading for that fuel type, or initial stock
+            const lastReading = processedState.tankReadings
+                .filter(r => r.fuelType === ft)
+                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                
+            let startingPoint = lastReading ? new Date(lastReading.timestamp) : new Date(0);
+            let startingStock = lastReading ? lastReading.volume : (state.initialFuelStock[ft] || 0);
 
-            const totalPurchased = processedState.purchases
-                .filter(p => p.fuelType === ft)
+            const purchasesSince = processedState.purchases
+                .filter(p => p.fuelType === ft && new Date(p.timestamp) > startingPoint)
                 .reduce((sum, p) => sum + p.volume, 0);
 
-            const totalSold = processedState.transactions
-                .filter(t => t.fuelType === ft && t.volume)
+            const salesSince = processedState.transactions
+                .filter(t => t.fuelType === ft && t.volume && new Date(t.timestamp) > startingPoint)
                 .reduce((sum, t) => sum + t.volume, 0);
 
-            const totalReturnedToSupplier = processedState.purchaseReturns
-                .filter(pr => pr.fuelType === ft)
+            const purchaseReturnsSince = processedState.purchaseReturns
+                .filter(pr => pr.fuelType === ft && new Date(pr.timestamp) > startingPoint)
                 .reduce((sum, pr) => sum + pr.volume, 0);
             
-            const totalReturnedFromCustomer = processedState.saleReturns
-                .filter(sr => sr.fuelType === ft)
+            const saleReturnsSince = processedState.saleReturns
+                .filter(sr => sr.fuelType === ft && new Date(sr.timestamp) > startingPoint)
                 .reduce((sum, sr) => sum + sr.volume, 0);
-
-            const netAdjustments = processedState.stockAdjustments
-                .filter(adj => adj.fuelType === ft)
+            
+            const adjustmentsSince = processedState.stockAdjustments
+                .filter(adj => adj.fuelType === ft && new Date(adj.timestamp) > startingPoint)
                 .reduce((sum, adj) => sum + adj.adjustment, 0);
 
-            stock[ft] = (state.initialFuelStock[ft] || 0) + totalPurchased - totalSold - totalReturnedToSupplier + totalReturnedFromCustomer + netAdjustments;
+
+            stock[ft] = startingStock + purchasesSince - salesSince - purchaseReturnsSince + saleReturnsSince + adjustmentsSince;
         }
 
         return stock;
 
-    }, [state.isLoaded, state.initialFuelStock, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
+    }, [state.isLoaded, state.initialFuelStock, processedState.tankReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends {timestamp: string}>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
-        const newEntityWithTimestamp = { ...entity, timestamp: new Date().toISOString() };
+    const addEntity = useCallback(<T extends {timestamp?: string}>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
+        const newEntityWithTimestamp = { ...entity, timestamp: serverTimestamp() };
         if (db) {
             const newEntityRef = push(ref(db, path));
             set(newEntityRef, newEntityWithTimestamp);
-            return { ...newEntityWithTimestamp, id: newEntityRef.key! } as T;
+            return { ...entity, id: newEntityRef.key! } as T; // timestamp is handled by server
         }
         // Offline fallback
-        const offlineEntity = { ...newEntityWithTimestamp, id: crypto.randomUUID() } as T;
+        const offlineEntity = { ...entity, id: crypto.randomUUID(), timestamp: new Date().toISOString() } as T;
         setState(s => ({...s, [path]: {...(s as any)[path], [offlineEntity.id]: newEntityWithTimestamp } }));
         return offlineEntity;
     }, []);
@@ -290,57 +320,60 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, []);
     
     // Specific Actions
-    const addTransaction = (t: Omit<Transaction, 'id' | 'timestamp'>) => addEntity(PATHS.transactions, t);
+    const addTransaction = (t: Omit<Transaction, 'id'>) => addEntity(PATHS.transactions, t);
     const deleteTransaction = (id: string) => deleteEntity(PATHS.transactions, id);
     
-    const addPurchase = (p: Omit<Purchase, 'id' | 'timestamp'>) => addEntity(PATHS.purchases, p);
+    const addPurchase = (p: Omit<Purchase, 'id'>) => addEntity(PATHS.purchases, p);
     const deletePurchase = (id: string) => deleteEntity(PATHS.purchases, id);
 
-    const addPurchaseReturn = (pr: Omit<PurchaseReturn, 'id' | 'timestamp'>) => addEntity(PATHS.purchaseReturns, pr);
+    const addPurchaseReturn = (pr: Omit<PurchaseReturn, 'id'>) => addEntity(PATHS.purchaseReturns, pr);
     const deletePurchaseReturn = (id: string) => deleteEntity(PATHS.purchaseReturns, id);
 
-    const addSaleReturn = (sr: Omit<SaleReturn, 'id' | 'timestamp'>) => addEntity(PATHS.saleReturns, sr);
+    const addSaleReturn = (sr: Omit<SaleReturn, 'id'>) => addEntity(PATHS.saleReturns, sr);
     const deleteSaleReturn = (id: string) => deleteEntity(PATHS.saleReturns, id);
 
-    const addExpense = (e: Omit<Expense, 'id' | 'timestamp'>) => addEntity(PATHS.expenses, e);
+    const addExpense = (e: Omit<Expense, 'id'>) => addEntity(PATHS.expenses, e);
     const deleteExpense = (id: string) => deleteEntity(PATHS.expenses, id);
 
-    const addOtherIncome = (i: Omit<OtherIncome, 'id' | 'timestamp'>) => addEntity(PATHS.otherIncomes, i);
+    const addOtherIncome = (i: Omit<OtherIncome, 'id'>) => addEntity(PATHS.otherIncomes, i);
     const deleteOtherIncome = (id: string) => deleteEntity(PATHS.otherIncomes, id);
 
-    const addCustomer = (c: Omit<Customer, 'id' | 'timestamp'>) => addEntity<Customer>(PATHS.customers, c);
+    const addCustomer = (c: Omit<Customer, 'id'>) => addEntity<Customer>(PATHS.customers, c);
     const updateCustomer = (id: string, u: Partial<Customer>) => updateEntity(PATHS.customers, id, u);
     const deleteCustomer = (id: string) => deleteEntity(PATHS.customers, id);
     
-    const addSupplier = (s: Omit<Supplier, 'id' | 'timestamp'>) => addEntity(PATHS.suppliers, s);
+    const addSupplier = (s: Omit<Supplier, 'id'>) => addEntity(PATHS.suppliers, s);
     const deleteSupplier = (id: string) => deleteEntity(PATHS.suppliers, id);
 
-    const addBankAccount = (a: Omit<BankAccount, 'id' | 'timestamp'>) => addEntity(PATHS.bankAccounts, a);
+    const addBankAccount = (a: Omit<BankAccount, 'id'>) => addEntity(PATHS.bankAccounts, a);
     const updateBankAccount = (id: string, u: Partial<BankAccount>) => updateEntity(PATHS.bankAccounts, id, u);
     const deleteBankAccount = (id: string) => deleteEntity(PATHS.bankAccounts, id);
 
-    const addEmployee = (e: Omit<Employee, 'id' | 'timestamp'>) => addEntity(PATHS.employees, e);
+    const addEmployee = (e: Omit<Employee, 'id'>) => addEntity(PATHS.employees, e);
     const updateEmployee = (id: string, u: Partial<Employee>) => updateEntity(PATHS.employees, id, u);
     const deleteEmployee = (id: string) => deleteEntity(PATHS.employees, id);
 
-    const addCustomerPayment = (p: Omit<CustomerPayment, 'id' | 'timestamp'>) => addEntity(PATHS.customerPayments, p);
+    const addCustomerPayment = (p: Omit<CustomerPayment, 'id'>) => addEntity(PATHS.customerPayments, p);
     const deleteCustomerPayment = (id: string) => deleteEntity(PATHS.customerPayments, id);
 
-    const addSupplierPayment = (p: Omit<SupplierPayment, 'id' | 'timestamp'>) => addEntity(PATHS.supplierPayments, p);
+    const addSupplierPayment = (p: Omit<SupplierPayment, 'id'>) => addEntity(PATHS.supplierPayments, p);
     const deleteSupplierPayment = (id: string) => deleteEntity(PATHS.supplierPayments, id);
 
-    const addCashAdvance = (a: Omit<CashAdvance, 'id' | 'timestamp'>) => addEntity(PATHS.cashAdvances, a);
+    const addCashAdvance = (a: Omit<CashAdvance, 'id'>) => addEntity(PATHS.cashAdvances, a);
     const deleteCashAdvance = (id: string) => deleteEntity(PATHS.cashAdvances, id);
     
-    const addTankReading = (r: Omit<TankReading, 'id' | 'timestamp'>) => addEntity(PATHS.tankReadings, r);
+    const addTank = (t: Omit<Tank, 'id'>) => addEntity(PATHS.tanks, t);
+    const deleteTank = (id: string) => deleteEntity(PATHS.tanks, id);
+
+    const addTankReading = (r: Omit<TankReading, 'id'>) => addEntity(PATHS.tankReadings, r);
     
-    const addInvestment = (i: Omit<Investment, 'id' | 'timestamp'>) => addEntity(PATHS.investments, i);
+    const addInvestment = (i: Omit<Investment, 'id'>) => addEntity(PATHS.investments, i);
     const deleteInvestment = (id: string) => deleteEntity(PATHS.investments, id);
 
-    const addStockAdjustment = (adj: Omit<StockAdjustment, 'id' | 'timestamp'>) => addEntity(PATHS.stockAdjustments, adj);
+    const addStockAdjustment = (adj: Omit<StockAdjustment, 'id'>) => addEntity(PATHS.stockAdjustments, adj);
 
 
-    const addBusinessPartner = (partner: Omit<BusinessPartner, 'id' | 'timestamp'>) => {
+    const addBusinessPartner = (partner: Omit<BusinessPartner, 'id'>) => {
         const customerRecord = addCustomer({
             name: partner.name,
             contact: partner.contact || '',
@@ -350,11 +383,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         if (db) {
             const partnerRef = ref(db, `${PATHS.businessPartners}/${customerRecord.id}`);
-            set(partnerRef, { ...partner, timestamp: customerRecord.timestamp });
+            set(partnerRef, { ...partner, timestamp: serverTimestamp() });
         }
     };
     
-    const updateBusinessPartner = (id: string, updatedPartner: Partial<Omit<BusinessPartner, 'id' | 'timestamp'>>) => {
+    const updateBusinessPartner = (id: string, updatedPartner: Partial<Omit<BusinessPartner, 'id'>>) => {
         updateEntity(PATHS.businessPartners, id, updatedPartner);
         if(updatedPartner.name || updatedPartner.contact) {
             updateCustomer(id, { name: updatedPartner.name, contact: updatedPartner.contact });
@@ -362,6 +395,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     };
 
     const deleteBusinessPartner = (id: string) => deleteEntity(PATHS.businessPartners, id);
+
+    const setFuelStock = useCallback((fuelType: FuelType, newStock: number) => {
+        if (!db) return;
+        const updates: any = {};
+        updates[`${PATHS.initialFuelStock}/${fuelType}`] = newStock;
+        update(ref(db), updates);
+    }, []);
 
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
         if (!db || isNaN(newPrice) || newPrice < 0) return;
@@ -378,7 +418,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             transactions: {}, purchases: {}, purchaseReturns: {}, saleReturns: {},
             expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
             bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
-            cashAdvances: {}, tankReadings: {}, investments: {}, businessPartners: {},
+            cashAdvances: {}, tanks: {}, tankReadings: {}, investments: {}, businessPartners: {},
             stockAdjustments: {},
             fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
             isLoaded: true
@@ -419,6 +459,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         deleteSupplierPayment,
         addCashAdvance,
         deleteCashAdvance,
+        addTank,
+        deleteTank,
         addTankReading,
         addInvestment,
         deleteInvestment,
@@ -426,6 +468,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateBusinessPartner,
         deleteBusinessPartner,
         addStockAdjustment,
+        setFuelStock,
         updateFuelPrice,
         clearAllData,
     };

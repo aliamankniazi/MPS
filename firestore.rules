@@ -1,3 +1,4 @@
+
 /**
  * Core Philosophy: This ruleset establishes a simple, clear security model where all authenticated users, including
  * those signed in anonymously, have full read and write access to the application's data. The primary security
@@ -8,6 +9,7 @@
  * - /fuel_types: Stores information about available fuel.
  * - /transactions: Records all sales transactions.
  * - /settings: Holds application-wide configuration data.
+ * - /tanks: Stores physical tank information.
  * This flat structure is simple and performant, with no nested user-specific data.
  *
  * Key Security Decisions:
@@ -23,7 +25,7 @@
  * user-specific roles or collaborative features. All authorization decisions are based solely on the user's
  * authentication state (`request.auth != null`).
  *
- * Structural Segregation: The use of separate collections for `fuel_types`, `transactions`, and `settings` provides
+ * Structural Segregation: The use of separate collections for `fuel_types`, `transactions`, `settings`, and `tanks` provides
  * clear separation of concerns. This allows for more granular security rules to be applied to each data type in
  * the future without impacting the others.
  */
@@ -80,6 +82,21 @@ service cloud.firestore {
      * @principle Requires user authentication for all data access.
      */
     match /settings/{settingId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
+    }
+
+    /**
+     * @description Allows any authenticated user to manage tanks.
+     * @path /tanks/{tankId}
+     * @allow (create) An authenticated user can add a new tank.
+     * @deny (list) An unauthenticated user (request.auth == null) is denied list access.
+     * @principle Requires user authentication for all data access.
+     */
+    match /tanks/{tankId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
       allow create: if isSignedIn();

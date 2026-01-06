@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "FuelType": {
@@ -98,6 +99,28 @@
         "name",
         "value"
       ]
+    },
+    "Tank": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Tank",
+      "type": "object",
+      "description": "Represents a physical fuel tank.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Tank entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The descriptive name of the tank (e.g., 'Unleaded Tank 1 (A+B Side)')."
+        },
+        "fuelType": {
+          "type": "string",
+          "description": "The type of fuel this tank holds.",
+          "enum": ["Unleaded", "Premium", "Diesel"]
+        }
+      },
+      "required": ["id", "name", "fuelType"]
     }
   },
   "auth": {
@@ -155,8 +178,24 @@
             }
           ]
         }
+      },
+      {
+        "path": "/tanks/{tankId}",
+        "definition": {
+          "entityName": "Tank",
+          "schema": {
+            "$ref": "#/backend/entities/Tank"
+          },
+          "description": "Stores physical tank information. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "tankId",
+              "description": "Unique identifier for the tank."
+            }
+          ]
+        }
       }
     ],
-    "reasoning": "The Firestore structure is designed to securely store and manage data for the PumpPal application. It prioritizes clarity, security, and scalability.  Authorization Independence is achieved by avoiding `get()` calls in security rules, ensuring atomic operations.  We ensure data is structured with the same security requirements in each collection, and all authorization relies solely on `request.auth.uid`.\n\nAuthorization Independence (Denormalization): There is no explicit collaborative data or user roles, so no denormalization is required in this specific structure. If in the future collaborative features are added (e.g., multiple users managing the same settings), the membership map pattern should be used and the members map denormalized to each relevant document.\n\nStructural Segregation: The separation of FuelType, Transaction, and Setting into dedicated collections ensures that each type of data can have its own specific security rules without impacting the others.\n\nQAPs (Rules are not Filters): The simple collection structure ensures that list operations can be secured without the need for complex filtering in rules. Since access to each collection is based on authentication, listing is inherently secured.\n\nAccess Modeling: Currently, all data is considered globally accessible within the context of a logged-in user (or anonymous user). If user-specific settings or transactions become necessary, a hierarchical path-based ownership model (`/users/{userId}/settings/{settingId}`) should be adopted.\n\nExplicit State Modeling:  Future consideration for entities with a lifecycle (e.g., Transactions) would involve adding a `status` field to represent their state (e.g., `PENDING`, `COMPLETED`, `REFUNDED`)."
+    "reasoning": "The Firestore structure is designed to securely store and manage data for the PumpPal application. It prioritizes clarity, security, and scalability.  Authorization Independence is achieved by avoiding `get()` calls in security rules, ensuring atomic operations.  We ensure data is structured with the same security requirements in each collection, and all authorization relies solely on `request.auth.uid`.\n\nAuthorization Independence (Denormalization): There is no explicit collaborative data or user roles, so no denormalization is required in this specific structure. If in the future collaborative features are added (e.g., multiple users managing the same settings), the membership map pattern should be used and the members map denormalized to each relevant document.\n\nStructural Segregation: The separation of FuelType, Transaction, Setting, and Tank into dedicated collections ensures that each type of data can have its own specific security rules without impacting the others.\n\nQAPs (Rules are not Filters): The simple collection structure ensures that list operations can be secured without the need for complex filtering in rules. Since access to each collection is based on authentication, listing is inherently secured.\n\nAccess Modeling: Currently, all data is considered globally accessible within the context of a logged-in user (or anonymous user). If user-specific settings or transactions become necessary, a hierarchical path-based ownership model (`/users/{userId}/settings/{settingId}`) should be adopted.\n\nExplicit State Modeling:  Future consideration for entities with a lifecycle (e.g., Transactions) would involve adding a `status` field to represent their state (e.g., `PENDING`, `COMPLETED`, `REFUNDED`)."
   }
 }
