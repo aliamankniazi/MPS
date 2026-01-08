@@ -242,7 +242,7 @@ export default function SalesPage() {
                                           <SelectValue placeholder="Select a product" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                          {isLoaded ? products.map(p => (
+                                          {isLoaded && products ? products.map(p => (
                                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                           )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
                                         </SelectContent>
