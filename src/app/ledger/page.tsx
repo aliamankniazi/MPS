@@ -122,10 +122,13 @@ export default function LedgerPage() {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const isCreditSale = tx.paymentMethod === 'Credit';
         const productName = tx.product || tx.fuelType;
-        const customerName = tx.customerName || 'Walk-in';
+        const customerName = tx.customerName || 'Walk-in Customer';
         let description = `Sale to ${customerName}`;
         if (productName) {
-            description = `Sale: ${productName} to ${customerName}`;
+             description = productName.startsWith('Sale:') ? productName : `Sale: ${productName} to ${customerName}`;
+        }
+        if (!productName && !tx.volume) {
+             description = `Sale to ${customerName}`;
         }
 
 
@@ -181,10 +184,11 @@ export default function LedgerPage() {
     }));
     expenses.forEach(e => {
         const isSalaryExpense = e.category === 'Salaries' || e.description.toLowerCase().includes('salary');
+        const description = isSalaryExpense ? e.description.replace(/^Salary for /i, '') : e.description;
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
-            description: e.description,
+            description: description,
             type: isSalaryExpense ? 'Salary Expense' : 'Expense',
             debit: e.amount,
             credit: 0,
@@ -709,8 +713,8 @@ export default function LedgerPage() {
                                                     lastDate = formattedDate;
 
                                                     const dailyClosingStock = dailyClosingStocks.get(formattedDate);
-
-                                                    const isCashSale = entry.type === 'Sale' && !entry.isCreditSale;
+                                                    
+                                                    const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
                                                     const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
                                                     const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
 
@@ -732,17 +736,17 @@ export default function LedgerPage() {
                                                                 <TableCell className={cn(
                                                                     "font-medium",
                                                                     entry.isCreditSale && 'text-blue-600',
+                                                                    isWalkinCashSale && 'text-green-600',
                                                                     isSalary && 'text-pink-600',
-                                                                    isCashSale && 'text-green-600',
                                                                     isExpense && 'text-destructive'
                                                                 )}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
                                                                     entry.isCreditSale && 'text-blue-600 font-medium',
+                                                                    isWalkinCashSale && 'text-green-600',
                                                                     isSalary && 'text-pink-600',
-                                                                    isCashSale && 'text-green-600',
-                                                                    isExpense && 'text-destructive',
+                                                                    isExpense && 'text-destructive'
                                                                 )}>{entry.description}</TableCell>
                                                                 <TableCell>
                                                                     <Badge 

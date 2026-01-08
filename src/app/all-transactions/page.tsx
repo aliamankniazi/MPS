@@ -195,9 +195,11 @@ export default function AllTransactionsPage() {
   }
 
   const getRowClass = (entry: CombinedEntry) => {
+    const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
+    if (isWalkinCashSale) return 'text-green-600';
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
-    if (entry.type === 'Sale' && !entry.isCreditSale) return 'text-green-600';
+    if (entry.type === 'Expense') return 'text-destructive';
     return '';
   };
 
@@ -300,7 +302,7 @@ export default function AllTransactionsPage() {
                         >{entry.type}</Badge>
                         </TableCell>
                         <TableCell className={cn(entry.isCreditSale && 'font-medium')}>{entry.partner}</TableCell>
-                        <TableCell className={cn(entry.type === 'Expense' && 'text-destructive')}>{entry.details}</TableCell>
+                        <TableCell>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
