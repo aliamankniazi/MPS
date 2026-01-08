@@ -92,6 +92,7 @@ export default function LedgerPage() {
     cashAdvances,
     stockAdjustments,
     fuelPrices,
+    products,
     isLoaded,
     deleteTransaction,
     deletePurchase,
@@ -103,7 +104,6 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
-    products,
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
@@ -281,7 +281,7 @@ export default function LedgerPage() {
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
 
   const productWiseSales = useMemo(() => {
-    if (!isLoaded) return [];
+    if (!isLoaded || !products) return [];
 
     const salesByProduct = transactions.reduce((acc, tx) => {
         const productName = tx.product || tx.fuelType;
@@ -565,7 +565,7 @@ export default function LedgerPage() {
                                 <TableRow key={item.product}>
                                     <TableCell>{item.product}</TableCell>
                                     <TableCell className="text-right">{item.totalSold.toFixed(2)} {item.unit}</TableCell>
-                                    <TableCell className="text-right">{(item.totalRevenue / item.totalSold).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">{(item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2)}</TableCell>
                                     <TableCell className="text-right">{item.totalRevenue.toFixed(2)}</TableCell>
                                 </TableRow>
                             ))}
@@ -614,9 +614,10 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0 && !hasActiveFilters) return null;
-                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalInvestments + monthData.totalPurchaseReturns + monthData.totalStockSurplus;
-                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalStockShortage;
-                       
+                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns;
+                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals;
+                       const totalSupplierActivity = monthData.totalPurchases - monthData.totalSupplierPayment;
+
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
@@ -624,11 +625,11 @@ export default function LedgerPage() {
                                     <div className="flex justify-between w-full pr-4 items-center">
                                         <span className="font-semibold">{monthKey}</span>
                                         <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
-                                             <div className="flex justify-end items-center gap-x-4">
+                                            <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Surplus Stock</span> <span className="font-mono text-green-600">PKR {monthData.totalStockSurplus.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {(totalInflows - monthData.totalRecovery).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {totalInflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                              <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">PKR {monthData.totalCreditSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
@@ -640,7 +641,7 @@ export default function LedgerPage() {
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Payment</span> <span className="font-mono text-green-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {(monthData.totalPurchases - monthData.totalSupplierPayment).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -761,4 +762,5 @@ export default function LedgerPage() {
 
 
     
+
 
