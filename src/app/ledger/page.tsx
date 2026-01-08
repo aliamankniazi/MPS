@@ -119,17 +119,18 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-      const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
-      combined.push({
-        id: `tx-${tx.id}`,
-        timestamp: tx.timestamp,
-        description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
-        type: 'Sale',
-        debit: isWalkin ? 0 : tx.totalAmount, // Only debit for credit customers
-        credit: isWalkin ? tx.totalAmount : 0, // Only credit for cash customers
-        original: tx,
-        isCreditSale: !isWalkin,
-      })
+        const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
+        const isCreditSale = tx.paymentMethod === 'Credit';
+        combined.push({
+            id: `tx-${tx.id}`,
+            timestamp: tx.timestamp,
+            description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
+            type: 'Sale',
+            debit: isWalkin ? 0 : tx.totalAmount, // Only debit for credit customers
+            credit: isWalkin ? tx.totalAmount : 0, // Only credit for cash customers
+            original: tx,
+            isCreditSale: isCreditSale,
+        });
     });
     customerPayments.forEach(cp => {
         const isSalary = cp.paymentMethod === 'Salary';
@@ -498,14 +499,7 @@ export default function LedgerPage() {
                 {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date</span>}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                initialFocus
-              />
-            </PopoverContent>
+            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
            </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
@@ -650,7 +644,9 @@ export default function LedgerPage() {
                                                 const isCreditEntry = entry.credit > 0;
                                                 return (
                                                 <TableRow key={entry.id}>
-                                                    <TableCell>{isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}</TableCell>
+                                                    <TableCell className={cn(entry.isCreditSale && 'text-blue-600')}>
+                                                        {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
+                                                    </TableCell>
                                                     <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
                                                     <TableCell>
                                                          <Badge 
@@ -665,7 +661,8 @@ export default function LedgerPage() {
                                                             >{entry.type}</Badge>
                                                     </TableCell>
                                                     <TableCell className={cn("text-right font-mono",
-                                                      entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive'
+                                                      entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive',
+                                                      entry.isCreditSale && 'text-blue-600'
                                                     )}>
                                                         {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                     </TableCell>
@@ -726,35 +723,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-
-
-
-
-
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-
-
-
-
-
-    
-
-
-
-
-
-
-
-

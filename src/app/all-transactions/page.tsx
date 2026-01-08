@@ -142,7 +142,7 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions]);
 
   const getBadgeVariant = (entry: CombinedEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return 'default';
+    if (entry.isCreditSale) return 'default';
     switch (entry.type) {
       case 'Sale': return 'outline';
       case 'Purchase': return 'destructive';
@@ -152,7 +152,7 @@ export default function AllTransactionsPage() {
   };
   
   const getAmountClass = (entry: CombinedEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return 'text-blue-600';
+    if (entry.isCreditSale) return 'text-blue-600';
       switch(entry.type) {
           case 'Sale': return 'text-green-600';
           case 'Purchase': return 'text-destructive';
@@ -160,6 +160,10 @@ export default function AllTransactionsPage() {
           default: return '';
       }
   }
+
+  const getRowClass = (entry: CombinedEntry) => {
+    return entry.isCreditSale ? 'text-blue-600' : '';
+  };
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
     if (typeof phone !== 'string') return '';
@@ -241,7 +245,7 @@ export default function AllTransactionsPage() {
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
                     return (
-                    <TableRow key={entry.id}>
+                    <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
                         {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                         </TableCell>
@@ -250,11 +254,11 @@ export default function AllTransactionsPage() {
                             variant={getBadgeVariant(entry)}
                             className={cn(
                                 entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
-                                entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
                             )}
                         >{entry.type}</Badge>
                         </TableCell>
-                        <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.partner}</TableCell>
+                        <TableCell className={cn(entry.isCreditSale && 'font-medium')}>{entry.partner}</TableCell>
                         <TableCell>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
