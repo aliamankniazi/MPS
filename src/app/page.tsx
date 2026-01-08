@@ -38,7 +38,6 @@ const transactionSchema = z.object({
   paymentMethod: z.string().optional(),
   invoiceDate: z.string().optional(),
   notes: z.string().optional(),
-  paidAmount: z.coerce.number().min(0),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -123,12 +122,10 @@ export default function SalesPage() {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-      paidAmount: 0,
-    }
+    defaultValues: {}
   });
 
-  const { customerId, paidAmount } = watch();
+  const { customerId } = watch();
   const { quantity, price, product: selectedProductName } = watchItem();
 
   useEffect(() => {
@@ -166,8 +163,8 @@ export default function SalesPage() {
   }, [cart]);
 
   const invoiceBalance = useMemo(() => {
-    return cartTotal - (paidAmount || 0);
-  }, [cartTotal, paidAmount]);
+    return cartTotal;
+  }, [cartTotal]);
   
   const newAccountBalance = useMemo(() => {
     return customerBalance + invoiceBalance;
@@ -205,17 +202,6 @@ export default function SalesPage() {
         };
         addTransaction(transactionData);
     });
-
-    if (data.customerId && data.paidAmount > 0) {
-        addCustomerPayment({
-            customerId: data.customerId,
-            customerName: selectedCustomer!.name,
-            amount: data.paidAmount,
-            paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
-            notes: `Payment for invoice created on ${new Date().toLocaleDateString()}`,
-            timestamp: new Date().toISOString(),
-        });
-    }
 
     toast({
       title: 'Sale Complete',
@@ -390,10 +376,6 @@ export default function SalesPage() {
                               <span>Total</span>
                               <span>{cartTotal.toFixed(2)}</span>
                           </div>
-                          <div className="flex justify-between items-center">
-                              <Label htmlFor="paidAmount">Paid Amount</Label>
-                              <Input id="paidAmount" type="number" {...register('paidAmount')} className="w-32 h-8 text-right" />
-                          </div>
                            <div className="flex justify-between font-bold text-red-500 text-lg">
                               <span>Invoice Balance</span>
                               <span>{invoiceBalance.toFixed(2)}</span>
@@ -425,4 +407,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
