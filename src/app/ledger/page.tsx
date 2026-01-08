@@ -319,6 +319,7 @@ export default function LedgerPage() {
 
     const salesByProduct = transactions.reduce((acc, tx) => {
         const productName = tx.product || tx.fuelType;
+        if (!productName) return acc;
         if (!acc[productName]) {
             const productInfo = products.find(p => p.name === productName);
             acc[productName] = {
@@ -731,7 +732,12 @@ export default function LedgerPage() {
                                                                 </TableRow>
                                                             )}
                                                             <TableRow>
-                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>
+                                                                <TableCell className={cn(
+                                                                    entry.isCreditSale && 'text-blue-600',
+                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
+                                                                    entry.type === 'Expense' && 'text-destructive',
+                                                                    'font-medium'
+                                                                )}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
@@ -829,3 +835,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
+    
