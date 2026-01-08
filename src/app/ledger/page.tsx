@@ -709,12 +709,12 @@ export default function LedgerPage() {
                                                     return (
                                                         <React.Fragment key={entry.id}>
                                                             {showSeparator && (
-                                                                <TableRow className="bg-muted/10 hover:bg-muted/20">
-                                                                    <TableCell colSpan={7} className="text-center font-semibold text-muted-foreground py-2">
+                                                                <TableRow className="bg-red-800 hover:bg-red-900">
+                                                                    <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
                                                                         <div className="flex justify-between items-center w-full px-4">
                                                                             <span>{format(new Date(entry.timestamp), 'EEEE, dd MMMM yyyy')}</span>
                                                                             {dailyClosingStock !== undefined && (
-                                                                                <span className="text-xs font-mono text-blue-500">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                                <span className="text-xs font-mono">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                                             )}
                                                                         </div>
                                                                     </TableCell>
@@ -808,6 +808,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
