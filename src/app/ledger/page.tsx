@@ -113,15 +113,16 @@ export default function LedgerPage() {
       })
     });
     customerPayments.forEach(cp => {
-      combined.push({
-        id: `cp-${cp.id}`,
-        timestamp: cp.timestamp,
-        description: cp.notes || `Payment from ${cp.customerName}`,
-        type: 'Customer Payment',
-        debit: 0,
-        credit: cp.amount,
-        original: cp,
-      })
+        const isSalary = cp.paymentMethod === 'Salary';
+        combined.push({
+          id: `cp-${cp.id}`,
+          timestamp: cp.timestamp,
+          description: cp.notes || `Payment from ${cp.customerName}`,
+          type: isSalary ? 'Salary' : 'Customer Payment',
+          debit: 0,
+          credit: cp.amount,
+          original: cp,
+        })
     });
      cashAdvances.forEach(ca => combined.push({
       id: `ca-${ca.id}`,
@@ -146,8 +147,8 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: sp.amount,
-      credit: 0,
+      debit: 0,
+      credit: sp.amount,
       original: sp,
     }));
     expenses.forEach(e => combined.push({
@@ -333,6 +334,8 @@ export default function LedgerPage() {
   }
 
   const hasActiveFilters = searchTerm || selectedDate || selectedType;
+  const currentMonthKey = format(new Date(), 'MMMM yyyy');
+
 
   return (
     <>
@@ -382,7 +385,7 @@ export default function LedgerPage() {
         </CardHeader>
         <CardContent>
             {monthKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={monthKeys}>
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey)]}>
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0) return null;
