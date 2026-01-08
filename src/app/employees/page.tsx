@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -69,7 +70,7 @@ function PageHeader() {
 function TransactionNav() {
     const pathname = usePathname();
     const navItems = [
-      { href: '/', label: 'Sale', icon: ShoppingCart },
+      { href: '/sales', label: 'Sale', icon: ShoppingCart },
       { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
       { href: '/sale-returns', label: 'Sale Return', icon: Undo },
       { href: '/purchases', label: 'Purchase', icon: Truck },

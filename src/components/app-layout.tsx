@@ -98,8 +98,8 @@ const AppLogo = () => (
 );
 
 const topNavItems = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
-  { href: '/', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
+  { href: '/sales', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
 ];
 
 const bottomNavItems = [
@@ -113,8 +113,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
 
   const isLinkActive = (href: string) => {
     if (href === '/') return pathname === '/';
-    if (href === '/dashboard') return pathname === href;
-    return pathname.startsWith(href);
+    return pathname.startsWith(href) && href !== '/';
   }
 
   return (

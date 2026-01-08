@@ -2,408 +2,231 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
+import { useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { format, subDays, isValid } from 'date-fns';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Truck, Undo } from 'lucide-react';
-import type { PaymentMethod, Transaction, Product } from '@/lib/types';
-import { useCustomerBalance } from '@/hooks/use-customer-balance';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Textarea } from '@/components/ui/textarea';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { cn } from '@/lib/utils';
-import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
+import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DollarSign, Users, TrendingUp, ArrowRight, ListOrdered } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
+import Link from 'next/link';
 
-const saleItemSchema = z.object({
-  product: z.string().min(1, "Product is required"),
-  unit: z.string().min(1, "Unit is required"),
-  quantity: z.coerce.number().min(0.01, "Quantity must be positive"),
-  price: z.coerce.number().min(0, "Price cannot be negative"),
-  totalAmount: z.coerce.number().min(0.01, "Total must be positive"),
-});
+export default function DashboardPage() {
+  const { transactions, purchases, expenses, otherIncomes, isLoaded } = useDatabase();
 
-type SaleItemFormValues = z.infer<typeof saleItemSchema>;
+  const financialSummary = useMemo(() => {
+    if (!isLoaded) return null;
 
-const transactionSchema = z.object({
-  customerId: z.string().optional(),
-  paymentMethod: z.string().optional(),
-  invoiceDate: z.string().optional(),
-  notes: z.string().optional(),
-});
+    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
+    const netProfit = totalRevenue - totalCostOfGoods - totalExpenses;
+    const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
 
-type TransactionFormValues = z.infer<typeof transactionSchema>;
+    const salesByDay = transactions.reduce((acc, tx) => {
+        const txDate = new Date(tx.timestamp);
+        if (tx.timestamp && isValid(txDate)) {
+            const date = txDate.toDateString();
+            acc[date] = (acc[date] || 0) + tx.totalAmount;
+        }
+        return acc;
+    }, {} as Record<string, number>);
 
-
-function PageHeader() {
-    const [currentTime, setCurrentTime] = useState('');
-    
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(new Date().toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true,
-            }));
-        }, 1000);
-        return () => clearInterval(timer);
-    }, []);
-
-    return (
-      <header className="bg-background shadow-sm sticky top-0 z-20">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <p className="text-sm font-medium">{currentTime}</p>
-            <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
-                <Button variant="ghost" size="icon">
-                    <Sun className="h-5 w-5" />
-                </Button>
-            </div>
-        </div>
-      </header>
-    );
-}
-
-
-function TransactionNav() {
-    const pathname = usePathname();
-    const navItems = [
-      { href: '/', label: 'Sale', icon: ShoppingCart },
-      { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-      { href: '/sale-returns', label: 'Sale Return', icon: Undo },
-      { href: '/purchases', label: 'Purchase', icon: Truck },
-      { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
-      { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
-      { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
-      { href: '/employees', label: 'Salary Payment', icon: User },
-    ];
-    return (
-        <nav className="bg-background shadow-sm">
-            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
-                {navItems.map(item => (
-                    <Button
-                        asChild
-                        key={item.href}
-                        variant="ghost"
-                        className={cn(
-                            "border-b-2 rounded-none flex-shrink-0",
-                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
-                        )}
-                    >
-                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
-                    </Button>
-                ))}
-            </div>
-        </nav>
-    );
-}
-
-
-export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products } = useDatabase();
-  
-  const [cart, setCart] = useState<SaleItemFormValues[]>([]);
-  const { toast } = useToast();
-
-  const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
-    resolver: zodResolver(saleItemSchema),
-  });
-
-  const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
-    resolver: zodResolver(transactionSchema),
-    defaultValues: {}
-  });
-
-  const { customerId } = watch();
-  const { quantity, price, product: selectedProductName } = watchItem();
-
-  useEffect(() => {
-    const total = (quantity || 0) * (price || 0);
-    setItemValue('totalAmount', total);
-  }, [quantity, price, setItemValue]);
-
-  useEffect(() => {
-    if (selectedProductName) {
-        const productDetails = products.find(p => p.id === selectedProductName);
-        if (productDetails) {
-            setItemValue('price', productDetails.price);
-            setItemValue('unit', productDetails.unit);
-            setItemValue('product', productDetails.name);
+    let bestSaleDay = { date: '', amount: 0 };
+    for (const date in salesByDay) {
+        if (salesByDay[date] > bestSaleDay.amount) {
+            bestSaleDay = { date, amount: salesByDay[date] };
         }
     }
-  }, [selectedProductName, products, setItemValue]);
-
-  useEffect(() => {
-    if (!customerId || customerId === 'walkin') {
-      setValue('paymentMethod', 'Cash');
-    } else {
-      setValue('paymentMethod', 'Credit');
-    }
-  }, [customerId, setValue]);
-
-  const selectedCustomer = useMemo(() => {
-    return customers.find(c => c.id === customerId);
-  }, [customerId, customers]);
-
-  const { balance: customerBalance } = useCustomerBalance(customerId || null);
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => total + item.totalAmount, 0);
-  }, [cart]);
-
-  const invoiceBalance = useMemo(() => {
-    return cartTotal;
-  }, [cartTotal]);
-  
-  const newAccountBalance = useMemo(() => {
-    return customerBalance + invoiceBalance;
-  }, [customerBalance, invoiceBalance]);
 
 
-  const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
-    setCart(currentCart => [...currentCart, data]);
-    resetItem();
-  };
+    return {
+      totalRevenue,
+      netProfit,
+      activeCustomers,
+      bestSaleDay
+    };
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes]);
 
-  const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
-    if (cart.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Empty Cart',
-        description: 'Please add at least one item to the cart.',
-      });
-      return;
-    }
+  const salesChartData = useMemo(() => {
+    if (!isLoaded) return [];
     
-    // Create one transaction per cart item to maintain detail
-    cart.forEach(item => {
-        const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
-          fuelType: 'Unleaded', // Placeholder, as we have product now
-          volume: item.quantity,
-          pricePerLitre: item.price,
-          product: item.product,
-          totalAmount: item.totalAmount,
-          paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
-          customerId: data.customerId,
-          customerName: selectedCustomer?.name,
-          notes: data.notes,
-          timestamp: new Date().toISOString(),
+    const endDate = new Date();
+    
+    const dailySales = transactions.reduce((acc, tx) => {
+        const txDate = new Date(tx.timestamp);
+        if (tx.timestamp && isValid(txDate)) {
+            const date = format(txDate, 'yyyy-MM-dd');
+            acc[date] = (acc[date] || 0) + tx.totalAmount;
+        }
+        return acc;
+    }, {} as Record<string, number>);
+
+    return Array.from({ length: 31 }, (_, i) => {
+        const date = subDays(endDate, 30 - i);
+        const formattedDate = format(date, 'yyyy-MM-dd');
+        const shortDate = format(date, 'MMM d');
+        return {
+            date: shortDate,
+            sales: dailySales[formattedDate] || 0,
         };
-        addTransaction(transactionData);
     });
 
-    toast({
-      title: 'Sale Complete',
-      description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
-    });
+  }, [isLoaded, transactions]);
+  
+  const topCustomers = useMemo(() => {
+    if (!isLoaded) return [];
+
+    const customerTotals = transactions.reduce((acc, tx) => {
+        if (tx.customerId && tx.customerName) {
+            acc[tx.customerId] = {
+                id: tx.customerId,
+                name: tx.customerName,
+                total: (acc[tx.customerId]?.total || 0) + tx.totalAmount,
+            };
+        }
+        return acc;
+    }, {} as Record<string, { id: string; name: string; total: number }>);
     
-    reset();
-    setCart([]);
-  };
+    return Object.values(customerTotals)
+        .sort((a,b) => b.total - a.total)
+        .slice(0, 5);
 
+  }, [isLoaded, transactions]);
+  
   return (
-    <div className="bg-muted/30 min-h-screen">
-      <PageHeader />
-      <TransactionNav />
-      <main className="container mx-auto p-4 grid lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Add Items to Sale</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                      <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                              <div className="md:col-span-2 space-y-2">
-                                  <Label htmlFor="product">Product</Label>
-                                   <Controller
-                                    name="product"
-                                    control={controlItem}
-                                    render={({ field }) => (
-                                      <Select onValueChange={field.onChange} value={field.value}>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select a product" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {isLoaded && products ? products.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                          )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                        </SelectContent>
-                                      </Select>
-                                    )}
-                                  />
-                                  {itemErrors.product && <p className="text-sm text-destructive">{itemErrors.product.message}</p>}
-                              </div>
-                              <div className="space-y-2">
-                                  <Label htmlFor="unit">Unit</Label>
-                                  <Input id="unit" {...registerItem('unit')} placeholder="e.g., Ltr, Kg, Pcs" />
-                                   {itemErrors.unit && <p className="text-sm text-destructive">{itemErrors.unit.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                  <Label htmlFor="quantity">Quantity</Label>
-                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="0.01" />
-                                  {itemErrors.quantity && <p className="text-sm text-destructive">{itemErrors.quantity.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                  <Label htmlFor="price">Price</Label>
-                                  <Input id="price" type="number" {...registerItem('price')} step="0.01" />
-                                   {itemErrors.price && <p className="text-sm text-destructive">{itemErrors.price.message}</p>}
-                              </div>
-                          </div>
-                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                              <div className="md:col-span-2 space-y-2">
-                                  <Label htmlFor="totalAmount">Total Amount</Label>
-                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} readOnly className="bg-muted/50 font-bold" />
-                              </div>
-                               <div className="md:col-span-1 flex items-end">
-                                  <Button type="submit" className="w-full">Add to Cart</Button>
-                              </div>
-                          </div>
-                      </form>
-                  </CardContent>
-              </Card>
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">A quick overview of your business performance.</p>
+        </div>
+        <div className="flex items-center gap-2">
+            <Button asChild variant="outline">
+                <Link href="/sales">Pick a date range</Link>
+            </Button>
+            <Button asChild>
+                <Link href="/sales">New Sale</Link>
+            </Button>
+        </div>
+      </div>
+      
+      {/* Stat Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+            <p className="text-xs text-muted-foreground">For selected period</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : ''}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+            <p className="text-xs text-muted-foreground">After all costs & expenses</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Best Sale Day</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'PP') : 'N/A'}</div>
+            <p className="text-xs text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
+            <p className="text-xs text-muted-foreground">Customers with recorded sales</p>
+          </CardContent>
+        </Card>
+      </div>
 
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Current Cart</CardTitle>
-                      <CardDescription>Items to be included in the sale.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="border rounded-md">
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>Item</TableHead>
-                                      <TableHead className="text-right">Qty</TableHead>
-                                      <TableHead className="text-right">Price</TableHead>
-                                      <TableHead className="text-right">Total</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {cart.length > 0 ? cart.map((item, index) => (
-                                      <TableRow key={index}>
-                                          <TableCell>{item.product}</TableCell>
-                                          <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
-                                          <TableCell className="text-right">{item.price.toFixed(2)}</TableCell>
-                                          <TableCell className="text-right font-medium">{item.totalAmount.toFixed(2)}</TableCell>
-                                      </TableRow>
-                                  )) : (
-                                      <TableRow>
-                                          <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                                              List is empty
-                                          </TableCell>
-                                      </TableRow>
-                                  )}
-                              </TableBody>
-                          </Table>
-                      </div>
-                  </CardContent>
-              </Card>
-          </div>
-
-          <div className="lg:col-span-1">
-              <form onSubmit={handleSubmit(onSubmit)}>
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Customer & Payment</CardTitle>
-                      <CardDescription>Select customer and finalize payment details.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                          <Label>Customer</Label>
-                          <div className="flex gap-2">
-                               <Controller
-                                name="customerId"
-                                control={control}
-                                render={({ field }) => (
-                                  <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Walk-in Customer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="walkin">Walk-in Customer</SelectItem>
-                                      {isLoaded ? customers.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                      )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                    </SelectContent>
-                                  </Select>
-                                )}
-                              />
-                              <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
-                          </div>
-                      </div>
-                       <div className="space-y-2">
-                          <Label>Payment Method</Label>
-                          <Controller
-                            name="paymentMethod"
-                            control={control}
-                            render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select payment method" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Cash">Cash</SelectItem>
-                                  <SelectItem value="Card">Card</SelectItem>
-                                  <SelectItem value="Mobile">Mobile Wallet</SelectItem>
-                                  <SelectItem value="Credit">Credit</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            )}
-                          />
-                      </div>
-                      <div className="space-y-2">
-                          <Label>Invoice Date</Label>
-                          <Input type="date" {...register('invoiceDate')} defaultValue={new Date().toISOString().split('T')[0]}/>
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="notes">Notes</Label>
-                          <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..."/>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                          <div className="flex justify-between font-semibold text-lg">
-                              <span>Total</span>
-                              <span>{cartTotal.toFixed(2)}</span>
-                          </div>
-                           <div className="flex justify-between font-bold text-red-500 text-lg">
-                              <span>Invoice Balance</span>
-                              <span>{invoiceBalance.toFixed(2)}</span>
-                          </div>
-                      </div>
-                      
-                      {selectedCustomer && (
-                          <div className="border-t pt-4 mt-4 space-y-1 text-sm">
-                               <h4 className="font-semibold mb-2">Customer Account</h4>
-                               <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Previous Balance</span>
-                                  <span>{customerBalance.toFixed(2)}</span>
-                              </div>
-                               <div className="flex justify-between font-bold text-lg">
-                                  <span>New Account Balance</span>
-                                  <span>{newAccountBalance.toFixed(2)}</span>
-                              </div>
-                          </div>
-                      )}
-                  </CardContent>
-                  <CardFooter className="flex flex-col gap-2">
-                      <Button type="submit" size="lg" className="w-full">Complete & Print Invoice</Button>
-                      <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
-                  </CardFooter>
-              </Card>
-              </form>
-          </div>
-      </main>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
+                <CardDescription>Based on total sales in the selected period.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableBody>
+                        {topCustomers.map((customer, index) => (
+                            <TableRow key={customer.id}>
+                                <TableCell className="p-2">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarFallback>{index + 1}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="font-medium">{customer.name}</div>
+                                            <div className="text-sm text-muted-foreground">Total: PKR {customer.total.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="p-2 text-right">
+                                    <Button variant="ghost" size="icon" asChild>
+                                        <Link href={`/customers/${customer.id}/ledger`}>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </Link>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                         {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <CardTitle>Sales Chart</CardTitle>
+            <CardDescription>A look at your sales revenue based on the date filter.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <AreaChart data={salesChartData}>
+                <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                    </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                <Tooltip 
+                    contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        borderColor: 'hsl(var(--border))',
+                        borderRadius: 'var(--radius)',
+                        fontSize: '12px'
+                    }} 
+                    labelStyle={{ fontWeight: 'bold' }}
+                    formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
+                />
+                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+      </div>
     </div>
   );
 }
