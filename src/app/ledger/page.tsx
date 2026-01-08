@@ -120,10 +120,14 @@ export default function LedgerPage() {
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const isCreditSale = tx.paymentMethod === 'Credit';
+        const productName = tx.product || tx.fuelType;
+        const customerName = tx.customerName || 'Walk-in';
+        const description = productName ? `Sale: ${productName} to ${customerName}` : `Sale to ${customerName}`;
+
         combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
-            description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
+            description,
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
             credit: !isCreditSale ? tx.totalAmount : 0,
