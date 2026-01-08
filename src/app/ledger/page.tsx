@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -126,8 +125,8 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
             type: 'Sale',
-            debit: isCreditSale ? tx.totalAmount : 0,
-            credit: !isCreditSale ? tx.totalAmount : 0,
+            debit: isWalkin ? 0 : tx.totalAmount,
+            credit: isWalkin ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -262,6 +261,35 @@ export default function LedgerPage() {
             });
         }
     });
+
+    const dailyStockEntries = Object.values(transactions.reduce((acc, tx) => {
+        const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
+        if (!acc[date]) {
+            acc[date] = { date, entries: [] };
+        }
+        acc[date].entries.push(tx);
+        return acc;
+    }, {} as Record<string, { date: string, entries: Transaction[] }>)).map(day => {
+        const closingStockValue = Object.values(day.entries.reduce((acc, tx) => {
+            const fuel = tx.fuelType || 'Unleaded';
+            const price = tx.pricePerLitre;
+            const volume = tx.volume || 0;
+            acc[fuel] = (acc[fuel] || 0) + (volume * price);
+            return acc;
+        }, {} as Record<string, number>)).reduce((sum, val) => sum + val, 0);
+
+        return {
+            id: `closing-${day.date}`,
+            timestamp: endOfDay(new Date(day.date)).toISOString(),
+            description: `Daily Closing Stock for ${format(new Date(day.date), 'PP')}`,
+            type: 'Daily Closing Stock' as const,
+            debit: 0,
+            credit: closingStockValue,
+            original: { date: day.date, value: closingStockValue }
+        }
+    });
+
+    combined.push(...dailyStockEntries);
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -271,7 +299,7 @@ export default function LedgerPage() {
         return { ...entry, balance: runningBalance };
     });
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices, products]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -378,12 +406,12 @@ export default function LedgerPage() {
         switch(e.type) {
             case 'Sale':
                 const tx = e.original as Transaction;
-                const isCreditSale = tx.paymentMethod === 'Credit';
+                const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
                 monthData.totalSales += tx.totalAmount;
-                if(isCreditSale) {
-                    monthData.totalCreditSales += tx.totalAmount;
-                } else {
+                if(isWalkin) {
                     monthData.totalCashSales += tx.totalAmount;
+                } else {
+                    monthData.totalCreditSales += tx.totalAmount;
                 }
                 break;
             case 'Customer Payment':
@@ -428,7 +456,7 @@ export default function LedgerPage() {
   });
   
   const handleDeleteEntry = () => {
-    if (!entryToDelete) return;
+    if (!entryToDelete || !entryToDelete.id) return;
     
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
 
@@ -586,7 +614,7 @@ export default function LedgerPage() {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0 && !hasActiveFilters) return null;
                         const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalStockSurplus;
-                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalStockShortage;
+                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals;
                         const totalSupplierActivity = monthData.totalPurchases + monthData.totalSupplierPayment;
                        
                         return (
@@ -691,7 +719,13 @@ export default function LedgerPage() {
                                                                     {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                                 </TableCell>
                                                                 <TableCell className="text-center">
-                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
+                                                                    <Button 
+                                                                      variant="ghost" 
+                                                                      size="icon" 
+                                                                      className="text-destructive hover:text-destructive" 
+                                                                      onClick={() => setEntryToDelete(entry)}
+                                                                      disabled={!entry.id.includes('-')}
+                                                                    >
                                                                         <Trash2 className="h-4 w-4" />
                                                                     </Button>
                                                                 </TableCell>
@@ -741,5 +775,6 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
