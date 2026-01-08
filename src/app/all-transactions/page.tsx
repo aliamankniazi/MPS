@@ -74,17 +74,20 @@ export default function AllTransactionsPage() {
   const combinedEntries = useMemo(() => {
     if (!isLoaded) return [];
 
-    const sales: CombinedEntry[] = transactions.map(tx => ({
-      id: `sale-${tx.id}`,
-      originalId: tx.id,
-      timestamp: tx.timestamp,
-      type: 'Sale',
-      partner: tx.customerName || 'Walk-in Customer',
-      details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-      amount: tx.totalAmount,
-      original: tx,
-      isCreditSale: tx.paymentMethod === 'Credit',
-    }));
+    const sales: CombinedEntry[] = transactions.map(tx => {
+      const isCredit = tx.customerId && tx.customerName !== 'Walk-in Customer';
+      return {
+        id: `sale-${tx.id}`,
+        originalId: tx.id,
+        timestamp: tx.timestamp,
+        type: 'Sale',
+        partner: tx.customerName || 'Walk-in Customer',
+        details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
+        amount: tx.totalAmount,
+        original: tx,
+        isCreditSale: isCredit,
+      }
+    });
 
     const salaryPayments: CombinedEntry[] = customerPayments
         .filter(p => p.paymentMethod === 'Salary')

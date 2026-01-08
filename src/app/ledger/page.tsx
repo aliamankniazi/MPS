@@ -120,7 +120,7 @@ export default function LedgerPage() {
 
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
-        const isCreditSale = tx.paymentMethod === 'Credit';
+        const isCreditSale = tx.customerId && tx.customerName !== 'Walk-in Customer';
         const productName = tx.product || tx.fuelType;
         const customerName = tx.customerName || 'Walk-in Customer';
         let description = `Sale to ${customerName}`;
@@ -838,5 +838,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-    
