@@ -39,7 +39,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Sale Return';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Sale Return' | 'Cash Advance';
   debit: number;
   credit: number;
   balance: number;
@@ -72,7 +72,8 @@ export default function LedgerPage() {
     otherIncomes, 
     supplierPayments, 
     investments, 
-    customerPayments, 
+    customerPayments,
+    cashAdvances, 
     isLoaded,
     deleteTransaction,
     deletePurchase,
@@ -83,6 +84,7 @@ export default function LedgerPage() {
     deleteSupplierPayment,
     deleteInvestment,
     deleteCustomerPayment,
+    deleteCashAdvance,
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
@@ -103,25 +105,31 @@ export default function LedgerPage() {
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        // For cash, it's an inflow (credit). For credit sale, it's an accounts receivable debit.
-        // We'll treat the journal as a cash book primarily, so credit sales don't hit cash.
-        debit: isCreditSale ? tx.totalAmount : 0, // This is a receivable, not a cash debit
+        debit: isCreditSale ? tx.totalAmount : 0, 
         credit: !isCreditSale ? tx.totalAmount : 0,
         original: tx,
       })
     });
     customerPayments.forEach(cp => {
-      const isSalary = cp.paymentMethod === 'Salary';
       combined.push({
         id: `cp-${cp.id}`,
         timestamp: cp.timestamp,
         description: cp.notes || `Payment from ${cp.customerName}`,
-        type: isSalary ? 'Salary' : 'Customer Payment',
+        type: cp.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
         debit: 0,
         credit: cp.amount,
         original: cp,
       })
     });
+     cashAdvances.forEach(ca => combined.push({
+      id: `ca-${ca.id}`,
+      timestamp: ca.timestamp,
+      description: ca.notes || `Cash Advance to ${ca.customerName}`,
+      type: 'Cash Advance',
+      debit: ca.amount,
+      credit: 0,
+      original: ca,
+    }));
     purchases.forEach(p => combined.push({
       id: `pur-${p.id}`,
       timestamp: p.timestamp,
@@ -208,7 +216,7 @@ export default function LedgerPage() {
     const allEntriesWithBalance = combined.map(entry => {
         let balanceChange = entry.credit - entry.debit;
         if(entry.type === 'Sale' && entry.debit > 0){
-            balanceChange = 0; // Credit sales don't affect cash balance
+            balanceChange = 0;
         }
         runningBalance += balanceChange;
         return { ...entry, balance: runningBalance };
@@ -238,7 +246,7 @@ export default function LedgerPage() {
           .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < monthStart)
           .reduce((bal, item) => {
             let change = item.credit - item.debit;
-            if(item.type === 'Sale' && item.debit > 0) change = 0; // Don't count credit sales in opening balance
+            if(item.type === 'Sale' && item.debit > 0) change = 0; 
             return bal + change;
           }, 0);
 
@@ -256,7 +264,7 @@ export default function LedgerPage() {
 
     }, {});
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, searchTerm, selectedDate, selectedType]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, searchTerm, selectedDate, selectedType]);
   
   const monthKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -265,7 +273,7 @@ export default function LedgerPage() {
     groupedEntries[key].entries.forEach(entry => {
       let balanceChange = entry.credit - entry.debit;
       if(entry.type === 'Sale' && entry.debit > 0){
-          balanceChange = 0; // Credit sales don't affect cash balance
+          balanceChange = 0;
       }
       runningBalance += balanceChange;
       entry.balance = runningBalance;
@@ -292,6 +300,7 @@ export default function LedgerPage() {
             case 'oi': deleteOtherIncome(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
+            case 'ca': deleteCashAdvance(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -419,7 +428,7 @@ export default function LedgerPage() {
                                             </TableRow>
                                             {monthData.entries.map(entry => {
                                                 const date = new Date(entry.timestamp);
-                                                const isCreditEntry = ['Sale', 'Purchase Return', 'Other Income', 'Investment', 'Customer Payment', 'Salary'].includes(entry.type) && entry.credit > 0;
+                                                const isCreditEntry = entry.credit > 0;
                                                 return (
                                                 <TableRow key={entry.id}>
                                                     <TableCell>{isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}</TableCell>
@@ -488,6 +497,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
