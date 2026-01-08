@@ -42,10 +42,7 @@ export default function CreditRecoveryPage() {
     const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: subDays(new Date(), 30),
-        to: new Date(),
-    });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -138,7 +135,7 @@ Mianwali Petroleum Service Mianwali`;
                         <FileText /> Customer Credit Recovery Report
                     </CardTitle>
                     <CardDescription>
-                        View sales, recoveries, and balances for customers within a specific date range.
+                        View sales, recoveries, and balances for customers. Use filters to refine the results.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -177,7 +174,7 @@ Mianwali Petroleum Service Mianwali`;
                                                 format(dateRange.from, "LLL dd, y")
                                             )
                                         ) : (
-                                            <span>Pick a date</span>
+                                            <span>Pick a date range</span>
                                         )}
                                     </Button>
                                 </PopoverTrigger>
@@ -193,7 +190,6 @@ Mianwali Petroleum Service Mianwali`;
                                 </PopoverContent>
                             </Popover>
                         </div>
-                        <Button className="w-full md:w-auto self-end"><Search className="mr-2 h-4 w-4" /> Search</Button>
                     </div>
                 </CardContent>
             </Card>
@@ -203,7 +199,7 @@ Mianwali Petroleum Service Mianwali`;
                         <div className="relative w-full max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input 
-                                placeholder="Search records..." 
+                                placeholder="Search records by name or contact..." 
                                 className="pl-10"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -268,3 +264,4 @@ Mianwali Petroleum Service Mianwali`;
         </div>
     );
 }
+
