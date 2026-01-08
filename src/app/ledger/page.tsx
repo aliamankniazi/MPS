@@ -113,8 +113,8 @@ export default function LedgerPage() {
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        debit: isCreditSale ? tx.totalAmount : 0, 
-        credit: !isCreditSale ? tx.totalAmount : 0,
+        debit: tx.totalAmount, 
+        credit: isCreditSale ? 0 : tx.totalAmount,
         original: tx,
       })
     });
@@ -224,8 +224,8 @@ export default function LedgerPage() {
     let runningBalance = 0;
     const allEntriesWithBalance = combined.map(entry => {
         let balanceChange = entry.credit - entry.debit;
-        if(entry.type === 'Sale' && entry.debit > 0){
-            balanceChange = 0;
+        if(entry.type === 'Sale'){
+            balanceChange = (entry.original as Transaction).paymentMethod !== 'Credit' ? 0 : -entry.debit;
         }
         runningBalance += balanceChange;
         return { ...entry, balance: runningBalance };
@@ -255,7 +255,9 @@ export default function LedgerPage() {
           .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < monthStart)
           .reduce((bal, item) => {
             let change = item.credit - item.debit;
-            if(item.type === 'Sale' && item.debit > 0) change = 0; 
+            if(item.type === 'Sale'){
+                change = (item.original as Transaction).paymentMethod !== 'Credit' ? 0 : -item.debit;
+            }
             return bal + change;
           }, 0);
 
@@ -289,9 +291,9 @@ export default function LedgerPage() {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
       let balanceChange = entry.credit - entry.debit;
-      if(entry.type === 'Sale' && entry.debit > 0){
-          balanceChange = 0;
-      }
+        if(entry.type === 'Sale'){
+            balanceChange = (entry.original as Transaction).paymentMethod !== 'Credit' ? 0 : -entry.debit;
+        }
       runningBalance += balanceChange;
       entry.balance = runningBalance;
     });
@@ -309,7 +311,7 @@ export default function LedgerPage() {
         .reduce((sum, e) => sum + e.credit, 0);
 
     monthData.totalCreditSales = monthData.entries
-        .filter(e => e.type === 'Sale' && e.debit > 0)
+        .filter(e => e.type === 'Sale' && (e.original as Transaction).paymentMethod === 'Credit')
         .reduce((sum, e) => sum + e.debit, 0);
     
     monthData.totalPurchases = monthData.entries
@@ -428,11 +430,13 @@ export default function LedgerPage() {
         </CardHeader>
         <CardContent>
             {monthKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey)]}>
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())]}>
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0) return null;
                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses;
+                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery;
+                       const totalSupplierActivity = monthData.totalPurchases + monthData.totalSupplierPayment;
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
@@ -443,6 +447,7 @@ export default function LedgerPage() {
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {totalInflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">PKR {monthData.totalCreditSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
@@ -453,6 +458,7 @@ export default function LedgerPage() {
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Payment</span> <span className="font-mono text-green-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                         </div>
                                     </div>
