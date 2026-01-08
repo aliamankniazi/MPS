@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -120,7 +119,6 @@ export default function LedgerPage() {
 
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
-        const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
         const isCreditSale = tx.paymentMethod === 'Credit';
         combined.push({
             id: `tx-${tx.id}`,
@@ -177,7 +175,7 @@ export default function LedgerPage() {
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
-            description: `Expense: ${e.description}`,
+            description: isSalaryExpense ? e.description : `Expense: ${e.description}`,
             type: isSalaryExpense ? 'Salary Expense' : 'Expense',
             debit: e.amount,
             credit: 0,
@@ -419,7 +417,7 @@ export default function LedgerPage() {
                 const tx = e.original as Transaction;
                 const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
                 monthData.totalSales += tx.totalAmount;
-                if(isWalkin) {
+                if(!tx.isCreditSale) {
                     monthData.totalCashSales += tx.totalAmount;
                 } else {
                     monthData.totalCreditSales += tx.totalAmount;
@@ -468,13 +466,15 @@ export default function LedgerPage() {
   });
   
   const handleDeleteEntry = () => {
-    if (!entryToDelete || !entryToDelete.id) return;
+    if (!entryToDelete || !entryToDelete.id || !entryToDelete.id.includes('-')) {
+        const errorDescription = !entryToDelete?.id.includes('-')
+            ? 'This is a calculated entry and cannot be deleted.'
+            : 'Invalid entry ID.';
 
-    if (!entryToDelete.id.includes('-')) {
         toast({
             variant: 'destructive',
             title: 'Delete Failed',
-            description: 'This is a calculated entry and cannot be deleted.',
+            description: errorDescription,
         });
         setEntryToDelete(null);
         return;
@@ -717,7 +717,7 @@ export default function LedgerPage() {
                                                                 <TableRow className="bg-red-800 hover:bg-red-900">
                                                                     <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
                                                                         <div className="flex justify-between items-center w-full px-4">
-                                                                            <span>{format(new Date(entry.timestamp), 'EEEE, dd MMMM yyyy')}</span>
+                                                                            <span>{format(date, 'EEEE, dd MMMM yyyy')}</span>
                                                                             {dailyClosingStock !== undefined && (
                                                                                 <span className="text-xs font-mono">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                                             )}
@@ -817,4 +817,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
