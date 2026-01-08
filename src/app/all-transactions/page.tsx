@@ -197,6 +197,7 @@ export default function AllTransactionsPage() {
   const getRowClass = (entry: CombinedEntry) => {
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
+    if (entry.type === 'Sale' && !entry.isCreditSale) return 'text-green-600';
     return '';
   };
 

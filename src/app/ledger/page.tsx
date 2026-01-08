@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -122,7 +123,11 @@ export default function LedgerPage() {
         const isCreditSale = tx.paymentMethod === 'Credit';
         const productName = tx.product || tx.fuelType;
         const customerName = tx.customerName || 'Walk-in';
-        const description = productName ? `Sale: ${productName} to ${customerName}` : `Sale to ${customerName}`;
+        let description = `Sale to ${customerName}`;
+        if (productName) {
+            description = `Sale: ${productName} to ${customerName}`;
+        }
+
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -270,7 +275,7 @@ export default function LedgerPage() {
     });
     
     const dailyClosingStocksMap = new Map<string, number>();
-    const dailyStockEntries = Object.values(transactions.reduce((acc, tx) => {
+    Object.values(transactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
             if (!acc[date]) {
@@ -279,7 +284,7 @@ export default function LedgerPage() {
             acc[date].entries.push(tx);
         }
         return acc;
-    }, {} as Record<string, { date: string, entries: Transaction[] }>)).map(day => {
+    }, {} as Record<string, { date: string, entries: Transaction[] }>)).forEach(day => {
         const closingStockValue = Object.values(day.entries.reduce((acc, tx) => {
             if (!tx.fuelType || !tx.pricePerLitre || !tx.volume) return acc;
             const fuel = tx.fuelType || 'Unleaded';
@@ -290,16 +295,6 @@ export default function LedgerPage() {
         }, {} as Record<string, number>)).reduce((sum, val) => sum + val, 0);
 
         dailyClosingStocksMap.set(day.date, closingStockValue);
-        
-        return {
-            id: `closing-${day.date}`,
-            timestamp: endOfDay(new Date(day.date)).toISOString(),
-            description: `Daily Closing Stock for ${format(new Date(day.date), 'PP')}`,
-            type: 'Daily Closing Stock' as const,
-            debit: 0,
-            credit: closingStockValue,
-            original: { date: day.date, value: closingStockValue }
-        }
     });
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -715,15 +710,17 @@ export default function LedgerPage() {
 
                                                     const dailyClosingStock = dailyClosingStocks.get(formattedDate);
 
-                                                    const isCreditEntry = entry.credit > 0;
+                                                    const isCashSale = entry.type === 'Sale' && !entry.isCreditSale;
+                                                    const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
                                                     const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
+
                                                     return (
                                                         <React.Fragment key={entry.id}>
                                                             {showSeparator && (
                                                                 <TableRow className="bg-red-800 hover:bg-red-900">
                                                                     <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
                                                                         <div className="flex justify-between items-center w-full px-4">
-                                                                            <span>{format(date, 'EEEE, dd MMMM yyyy')}</span>
+                                                                            <span>{format(new Date(lastDate!), 'EEEE, dd MMMM yyyy')}</span>
                                                                             {dailyClosingStock !== undefined && (
                                                                                 <span className="text-xs font-mono">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                                                             )}
@@ -733,17 +730,19 @@ export default function LedgerPage() {
                                                             )}
                                                             <TableRow>
                                                                 <TableCell className={cn(
+                                                                    "font-medium",
                                                                     entry.isCreditSale && 'text-blue-600',
-                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
-                                                                    entry.type === 'Expense' && 'text-destructive',
-                                                                    'font-medium'
+                                                                    isSalary && 'text-pink-600',
+                                                                    isCashSale && 'text-green-600',
+                                                                    isExpense && 'text-destructive'
                                                                 )}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
-                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
                                                                     entry.isCreditSale && 'text-blue-600 font-medium',
-                                                                    entry.type === 'Expense' && 'text-destructive',
+                                                                    isSalary && 'text-pink-600',
+                                                                    isCashSale && 'text-green-600',
+                                                                    isExpense && 'text-destructive',
                                                                 )}>{entry.description}</TableCell>
                                                                 <TableCell>
                                                                     <Badge 
