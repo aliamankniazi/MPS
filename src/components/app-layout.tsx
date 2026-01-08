@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -59,7 +58,6 @@ const navGroups = [
         permission: 'view_customers' as Permission,
         links: [
             { href: '/customers', label: 'Customers & Partners', icon: Users, permission: 'view_customers' as Permission },
-            { href: '/employees', label: 'Employees', icon: Contact, permission: 'manage_employees' as Permission },
             { href: '/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'manage_employees' as Permission },
             { href: '/investments', label: 'Partner Investments', icon: PiggyBank, permission: 'view_investments' as Permission },
         ]
@@ -191,3 +189,5 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
     </SidebarProvider>
   );
 }
+
+    

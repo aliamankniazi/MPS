@@ -11,7 +11,7 @@ import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Purchase, PurchaseReturn, Transaction } from '@/lib/types';
+import type { Customer, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,11 +31,11 @@ type CombinedEntry = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Purchase Return';
+  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary';
   partner: string;
   details: string;
   amount: number;
-  original: Transaction | Purchase | PurchaseReturn;
+  original: Transaction | Purchase | PurchaseReturn | CustomerPayment;
   isCreditSale?: boolean;
 };
 
@@ -56,10 +56,12 @@ export default function AllTransactionsPage() {
     transactions, 
     purchases, 
     purchaseReturns, 
+    customerPayments,
     customers, 
     deleteTransaction, 
     deletePurchase, 
-    deletePurchaseReturn, 
+    deletePurchaseReturn,
+    deleteCustomerPayment,
     isLoaded 
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
@@ -80,6 +82,19 @@ export default function AllTransactionsPage() {
       original: tx,
       isCreditSale: tx.paymentMethod === 'Credit',
     }));
+
+    const salaryPayments: CombinedEntry[] = customerPayments
+        .filter(p => p.paymentMethod === 'Salary')
+        .map(p => ({
+            id: `salary-${p.id}`,
+            originalId: p.id,
+            timestamp: p.timestamp,
+            type: 'Salary',
+            partner: p.customerName,
+            details: p.notes || 'Salary Payment',
+            amount: p.amount,
+            original: p
+        }));
 
     const allPurchases: CombinedEntry[] = purchases.map(p => ({
       id: `purchase-${p.id}`,
@@ -103,14 +118,14 @@ export default function AllTransactionsPage() {
       original: pr,
     }));
 
-    return [...sales, ...allPurchases, ...returns].sort((a, b) => {
+    return [...sales, ...allPurchases, ...returns, ...salaryPayments].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
         if (!isValid(dateB)) return -1;
         return dateB.getTime() - dateA.getTime()
     });
-  }, [isLoaded, transactions, purchases, purchaseReturns]);
+  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments]);
 
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return combinedEntries;
@@ -147,12 +162,14 @@ export default function AllTransactionsPage() {
       case 'Sale': return 'outline';
       case 'Purchase': return 'destructive';
       case 'Purchase Return': return 'secondary';
+      case 'Salary': return 'default';
       default: return 'default';
     }
   };
   
   const getAmountClass = (entry: CombinedEntry) => {
     if (entry.isCreditSale) return 'text-blue-600';
+    if (entry.type === 'Salary') return 'text-pink-600';
       switch(entry.type) {
           case 'Sale': return 'text-green-600';
           case 'Purchase': return 'text-destructive';
@@ -162,7 +179,9 @@ export default function AllTransactionsPage() {
   }
 
   const getRowClass = (entry: CombinedEntry) => {
-    return entry.isCreditSale ? 'text-blue-600' : '';
+    if (entry.isCreditSale) return 'text-blue-600';
+    if (entry.type === 'Salary') return 'text-pink-600';
+    return '';
   };
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
@@ -185,6 +204,7 @@ export default function AllTransactionsPage() {
             case 'Sale': deleteTransaction(entryToDelete.originalId); break;
             case 'Purchase': deletePurchase(entryToDelete.originalId); break;
             case 'Purchase Return': deletePurchaseReturn(entryToDelete.originalId); break;
+            case 'Salary': deleteCustomerPayment(entryToDelete.originalId); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -247,14 +267,15 @@ export default function AllTransactionsPage() {
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
-                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                            {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                         </TableCell>
                         <TableCell>
                         <Badge 
                             variant={getBadgeVariant(entry)}
                             className={cn(
                                 entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
-                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700',
+                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700'
                             )}
                         >{entry.type}</Badge>
                         </TableCell>
@@ -369,3 +390,5 @@ export default function AllTransactionsPage() {
     </>
   );
 }
+
+    
