@@ -39,7 +39,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage';
   debit: number;
   credit: number;
   balance: number;
@@ -71,7 +71,8 @@ type GroupedEntries = {
 
 const TRANSACTION_TYPES = [
     'Sale', 'Purchase', 'Expense', 'Purchase Return', 'Sale Return', 'Other Income', 
-    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary'
+    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary',
+    'Stock Surplus', 'Stock Shortage'
 ];
 
 
@@ -86,7 +87,9 @@ export default function LedgerPage() {
     supplierPayments, 
     investments, 
     customerPayments,
-    cashAdvances, 
+    cashAdvances,
+    stockAdjustments,
+    fuelPrices,
     isLoaded,
     deleteTransaction,
     deletePurchase,
@@ -223,6 +226,36 @@ export default function LedgerPage() {
             });
         }
     });
+
+    stockAdjustments.forEach(adj => {
+        const adjDate = new Date(adj.timestamp);
+        if (adj.adjustment > 0) { // Surplus
+            const salePrice = fuelPrices[adj.fuelType] || 0;
+            combined.push({
+                id: `adj-${adj.id}`,
+                timestamp: adj.timestamp,
+                description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
+                type: 'Stock Surplus',
+                debit: 0,
+                credit: adj.adjustment * salePrice,
+                original: adj,
+            });
+        } else { // Shortage
+            const lastPurchase = purchases
+                .filter(p => p.fuelType === adj.fuelType && new Date(p.timestamp) <= adjDate)
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
+            combined.push({
+                id: `adj-${adj.id}`,
+                timestamp: adj.timestamp,
+                description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
+                type: 'Stock Shortage',
+                debit: Math.abs(adj.adjustment) * purchasePrice,
+                credit: 0,
+                original: adj,
+            });
+        }
+    });
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -293,7 +326,7 @@ export default function LedgerPage() {
 
     }, {});
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, searchTerm, selectedDate, selectedType]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices, searchTerm, selectedDate, selectedType]);
   
   const monthKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -330,12 +363,12 @@ export default function LedgerPage() {
     monthData.totalPurchaseReturns = monthData.entries.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
 
     monthData.totalRecovery = monthData.entries.filter(e => e.type === 'Customer Payment' || e.type === 'Salary').reduce((sum, e) => sum + e.credit, 0);
-    monthData.totalOtherIncomes = monthData.entries.filter(e => e.type === 'Other Income').reduce((sum, e) => sum + e.credit, 0);
+    monthData.totalOtherIncomes = monthData.entries.filter(e => e.type === 'Other Income' || e.type === 'Stock Surplus').reduce((sum, e) => sum + e.credit, 0);
     monthData.totalInvestments = monthData.entries.filter(e => e.type === 'Investment').reduce((sum, e) => sum + e.credit, 0);
 
     monthData.totalCashAdvance = monthData.entries.filter(e => e.type === 'Cash Advance').reduce((sum, e) => sum + e.debit, 0);
     monthData.totalSupplierPayment = monthData.entries.filter(e => e.type === 'Supplier Payment').reduce((sum, e) => sum + e.debit, 0);
-    monthData.totalExpenses = monthData.entries.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalExpenses = monthData.entries.filter(e => e.type === 'Expense' || e.type === 'Stock Shortage').reduce((sum, e) => sum + e.debit, 0);
     monthData.totalWithdrawals = monthData.entries.filter(e => e.type === 'Withdrawal').reduce((sum, e) => sum + e.debit, 0);
   });
   
@@ -438,9 +471,9 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0) return null;
-                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalInvestments + monthData.totalPurchaseReturns;
-                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalWithdrawals + monthData.totalSaleReturns;
-                       const totalSupplierActivity = monthData.totalPurchases - monthData.totalSupplierPayment;
+                        const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalInvestments + monthData.totalPurchaseReturns;
+                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals;
+                        const totalSupplierActivity = monthData.totalPurchases - monthData.totalSupplierPayment;
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
@@ -451,18 +484,18 @@ export default function LedgerPage() {
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {totalInflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {(monthData.totalCashSales + monthData.totalRecovery).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">PKR {monthData.totalCreditSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Advance</span> <span className="font-mono text-destructive">PKR {monthData.totalCashAdvance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Expenses</span> <span className="font-mono text-destructive">PKR {monthData.totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalOutflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {(monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Payment</span> <span className="font-mono text-green-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {(monthData.totalPurchases - monthData.totalSupplierPayment).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -488,7 +521,7 @@ export default function LedgerPage() {
                                                 </TableCell>
                                                 <TableCell />
                                             </TableRow>
-                                            {monthData.entries.map(entry => {
+                                            {monthData.entries.slice().reverse().map(entry => {
                                                 const date = new Date(entry.timestamp);
                                                 const isCreditEntry = entry.credit > 0;
                                                 return (
@@ -576,4 +609,5 @@ export default function LedgerPage() {
     
 
     
+
 
