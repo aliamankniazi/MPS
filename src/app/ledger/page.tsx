@@ -213,7 +213,7 @@ export default function LedgerPage() {
     if (searchTerm) {
         filteredEntries = filteredEntries.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-    if (selectedType) {
+    if (selectedType && selectedType !== 'all') {
         filteredEntries = filteredEntries.filter(e => e.type === selectedType);
     }
     if (selectedDate) {
@@ -248,7 +248,7 @@ export default function LedgerPage() {
 
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, searchTerm, selectedDate, selectedType]);
   
-  const monthKeys = Object.keys(groupedEntries).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+  const monthKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   monthKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
@@ -332,7 +332,7 @@ export default function LedgerPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
            </Popover>
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
@@ -474,5 +474,6 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
