@@ -13,6 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import type { Transaction, Purchase } from '@/lib/types';
 import Link from 'next/link';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
 
 type CombinedInvoice = {
   id: string;
@@ -24,12 +26,20 @@ type CombinedInvoice = {
   amount: number;
 };
 
+type GroupedInvoices = {
+  [key: string]: {
+    invoices: CombinedInvoice[];
+    totalSales: number;
+    totalPurchases: number;
+  };
+};
+
 export default function AllInvoicesPage() {
   const { transactions, purchases, isLoaded } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const combinedInvoices = useMemo(() => {
-    if (!isLoaded) return [];
+  const groupedInvoices = useMemo(() => {
+    if (!isLoaded) return {};
 
     const salesInvoices: CombinedInvoice[] = transactions.map(tx => ({
       id: `sale-${tx.id}`,
@@ -51,23 +61,38 @@ export default function AllInvoicesPage() {
       amount: p.totalCost,
     }));
 
-    return [...salesInvoices, ...purchaseInvoices].sort((a, b) => {
+    const allInvoices = [...salesInvoices, ...purchaseInvoices].sort((a, b) => {
       const dateA = new Date(a.timestamp);
       const dateB = new Date(b.timestamp);
       if (!isValid(dateA)) return 1;
       if (!isValid(dateB)) return -1;
       return dateB.getTime() - dateA.getTime();
     });
-  }, [isLoaded, transactions, purchases]);
-
-  const filteredInvoices = useMemo(() => {
-    if (!searchTerm) return combinedInvoices;
-    return combinedInvoices.filter(invoice =>
+    
+    const filtered = allInvoices.filter(invoice =>
+      !searchTerm ||
       invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.details.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [combinedInvoices, searchTerm]);
+
+    return filtered.reduce((acc, invoice) => {
+        const date = new Date(invoice.timestamp);
+        if (!isValid(date)) return acc;
+        const monthKey = format(date, 'MMMM yyyy');
+        
+        if (!acc[monthKey]) {
+            acc[monthKey] = { invoices: [], totalSales: 0, totalPurchases: 0 };
+        }
+        
+        acc[monthKey].invoices.push(invoice);
+        if(invoice.type === 'Sale') acc[monthKey].totalSales += invoice.amount;
+        if(invoice.type === 'Purchase') acc[monthKey].totalPurchases += invoice.amount;
+
+        return acc;
+    }, {} as GroupedInvoices);
+
+  }, [isLoaded, transactions, purchases, searchTerm]);
 
   const getBadgeVariant = (type: CombinedInvoice['type']) => {
     return type === 'Sale' ? 'outline' : 'destructive';
@@ -76,6 +101,8 @@ export default function AllInvoicesPage() {
   const getAmountClass = (type: CombinedInvoice['type']) => {
     return type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
+  
+  const monthKeys = Object.keys(groupedInvoices);
 
   return (
     <div className="p-4 md:p-8">
@@ -86,7 +113,7 @@ export default function AllInvoicesPage() {
               <CardTitle className="flex items-center gap-2">
                 <FileText /> All Invoices
               </CardTitle>
-              <CardDescription>A list of all generated sales and purchase invoices.</CardDescription>
+              <CardDescription>A list of all generated sales and purchase invoices, grouped by month.</CardDescription>
             </div>
             <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -100,49 +127,66 @@ export default function AllInvoicesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          {isLoaded && filteredInvoices.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead className="text-right">Amount (PKR)</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredInvoices.map(invoice => {
-                  const date = new Date(invoice.timestamp);
-                  return (
-                    <TableRow key={invoice.id}>
-                      <TableCell className="font-medium whitespace-nowrap">
-                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge 
-                            variant={getBadgeVariant(invoice.type)}
-                            className={cn(invoice.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                        >{invoice.type}</Badge>
-                      </TableCell>
-                      <TableCell>{invoice.partner}</TableCell>
-                      <TableCell>{invoice.details}</TableCell>
-                      <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice.type))}>
-                        {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                          <Link href={`/invoice/${invoice.type.toLowerCase().replace(' ', '')}/${invoice.originalId}`} target="_blank">
-                            <Printer className="w-4 h-4" />
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+          {isLoaded && monthKeys.length > 0 ? (
+             <Accordion type="multiple" className="w-full">
+                {monthKeys.map(monthKey => (
+                    <AccordionItem value={monthKey} key={monthKey}>
+                        <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
+                            <div className="flex justify-between w-full pr-4">
+                                <span className="font-semibold text-lg">{monthKey}</span>
+                                <div className="flex gap-4 text-sm">
+                                    <span>Sales: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalSales.toLocaleString()}</span></span>
+                                    <span>Purchases: <span className="font-mono text-destructive">PKR {groupedInvoices[monthKey].totalPurchases.toLocaleString()}</span></span>
+                                </div>
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                             <Table>
+                              <TableHeader>
+                                <TableRow>
+                                  <TableHead>Date</TableHead>
+                                  <TableHead>Type</TableHead>
+                                  <TableHead>Partner</TableHead>
+                                  <TableHead>Details</TableHead>
+                                  <TableHead className="text-right">Amount (PKR)</TableHead>
+                                  <TableHead className="text-center">Actions</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {groupedInvoices[monthKey].invoices.map(invoice => {
+                                  const date = new Date(invoice.timestamp);
+                                  return (
+                                    <TableRow key={invoice.id}>
+                                      <TableCell className="font-medium whitespace-nowrap">
+                                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Badge 
+                                            variant={getBadgeVariant(invoice.type)}
+                                            className={cn(invoice.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                                        >{invoice.type}</Badge>
+                                      </TableCell>
+                                      <TableCell>{invoice.partner}</TableCell>
+                                      <TableCell>{invoice.details}</TableCell>
+                                      <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice.type))}>
+                                        {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Button asChild variant="ghost" size="icon" title="Print Invoice">
+                                          <Link href={`/invoice/${invoice.type.toLowerCase().replace(' ', '')}/${invoice.originalId}`} target="_blank">
+                                            <Printer className="w-4 h-4" />
+                                          </Link>
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  );
+                                })}
+                              </TableBody>
+                            </Table>
+                        </AccordionContent>
+                    </AccordionItem>
+                ))}
+            </Accordion>
           ) : (
             <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
               {isLoaded ? (
@@ -163,3 +207,4 @@ export default function AllInvoicesPage() {
     </div>
   );
 }
+
