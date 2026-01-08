@@ -56,11 +56,16 @@ type GroupedEntries = {
     totalSales: number;
     totalCashSales: number;
     totalCreditSales: number;
+    totalSaleReturns: number;
     totalPurchases: number;
+    totalPurchaseReturns: number;
     totalRecovery: number;
     totalCashAdvance: number;
     totalSupplierPayment: number;
     totalExpenses: number;
+    totalOtherIncomes: number;
+    totalInvestments: number;
+    totalWithdrawals: number;
   }
 }
 
@@ -270,11 +275,16 @@ export default function LedgerPage() {
           totalSales: 0,
           totalCashSales: 0,
           totalCreditSales: 0,
+          totalSaleReturns: 0,
           totalPurchases: 0,
+          totalPurchaseReturns: 0,
           totalRecovery: 0,
           totalCashAdvance: 0,
           totalSupplierPayment: 0,
           totalExpenses: 0,
+          totalOtherIncomes: 0,
+          totalInvestments: 0,
+          totalWithdrawals: 0,
         };
       }
       
@@ -313,26 +323,20 @@ export default function LedgerPage() {
     monthData.totalCreditSales = monthData.entries
         .filter(e => e.type === 'Sale' && (e.original as Transaction).paymentMethod === 'Credit')
         .reduce((sum, e) => sum + e.debit, 0);
-    
-    monthData.totalPurchases = monthData.entries
-        .filter(e => e.type === 'Purchase')
-        .reduce((sum, e) => sum + e.debit, 0);
 
-    monthData.totalRecovery = monthData.entries
-        .filter(e => e.type === 'Customer Payment' || e.type === 'Salary')
-        .reduce((sum, e) => sum + e.credit, 0);
+    monthData.totalSaleReturns = monthData.entries.filter(e => e.type === 'Sale Return').reduce((sum, e) => sum + e.debit, 0);
     
-    monthData.totalCashAdvance = monthData.entries
-        .filter(e => e.type === 'Cash Advance')
-        .reduce((sum, e) => sum + e.debit, 0);
-        
-    monthData.totalSupplierPayment = monthData.entries
-        .filter(e => e.type === 'Supplier Payment')
-        .reduce((sum, e) => sum + e.credit, 0);
-        
-    monthData.totalExpenses = monthData.entries
-        .filter(e => e.type === 'Expense')
-        .reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalPurchases = monthData.entries.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalPurchaseReturns = monthData.entries.filter(e => e.type === 'Purchase Return').reduce((sum, e) => sum + e.credit, 0);
+
+    monthData.totalRecovery = monthData.entries.filter(e => e.type === 'Customer Payment' || e.type === 'Salary').reduce((sum, e) => sum + e.credit, 0);
+    monthData.totalOtherIncomes = monthData.entries.filter(e => e.type === 'Other Income').reduce((sum, e) => sum + e.credit, 0);
+    monthData.totalInvestments = monthData.entries.filter(e => e.type === 'Investment').reduce((sum, e) => sum + e.credit, 0);
+
+    monthData.totalCashAdvance = monthData.entries.filter(e => e.type === 'Cash Advance').reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalSupplierPayment = monthData.entries.filter(e => e.type === 'Supplier Payment').reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalExpenses = monthData.entries.filter(e => e.type === 'Expense').reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalWithdrawals = monthData.entries.filter(e => e.type === 'Withdrawal').reduce((sum, e) => sum + e.debit, 0);
   });
   
   const handleDeleteEntry = () => {
@@ -430,13 +434,13 @@ export default function LedgerPage() {
         </CardHeader>
         <CardContent>
             {monthKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())]}>
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey)]}>
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0) return null;
-                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses;
-                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery;
-                       const totalSupplierActivity = monthData.totalPurchases + monthData.totalSupplierPayment;
+                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalInvestments + monthData.totalPurchaseReturns;
+                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalWithdrawals + monthData.totalSaleReturns;
+                       const totalSupplierActivity = monthData.totalPurchases - monthData.totalSupplierPayment;
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
@@ -484,7 +488,7 @@ export default function LedgerPage() {
                                                 </TableCell>
                                                 <TableCell />
                                             </TableRow>
-                                            {[...monthData.entries].reverse().map(entry => {
+                                            {monthData.entries.map(entry => {
                                                 const date = new Date(entry.timestamp);
                                                 const isCreditEntry = entry.credit > 0;
                                                 return (
@@ -572,3 +576,4 @@ export default function LedgerPage() {
     
 
     
+
