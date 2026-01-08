@@ -120,16 +120,15 @@ export default function LedgerPage() {
 
     transactions.forEach(tx => {
       const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
-      const isCreditSale = tx.paymentMethod === 'Credit' && !isWalkin;
       combined.push({
         id: `tx-${tx.id}`,
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        debit: isWalkin ? 0 : tx.totalAmount, // Debit only for credit customers
-        credit: isWalkin ? tx.totalAmount : 0, // Credit only for walk-in (cash) customers
+        debit: isWalkin ? 0 : tx.totalAmount, // Only debit for credit customers
+        credit: isWalkin ? tx.totalAmount : 0, // Only credit for cash customers
         original: tx,
-        isCreditSale: isCreditSale,
+        isCreditSale: !isWalkin,
       })
     });
     customerPayments.forEach(cp => {
@@ -167,8 +166,8 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: 0,
-      credit: sp.amount,
+      debit: sp.amount,
+      credit: 0,
       original: sp,
     }));
     expenses.forEach(e => combined.push({
@@ -249,7 +248,7 @@ export default function LedgerPage() {
         } else { // Shortage
             const lastPurchase = purchases
                 .filter(p => p.fuelType === adj.fuelType && new Date(p.timestamp) <= adjDate)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a).getTime())[0];
             const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
             combined.push({
                 id: `adj-${adj.id}`,
@@ -397,7 +396,7 @@ export default function LedgerPage() {
                 monthData.totalPurchases += e.debit;
                 break;
             case 'Supplier Payment':
-                 monthData.totalSupplierPayment += e.credit;
+                 monthData.totalSupplierPayment += e.debit;
                  break;
             case 'Expense':
                 monthData.totalExpenses += e.debit;
@@ -499,7 +498,14 @@ export default function LedgerPage() {
                 {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date</span>}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+            <PopoverContent className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                initialFocus
+              />
+            </PopoverContent>
            </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
@@ -585,8 +591,9 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0 && !hasActiveFilters) return null;
-                        const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalSupplierPayment;
-                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalPurchases;
+                        const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalStockSurplus;
+                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalStockShortage;
+                        const totalSupplierActivity = monthData.totalPurchases + monthData.totalSupplierPayment;
                        
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
@@ -597,7 +604,8 @@ export default function LedgerPage() {
                                          <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-teal-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Other Income</span><span className="font-mono text-green-600">PKR {monthData.totalOtherIncomes.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Surplus Stock</span> <span className="font-mono text-green-600">PKR {monthData.totalStockSurplus.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {totalInflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
@@ -610,8 +618,8 @@ export default function LedgerPage() {
                                             </div>
                                              <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-orange-600">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-cyan-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-purple-600 font-bold">PKR {(monthData.totalPurchases + monthData.totalSupplierPayment).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-pink-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-purple-600 font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                              </div>
                                         </div>
                                     </div>
@@ -647,13 +655,23 @@ export default function LedgerPage() {
                                                     <TableCell>
                                                          <Badge 
                                                             variant={isCreditEntry ? 'outline' : 'destructive'}
-                                                            className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700')}
+                                                            className={cn(
+                                                                'text-xs', 
+                                                                entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:border-teal-700',
+                                                                entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
+                                                                isCreditEntry && entry.type !== 'Customer Payment' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
+                                                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                                            )}
                                                             >{entry.type}</Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-right font-mono text-destructive">
+                                                    <TableCell className={cn("text-right font-mono",
+                                                      entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive'
+                                                    )}>
                                                         {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-right font-mono text-green-600">
+                                                    <TableCell className={cn("text-right font-mono",
+                                                        entry.type === 'Customer Payment' ? 'text-teal-600' : 'text-green-600'
+                                                    )}>
                                                         {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -732,6 +750,7 @@ export default function LedgerPage() {
 
 
     
+
 
 
 
