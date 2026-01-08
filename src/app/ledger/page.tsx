@@ -175,7 +175,7 @@ export default function LedgerPage() {
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
-            description: isSalaryExpense ? e.description : `Expense: ${e.description}`,
+            description: e.description,
             type: isSalaryExpense ? 'Salary Expense' : 'Expense',
             debit: e.amount,
             credit: 0,
@@ -726,7 +726,10 @@ export default function LedgerPage() {
                                                                 </TableRow>
                                                             )}
                                                             <TableRow>
-                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>
+                                                                <TableCell className={cn(
+                                                                    entry.isCreditSale && 'text-blue-600 font-medium',
+                                                                    (entry.type === 'Expense' || entry.type === 'Salary Expense') && 'text-destructive'
+                                                                )}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
