@@ -32,14 +32,13 @@ import type { Transaction, Product } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Calendar } from '@/components/ui/calendar';
 
 
 type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage' | 'Daily Closing Stock';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage' | 'Daily Closing Stock' | 'Salary Expense';
   debit: number;
   credit: number;
   balance: number;
@@ -74,7 +73,7 @@ type GroupedEntries = {
 
 const TRANSACTION_TYPES = [
     'Sale', 'Purchase', 'Expense', 'Purchase Return', 'Sale Return', 'Other Income', 
-    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary',
+    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary', 'Salary Expense',
     'Stock Surplus', 'Stock Shortage', 'Daily Closing Stock'
 ];
 
@@ -127,8 +126,8 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
             type: 'Sale',
-            debit: isWalkin ? 0 : tx.totalAmount,
-            credit: isWalkin ? tx.totalAmount : 0,
+            debit: isCreditSale ? tx.totalAmount : 0,
+            credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -172,15 +171,18 @@ export default function LedgerPage() {
       credit: 0,
       original: sp,
     }));
-    expenses.forEach(e => combined.push({
-        id: `exp-${e.id}`,
-        timestamp: e.timestamp,
-        description: `Expense: ${e.description}`,
-        type: 'Expense',
-        debit: e.amount,
-        credit: 0,
-        original: e,
-    }));
+    expenses.forEach(e => {
+        const isSalaryExpense = e.category === 'Salaries' || e.description.toLowerCase().includes('salary');
+        combined.push({
+            id: `exp-${e.id}`,
+            timestamp: e.timestamp,
+            description: `Expense: ${e.description}`,
+            type: isSalaryExpense ? 'Salary Expense' : 'Expense',
+            debit: e.amount,
+            credit: 0,
+            original: e,
+        })
+    });
     purchaseReturns.forEach(pr => combined.push({
         id: `pr-${pr.id}`,
         timestamp: pr.timestamp,
@@ -435,6 +437,7 @@ export default function LedgerPage() {
                  monthData.totalSupplierPayment += e.debit;
                  break;
             case 'Expense':
+            case 'Salary Expense':
                 monthData.totalExpenses += e.debit;
                 break;
             case 'Stock Shortage':
@@ -732,19 +735,20 @@ export default function LedgerPage() {
                                                                             'text-xs', 
                                                                             entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:border-teal-700',
                                                                             entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
-                                                                            isCreditEntry && entry.type !== 'Customer Payment' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
+                                                                            (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
+                                                                            isCreditEntry && entry.type !== 'Customer Payment' && entry.type !== 'Salary' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
                                                                             entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
                                                                         )}
                                                                     >{entry.type}</Badge>
                                                                 </TableCell>
                                                                 <TableCell className={cn("text-right font-mono",
-                                                                    entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive',
+                                                                    entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
                                                                     entry.isCreditSale && 'text-blue-600'
                                                                 )}>
                                                                     {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                                 </TableCell>
                                                                 <TableCell className={cn("text-right font-mono",
-                                                                    entry.type === 'Customer Payment' ? 'text-teal-600' : 'text-green-600'
+                                                                    entry.type === 'Customer Payment' || entry.type === 'Salary' ? 'text-teal-600' : 'text-green-600'
                                                                 )}>
                                                                     {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                                 </TableCell>
@@ -808,6 +812,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
