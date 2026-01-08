@@ -5,7 +5,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isValid, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -28,7 +28,7 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import type { Transaction } from '@/lib/types';
+import type { Transaction, Product } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -39,7 +39,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage' | 'Daily Closing Stock';
   debit: number;
   credit: number;
   balance: number;
@@ -74,7 +74,7 @@ type GroupedEntries = {
 const TRANSACTION_TYPES = [
     'Sale', 'Purchase', 'Expense', 'Purchase Return', 'Sale Return', 'Other Income', 
     'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary',
-    'Stock Surplus', 'Stock Shortage'
+    'Stock Surplus', 'Stock Shortage', 'Daily Closing Stock'
 ];
 
 
@@ -103,6 +103,7 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
+    products,
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
@@ -278,6 +279,40 @@ export default function LedgerPage() {
     });
 
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
+
+  const productWiseSales = useMemo(() => {
+    if (!isLoaded) return [];
+
+    const salesByProduct = transactions.reduce((acc, tx) => {
+        const productName = tx.product || tx.fuelType;
+        if (!acc[productName]) {
+            const productInfo = products.find(p => p.name === productName);
+            acc[productName] = {
+                product: productName,
+                unit: productInfo?.unit || 'Liters',
+                totalSold: 0,
+                totalRevenue: 0,
+            };
+        }
+        acc[productName].totalSold += tx.volume || 0;
+        acc[productName].totalRevenue += tx.totalAmount;
+        return acc;
+    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
+
+    return Object.values(salesByProduct);
+  }, [isLoaded, transactions, products]);
+
+  const profitSummary = useMemo(() => {
+    if (!isLoaded) return null;
+    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    const grossProfit = totalRevenue - totalCostOfGoods;
+    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = grossProfit - totalExpenses;
+
+    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
+  }, [isLoaded, transactions, otherIncomes, purchases, expenses]);
+
 
   const groupedEntries = useMemo(() => {
     let filteredEntries = allEntries;
@@ -509,6 +544,65 @@ export default function LedgerPage() {
         </div>
        </header>
 
+        <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Summary</CardTitle>
+                    <CardDescription>A summary of all product sales for all time.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Product</TableHead>
+                                <TableHead className="text-right">Total Sold</TableHead>
+                                <TableHead className="text-right">Avg Price/Unit</TableHead>
+                                <TableHead className="text-right">Total Revenue</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {productWiseSales.map(item => (
+                                <TableRow key={item.product}>
+                                    <TableCell>{item.product}</TableCell>
+                                    <TableCell className="text-right">{item.totalSold.toFixed(2)} {item.unit}</TableCell>
+                                    <TableCell className="text-right">{(item.totalRevenue / item.totalSold).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">{item.totalRevenue.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><DollarSign /> Profit Summary</CardTitle>
+                    <CardDescription>A summary of overall profit for all time.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                   <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground flex items-center gap-2"><TrendingUp className="text-green-500" /> Total Revenue</span>
+                        <span className="font-semibold">PKR {profitSummary?.totalRevenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                   </div>
+                   <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground flex items-center gap-2"><TrendingDown className="text-red-500" /> Cost of Goods</span>
+                        <span className="font-semibold">PKR {profitSummary?.totalCostOfGoods.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                   </div>
+                    <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
+                        <span>Gross Profit</span>
+                        <span>PKR {profitSummary?.grossProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                   </div>
+                   <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground flex items-center gap-2"><TrendingDown className="text-red-500" /> Total Expenses</span>
+                        <span className="font-semibold">PKR {profitSummary?.totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                   </div>
+                   <div className={`flex justify-between items-center font-bold text-xl border-t-2 pt-2 ${profitSummary && profitSummary.netProfit < 0 ? 'text-red-500' : 'text-green-600'}`}>
+                        <span>Net Profit</span>
+                        <span>PKR {profitSummary?.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                   </div>
+                </CardContent>
+            </Card>
+        </div>
+
       <Card>
         <CardHeader>
             <CardTitle>Journal Entries</CardTitle>
@@ -667,3 +761,4 @@ export default function LedgerPage() {
 
 
     
+
