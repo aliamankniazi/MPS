@@ -147,6 +147,14 @@ export default function SalesPage() {
     }
   }, [selectedProductName, products, setItemValue]);
 
+  useEffect(() => {
+    if (!customerId || customerId === 'walkin') {
+      setValue('paymentMethod', 'Cash');
+    } else {
+      setValue('paymentMethod', 'Credit');
+    }
+  }, [customerId, setValue]);
+
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
   }, [customerId, customers]);
@@ -189,7 +197,7 @@ export default function SalesPage() {
           pricePerLitre: item.price,
           product: item.product,
           totalAmount: item.totalAmount,
-          paymentMethod: 'Cash', // Default payment method
+          paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
           customerId: data.customerId,
           customerName: selectedCustomer?.name,
           notes: data.notes,
@@ -417,3 +425,4 @@ export default function SalesPage() {
     </div>
   );
 }
+
