@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ArrowRight, ListOrdered } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 
 type CombinedEntry = {
@@ -118,6 +119,26 @@ export default function AllTransactionsPage() {
     );
   }, [combinedEntries, searchTerm]);
 
+  const topCustomers = useMemo(() => {
+    if (!isLoaded) return [];
+
+    const customerTotals = transactions.reduce((acc, tx) => {
+        if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
+            acc[tx.customerId] = {
+                id: tx.customerId,
+                name: tx.customerName,
+                total: (acc[tx.customerId]?.total || 0) + tx.totalAmount,
+            };
+        }
+        return acc;
+    }, {} as Record<string, { id: string; name: string; total: number }>);
+    
+    return Object.values(customerTotals)
+        .sort((a,b) => b.total - a.total)
+        .slice(0, 5);
+
+  }, [isLoaded, transactions]);
+
   const getBadgeVariant = (type: CombinedEntry['type']) => {
     switch (type) {
       case 'Sale': return 'outline';
@@ -178,103 +199,143 @@ export default function AllTransactionsPage() {
 
   return (
     <>
-    <div className="p-4 md:p-8">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <div>
-                <CardTitle className="flex items-center gap-2">
-                    <Archive /> All Transactions
-                </CardTitle>
-                <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
+    <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
+      <div className="lg:col-span-2">
+        <Card>
+            <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                        <Archive /> All Transactions
+                    </CardTitle>
+                    <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
+                </div>
+                <Input 
+                    placeholder="Search by partner, type, details..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="max-w-sm"
+                />
             </div>
-            <Input 
-                placeholder="Search by partner, type, details..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="max-w-sm"
-            />
-          </div>
-        </CardHeader>
-        <CardContent>
-          {isLoaded && filteredEntries.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Details</TableHead>
-                  <TableHead className="text-right">Amount (PKR)</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredEntries.map(entry => {
-                  const customer = getCustomerForEntry(entry);
-                  const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
-                  const date = new Date(entry.timestamp);
-                  return (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium whitespace-nowrap">
-                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={getBadgeVariant(entry.type)}
-                        className={cn(entry.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                      >{entry.type}</Badge>
-                    </TableCell>
-                    <TableCell>{entry.partner}</TableCell>
-                    <TableCell>{entry.details}</TableCell>
-                    <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry.type))}>
-                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </TableCell>
-                    <TableCell className="text-center space-x-0.5">
-                        {isPrintable && (
-                          <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                            <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`} target="_blank">
-                              <Printer className="w-4 h-4" />
-                            </Link>
-                          </Button>
-                        )}
-                        {entry.type === 'Sale' && customer?.contact && (
-                             <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
-                                <a 
-                                href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                >
-                                <WhatsAppIcon className="w-5 h-5" />
-                                </a>
+            </CardHeader>
+            <CardContent>
+            {isLoaded && filteredEntries.length > 0 ? (
+                <Table>
+                <TableHeader>
+                    <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Partner</TableHead>
+                    <TableHead>Details</TableHead>
+                    <TableHead className="text-right">Amount (PKR)</TableHead>
+                    <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {filteredEntries.map(entry => {
+                    const customer = getCustomerForEntry(entry);
+                    const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
+                    const date = new Date(entry.timestamp);
+                    return (
+                    <TableRow key={entry.id}>
+                        <TableCell className="font-medium whitespace-nowrap">
+                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                        </TableCell>
+                        <TableCell>
+                        <Badge 
+                            variant={getBadgeVariant(entry.type)}
+                            className={cn(entry.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                        >{entry.type}</Badge>
+                        </TableCell>
+                        <TableCell>{entry.partner}</TableCell>
+                        <TableCell>{entry.details}</TableCell>
+                        <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry.type))}>
+                            {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-center space-x-0.5">
+                            {isPrintable && (
+                            <Button asChild variant="ghost" size="icon" title="Print Invoice">
+                                <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`} target="_blank">
+                                <Printer className="w-4 h-4" />
+                                </Link>
                             </Button>
-                        )}
-                        <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-              {isLoaded ? (
-                <>
-                  <XCircle className="w-16 h-16" />
-                  <h3 className="text-xl font-semibold">
-                    {searchTerm ? 'No Matching Transactions' : 'No Transactions Yet'}
-                  </h3>
-                  <p>{searchTerm ? 'Try a different search term.' : 'Sales, purchases, and returns will appear here.'}</p>
-                </>
-              ) : (
-                <p>Loading transactions...</p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                            )}
+                            {entry.type === 'Sale' && customer?.contact && (
+                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
+                                    <a 
+                                    href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    >
+                                    <WhatsAppIcon className="w-5 h-5" />
+                                    </a>
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
+                                <Trash2 className="w-4 h-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                    )
+                    })}
+                </TableBody>
+                </Table>
+            ) : (
+                <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                {isLoaded ? (
+                    <>
+                    <XCircle className="w-16 h-16" />
+                    <h3 className="text-xl font-semibold">
+                        {searchTerm ? 'No Matching Transactions' : 'No Transactions Yet'}
+                    </h3>
+                    <p>{searchTerm ? 'Try a different search term.' : 'Sales, purchases, and returns will appear here.'}</p>
+                    </>
+                ) : (
+                    <p>Loading transactions...</p>
+                )}
+                </div>
+            )}
+            </CardContent>
+        </Card>
+      </div>
+
+      <div className="lg:col-span-1">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
+                <CardDescription>Based on total sales value.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Table>
+                    <TableBody>
+                        {topCustomers.map((customer, index) => (
+                            <TableRow key={customer.id}>
+                                <TableCell className="p-2">
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-8 w-8">
+                                            <AvatarFallback>{index + 1}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <div className="font-medium">{customer.name}</div>
+                                            <div className="text-sm text-muted-foreground">PKR {customer.total.toLocaleString()}</div>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell className="p-2 text-right">
+                                    <Button variant="ghost" size="icon" asChild>
+                                        <Link href={`/customers/${customer.id}/ledger`}>
+                                            <ArrowRight className="w-4 h-4" />
+                                        </Link>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                         {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+      </div>
     </div>
 
     <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
