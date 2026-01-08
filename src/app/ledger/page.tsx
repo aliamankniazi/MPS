@@ -425,7 +425,7 @@ export default function LedgerPage() {
                                                 </TableCell>
                                                 <TableCell />
                                             </TableRow>
-                                            {monthData.entries.map(entry => {
+                                            {[...monthData.entries].reverse().map(entry => {
                                                 const date = new Date(entry.timestamp);
                                                 const isCreditEntry = entry.credit > 0;
                                                 return (
@@ -502,5 +502,7 @@ export default function LedgerPage() {
 
 
 
+
+    
 
     
