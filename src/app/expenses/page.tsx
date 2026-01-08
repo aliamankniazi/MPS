@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -176,9 +176,11 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.map(e => (
+                  {expenses.map(e => {
+                    const date = new Date(e.timestamp);
+                    return (
                       <TableRow key={e.id}>
-                        <TableCell className="font-medium">{format(new Date(e.timestamp), 'PP')}</TableCell>
+                        <TableCell className="font-medium">{isValid(date) ? format(date, 'PP') : 'Invalid Date'}</TableCell>
                         <TableCell>{e.description}</TableCell>
                         <TableCell>{e.category}</TableCell>
                         <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
@@ -188,7 +190,8 @@ export default function ExpensesPage() {
                             </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             ) : (
