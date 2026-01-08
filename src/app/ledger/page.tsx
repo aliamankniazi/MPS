@@ -466,15 +466,15 @@ export default function LedgerPage() {
   });
   
   const handleDeleteEntry = () => {
-    if (!entryToDelete || !entryToDelete.id || !entryToDelete.id.includes('-')) {
-        const errorDescription = !entryToDelete?.id.includes('-')
-            ? 'This is a calculated entry and cannot be deleted.'
-            : 'Invalid entry ID.';
-
+    if (!entryToDelete) {
+        return;
+    }
+    
+    if (!entryToDelete.id || !entryToDelete.id.includes('-')) {
         toast({
             variant: 'destructive',
             title: 'Delete Failed',
-            description: errorDescription,
+            description: 'This is a calculated entry and cannot be deleted.',
         });
         setEntryToDelete(null);
         return;
@@ -711,6 +711,7 @@ export default function LedgerPage() {
                                                     const dailyClosingStock = dailyClosingStocks.get(formattedDate);
 
                                                     const isCreditEntry = entry.credit > 0;
+                                                    const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
                                                     return (
                                                         <React.Fragment key={entry.id}>
                                                             {showSeparator && (
@@ -728,14 +729,14 @@ export default function LedgerPage() {
                                                             <TableRow>
                                                                 <TableCell className={cn(
                                                                     entry.isCreditSale && 'text-blue-600 font-medium',
-                                                                    (entry.type === 'Expense' || entry.type === 'Salary Expense') && 'text-destructive'
                                                                 )}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
                                                                     (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
-                                                                    entry.isCreditSale && 'text-blue-600 font-medium'
-                                                                )}>{entry.description}</TableCell>
+                                                                    entry.isCreditSale && 'text-blue-600 font-medium',
+                                                                    entry.type === 'Expense' && 'text-destructive',
+                                                                )}>{entry.type === 'Salary Expense' ? entry.original.description.replace(/^Salary for\s/,'') : entry.description}</TableCell>
                                                                 <TableCell>
                                                                     <Badge 
                                                                         variant={isCreditEntry ? 'outline' : 'destructive'}

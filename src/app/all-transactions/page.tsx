@@ -11,7 +11,7 @@ import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
+import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,11 +31,11 @@ type CombinedEntry = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary';
+  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense';
   partner: string;
   details: string;
   amount: number;
-  original: Transaction | Purchase | PurchaseReturn | CustomerPayment;
+  original: Transaction | Purchase | PurchaseReturn | CustomerPayment | Expense;
   isCreditSale?: boolean;
 };
 
@@ -57,11 +57,13 @@ export default function AllTransactionsPage() {
     purchases, 
     purchaseReturns, 
     customerPayments,
+    expenses,
     customers, 
     deleteTransaction, 
     deletePurchase, 
     deletePurchaseReturn,
     deleteCustomerPayment,
+    deleteExpense,
     isLoaded 
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,6 +97,18 @@ export default function AllTransactionsPage() {
             amount: p.amount,
             original: p
         }));
+    
+    const expenseEntries: CombinedEntry[] = expenses.map(e => ({
+        id: `exp-${e.id}`,
+        originalId: e.id,
+        timestamp: e.timestamp,
+        type: 'Expense',
+        partner: 'Internal',
+        details: e.description,
+        amount: e.amount,
+        original: e,
+    }));
+
 
     const allPurchases: CombinedEntry[] = purchases.map(p => ({
       id: `purchase-${p.id}`,
@@ -118,14 +132,14 @@ export default function AllTransactionsPage() {
       original: pr,
     }));
 
-    return [...sales, ...allPurchases, ...returns, ...salaryPayments].sort((a, b) => {
+    return [...sales, ...allPurchases, ...returns, ...salaryPayments, ...expenseEntries].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
         if (!isValid(dateB)) return -1;
         return dateB.getTime() - dateA.getTime()
     });
-  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments]);
+  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, expenses]);
 
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return combinedEntries;
@@ -163,6 +177,7 @@ export default function AllTransactionsPage() {
       case 'Purchase': return 'destructive';
       case 'Purchase Return': return 'secondary';
       case 'Salary': return 'default';
+      case 'Expense': return 'destructive';
       default: return 'default';
     }
   };
@@ -174,6 +189,7 @@ export default function AllTransactionsPage() {
           case 'Sale': return 'text-green-600';
           case 'Purchase': return 'text-destructive';
           case 'Purchase Return': return 'text-blue-600';
+          case 'Expense': return 'text-destructive';
           default: return '';
       }
   }
@@ -205,6 +221,7 @@ export default function AllTransactionsPage() {
             case 'Purchase': deletePurchase(entryToDelete.originalId); break;
             case 'Purchase Return': deletePurchaseReturn(entryToDelete.originalId); break;
             case 'Salary': deleteCustomerPayment(entryToDelete.originalId); break;
+            case 'Expense': deleteExpense(entryToDelete.originalId); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -280,7 +297,7 @@ export default function AllTransactionsPage() {
                         >{entry.type}</Badge>
                         </TableCell>
                         <TableCell className={cn(entry.isCreditSale && 'font-medium')}>{entry.partner}</TableCell>
-                        <TableCell>{entry.details}</TableCell>
+                        <TableCell className={cn(entry.type === 'Expense' && 'text-destructive')}>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
@@ -390,6 +407,3 @@ export default function AllTransactionsPage() {
     </>
   );
 }
-
-    
-    
