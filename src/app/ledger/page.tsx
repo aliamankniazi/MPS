@@ -1,12 +1,13 @@
 
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isValid, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isValid, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2 } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,9 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { Transaction } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type LedgerEntry = {
@@ -52,12 +56,10 @@ type GroupedEntries = {
   }
 }
 
-const chartConfig = {
-  liters: {
-    label: "Liters",
-    color: "hsl(var(--chart-1))",
-  },
-} satisfies ChartConfig;
+const TRANSACTION_TYPES = [
+    'Sale', 'Purchase', 'Expense', 'Purchase Return', 'Sale Return', 'Other Income', 
+    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary'
+];
 
 
 export default function LedgerPage() {
@@ -85,6 +87,8 @@ export default function LedgerPage() {
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedType, setSelectedType] = useState<string>('');
   const { toast } = useToast();
 
   const groupedEntries = useMemo(() => {
@@ -204,9 +208,17 @@ export default function LedgerPage() {
         return { ...entry, balance: runningBalance };
     });
 
-    const filteredEntries = searchTerm 
-      ? allEntriesWithBalance.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()))
-      : allEntriesWithBalance;
+    let filteredEntries = allEntriesWithBalance;
+
+    if (searchTerm) {
+        filteredEntries = filteredEntries.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    if (selectedType) {
+        filteredEntries = filteredEntries.filter(e => e.type === selectedType);
+    }
+    if (selectedDate) {
+        filteredEntries = filteredEntries.filter(e => isValid(new Date(e.timestamp)) && isSameDay(new Date(e.timestamp), selectedDate));
+    }
 
 
     return filteredEntries.reduce((acc: GroupedEntries, entry: LedgerEntry) => {
@@ -234,7 +246,7 @@ export default function LedgerPage() {
 
     }, {});
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, searchTerm]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, searchTerm, selectedDate, selectedType]);
   
   const monthKeys = Object.keys(groupedEntries).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -285,36 +297,66 @@ export default function LedgerPage() {
     }
   };
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setSelectedDate(undefined);
+    setSelectedType('');
+  }
+
+  const hasActiveFilters = searchTerm || selectedDate || selectedType;
 
   return (
     <>
     <div className="p-4 md:p-8 space-y-6">
-       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+       <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><BookOpen /> General Journal</h1>
           <p className="text-muted-foreground">A chronological record of all financial transactions.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Input 
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+           <Input 
             placeholder="Search descriptions..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
-            className="w-full md:w-64"
+            className="w-full md:w-48"
           />
-           <Button variant="outline" asChild><Link href="/dashboard"><LayoutDashboard/> Go to Dashboard</Link></Button>
+           <Popover>
+            <PopoverTrigger asChild>
+                <Button
+                variant={"outline"}
+                className={cn("w-full justify-start text-left font-normal md:w-48", !selectedDate && "text-muted-foreground")}
+                >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date</span>}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+           </Popover>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-full md:w-48">
+                    <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="">All Types</SelectItem>
+                    {TRANSACTION_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+            </Select>
+
+           {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Clear</Button>}
         </div>
        </header>
 
       <Card>
         <CardHeader>
-            <CardTitle>Journal Entries by Month</CardTitle>
-            <CardDescription>All transactions grouped by month.</CardDescription>
+            <CardTitle>Journal Entries</CardTitle>
+            <CardDescription>{hasActiveFilters ? 'Showing filtered results.' : 'All transactions grouped by month.'}</CardDescription>
         </CardHeader>
         <CardContent>
             {monthKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4">
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={monthKeys}>
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
+                       if (monthData.entries.length === 0) return null;
                        const netChange = monthData.totalCredit - monthData.totalDebit;
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
@@ -407,7 +449,7 @@ export default function LedgerPage() {
                         )
                     })}
                 </Accordion>
-            ) : <p className="text-center p-8 text-muted-foreground">No transactions found.</p>}
+            ) : <p className="text-center p-8 text-muted-foreground">{hasActiveFilters ? 'No transactions match your filters.' : 'No transactions found.'}</p>}
         </CardContent>
       </Card>
     </div>
@@ -432,3 +474,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
