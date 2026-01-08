@@ -54,7 +54,12 @@ type GroupedEntries = {
     totalDebit: number;
     totalCredit: number;
     totalSales: number;
+    totalCashSales: number;
+    totalCreditSales: number;
     totalPurchases: number;
+    totalRecovery: number;
+    totalCashAdvance: number;
+    totalSupplierPayment: number;
   }
 }
 
@@ -260,7 +265,12 @@ export default function LedgerPage() {
           totalDebit: 0,
           totalCredit: 0,
           totalSales: 0,
+          totalCashSales: 0,
+          totalCreditSales: 0,
           totalPurchases: 0,
+          totalRecovery: 0,
+          totalCashAdvance: 0,
+          totalSupplierPayment: 0,
         };
       }
       
@@ -283,11 +293,38 @@ export default function LedgerPage() {
       runningBalance += balanceChange;
       entry.balance = runningBalance;
     });
-    groupedEntries[key].closingBalance = runningBalance;
-    groupedEntries[key].totalDebit = groupedEntries[key].entries.reduce((sum, e) => sum + e.debit, 0);
-    groupedEntries[key].totalCredit = groupedEntries[key].entries.reduce((sum, e) => sum + e.credit, 0);
-    groupedEntries[key].totalSales = groupedEntries[key].entries.filter(e => e.type === 'Sale').reduce((sum, e) => sum + (e.original as Transaction).totalAmount, 0);
-    groupedEntries[key].totalPurchases = groupedEntries[key].entries.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0);
+    const monthData = groupedEntries[key];
+    monthData.closingBalance = runningBalance;
+    monthData.totalDebit = monthData.entries.reduce((sum, e) => sum + e.debit, 0);
+    monthData.totalCredit = monthData.entries.reduce((sum, e) => sum + e.credit, 0);
+    
+    monthData.totalSales = monthData.entries
+        .filter(e => e.type === 'Sale')
+        .reduce((sum, e) => sum + (e.original as Transaction).totalAmount, 0);
+
+    monthData.totalCashSales = monthData.entries
+        .filter(e => e.type === 'Sale' && e.credit > 0)
+        .reduce((sum, e) => sum + e.credit, 0);
+
+    monthData.totalCreditSales = monthData.entries
+        .filter(e => e.type === 'Sale' && e.debit > 0)
+        .reduce((sum, e) => sum + e.debit, 0);
+    
+    monthData.totalPurchases = monthData.entries
+        .filter(e => e.type === 'Purchase')
+        .reduce((sum, e) => sum + e.debit, 0);
+
+    monthData.totalRecovery = monthData.entries
+        .filter(e => e.type === 'Customer Payment' || e.type === 'Salary')
+        .reduce((sum, e) => sum + e.credit, 0);
+    
+    monthData.totalCashAdvance = monthData.entries
+        .filter(e => e.type === 'Cash Advance')
+        .reduce((sum, e) => sum + e.debit, 0);
+        
+    monthData.totalSupplierPayment = monthData.entries
+        .filter(e => e.type === 'Supplier Payment')
+        .reduce((sum, e) => sum + e.credit, 0);
   });
   
   const handleDeleteEntry = () => {
@@ -393,17 +430,15 @@ export default function LedgerPage() {
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
-                                     <div className="flex justify-between w-full pr-4 items-center">
+                                    <div className="flex justify-between w-full pr-4 items-center">
                                         <span className="font-semibold">{monthKey}</span>
-                                        <div className="flex flex-col md:flex-row gap-2 md:gap-4 text-sm text-right">
-                                            <span>
-                                                <span className="text-muted-foreground">Sales: </span> 
-                                                <span className="font-mono text-green-600">PKR {monthData.totalSales.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                            </span>
-                                            <span>
-                                                <span className="text-muted-foreground">Purchases: </span> 
-                                                <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                            </span>
+                                        <div className="hidden md:grid grid-cols-3 lg:grid-cols-6 gap-x-6 gap-y-2 text-sm text-right">
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">PKR {monthData.totalCreditSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Payment</span> <span className="font-mono text-green-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Advance</span> <span className="font-mono text-destructive">PKR {monthData.totalCashAdvance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                         </div>
                                     </div>
                                 </AccordionTrigger>
@@ -509,4 +544,5 @@ export default function LedgerPage() {
     
 
     
+
 
