@@ -53,6 +53,8 @@ type GroupedEntries = {
     closingBalance: number;
     totalDebit: number;
     totalCredit: number;
+    totalSales: number;
+    totalPurchases: number;
   }
 }
 
@@ -115,7 +117,7 @@ export default function LedgerPage() {
         id: `cp-${cp.id}`,
         timestamp: cp.timestamp,
         description: cp.notes || `Payment from ${cp.customerName}`,
-        type: cp.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
+        type: 'Customer Payment',
         debit: 0,
         credit: cp.amount,
         original: cp,
@@ -255,7 +257,9 @@ export default function LedgerPage() {
           openingBalance,
           closingBalance: 0,
           totalDebit: 0,
-          totalCredit: 0
+          totalCredit: 0,
+          totalSales: 0,
+          totalPurchases: 0,
         };
       }
       
@@ -281,6 +285,8 @@ export default function LedgerPage() {
     groupedEntries[key].closingBalance = runningBalance;
     groupedEntries[key].totalDebit = groupedEntries[key].entries.reduce((sum, e) => sum + e.debit, 0);
     groupedEntries[key].totalCredit = groupedEntries[key].entries.reduce((sum, e) => sum + e.credit, 0);
+    groupedEntries[key].totalSales = groupedEntries[key].entries.filter(e => e.type === 'Sale').reduce((sum, e) => sum + (e.original as Transaction).totalAmount, 0);
+    groupedEntries[key].totalPurchases = groupedEntries[key].entries.filter(e => e.type === 'Purchase').reduce((sum, e) => sum + e.debit, 0);
   });
   
   const handleDeleteEntry = () => {
@@ -380,7 +386,6 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0) return null;
-                       const netChange = monthData.totalCredit - monthData.totalDebit;
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
@@ -389,18 +394,12 @@ export default function LedgerPage() {
                                         <span className="font-semibold">{monthKey}</span>
                                         <div className="flex flex-col md:flex-row gap-2 md:gap-4 text-sm text-right">
                                             <span>
-                                                <span className="text-muted-foreground">Debits: </span> 
-                                                <span className="font-mono text-destructive">{monthData.totalDebit.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                                <span className="text-muted-foreground">Sales: </span> 
+                                                <span className="font-mono text-green-600">PKR {monthData.totalSales.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                                             </span>
                                             <span>
-                                                <span className="text-muted-foreground">Credits: </span> 
-                                                <span className="font-mono text-green-600">{monthData.totalCredit.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                                            </span>
-                                            <span>
-                                                <span className="text-muted-foreground">Net: </span> 
-                                                <span className={cn("font-mono font-semibold", netChange >= 0 ? 'text-green-600' : 'text-destructive')}>
-                                                    {netChange.toLocaleString(undefined, {minimumFractionDigits: 2, signDisplay: 'always'})}
-                                                </span>
+                                                <span className="text-muted-foreground">Purchases: </span> 
+                                                <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
                                             </span>
                                         </div>
                                     </div>
@@ -502,3 +501,6 @@ export default function LedgerPage() {
 
 
 
+
+
+    
