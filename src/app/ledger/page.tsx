@@ -126,8 +126,8 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
             type: 'Sale',
-            debit: isWalkin ? 0 : tx.totalAmount, // Only debit for credit customers
-            credit: isWalkin ? tx.totalAmount : 0, // Only credit for cash customers
+            debit: isCreditSale ? tx.totalAmount : 0,
+            credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -378,12 +378,12 @@ export default function LedgerPage() {
         switch(e.type) {
             case 'Sale':
                 const tx = e.original as Transaction;
-                const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
+                const isCreditSale = tx.paymentMethod === 'Credit';
                 monthData.totalSales += tx.totalAmount;
-                if(isWalkin) {
-                    monthData.totalCashSales += tx.totalAmount;
-                } else {
+                if(isCreditSale) {
                     monthData.totalCreditSales += tx.totalAmount;
+                } else {
+                    monthData.totalCashSales += tx.totalAmount;
                 }
                 break;
             case 'Customer Payment':
@@ -639,49 +639,67 @@ export default function LedgerPage() {
                                                 </TableCell>
                                                 <TableCell />
                                             </TableRow>
-                                            {monthData.entries.slice().reverse().map(entry => {
-                                                const date = new Date(entry.timestamp);
-                                                const isCreditEntry = entry.credit > 0;
-                                                return (
-                                                <TableRow key={entry.id}>
-                                                    <TableCell className={cn(entry.isCreditSale && 'text-blue-600')}>
-                                                        {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
-                                                    </TableCell>
-                                                    <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
-                                                    <TableCell>
-                                                         <Badge 
-                                                            variant={isCreditEntry ? 'outline' : 'destructive'}
-                                                            className={cn(
-                                                                'text-xs', 
-                                                                entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:border-teal-700',
-                                                                entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
-                                                                isCreditEntry && entry.type !== 'Customer Payment' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
-                                                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                            {(() => {
+                                                let lastDate: string | null = null;
+                                                const reversedEntries = monthData.entries.slice().reverse();
+                                                
+                                                return reversedEntries.map((entry, index) => {
+                                                    const date = new Date(entry.timestamp);
+                                                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : 'Invalid Date';
+                                                    const showSeparator = formattedDate !== lastDate && lastDate !== null;
+                                                    lastDate = formattedDate;
+
+                                                    const isCreditEntry = entry.credit > 0;
+                                                    return (
+                                                        <React.Fragment key={entry.id}>
+                                                            {showSeparator && (
+                                                                <TableRow className="bg-muted/10 hover:bg-muted/20">
+                                                                    <TableCell colSpan={7} className="text-center font-semibold text-muted-foreground py-2">
+                                                                        {format(new Date(entry.timestamp), 'EEEE, dd MMMM yyyy')}
+                                                                    </TableCell>
+                                                                </TableRow>
                                                             )}
-                                                            >{entry.type}</Badge>
-                                                    </TableCell>
-                                                    <TableCell className={cn("text-right font-mono",
-                                                      entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive',
-                                                      entry.isCreditSale && 'text-blue-600'
-                                                    )}>
-                                                        {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                                                    </TableCell>
-                                                    <TableCell className={cn("text-right font-mono",
-                                                        entry.type === 'Customer Payment' ? 'text-teal-600' : 'text-green-600'
-                                                    )}>
-                                                        {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                                                    </TableCell>
-                                                    <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                        {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                         <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                                )
-                                            })}
+                                                            <TableRow>
+                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600')}>
+                                                                    {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
+                                                                </TableCell>
+                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
+                                                                <TableCell>
+                                                                    <Badge 
+                                                                        variant={isCreditEntry ? 'outline' : 'destructive'}
+                                                                        className={cn(
+                                                                            'text-xs', 
+                                                                            entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:border-teal-700',
+                                                                            entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
+                                                                            isCreditEntry && entry.type !== 'Customer Payment' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
+                                                                            entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                                                        )}
+                                                                    >{entry.type}</Badge>
+                                                                </TableCell>
+                                                                <TableCell className={cn("text-right font-mono",
+                                                                    entry.type === 'Supplier Payment' ? 'text-pink-600' : 'text-destructive',
+                                                                    entry.isCreditSale && 'text-blue-600'
+                                                                )}>
+                                                                    {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                                                                </TableCell>
+                                                                <TableCell className={cn("text-right font-mono",
+                                                                    entry.type === 'Customer Payment' ? 'text-teal-600' : 'text-green-600'
+                                                                )}>
+                                                                    {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                                                                </TableCell>
+                                                                <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
+                                                                    {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                </TableCell>
+                                                                <TableCell className="text-center">
+                                                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
+                                                                        <Trash2 className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        </React.Fragment>
+                                                    )
+                                                });
+                                            })()}
                                         </TableBody>
                                         <TableFooter>
                                             <TableRow className="bg-muted/50 font-bold text-base">
@@ -723,3 +741,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
