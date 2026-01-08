@@ -731,26 +731,30 @@ export default function LedgerPage() {
                                                                 </TableRow>
                                                             )}
                                                             <TableRow>
-                                                                <TableCell className={cn(
-                                                                    entry.isCreditSale && 'text-blue-600 font-medium',
-                                                                )}>
+                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(
                                                                     (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
                                                                     entry.isCreditSale && 'text-blue-600 font-medium',
                                                                     entry.type === 'Expense' && 'text-destructive',
-                                                                )}>{entry.type === 'Salary Expense' ? entry.original.description.replace(/^Salary for\s/,'') : entry.description}</TableCell>
+                                                                )}>{entry.description}</TableCell>
                                                                 <TableCell>
                                                                     <Badge 
-                                                                        variant={isCreditEntry ? 'outline' : 'destructive'}
-                                                                        className={cn(
-                                                                            'text-xs', 
-                                                                            entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200 hover:bg-teal-200 dark:bg-teal-900/50 dark:text-teal-300 dark:border-teal-700',
-                                                                            entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
-                                                                            (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700',
-                                                                            isCreditEntry && entry.type !== 'Customer Payment' && entry.type !== 'Salary' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', 
-                                                                            entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                                                        variant={entry.debit > 0 ? 'destructive' : 'outline'}
+                                                                        className={cn('text-xs', 
+                                                                            entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
+                                                                            entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                                                            entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200',
+                                                                            entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                            (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                            entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                            entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                            entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                                            entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                                                                            entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
+                                                                            entry.type === 'Other Income' && 'bg-green-100 text-green-800 border-green-200',
+                                                                            entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
                                                                         )}
                                                                     >{entry.type}</Badge>
                                                                 </TableCell>

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -174,9 +175,10 @@ export default function AllInvoicesPage() {
                                       <TableCell>
                                         <Badge 
                                             variant={getBadgeVariant(invoice)}
-                                            className={cn(
-                                                invoice.type === 'Sale' && !invoice.isCreditSale && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
-                                                invoice.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                            className={cn('text-xs',
+                                                invoice.type === 'Sale' && !invoice.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
+                                                invoice.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                                invoice.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200'
                                             )}
                                         >{invoice.type}</Badge>
                                       </TableCell>

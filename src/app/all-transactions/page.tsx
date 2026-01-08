@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -171,9 +172,8 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions]);
 
   const getBadgeVariant = (entry: CombinedEntry) => {
-    if (entry.isCreditSale) return 'default';
     switch (entry.type) {
-      case 'Sale': return 'outline';
+      case 'Sale': return entry.isCreditSale ? 'default' : 'outline';
       case 'Purchase': return 'destructive';
       case 'Purchase Return': return 'secondary';
       case 'Salary': return 'default';
@@ -289,10 +289,12 @@ export default function AllTransactionsPage() {
                         <TableCell>
                         <Badge 
                             variant={getBadgeVariant(entry)}
-                            className={cn(
-                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
-                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700',
-                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700'
+                            className={cn('text-xs', 
+                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
+                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                entry.type === 'Purchase Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200'
                             )}
                         >{entry.type}</Badge>
                         </TableCell>
