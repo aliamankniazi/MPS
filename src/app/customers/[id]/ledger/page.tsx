@@ -347,43 +347,60 @@ export default function CustomerLedgerPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map(entry => {
-                  const date = new Date(entry.timestamp);
-                  return (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium">
-                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
-                    </TableCell>
-                    <TableCell>{entry.description}</TableCell>
-                    <TableCell>
-                       <Badge 
-                         variant={entry.debit > 0 ? 'destructive' : 'outline'}
-                         className={cn(entry.credit > 0 && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                       >
-                         {entry.type}
-                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-destructive">
-                        {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-green-600">
-                        {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                    </TableCell>
-                     <TableCell className={cn("text-right font-semibold font-mono", rowBalanceColorClass(entry.balance))}>
-                        {entry.balance.toFixed(2)}
-                    </TableCell>
-                     <TableCell className="text-center">
-                        <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => setEntryToDelete(entry)}
-                        >
-                            <Trash2 className="w-4 h-4" />
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                )})}
+                {(() => {
+                  let lastDate: string | null = null;
+                  return entries.map(entry => {
+                    const date = new Date(entry.timestamp);
+                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : null;
+                    const showSeparator = formattedDate && formattedDate !== lastDate;
+                    lastDate = formattedDate;
+
+                    return (
+                      <React.Fragment key={entry.id}>
+                        {showSeparator && (
+                          <TableRow className="bg-red-800 hover:bg-red-900">
+                            <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
+                              {format(date, 'EEEE, dd MMMM yyyy')}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow>
+                          <TableCell className="font-medium">
+                            {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                          </TableCell>
+                          <TableCell>{entry.description}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              variant={entry.debit > 0 ? 'destructive' : 'outline'}
+                              className={cn(entry.credit > 0 && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                            >
+                              {entry.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-destructive">
+                              {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-green-600">
+                              {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                          </TableCell>
+                          <TableCell className={cn("text-right font-semibold font-mono", rowBalanceColorClass(entry.balance))}>
+                              {entry.balance.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                              <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setEntryToDelete(entry)}
+                              >
+                                  <Trash2 className="w-4 h-4" />
+                              </Button>
+                          </TableCell>
+                        </TableRow>
+                      </React.Fragment>
+                    )
+                  });
+                })()}
               </TableBody>
             </Table>
           ) : (
@@ -420,5 +437,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    

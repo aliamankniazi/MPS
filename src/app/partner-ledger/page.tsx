@@ -2,11 +2,10 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
-import { useDatabase } from '@/hooks/use-database';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isSameDay, startOfDay, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -15,6 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { useDatabase } from '@/hooks/use-database';
 
 type CombinedEntry = {
   id: string;
@@ -199,22 +199,24 @@ export default function PartnerLedgerPage() {
     let entriesForDisplay = entityFilteredEntries;
     
     if (selectedDate) {
+      const startOfSelectedDay = startOfDay(selectedDate);
       openingBalance = entityFilteredEntries
-        .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfDay(selectedDate))
+        .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfSelectedDay)
         .reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
 
-      entriesForDisplay = entityFilteredEntries.filter(entry => isValid(new Date(entry.timestamp)) && isSameDay(new Date(entry.timestamp), selectedDate));
+      const endOfSelectedDay = endOfDay(selectedDate);
+      entriesForDisplay = entityFilteredEntries.filter(entry => {
+          const entryDate = new Date(entry.timestamp);
+          return isValid(entryDate) && entryDate >= startOfSelectedDay && entryDate <= endOfSelectedDay;
+      });
     }
 
     let runningBalance = openingBalance;
     const entriesWithBalance: CombinedEntry[] = entriesForDisplay.map(entry => {
         const entityType = entities.find(e => e.id === entry.entityId)?.type;
-        if(entityType === 'Partner'){
+        if(entityType === 'Partner' || entityType === 'Supplier'){
             runningBalance += entry.credit - entry.debit;
-        } else if (entityType === 'Supplier') {
-            runningBalance += entry.credit - entry.debit;
-        }
-        else {
+        } else {
              runningBalance += entry.debit - entry.credit;
         }
 
@@ -369,44 +371,61 @@ export default function PartnerLedgerPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map(entry => {
-                  const date = new Date(entry.timestamp);
-                  return (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium">
-                      {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
-                    </TableCell>
-                    <TableCell>
-                      <div>{entry.entityName}</div>
-                      <div className="text-xs text-muted-foreground">{entry.entityType}</div>
-                    </TableCell>
-                    <TableCell>{entry.description}</TableCell>
-                    <TableCell className="text-center">
-                       <Badge 
-                         variant={getBadgeVariant(entry.type)}
-                         className={cn((entry.type === 'Payment' || entry.type === 'Purchase' || entry.type === 'Investment') && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                       >
-                         {entry.type}
-                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-destructive">
-                        {entry.debit > 0 ? `PKR ${entry.debit.toFixed(2)}` : '-'}
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-green-600">
-                        {entry.credit > 0 ? `PKR ${entry.credit.toFixed(2)}` : '-'}
-                    </TableCell>
-                    <TableCell className={`text-right font-semibold font-mono ${entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                        {entry.balance?.toFixed(2)}
-                    </TableCell>
-                     <TableCell className="text-center">
-                        <Button asChild variant="ghost" size="icon" title="View Partner Ledger">
-                           <Link href={`/customers/${entry.entityId}/ledger`}>
-                             <BookText className="w-5 h-5" />
-                           </Link>
-                        </Button>
-                    </TableCell>
-                  </TableRow>
-                )})}
+                {(() => {
+                  let lastDate: string | null = null;
+                  return entries.map(entry => {
+                    const date = new Date(entry.timestamp);
+                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : null;
+                    const showSeparator = formattedDate && formattedDate !== lastDate;
+                    lastDate = formattedDate;
+
+                    return (
+                      <React.Fragment key={entry.id}>
+                        {showSeparator && (
+                          <TableRow className="bg-red-800 hover:bg-red-900">
+                            <TableCell colSpan={8} className="text-center font-semibold text-white py-2">
+                              {format(date, 'EEEE, dd MMMM yyyy')}
+                            </TableCell>
+                          </TableRow>
+                        )}
+                        <TableRow>
+                          <TableCell className="font-medium">
+                            {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                          </TableCell>
+                          <TableCell>
+                            <div>{entry.entityName}</div>
+                            <div className="text-xs text-muted-foreground">{entry.entityType}</div>
+                          </TableCell>
+                          <TableCell>{entry.description}</TableCell>
+                          <TableCell className="text-center">
+                            <Badge 
+                              variant={getBadgeVariant(entry.type)}
+                              className={cn((entry.type === 'Payment' || entry.type === 'Purchase' || entry.type === 'Investment') && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                            >
+                              {entry.type}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-destructive">
+                              {entry.debit > 0 ? `PKR ${entry.debit.toFixed(2)}` : '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono text-green-600">
+                              {entry.credit > 0 ? `PKR ${entry.credit.toFixed(2)}` : '-'}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold font-mono ${entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                              {entry.balance?.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                              <Button asChild variant="ghost" size="icon" title="View Partner Ledger">
+                                <Link href={`/customers/${entry.entityId}/ledger`}>
+                                  <BookText className="w-5 h-5" />
+                                </Link>
+                              </Button>
+                          </TableCell>
+                        </TableRow>
+                      </React.Fragment>
+                    )
+                  });
+                })()}
               </TableBody>
                <TableFooter>
                 <TableRow>
