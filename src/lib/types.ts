@@ -2,7 +2,7 @@
 
 export type FuelType = 'Unleaded' | 'Premium' | 'Diesel';
 
-export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary';
+export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary' | 'Credit';
 
 export interface Transaction {
   id: string;
@@ -115,7 +115,7 @@ export interface CustomerPayment {
   customerId: string;
   customerName: string;
   amount: number;
-  paymentMethod: PaymentMethod | 'Credit';
+  paymentMethod: PaymentMethod;
   notes?: string;
   timestamp: string;
 }

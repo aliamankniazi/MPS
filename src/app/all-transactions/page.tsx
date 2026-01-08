@@ -36,6 +36,7 @@ type CombinedEntry = {
   details: string;
   amount: number;
   original: Transaction | Purchase | PurchaseReturn;
+  isCreditSale?: boolean;
 };
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -77,6 +78,7 @@ export default function AllTransactionsPage() {
       details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
       amount: tx.totalAmount,
       original: tx,
+      isCreditSale: tx.paymentMethod === 'Credit',
     }));
 
     const allPurchases: CombinedEntry[] = purchases.map(p => ({
@@ -139,8 +141,9 @@ export default function AllTransactionsPage() {
 
   }, [isLoaded, transactions]);
 
-  const getBadgeVariant = (type: CombinedEntry['type']) => {
-    switch (type) {
+  const getBadgeVariant = (entry: CombinedEntry) => {
+    if (entry.type === 'Sale' && entry.isCreditSale) return 'default';
+    switch (entry.type) {
       case 'Sale': return 'outline';
       case 'Purchase': return 'destructive';
       case 'Purchase Return': return 'secondary';
@@ -148,8 +151,9 @@ export default function AllTransactionsPage() {
     }
   };
   
-  const getAmountClass = (type: CombinedEntry['type']) => {
-      switch(type) {
+  const getAmountClass = (entry: CombinedEntry) => {
+    if (entry.type === 'Sale' && entry.isCreditSale) return 'text-blue-600';
+      switch(entry.type) {
           case 'Sale': return 'text-green-600';
           case 'Purchase': return 'text-destructive';
           case 'Purchase Return': return 'text-blue-600';
@@ -243,13 +247,16 @@ export default function AllTransactionsPage() {
                         </TableCell>
                         <TableCell>
                         <Badge 
-                            variant={getBadgeVariant(entry.type)}
-                            className={cn(entry.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                            variant={getBadgeVariant(entry)}
+                            className={cn(
+                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
+                                entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                            )}
                         >{entry.type}</Badge>
                         </TableCell>
-                        <TableCell>{entry.partner}</TableCell>
+                        <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.partner}</TableCell>
                         <TableCell>{entry.details}</TableCell>
-                        <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry.type))}>
+                        <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">

@@ -24,6 +24,7 @@ type CombinedInvoice = {
   partner: string;
   details: string;
   amount: number;
+  paymentMethod?: string;
 };
 
 type GroupedInvoices = {
@@ -49,6 +50,7 @@ export default function AllInvoicesPage() {
       partner: tx.customerName || 'Walk-in Customer',
       details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
       amount: tx.totalAmount,
+      paymentMethod: tx.paymentMethod,
     }));
 
     const purchaseInvoices: CombinedInvoice[] = purchases.map(p => ({
@@ -94,13 +96,21 @@ export default function AllInvoicesPage() {
 
   }, [isLoaded, transactions, purchases, searchTerm]);
 
-  const getBadgeVariant = (type: CombinedInvoice['type']) => {
-    return type === 'Sale' ? 'outline' : 'destructive';
+  const getBadgeVariant = (type: CombinedInvoice['type'], paymentMethod?: string) => {
+    if (type === 'Sale' && paymentMethod === 'Credit') return 'default';
+    if (type === 'Sale') return 'outline';
+    return 'destructive';
   };
-
-  const getAmountClass = (type: CombinedInvoice['type']) => {
+  
+  const getAmountClass = (type: CombinedInvoice['type'], paymentMethod?: string) => {
+    if (type === 'Sale' && paymentMethod === 'Credit') return 'text-blue-600';
     return type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
+
+  const getPartnerClass = (type: CombinedInvoice['type'], paymentMethod?: string) => {
+    if (type === 'Sale' && paymentMethod === 'Credit') return 'text-blue-600 font-medium';
+    return '';
+  }
   
   const monthKeys = Object.keys(groupedInvoices);
 
@@ -162,13 +172,16 @@ export default function AllInvoicesPage() {
                                       </TableCell>
                                       <TableCell>
                                         <Badge 
-                                            variant={getBadgeVariant(invoice.type)}
-                                            className={cn(invoice.type === 'Sale' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                                            variant={getBadgeVariant(invoice.type, invoice.paymentMethod)}
+                                            className={cn(
+                                                invoice.type === 'Sale' && invoice.paymentMethod !== 'Credit' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
+                                                invoice.type === 'Sale' && invoice.paymentMethod === 'Credit' && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700'
+                                            )}
                                         >{invoice.type}</Badge>
                                       </TableCell>
-                                      <TableCell>{invoice.partner}</TableCell>
+                                      <TableCell className={cn(getPartnerClass(invoice.type, invoice.paymentMethod))}>{invoice.partner}</TableCell>
                                       <TableCell>{invoice.details}</TableCell>
-                                      <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice.type))}>
+                                      <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice.type, invoice.paymentMethod))}>
                                         {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </TableCell>
                                       <TableCell className="text-center">
@@ -207,4 +220,3 @@ export default function AllInvoicesPage() {
     </div>
   );
 }
-

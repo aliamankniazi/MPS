@@ -44,6 +44,7 @@ type LedgerEntry = {
   credit: number;
   balance: number;
   original: any;
+  isCreditSale?: boolean;
 };
 
 type GroupedEntries = {
@@ -118,7 +119,7 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-      const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer');
+      const isCreditSale = tx.paymentMethod === 'Credit';
       combined.push({
         id: `tx-${tx.id}`,
         timestamp: tx.timestamp,
@@ -127,6 +128,7 @@ export default function LedgerPage() {
         debit: isCreditSale ? tx.totalAmount : 0, 
         credit: isCreditSale ? 0 : tx.totalAmount,
         original: tx,
+        isCreditSale: isCreditSale,
       })
     });
     customerPayments.forEach(cp => {
@@ -582,8 +584,8 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0 && !hasActiveFilters) return null;
-                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalSupplierPayment;
-                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalPurchases;
+                        const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalSupplierPayment;
+                        const totalOutflows = monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalPurchases;
                        
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
@@ -635,11 +637,11 @@ export default function LedgerPage() {
                                                 return (
                                                 <TableRow key={entry.id}>
                                                     <TableCell>{isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}</TableCell>
-                                                    <TableCell>{entry.description}</TableCell>
+                                                    <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
                                                     <TableCell>
                                                          <Badge 
                                                             variant={isCreditEntry ? 'outline' : 'destructive'}
-                                                            className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                                                            className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700', entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-700')}
                                                             >{entry.type}</Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right font-mono text-destructive">
@@ -724,6 +726,7 @@ export default function LedgerPage() {
 
 
     
+
 
 
 
