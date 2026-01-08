@@ -119,14 +119,15 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-      const isCreditSale = tx.paymentMethod === 'Credit' && tx.customerName !== 'Walk-in Customer';
+      const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
+      const isCreditSale = tx.paymentMethod === 'Credit' && !isWalkin;
       combined.push({
         id: `tx-${tx.id}`,
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        debit: isCreditSale ? tx.totalAmount : 0, 
-        credit: isCreditSale ? 0 : tx.totalAmount,
+        debit: isWalkin ? 0 : tx.totalAmount, // Debit only for credit customers
+        credit: isWalkin ? tx.totalAmount : 0, // Credit only for walk-in (cash) customers
         original: tx,
         isCreditSale: isCreditSale,
       })
@@ -270,7 +271,7 @@ export default function LedgerPage() {
         return { ...entry, balance: runningBalance };
     });
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices, products]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -377,12 +378,12 @@ export default function LedgerPage() {
         switch(e.type) {
             case 'Sale':
                 const tx = e.original as Transaction;
-                const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer');
+                const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
                 monthData.totalSales += tx.totalAmount;
-                if(isCreditSale) {
-                    monthData.totalCreditSales += tx.totalAmount;
-                } else {
+                if(isWalkin) {
                     monthData.totalCashSales += tx.totalAmount;
+                } else {
+                    monthData.totalCreditSales += tx.totalAmount;
                 }
                 break;
             case 'Customer Payment':
@@ -593,7 +594,7 @@ export default function LedgerPage() {
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
                                     <div className="flex justify-between w-full pr-4 items-center">
                                         <span className="font-semibold">{monthKey}</span>
-                                        <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
+                                         <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
@@ -610,6 +611,7 @@ export default function LedgerPage() {
                                              <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-orange-600">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-cyan-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-purple-600 font-bold">PKR {(monthData.totalPurchases + monthData.totalSupplierPayment).toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                              </div>
                                         </div>
                                     </div>
@@ -730,6 +732,7 @@ export default function LedgerPage() {
 
 
     
+
 
 
 
