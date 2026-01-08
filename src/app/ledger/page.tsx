@@ -31,6 +31,7 @@ import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { Transaction, Product } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
@@ -278,6 +279,7 @@ export default function LedgerPage() {
         return acc;
     }, {} as Record<string, { date: string, entries: Transaction[] }>)).map(day => {
         const closingStockValue = Object.values(day.entries.reduce((acc, tx) => {
+            if (!tx.fuelType || !tx.pricePerLitre || !tx.volume) return acc;
             const fuel = tx.fuelType || 'Unleaded';
             const price = tx.pricePerLitre;
             const volume = tx.volume || 0;
@@ -812,10 +814,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-
-
-
-
-
-
