@@ -368,11 +368,13 @@ export default function CustomerLedgerPage() {
                           <TableCell className="font-medium">
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                           </TableCell>
-                          <TableCell>{entry.description}</TableCell>
+                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600')}>{entry.description}</TableCell>
                           <TableCell>
                             <Badge 
                               variant={entry.debit > 0 ? 'destructive' : 'outline'}
-                              className={cn(entry.credit > 0 && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
+                              className={cn(entry.credit > 0 && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700',
+                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200 hover:bg-pink-200 dark:bg-pink-900/50 dark:text-pink-300 dark:border-pink-700'
+                              )}
                             >
                               {entry.type}
                             </Badge>
@@ -437,3 +439,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
