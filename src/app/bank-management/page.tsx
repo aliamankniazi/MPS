@@ -10,12 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Landmark, List, PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Landmark, List, PlusCircle, Edit, Trash2, AlertTriangle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { BankAccount } from '@/lib/types';
 
 const bankAccountSchema = z.object({
@@ -32,6 +32,8 @@ export default function BankManagementPage() {
   
   const [accountToEdit, setAccountToEdit] = useState<BankAccount | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<BankAccount | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<BankAccountFormValues>({
     resolver: zodResolver(bankAccountSchema),
@@ -40,6 +42,14 @@ export default function BankManagementPage() {
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, formState: { errors: editErrors } } = useForm<BankAccountFormValues>({
     resolver: zodResolver(bankAccountSchema),
   });
+
+  const filteredBankAccounts = useMemo(() => {
+    if (!searchTerm) return bankAccounts;
+    return bankAccounts.filter(account => 
+        account.bankName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        account.accountNumber.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [bankAccounts, searchTerm]);
 
   const onAddSubmit: SubmitHandler<BankAccountFormValues> = (data) => {
     addBankAccount(data);
@@ -120,15 +130,28 @@ export default function BankManagementPage() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <List /> Bank Accounts
-            </CardTitle>
-            <CardDescription>
-              A record of all your registered bank accounts.
-            </CardDescription>
+             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                    <List /> Bank Accounts
+                    </CardTitle>
+                    <CardDescription>
+                    A record of all your registered bank accounts.
+                    </CardDescription>
+                </div>
+                 <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by bank or account number..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {bankAccounts.length > 0 ? (
+            {filteredBankAccounts.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -140,7 +163,7 @@ export default function BankManagementPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {bankAccounts.map(account => (
+                  {filteredBankAccounts.map(account => (
                       <TableRow key={account.id}>
                         <TableCell className="font-medium">{format(new Date(account.timestamp), 'PP')}</TableCell>
                         <TableCell>{account.bankName}</TableCell>
@@ -161,8 +184,12 @@ export default function BankManagementPage() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Landmark className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Bank Accounts Found</h3>
-                <p>Use the form to add your first bank account.</p>
+                <h3 className="text-xl font-semibold">
+                    {searchTerm ? 'No Matching Accounts' : 'No Bank Accounts Found'}
+                </h3>
+                <p>
+                    {searchTerm ? 'Try a different search term.' : 'Use the form to add your first bank account.'}
+                </p>
               </div>
             )}
           </CardContent>

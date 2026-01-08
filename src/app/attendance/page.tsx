@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck } from 'lucide-react';
+import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -41,6 +41,8 @@ export default function EmployeeManagementPage() {
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
@@ -93,9 +95,21 @@ export default function EmployeeManagementPage() {
   }
 
   const filteredEmployees = useMemo(() => {
-    if (showTerminated) return employees;
-    return employees.filter(emp => !emp.terminationDate);
-  }, [employees, showTerminated]);
+    let filtered = employees;
+
+    if (!showTerminated) {
+        filtered = filtered.filter(emp => !emp.terminationDate);
+    }
+    
+    if (searchTerm) {
+        filtered = filtered.filter(emp => 
+            emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            emp.position.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }
+    
+    return filtered;
+  }, [employees, showTerminated, searchTerm]);
   
   useEffect(() => {
     if (employeeToEdit) {
@@ -176,7 +190,7 @@ export default function EmployeeManagementPage() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                     <CardTitle className="flex items-center gap-2">
                     <List /> Employee List
@@ -185,9 +199,20 @@ export default function EmployeeManagementPage() {
                     A record of all your employees.
                     </CardDescription>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <Label htmlFor="show-terminated">Show Terminated</Label>
-                    <Switch id="show-terminated" checked={showTerminated} onCheckedChange={setShowTerminated} />
+                 <div className="flex items-center gap-4">
+                    <div className="relative w-full max-w-xs">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name or position..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Label htmlFor="show-terminated" className="flex-shrink-0">Show Terminated</Label>
+                        <Switch id="show-terminated" checked={showTerminated} onCheckedChange={setShowTerminated} />
+                    </div>
                 </div>
             </div>
           </CardHeader>
@@ -241,8 +266,12 @@ export default function EmployeeManagementPage() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Users className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Employees Found</h3>
-                <p>Use the form to add your first employee.</p>
+                <h3 className="text-xl font-semibold">
+                    {searchTerm ? 'No Matching Employees' : 'No Employees Found'}
+                </h3>
+                <p>
+                    {searchTerm ? 'Try a different search term.' : 'Use the form to add your first employee.'}
+                </p>
               </div>
             )}
           </CardContent>

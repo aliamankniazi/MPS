@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign } from 'lucide-react';
+import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -37,6 +37,7 @@ export default function ExpensesPage() {
   const { expenses, addExpense, deleteExpense } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -44,6 +45,14 @@ export default function ExpensesPage() {
         date: new Date(),
     }
   });
+
+  const filteredExpenses = useMemo(() => {
+    if (!searchTerm) return expenses;
+    return expenses.filter(expense => 
+        expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        expense.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [expenses, searchTerm]);
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
     addExpense({
@@ -68,8 +77,8 @@ export default function ExpensesPage() {
   };
   
   const totalExpenses = useMemo(() => {
-    return expenses.reduce((sum, e) => sum + e.amount, 0);
-  }, [expenses]);
+    return filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+  }, [filteredExpenses]);
 
   return (
     <>
@@ -176,15 +185,28 @@ export default function ExpensesPage() {
       <div className="lg:col-span-2">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Receipt /> Expense History
-            </CardTitle>
-            <CardDescription>
-              A record of all business expenses.
-            </CardDescription>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                <div>
+                    <CardTitle className="flex items-center gap-2">
+                    <Receipt /> Expense History
+                    </CardTitle>
+                    <CardDescription>
+                    A record of all business expenses.
+                    </CardDescription>
+                </div>
+                 <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search by description or category..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+            </div>
           </CardHeader>
           <CardContent>
-            {expenses.length > 0 ? (
+            {filteredExpenses.length > 0 ? (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -196,7 +218,7 @@ export default function ExpensesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {expenses.map(e => {
+                  {filteredExpenses.map(e => {
                     const date = new Date(e.timestamp);
                     return (
                       <TableRow key={e.id}>
@@ -217,8 +239,12 @@ export default function ExpensesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <ListChecks className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Expenses Recorded</h3>
-                <p>Use the form to log your first business expense.</p>
+                <h3 className="text-xl font-semibold">
+                    {searchTerm ? 'No Matching Expenses' : 'No Expenses Recorded'}
+                </h3>
+                <p>
+                    {searchTerm ? 'Try a different search term.' : 'Use the form to log your first business expense.'}
+                </p>
               </div>
             )}
           </CardContent>
