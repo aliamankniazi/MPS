@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -112,12 +113,13 @@ export default function LedgerPage() {
   const [selectedType, setSelectedType] = useState<string>('');
   const { toast } = useToast();
 
-  const allEntries = useMemo(() => {
-    if (!isLoaded) return [];
+  const { allEntries, dailyClosingStocks } = useMemo(() => {
+    if (!isLoaded) return { allEntries: [], dailyClosingStocks: new Map() };
     
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
+        if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
         const isCreditSale = tx.paymentMethod === 'Credit';
         combined.push({
@@ -261,7 +263,8 @@ export default function LedgerPage() {
             });
         }
     });
-
+    
+    const dailyClosingStocksMap = new Map<string, number>();
     const dailyStockEntries = Object.values(transactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
@@ -280,6 +283,8 @@ export default function LedgerPage() {
             return acc;
         }, {} as Record<string, number>)).reduce((sum, val) => sum + val, 0);
 
+        dailyClosingStocksMap.set(day.date, closingStockValue);
+        
         return {
             id: `closing-${day.date}`,
             timestamp: endOfDay(new Date(day.date)).toISOString(),
@@ -290,16 +295,16 @@ export default function LedgerPage() {
             original: { date: day.date, value: closingStockValue }
         }
     });
-
-    combined.push(...dailyStockEntries);
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     let runningBalance = 0;
-    return combined.map(entry => {
+    const finalEntries = combined.map(entry => {
         runningBalance += entry.credit - entry.debit;
         return { ...entry, balance: runningBalance };
     });
+
+    return { allEntries: finalEntries, dailyClosingStocks: dailyClosingStocksMap };
 
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
 
@@ -459,6 +464,16 @@ export default function LedgerPage() {
   
   const handleDeleteEntry = () => {
     if (!entryToDelete || !entryToDelete.id) return;
+
+    if (!entryToDelete.id.includes('-')) {
+        toast({
+            variant: 'destructive',
+            title: 'Delete Failed',
+            description: 'This is a calculated entry and cannot be deleted.',
+        });
+        setEntryToDelete(null);
+        return;
+    }
     
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
     if (!id) {
@@ -680,7 +695,7 @@ export default function LedgerPage() {
                                             </TableRow>
                                             {(() => {
                                                 let lastDate: string | null = null;
-                                                const reversedEntries = monthData.entries.slice().reverse();
+                                                const reversedEntries = monthData.entries.slice().reverse().filter(e => e.type !== 'Daily Closing Stock');
                                                 
                                                 return reversedEntries.map((entry, index) => {
                                                     const date = new Date(entry.timestamp);
@@ -688,18 +703,25 @@ export default function LedgerPage() {
                                                     const showSeparator = formattedDate !== lastDate && lastDate !== null;
                                                     lastDate = formattedDate;
 
+                                                    const dailyClosingStock = dailyClosingStocks.get(formattedDate);
+
                                                     const isCreditEntry = entry.credit > 0;
                                                     return (
                                                         <React.Fragment key={entry.id}>
                                                             {showSeparator && (
                                                                 <TableRow className="bg-muted/10 hover:bg-muted/20">
                                                                     <TableCell colSpan={7} className="text-center font-semibold text-muted-foreground py-2">
-                                                                        {format(new Date(entry.timestamp), 'EEEE, dd MMMM yyyy')}
+                                                                        <div className="flex justify-between items-center w-full px-4">
+                                                                            <span>{format(new Date(entry.timestamp), 'EEEE, dd MMMM yyyy')}</span>
+                                                                            {dailyClosingStock !== undefined && (
+                                                                                <span className="text-xs font-mono text-blue-500">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                                                            )}
+                                                                        </div>
                                                                     </TableCell>
                                                                 </TableRow>
                                                             )}
                                                             <TableRow>
-                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600')}>
+                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
                                                                 <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
@@ -786,6 +808,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
