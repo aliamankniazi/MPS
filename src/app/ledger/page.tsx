@@ -252,8 +252,8 @@ export default function LedgerPage() {
             });
         } else { // Shortage
             const lastPurchase = purchases
-                .filter(p => p.fuelType === adj.fuelType && new Date(p.timestamp) <= adjDate)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a).getTime())[0];
+                .filter(p => p.fuelType === adj.fuelType && isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= adjDate)
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
             const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
             combined.push({
                 id: `adj-${adj.id}`,
@@ -729,7 +729,10 @@ export default function LedgerPage() {
                                                                 <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>
                                                                     {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                                 </TableCell>
-                                                                <TableCell className={cn(entry.isCreditSale && 'text-blue-600 font-medium')}>{entry.description}</TableCell>
+                                                                <TableCell className={cn(
+                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'text-pink-600',
+                                                                    entry.isCreditSale && 'text-blue-600 font-medium'
+                                                                )}>{entry.description}</TableCell>
                                                                 <TableCell>
                                                                     <Badge 
                                                                         variant={isCreditEntry ? 'outline' : 'destructive'}
@@ -814,3 +817,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
