@@ -97,13 +97,15 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-      const isCreditSale = tx.customerId && tx.customerName !== 'Walk-in Customer';
+      const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
       combined.push({
         id: `tx-${tx.id}`,
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        debit: isCreditSale ? tx.totalAmount : 0,
+        // For cash, it's an inflow (credit). For credit sale, it's an accounts receivable debit.
+        // We'll treat the journal as a cash book primarily, so credit sales don't hit cash.
+        debit: isCreditSale ? tx.totalAmount : 0, // This is a receivable, not a cash debit
         credit: !isCreditSale ? tx.totalAmount : 0,
         original: tx,
       })
@@ -204,7 +206,11 @@ export default function LedgerPage() {
 
     let runningBalance = 0;
     const allEntriesWithBalance = combined.map(entry => {
-        runningBalance += entry.credit - entry.debit;
+        let balanceChange = entry.credit - entry.debit;
+        if(entry.type === 'Sale' && entry.debit > 0){
+            balanceChange = 0; // Credit sales don't affect cash balance
+        }
+        runningBalance += balanceChange;
         return { ...entry, balance: runningBalance };
     });
 
@@ -230,7 +236,11 @@ export default function LedgerPage() {
         const monthStart = startOfMonth(date);
         const openingBalance = allEntriesWithBalance
           .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < monthStart)
-          .reduce((bal, item) => bal + item.credit - item.debit, 0);
+          .reduce((bal, item) => {
+            let change = item.credit - item.debit;
+            if(item.type === 'Sale' && item.debit > 0) change = 0; // Don't count credit sales in opening balance
+            return bal + change;
+          }, 0);
 
         acc[monthKey] = { 
           entries: [],
@@ -253,7 +263,11 @@ export default function LedgerPage() {
   monthKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
-      runningBalance += entry.credit - entry.debit;
+      let balanceChange = entry.credit - entry.debit;
+      if(entry.type === 'Sale' && entry.debit > 0){
+          balanceChange = 0; // Credit sales don't affect cash balance
+      }
+      runningBalance += balanceChange;
       entry.balance = runningBalance;
     });
     groupedEntries[key].closingBalance = runningBalance;
@@ -332,7 +346,7 @@ export default function LedgerPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
            </Popover>
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value)}>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
@@ -474,6 +488,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
