@@ -263,11 +263,13 @@ export default function LedgerPage() {
     });
 
     const dailyStockEntries = Object.values(transactions.reduce((acc, tx) => {
-        const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
-        if (!acc[date]) {
-            acc[date] = { date, entries: [] };
+        if (tx.timestamp && isValid(new Date(tx.timestamp))) {
+            const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
+            if (!acc[date]) {
+                acc[date] = { date, entries: [] };
+            }
+            acc[date].entries.push(tx);
         }
-        acc[date].entries.push(tx);
         return acc;
     }, {} as Record<string, { date: string, entries: Transaction[] }>)).map(day => {
         const closingStockValue = Object.values(day.entries.reduce((acc, tx) => {
@@ -459,6 +461,15 @@ export default function LedgerPage() {
     if (!entryToDelete || !entryToDelete.id) return;
     
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
+    if (!id) {
+        toast({
+            variant: 'destructive',
+            title: 'Delete Failed',
+            description: 'This is a calculated entry and cannot be deleted.',
+        });
+        setEntryToDelete(null);
+        return;
+    }
 
     try {
         switch(typePrefix) {
@@ -775,6 +786,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
