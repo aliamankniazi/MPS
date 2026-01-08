@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -38,7 +39,9 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const { id: entityId } = useParams() as { id: string };
+  const params = useParams();
+  const entityId = params.id as string;
+
 
   const { 
     customers, 
@@ -417,3 +420,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
