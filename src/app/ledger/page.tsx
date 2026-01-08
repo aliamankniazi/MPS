@@ -118,13 +118,13 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-      const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
+      const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer');
       combined.push({
         id: `tx-${tx.id}`,
         timestamp: tx.timestamp,
         description: `Sale: ${tx.product || tx.fuelType} to ${tx.customerName || 'Walk-in'}`,
         type: 'Sale',
-        debit: tx.totalAmount, 
+        debit: isCreditSale ? tx.totalAmount : 0, 
         credit: isCreditSale ? 0 : tx.totalAmount,
         original: tx,
       })
@@ -264,17 +264,7 @@ export default function LedgerPage() {
 
     let runningBalance = 0;
     return combined.map(entry => {
-        let balanceChange = entry.credit - entry.debit;
-        if(entry.type === 'Sale'){
-            const tx = entry.original as Transaction;
-            const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
-             if(isCreditSale) {
-                balanceChange = -tx.totalAmount;
-             } else {
-                balanceChange = 0; // Cash sale does not affect overall cash balance in this view
-             }
-        }
-        runningBalance += balanceChange;
+        runningBalance += entry.credit - entry.debit;
         return { ...entry, balance: runningBalance };
     });
 
@@ -337,19 +327,7 @@ export default function LedgerPage() {
         const monthStart = startOfMonth(date);
         const openingBalance = allEntries
           .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < monthStart)
-          .reduce((bal, item) => {
-            let change = item.credit - item.debit;
-            if(item.type === 'Sale'){
-                const tx = item.original as Transaction;
-                const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
-                 if(isCreditSale) {
-                    change = -tx.totalAmount;
-                 } else {
-                    change = 0;
-                 }
-            }
-            return bal + change;
-          }, 0);
+          .reduce((bal, item) => bal + item.credit - item.debit, 0);
 
         acc[monthKey] = { 
           entries: [],
@@ -387,18 +365,8 @@ export default function LedgerPage() {
   monthKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
-      let balanceChange = entry.credit - entry.debit;
-        if(entry.type === 'Sale'){
-            const tx = entry.original as Transaction;
-            const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
-             if(isCreditSale) {
-                balanceChange = -tx.totalAmount;
-             } else {
-                balanceChange = 0;
-             }
-        }
-      runningBalance += balanceChange;
-      entry.balance = runningBalance;
+        runningBalance += entry.credit - entry.debit;
+        entry.balance = runningBalance;
     });
     const monthData = groupedEntries[key];
     monthData.closingBalance = runningBalance;
@@ -407,7 +375,7 @@ export default function LedgerPage() {
         switch(e.type) {
             case 'Sale':
                 const tx = e.original as Transaction;
-                const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer' && !tx.paymentMethod);
+                const isCreditSale = tx.paymentMethod === 'Credit' || (tx.customerId && tx.customerName !== 'Walk-in Customer');
                 monthData.totalSales += tx.totalAmount;
                 if(isCreditSale) {
                     monthData.totalCreditSales += tx.totalAmount;
@@ -614,17 +582,16 @@ export default function LedgerPage() {
                     {monthKeys.map(monthKey => {
                        const monthData = groupedEntries[monthKey];
                        if (monthData.entries.length === 0 && !hasActiveFilters) return null;
-                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns;
-                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals;
-                       const totalSupplierActivity = monthData.totalPurchases - monthData.totalSupplierPayment;
-
+                       const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalStockSurplus + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalSupplierPayment;
+                       const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalStockShortage + monthData.totalSaleReturns + monthData.totalWithdrawals + monthData.totalPurchases;
+                       
                         return (
                         <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
                                     <div className="flex justify-between w-full pr-4 items-center">
                                         <span className="font-semibold">{monthKey}</span>
-                                        <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
+                                        <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1 text-sm text-right">
                                             <div className="flex justify-end items-center gap-x-4">
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
@@ -637,11 +604,6 @@ export default function LedgerPage() {
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Expenses</span> <span className="font-mono text-destructive">PKR {monthData.totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs">Short Stock</span> <span className="font-mono text-destructive">PKR {monthData.totalStockShortage.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                                 <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalOutflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                            </div>
-                                            <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-destructive">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Payment</span> <span className="font-mono text-green-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -680,13 +642,11 @@ export default function LedgerPage() {
                                                             className={cn('text-xs', isCreditEntry && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
                                                             >{entry.type}</Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <span className={cn("font-mono", entry.type === 'Sale' && entry.debit > 0 && entry.credit === 0 ? 'text-blue-600' : 'text-destructive')}>
-                                                          {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                                                        </span>
+                                                    <TableCell className="text-right font-mono text-destructive">
+                                                        {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <span className="font-mono text-green-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</span>
+                                                    <TableCell className="text-right font-mono text-green-600">
+                                                        {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
                                                         {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -764,6 +724,7 @@ export default function LedgerPage() {
 
 
     
+
 
 
 
