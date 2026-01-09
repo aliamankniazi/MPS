@@ -119,7 +119,7 @@ export default function LedgerPage() {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const customerName = tx.customerName || 'Walk-in Customer';
         let description = `Sale to ${customerName}`;
-        if (tx.product) {
+        if (tx.product && tx.product !== 'undefined') {
           description = `Sale: ${tx.product} to ${customerName}`;
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
@@ -173,8 +173,8 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: 0,
-      credit: sp.amount,
+      debit: sp.amount,
+      credit: 0,
       original: sp,
     }));
     expenses.forEach(e => {
@@ -195,8 +195,8 @@ export default function LedgerPage() {
         timestamp: pr.timestamp,
         description: `Return to ${pr.supplier}: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
         type: 'Purchase Return',
-        debit: 0,
-        credit: pr.totalRefund,
+        debit: pr.totalRefund,
+        credit: 0,
         original: pr,
     }));
     saleReturns.forEach(sr => {
@@ -372,7 +372,7 @@ export default function LedgerPage() {
       if(entry.type === 'Cash Advance') acc[dayKey].dailySummary.cashAdvance += entry.debit;
       if(entry.type === 'Expense' || entry.type === 'Salary Expense') acc[dayKey].dailySummary.expenses += entry.debit;
       if(entry.type === 'Stock Shortage') acc[dayKey].dailySummary.stockShortage += entry.debit;
-      if(entry.type === 'Purchase') acc[dayKey].dailySummary.purchases += entry.debit;
+      if(entry.type === 'Purchase') acc[dayKey].dailySummary.purchases += entry.credit;
       if(entry.type === 'Supplier Payment') acc[dayKey].dailySummary.supplierPayment += entry.debit;
 
 
@@ -665,16 +665,12 @@ export default function LedgerPage() {
                                                           </Badge>
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono",
-                                                            isCreditSale && 'text-blue-600',
-                                                            entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
-                                                            isPurchase ? 'text-green-600' : 'text-destructive'
+                                                            isCreditSale ? 'text-blue-600' : 'text-destructive',
                                                         )}>
                                                             {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono",
-                                                            isWalkinCashSale && 'text-green-600',
-                                                            (entry.type === 'Customer Payment' || entry.type === 'Salary') ? 'text-teal-600' : 'text-green-600',
-                                                            isPurchase && 'text-green-600',
+                                                            isWalkinCashSale ? 'text-green-600' : 'text-green-600',
                                                         )}>
                                                             {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                         </TableCell>
@@ -736,4 +732,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
