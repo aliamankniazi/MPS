@@ -48,27 +48,12 @@ type LedgerEntry = {
 };
 
 type GroupedEntries = {
-  [monthKey: string]: {
+  [key: string]: {
     entries: LedgerEntry[];
     openingBalance: number;
     closingBalance: number;
     totalDebit: number;
     totalCredit: number;
-    totalSales: number;
-    totalCashSales: number;
-    totalCreditSales: number;
-    totalSaleReturns: number;
-    totalPurchases: number;
-    totalPurchaseReturns: number;
-    totalRecovery: number;
-    totalCashAdvance: number;
-    totalSupplierPayment: number;
-    totalExpenses: number;
-    totalOtherIncomes: number;
-    totalInvestments: number;
-    totalWithdrawals: number;
-    totalStockSurplus: number;
-    totalStockShortage: number;
   }
 }
 
@@ -113,24 +98,22 @@ export default function LedgerPage() {
   const [selectedType, setSelectedType] = useState<string>('');
   const { toast } = useToast();
 
-  const { allEntries, dailyClosingStocks } = useMemo(() => {
-    if (!isLoaded) return { allEntries: [], dailyClosingStocks: new Map() };
+  const allEntries = useMemo(() => {
+    if (!isLoaded) return [];
     
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
-        const isCreditSale = tx.customerId && tx.customerName !== 'Walk-in Customer';
-        const productName = tx.product || tx.fuelType;
         const customerName = tx.customerName || 'Walk-in Customer';
         let description = `Sale to ${customerName}`;
-        if (productName) {
-             description = productName.startsWith('Sale:') ? productName : `Sale: ${productName} to ${customerName}`;
+        if (tx.product) {
+          description = `Sale: ${tx.product} to ${customerName}`;
+        } else if(tx.fuelType) {
+          description = `Sale: ${tx.volume}L ${tx.fuelType} to ${customerName}`;
         }
-        if (!productName && !tx.volume) {
-             description = `Sale to ${customerName}`;
-        }
-
+        
+        const isCreditSale = !!tx.customerId && tx.customerName !== 'Walk-in Customer';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -183,8 +166,8 @@ export default function LedgerPage() {
       original: sp,
     }));
     expenses.forEach(e => {
-        const isSalaryExpense = e.category === 'Salaries' || e.description.toLowerCase().includes('salary');
-        const description = isSalaryExpense ? e.description.replace(/^Salary for /i, '') : e.description;
+        const isSalaryExpense = e.category === 'Salaries';
+        const description = e.description;
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
@@ -278,29 +261,6 @@ export default function LedgerPage() {
         }
     });
     
-    const dailyClosingStocksMap = new Map<string, number>();
-    Object.values(transactions.reduce((acc, tx) => {
-        if (tx.timestamp && isValid(new Date(tx.timestamp))) {
-            const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
-            if (!acc[date]) {
-                acc[date] = { date, entries: [] };
-            }
-            acc[date].entries.push(tx);
-        }
-        return acc;
-    }, {} as Record<string, { date: string, entries: Transaction[] }>)).forEach(day => {
-        const closingStockValue = Object.values(day.entries.reduce((acc, tx) => {
-            if (!tx.fuelType || !tx.pricePerLitre || !tx.volume) return acc;
-            const fuel = tx.fuelType || 'Unleaded';
-            const price = tx.pricePerLitre;
-            const volume = tx.volume || 0;
-            acc[fuel] = (acc[fuel] || 0) + (volume * price);
-            return acc;
-        }, {} as Record<string, number>)).reduce((sum, val) => sum + val, 0);
-
-        dailyClosingStocksMap.set(day.date, closingStockValue);
-    });
-    
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     let runningBalance = 0;
@@ -309,9 +269,9 @@ export default function LedgerPage() {
         return { ...entry, balance: runningBalance };
     });
 
-    return { allEntries: finalEntries, dailyClosingStocks: dailyClosingStocksMap };
+    return finalEntries;
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices, products]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -366,107 +326,41 @@ export default function LedgerPage() {
       const date = new Date(entry.timestamp);
       if (!isValid(date)) return acc;
 
-      const monthKey = format(date, 'MMMM yyyy');
-      if (!acc[monthKey]) {
-        const monthStart = startOfMonth(date);
+      const dayKey = format(date, 'yyyy-MM-dd');
+      if (!acc[dayKey]) {
+        const dayStart = startOfDay(date);
         const openingBalance = allEntries
-          .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < monthStart)
+          .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < dayStart)
           .reduce((bal, item) => bal + item.credit - item.debit, 0);
 
-        acc[monthKey] = { 
+        acc[dayKey] = { 
           entries: [],
           openingBalance,
           closingBalance: 0,
           totalDebit: 0,
           totalCredit: 0,
-          totalSales: 0,
-          totalCashSales: 0,
-          totalCreditSales: 0,
-          totalSaleReturns: 0,
-          totalPurchases: 0,
-          totalPurchaseReturns: 0,
-          totalRecovery: 0,
-          totalCashAdvance: 0,
-          totalSupplierPayment: 0,
-          totalExpenses: 0,
-          totalOtherIncomes: 0,
-          totalInvestments: 0,
-          totalWithdrawals: 0,
-          totalStockSurplus: 0,
-          totalStockShortage: 0,
         };
       }
       
-      acc[monthKey].entries.push(entry);
+      acc[dayKey].entries.push(entry);
+      acc[dayKey].totalDebit += entry.debit;
+      acc[dayKey].totalCredit += entry.credit;
+
       return acc;
 
     }, {});
 
   }, [allEntries, searchTerm, selectedDate, selectedType]);
   
-  const monthKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+  const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  monthKeys.forEach(key => {
+  dayKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
         runningBalance += entry.credit - entry.debit;
         entry.balance = runningBalance;
     });
-    const monthData = groupedEntries[key];
-    monthData.closingBalance = runningBalance;
-    
-    monthData.entries.forEach(e => {
-        switch(e.type) {
-            case 'Sale':
-                const tx = e.original as Transaction;
-                const isWalkin = !tx.customerId || tx.customerName === 'Walk-in Customer';
-                monthData.totalSales += tx.totalAmount;
-                if(!tx.isCreditSale) {
-                    monthData.totalCashSales += tx.totalAmount;
-                } else {
-                    monthData.totalCreditSales += tx.totalAmount;
-                }
-                break;
-            case 'Customer Payment':
-            case 'Salary':
-                 monthData.totalRecovery += e.credit;
-                 break;
-            case 'Cash Advance':
-                monthData.totalCashAdvance += e.debit;
-                break;
-            case 'Purchase':
-                monthData.totalPurchases += e.debit;
-                break;
-            case 'Supplier Payment':
-                 monthData.totalSupplierPayment += e.debit;
-                 break;
-            case 'Expense':
-            case 'Salary Expense':
-                monthData.totalExpenses += e.debit;
-                break;
-            case 'Stock Shortage':
-                monthData.totalStockShortage += e.debit;
-                break;
-            case 'Stock Surplus':
-                monthData.totalStockSurplus += e.credit;
-                break;
-            case 'Sale Return':
-                monthData.totalSaleReturns += e.debit;
-                break;
-            case 'Purchase Return':
-                monthData.totalPurchaseReturns += e.credit;
-                break;
-            case 'Other Income':
-                monthData.totalOtherIncomes += e.credit;
-                break;
-            case 'Investment':
-                monthData.totalInvestments += e.credit;
-                break;
-            case 'Withdrawal':
-                monthData.totalWithdrawals += e.debit;
-                break;
-        }
-    });
+    groupedEntries[key].closingBalance = runningBalance;
   });
   
   const handleDeleteEntry = () => {
@@ -534,7 +428,7 @@ export default function LedgerPage() {
   }
 
   const hasActiveFilters = searchTerm || selectedDate || selectedType;
-  const currentMonthKey = format(new Date(), 'MMMM yyyy');
+  const currentDayKey = format(new Date(), 'yyyy-MM-dd');
 
 
   return (
@@ -640,44 +534,30 @@ export default function LedgerPage() {
       <Card>
         <CardHeader>
             <CardTitle>Journal Entries</CardTitle>
-            <CardDescription>{hasActiveFilters ? 'Showing filtered results.' : 'All transactions grouped by month.'}</CardDescription>
+            <CardDescription>{hasActiveFilters ? 'Showing filtered results.' : 'All transactions grouped by day.'}</CardDescription>
         </CardHeader>
         <CardContent>
-            {monthKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentMonthKey, ...monthKeys.filter(k => k !== currentMonthKey)]}>
-                    {monthKeys.map(monthKey => {
-                       const monthData = groupedEntries[monthKey];
-                       if (monthData.entries.length === 0 && !hasActiveFilters) return null;
-                        const totalInflows = monthData.totalCashSales + monthData.totalRecovery + monthData.totalOtherIncomes + monthData.totalPurchaseReturns + monthData.totalInvestments + monthData.totalStockSurplus;
-                        const totalOutflows = monthData.totalCreditSales + monthData.totalCashAdvance + monthData.totalExpenses + monthData.totalSaleReturns + monthData.totalWithdrawals;
-                        const totalSupplierActivity = monthData.totalPurchases + monthData.totalSupplierPayment;
+            {dayKeys.length > 0 ? (
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentDayKey, ...dayKeys.filter(k => k !== currentDayKey)]}>
+                    {dayKeys.map(dayKey => {
+                       const dayData = groupedEntries[dayKey];
+                       if (dayData.entries.length === 0 && !hasActiveFilters) return null;
                        
                         return (
-                        <AccordionItem value={monthKey} key={monthKey} className="border-b-0">
+                        <AccordionItem value={dayKey} key={dayKey} className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
                                     <div className="flex justify-between w-full pr-4 items-center">
-                                        <span className="font-semibold">{monthKey}</span>
-                                         <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right">
+                                        <span className="font-semibold">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
+                                         <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1 text-sm text-right">
                                             <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">PKR {monthData.totalCashSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-teal-600">PKR {monthData.totalRecovery.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Other Income</span><span className="font-mono text-green-600">PKR {monthData.totalOtherIncomes.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Surplus Stock</span> <span className="font-mono text-green-600">PKR {monthData.totalStockSurplus.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-green-600 font-bold">PKR {totalInflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Total Debits</span> <span className="font-mono text-destructive">PKR {dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Total Credits</span> <span className="font-mono text-green-600">PKR {dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
                                              <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">PKR {monthData.totalCreditSales.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Cash Advance</span> <span className="font-mono text-destructive">PKR {monthData.totalCashAdvance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Expenses</span> <span className="font-mono text-destructive">PKR {monthData.totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Short Stock</span> <span className="font-mono text-destructive">PKR {monthData.totalStockShortage.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-destructive font-bold">PKR {totalOutflows.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Opening</span> <span className="font-mono">PKR {dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">Closing</span> <span className="font-mono font-bold">PKR {dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
                                             </div>
-                                             <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-orange-600">PKR {monthData.totalPurchases.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-pink-600">PKR {monthData.totalSupplierPayment.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">= Total</span> <span className="font-mono text-purple-600 font-bold">PKR {totalSupplierActivity.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                             </div>
                                         </div>
                                     </div>
                                 </AccordionTrigger>
@@ -697,112 +577,91 @@ export default function LedgerPage() {
                                         <TableBody>
                                             <TableRow className="bg-muted/30 hover:bg-muted/30">
                                                 <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
-                                                <TableCell className={cn("text-right font-semibold font-mono", monthData.openingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                {monthData.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <TableCell className={cn("text-right font-semibold font-mono", dayData.openingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
+                                                {dayData.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                                 <TableCell />
                                             </TableRow>
-                                            {(() => {
-                                                let lastDate: string | null = null;
-                                                const reversedEntries = monthData.entries.slice().reverse().filter(e => e.type !== 'Daily Closing Stock');
+                                            {dayData.entries.slice().reverse().map((entry, index) => {
+                                                const date = new Date(entry.timestamp);
                                                 
-                                                return reversedEntries.map((entry, index) => {
-                                                    const date = new Date(entry.timestamp);
-                                                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : 'Invalid Date';
-                                                    const showSeparator = formattedDate !== lastDate && lastDate !== null;
-                                                    lastDate = formattedDate;
+                                                const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
+                                                const isCreditSale = entry.type === 'Sale' && !!entry.isCreditSale;
+                                                const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
+                                                const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
 
-                                                    const dailyClosingStock = dailyClosingStocks.get(formattedDate);
-                                                    
-                                                    const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
-                                                    const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
-                                                    const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
-
-                                                    return (
-                                                        <React.Fragment key={entry.id}>
-                                                            {showSeparator && (
-                                                                <TableRow className="bg-red-800 hover:bg-red-900">
-                                                                    <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
-                                                                        <div className="flex justify-between items-center w-full px-4">
-                                                                            <span>{format(new Date(lastDate!), 'EEEE, dd MMMM yyyy')}</span>
-                                                                            {dailyClosingStock !== undefined && (
-                                                                                <span className="text-xs font-mono">Closing Stock: PKR {dailyClosingStock.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                                                            )}
-                                                                        </div>
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            )}
-                                                            <TableRow>
-                                                                <TableCell className={cn(
-                                                                    "font-medium",
-                                                                    entry.isCreditSale && 'text-blue-600',
-                                                                    isWalkinCashSale && 'text-green-600',
-                                                                    isSalary && 'text-pink-600',
-                                                                    isExpense && 'text-destructive'
-                                                                )}>
-                                                                    {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
-                                                                </TableCell>
-                                                                <TableCell className={cn(
-                                                                    entry.isCreditSale && 'text-blue-600 font-medium',
-                                                                    isWalkinCashSale && 'text-green-600',
-                                                                    isSalary && 'text-pink-600',
-                                                                    isExpense && 'text-destructive'
-                                                                )}>{entry.description}</TableCell>
-                                                                <TableCell>
-                                                                    <Badge 
-                                                                        variant={entry.debit > 0 ? 'destructive' : 'outline'}
-                                                                        className={cn('text-xs', 
-                                                                            entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
-                                                                            entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                            entry.type === 'Customer Payment' && 'bg-teal-100 text-teal-800 border-teal-200',
-                                                                            entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                            (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                            entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                                                            entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                                                            entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                                                            entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                                                                            entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
-                                                                            entry.type === 'Other Income' && 'bg-green-100 text-green-800 border-green-200',
-                                                                            entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
-                                                                        )}
-                                                                    >{entry.type}</Badge>
-                                                                </TableCell>
-                                                                <TableCell className={cn("text-right font-mono",
-                                                                    entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
-                                                                    entry.isCreditSale && 'text-blue-600'
-                                                                )}>
-                                                                    {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                                                                </TableCell>
-                                                                <TableCell className={cn("text-right font-mono",
-                                                                    entry.type === 'Customer Payment' || entry.type === 'Salary' ? 'text-teal-600' : 'text-green-600'
-                                                                )}>
-                                                                    {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                                                                </TableCell>
-                                                                <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                                    {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                                </TableCell>
-                                                                <TableCell className="text-center">
-                                                                    <Button 
-                                                                      variant="ghost" 
-                                                                      size="icon" 
-                                                                      className="text-destructive hover:text-destructive" 
-                                                                      onClick={() => setEntryToDelete(entry)}
-                                                                      disabled={!entry.id.includes('-')}
-                                                                    >
-                                                                        <Trash2 className="h-4 w-4" />
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        </React.Fragment>
-                                                    )
-                                                });
-                                            })()}
+                                                return (
+                                                    <TableRow key={entry.id}>
+                                                        <TableCell className={cn(
+                                                            "font-medium",
+                                                            isCreditSale && 'text-blue-600',
+                                                            isWalkinCashSale && 'text-green-600',
+                                                            (isExpense || entry.type === 'Cash Advance') && 'text-destructive',
+                                                        )}>
+                                                            {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
+                                                        </TableCell>
+                                                        <TableCell className={cn(
+                                                            isCreditSale && 'text-blue-600 font-medium',
+                                                            isWalkinCashSale && 'text-green-600',
+                                                            isSalary && 'text-pink-600',
+                                                            isExpense && 'text-destructive',
+                                                        )}>{entry.description}</TableCell>
+                                                        <TableCell>
+                                                          <Badge 
+                                                              variant={entry.debit > 0 ? 'destructive' : 'outline'}
+                                                              className={cn('text-xs', 
+                                                                  isWalkinCashSale && 'bg-green-100 text-green-800 border-green-200',
+                                                                  isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                                                  (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
+                                                                  entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                  entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                  entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                  entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                  entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                                  entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                                                                  entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
+                                                                  entry.type === 'Other Income' && 'bg-green-100 text-green-800 border-green-200',
+                                                                  entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
+                                                                  isExpense && !isSalary && 'bg-red-100 text-red-800 border-red-200',
+                                                              )}
+                                                          >
+                                                            {entry.type}
+                                                          </Badge>
+                                                        </TableCell>
+                                                        <TableCell className={cn("text-right font-mono",
+                                                            entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
+                                                            isCreditSale && 'text-blue-600'
+                                                        )}>
+                                                            {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className={cn("text-right font-mono",
+                                                            (entry.type === 'Customer Payment' || entry.type === 'Salary') ? 'text-teal-600' : 'text-green-600'
+                                                        )}>
+                                                            {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
+                                                            {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Button 
+                                                              variant="ghost" 
+                                                              size="icon" 
+                                                              className="text-destructive hover:text-destructive" 
+                                                              onClick={() => setEntryToDelete(entry)}
+                                                              disabled={!entry.id.includes('-')}
+                                                            >
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
                                         </TableBody>
                                         <TableFooter>
                                             <TableRow className="bg-muted/50 font-bold text-base">
                                                 <TableCell colSpan={5} className="text-right">Closing Balance</TableCell>
-                                                <TableCell colSpan={2} className={cn("text-right font-mono", monthData.closingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                    {monthData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                <TableCell colSpan={2} className={cn("text-right font-mono", dayData.closingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
+                                                    {dayData.closingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                 </TableCell>
                                             </TableRow>
                                         </TableFooter>
