@@ -669,8 +669,8 @@ export default function LedgerPage() {
                                                         )}>
                                                             {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                         </TableCell>
-                                                        <TableCell className={cn("text-right font-mono",
-                                                            isWalkinCashSale ? 'text-green-600' : 'text-green-600',
+                                                        <TableCell className={cn("text-right font-mono text-green-600",
+                                                            isWalkinCashSale ? 'text-green-600' : '',
                                                         )}>
                                                             {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                         </TableCell>
@@ -732,5 +732,6 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
