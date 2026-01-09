@@ -123,10 +123,6 @@ export default function LedgerPage() {
           description = `Sale: ${tx.product} to ${customerName}`;
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
-        } else if (tx.totalAmount > 0) {
-            description = `Sale to ${customerName}`;
-        } else {
-            description = `Unknown Sale to ${customerName}`;
         }
         
         const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
@@ -168,8 +164,8 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      debit: p.totalCost,
-      credit: 0,
+      debit: 0,
+      credit: p.totalCost,
       original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
@@ -677,7 +673,8 @@ export default function LedgerPage() {
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono",
                                                             isWalkinCashSale && 'text-green-600',
-                                                            (entry.type === 'Customer Payment' || entry.type === 'Salary') ? 'text-teal-600' : 'text-green-600'
+                                                            (entry.type === 'Customer Payment' || entry.type === 'Salary') ? 'text-teal-600' : 'text-green-600',
+                                                            isPurchase && 'text-green-600',
                                                         )}>
                                                             {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                         </TableCell>
@@ -739,3 +736,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
