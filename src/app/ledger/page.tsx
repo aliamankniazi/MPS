@@ -54,6 +54,18 @@ type GroupedEntries = {
     closingBalance: number;
     totalDebit: number;
     totalCredit: number;
+    dailySummary: {
+        cashSale: number;
+        recovery: number;
+        otherIncome: number;
+        stockSurplus: number;
+        creditSale: number;
+        cashAdvance: number;
+        expenses: number;
+        stockShortage: number;
+        purchases: number;
+        supplierPayment: number;
+    }
   }
 }
 
@@ -109,11 +121,13 @@ export default function LedgerPage() {
         let description = `Sale to ${customerName}`;
         if (tx.product) {
           description = `Sale: ${tx.product} to ${customerName}`;
-        } else if(tx.fuelType) {
-          description = `Sale: ${tx.volume}L ${tx.fuelType} to ${customerName}`;
+        } else if(tx.fuelType && tx.volume) {
+          description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
+        } else if (tx.fuelType) {
+            description = `Sale: ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = !!tx.customerId && tx.customerName !== 'Walk-in Customer';
+        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -161,13 +175,13 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: sp.amount,
-      credit: 0,
+      debit: 0,
+      credit: sp.amount,
       original: sp,
     }));
     expenses.forEach(e => {
         const isSalaryExpense = e.category === 'Salaries';
-        const description = e.description;
+        const description = isSalaryExpense ? e.description.replace('Salary for ', '') : e.description;
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
@@ -339,12 +353,30 @@ export default function LedgerPage() {
           closingBalance: 0,
           totalDebit: 0,
           totalCredit: 0,
+          dailySummary: {
+            cashSale: 0, recovery: 0, otherIncome: 0, stockSurplus: 0,
+            creditSale: 0, cashAdvance: 0, expenses: 0, stockShortage: 0,
+            purchases: 0, supplierPayment: 0,
+          }
         };
       }
       
       acc[dayKey].entries.push(entry);
       acc[dayKey].totalDebit += entry.debit;
       acc[dayKey].totalCredit += entry.credit;
+      
+      // Daily Summary Calculation
+      if(entry.type === 'Sale' && !entry.isCreditSale) acc[dayKey].dailySummary.cashSale += entry.credit;
+      if(entry.type === 'Sale' && entry.isCreditSale) acc[dayKey].dailySummary.creditSale += entry.debit;
+      if(entry.type === 'Customer Payment' || entry.type === 'Salary') acc[dayKey].dailySummary.recovery += entry.credit;
+      if(entry.type === 'Other Income') acc[dayKey].dailySummary.otherIncome += entry.credit;
+      if(entry.type === 'Stock Surplus') acc[dayKey].dailySummary.stockSurplus += entry.credit;
+      if(entry.type === 'Cash Advance') acc[dayKey].dailySummary.cashAdvance += entry.debit;
+      if(entry.type === 'Expense' || entry.type === 'Salary Expense') acc[dayKey].dailySummary.expenses += entry.debit;
+      if(entry.type === 'Stock Shortage') acc[dayKey].dailySummary.stockShortage += entry.debit;
+      if(entry.type === 'Purchase') acc[dayKey].dailySummary.purchases += entry.debit;
+      if(entry.type === 'Supplier Payment') acc[dayKey].dailySummary.supplierPayment += entry.debit;
+
 
       return acc;
 
@@ -542,21 +574,39 @@ export default function LedgerPage() {
                     {dayKeys.map(dayKey => {
                        const dayData = groupedEntries[dayKey];
                        if (dayData.entries.length === 0 && !hasActiveFilters) return null;
-                       
+                       const { dailySummary } = dayData;
+                       const totalCashIn = dailySummary.cashSale + dailySummary.recovery + dailySummary.otherIncome + dailySummary.stockSurplus;
+                       const totalCreditSales = dailySummary.creditSale + dailySummary.cashAdvance + dailySummary.expenses + dailySummary.stockShortage;
+                       const totalPurchases = dailySummary.purchases + dailySummary.supplierPayment;
+
                         return (
                         <AccordionItem value={dayKey} key={dayKey} className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
-                                    <div className="flex justify-between w-full pr-4 items-center">
+                                    <div className="flex flex-col md:flex-row justify-between w-full pr-4 items-start md:items-center">
                                         <span className="font-semibold">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
-                                         <div className="hidden md:grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-1 text-sm text-right">
-                                            <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Total Debits</span> <span className="font-mono text-destructive">PKR {dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Total Credits</span> <span className="font-mono text-green-600">PKR {dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right mt-2 md:mt-0">
+                                            {/* Cash In */}
+                                            <div className="flex flex-col border-r pr-4">
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">{dailySummary.cashSale.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">{dailySummary.recovery.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Other Income</span> <span className="font-mono text-green-600">{dailySummary.otherIncome.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Surplus Stock</span> <span className="font-mono text-green-600">{dailySummary.stockSurplus.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-green-600">PKR {totalCashIn.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                             </div>
-                                             <div className="flex justify-end items-center gap-x-4">
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs">Opening</span> <span className="font-mono">PKR {dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
-                                                <div className="flex flex-col"><span className="text-muted-foreground text-xs font-bold">Closing</span> <span className="font-mono font-bold">PKR {dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits: 0})}</span></div>
+                                            {/* Credit Sales */}
+                                            <div className="flex flex-col border-r pr-4">
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">{dailySummary.creditSale.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Cash Advance</span> <span className="font-mono text-blue-600">{dailySummary.cashAdvance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Expenses</span> <span className="font-mono text-destructive">{dailySummary.expenses.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Short Stock</span> <span className="font-mono text-destructive">{dailySummary.stockShortage.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-destructive">PKR {totalCreditSales.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                            </div>
+                                            {/* Purchases */}
+                                             <div className="flex flex-col col-span-2 lg:col-span-1">
+                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-orange-600">{dailySummary.purchases.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-pink-600">{dailySummary.supplierPayment.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-orange-600">PKR {totalPurchases.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                             </div>
                                         </div>
                                     </div>
@@ -597,6 +647,7 @@ export default function LedgerPage() {
                                                             isCreditSale && 'text-blue-600',
                                                             isWalkinCashSale && 'text-green-600',
                                                             (isExpense || entry.type === 'Cash Advance') && 'text-destructive',
+                                                            isSalary && 'text-pink-600',
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                         </TableCell>
