@@ -132,8 +132,8 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description,
             type: 'Sale',
-            debit: isCreditSale ? tx.totalAmount : 0,
-            credit: !isCreditSale ? tx.totalAmount : 0,
+            debit: isCreditSale ? tx.totalAmount : 0, // Debit for credit sales
+            credit: !isCreditSale ? tx.totalAmount : 0, // Credit for cash sales
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -596,20 +596,20 @@ export default function LedgerPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                          <TableRow className="bg-red-800 hover:bg-red-900">
-                                            <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
-                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs text-right">
+                                          <TableRow className="bg-muted hover:bg-muted">
+                                            <TableCell colSpan={7} className="text-center font-semibold text-foreground py-2">
+                                                <div className="grid grid-cols-2 lg:grid-cols-5 gap-x-6 gap-y-1 text-xs text-right">
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-white/80">Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-white/80 text-xs">Total Debits:</span> <span className="font-mono">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-white/80 text-xs">Total Credits:</span> <span className="font-mono">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
-                                                    <div className="flex flex-col">
-                                                         <div className="flex justify-between gap-2"><span className="text-white/80">Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                    <div className="flex flex-col col-span-2">
+                                                         <div className="flex justify-between gap-2"><span className="text-muted-foreground">Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                 </div>
                                             </TableCell>
@@ -732,6 +732,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
