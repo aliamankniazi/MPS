@@ -123,9 +123,13 @@ export default function LedgerPage() {
           description = `Sale: ${tx.product} to ${customerName}`;
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
+        } else if (tx.totalAmount > 0) {
+            description = `Sale to ${customerName}`;
+        } else {
+            description = `Unknown Sale to ${customerName}`;
         }
         
-        const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -621,6 +625,7 @@ export default function LedgerPage() {
                                                 const isCreditSale = entry.type === 'Sale' && !!entry.isCreditSale;
                                                 const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
                                                 const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
+                                                const isPurchase = entry.type === 'Purchase';
 
                                                 return (
                                                     <TableRow key={entry.id}>
@@ -630,6 +635,7 @@ export default function LedgerPage() {
                                                             isWalkinCashSale && 'text-green-600',
                                                             isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
+                                                            isPurchase && 'text-green-600',
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                         </TableCell>
@@ -639,6 +645,7 @@ export default function LedgerPage() {
                                                             isWalkinCashSale && 'text-green-600',
                                                             isSalary && 'text-pink-600',
                                                             isExpense && 'text-destructive',
+                                                            isPurchase && 'text-green-600',
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
                                                           <Badge 
@@ -649,7 +656,7 @@ export default function LedgerPage() {
                                                                 (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
                                                                 entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                                                 entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
                                                                 entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                                                 entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -664,6 +671,7 @@ export default function LedgerPage() {
                                                         <TableCell className={cn("text-right font-mono",
                                                             isCreditSale && 'text-blue-600',
                                                             entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
+                                                            isPurchase ? 'text-green-600' : 'text-destructive'
                                                         )}>
                                                             {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                         </TableCell>

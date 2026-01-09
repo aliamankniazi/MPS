@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -35,7 +36,7 @@ type CombinedEntry = {
   partner: string;
   details: string;
   amount: number;
-  original: Transaction | Purchase | PurchaseReturn | CustomerPayment | Expense;
+  original: any;
   isCreditSale?: boolean;
 };
 
@@ -83,7 +84,7 @@ export default function AllTransactionsPage() {
         partner: tx.customerName || 'Walk-in Customer',
         details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
         amount: tx.totalAmount,
-        original: tx,
+        original: { ...tx },
         isCreditSale: isCredit,
       }
     });
@@ -98,7 +99,7 @@ export default function AllTransactionsPage() {
             partner: p.customerName,
             details: p.notes || 'Salary Payment',
             amount: p.amount,
-            original: p,
+            original: { ...p },
         }));
     
     const expenseEntries: CombinedEntry[] = expenses.map(e => ({
@@ -109,7 +110,7 @@ export default function AllTransactionsPage() {
         partner: 'Internal',
         details: e.description,
         amount: e.amount,
-        original: e,
+        original: { ...e },
     }));
 
 
@@ -121,7 +122,7 @@ export default function AllTransactionsPage() {
       partner: p.supplier,
       details: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
       amount: p.totalCost,
-      original: p,
+      original: { ...p },
     }));
 
     const returns: CombinedEntry[] = purchaseReturns.map(pr => ({
@@ -132,7 +133,7 @@ export default function AllTransactionsPage() {
       partner: pr.supplier,
       details: `${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
       amount: pr.totalRefund,
-      original: pr,
+      original: { ...pr },
     }));
 
     return [...sales, ...allPurchases, ...returns, ...salaryPayments, ...expenseEntries].sort((a, b) => {
@@ -174,9 +175,9 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions]);
 
   const getBadgeVariant = (entry: CombinedEntry) => {
+    if(entry.type === 'Purchase') return 'default';
     if(entry.type === 'Sale' && entry.isCreditSale) return 'default'
     if(entry.type === 'Sale' && !entry.isCreditSale) return 'outline'
-    if(entry.type === 'Purchase') return 'destructive';
     if(entry.type === 'Purchase Return') return 'secondary';
     if(entry.type === 'Salary') return 'default';
     if(entry.type === 'Expense') return 'destructive';
@@ -184,11 +185,11 @@ export default function AllTransactionsPage() {
   };
   
   const getAmountClass = (entry: CombinedEntry) => {
+    if (entry.type === 'Purchase') return 'text-green-600';
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
       switch(entry.type) {
           case 'Sale': return 'text-green-600';
-          case 'Purchase': return 'text-destructive';
           case 'Purchase Return': return 'text-blue-600';
           case 'Expense': return 'text-destructive';
           default: return '';
@@ -196,6 +197,7 @@ export default function AllTransactionsPage() {
   }
 
   const getRowClass = (entry: CombinedEntry) => {
+    if (entry.type === 'Purchase') return 'text-green-600';
     const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
     if (isWalkinCashSale) return 'text-green-600';
     if (entry.isCreditSale) return 'text-blue-600';
@@ -210,7 +212,7 @@ export default function AllTransactionsPage() {
   }
 
   const getCustomerForEntry = (entry: CombinedEntry): Customer | undefined => {
-      if (entry.type === 'Sale' && 'customerId' in entry.original && entry.original.customerId) {
+      if (entry.type === 'Sale' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
           return customers.find(c => c.id === entry.original.customerId);
       }
       return undefined;
@@ -286,6 +288,7 @@ export default function AllTransactionsPage() {
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
                     const isExpense = entry.type === 'Expense';
+                    const isPurchase = entry.type === 'Purchase';
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
@@ -298,7 +301,7 @@ export default function AllTransactionsPage() {
                                 (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
                                 (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                 entry.type === 'Purchase Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                 (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200',
                                 (entry.type === 'Supplier Payment') && 'bg-pink-100 text-pink-800 border-pink-200',
@@ -310,7 +313,7 @@ export default function AllTransactionsPage() {
                             )}
                         >{entry.type}</Badge>
                         </TableCell>
-                        <TableCell className={cn(entry.isCreditSale && 'font-medium')}>{entry.partner}</TableCell>
+                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium')}>{entry.partner}</TableCell>
                         <TableCell className={cn(isExpense && "text-destructive")}>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

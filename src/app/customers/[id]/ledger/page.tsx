@@ -365,10 +365,10 @@ export default function CustomerLedgerPage() {
                           </TableRow>
                         )}
                         <TableRow>
-                          <TableCell className="font-medium">
+                          <TableCell className={cn("font-medium", entry.type === 'Purchase' && 'text-green-600')}>
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                           </TableCell>
-                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600')}>{entry.description}</TableCell>
+                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600', entry.type === 'Purchase' && 'text-green-600')}>{entry.description}</TableCell>
                           <TableCell>
                              <Badge 
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
@@ -377,7 +377,7 @@ export default function CustomerLedgerPage() {
                                     entry.type === 'Payment' && 'bg-teal-100 text-teal-800 border-teal-200',
                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                     entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                    entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                    entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
@@ -389,7 +389,7 @@ export default function CustomerLedgerPage() {
                           <TableCell className="text-right font-mono text-destructive">
                               {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                           </TableCell>
-                          <TableCell className="text-right font-mono text-green-600">
+                          <TableCell className={cn("text-right font-mono text-green-600", entry.type === 'Purchase' && 'text-green-600')}>
                               {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                           </TableCell>
                           <TableCell className={cn("text-right font-semibold font-mono", rowBalanceColorClass(entry.balance))}>

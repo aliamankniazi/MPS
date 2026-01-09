@@ -100,17 +100,20 @@ export default function AllInvoicesPage() {
   }, [isLoaded, transactions, purchases, searchTerm]);
 
   const getBadgeVariant = (invoice: CombinedInvoice) => {
+    if (invoice.type === 'Purchase') return 'default';
     if (invoice.isCreditSale) return 'default';
     if (invoice.type === 'Sale') return 'outline';
     return 'destructive';
   };
   
   const getAmountClass = (invoice: CombinedInvoice) => {
+    if (invoice.type === 'Purchase') return 'text-green-600';
     if (invoice.isCreditSale) return 'text-blue-600';
     return invoice.type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
 
   const getRowClass = (invoice: CombinedInvoice) => {
+    if (invoice.type === 'Purchase') return 'text-green-600';
     return invoice.isCreditSale ? 'text-blue-600' : '';
   };
   
@@ -148,7 +151,7 @@ export default function AllInvoicesPage() {
                                 <span className="font-semibold text-lg">{monthKey}</span>
                                 <div className="flex gap-4 text-sm">
                                     <span>Sales: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalSales.toLocaleString()}</span></span>
-                                    <span>Purchases: <span className="font-mono text-destructive">PKR {groupedInvoices[monthKey].totalPurchases.toLocaleString()}</span></span>
+                                    <span>Purchases: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalPurchases.toLocaleString()}</span></span>
                                 </div>
                             </div>
                         </AccordionTrigger>
@@ -178,7 +181,7 @@ export default function AllInvoicesPage() {
                                             className={cn('text-xs',
                                                 invoice.type === 'Sale' && !invoice.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
                                                 invoice.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                invoice.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200'
+                                                invoice.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200'
                                             )}
                                         >{invoice.type}</Badge>
                                       </TableCell>
