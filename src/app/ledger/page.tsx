@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -124,10 +123,10 @@ export default function LedgerPage() {
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         } else if (tx.fuelType) {
-            description = `Sale: ${tx.fuelType} to ${customerName}`;
+            description = `Sale to ${customerName}`;
         }
         
-        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -574,41 +573,14 @@ export default function LedgerPage() {
                     {dayKeys.map(dayKey => {
                        const dayData = groupedEntries[dayKey];
                        if (dayData.entries.length === 0 && !hasActiveFilters) return null;
-                       const { dailySummary } = dayData;
-                       const totalCashIn = dailySummary.cashSale + dailySummary.recovery + dailySummary.otherIncome + dailySummary.stockSurplus;
-                       const totalCreditSales = dailySummary.creditSale + dailySummary.cashAdvance + dailySummary.expenses + dailySummary.stockShortage;
-                       const totalPurchases = dailySummary.purchases + dailySummary.supplierPayment;
+                       
 
                         return (
                         <AccordionItem value={dayKey} key={dayKey} className="border-b-0">
                             <Card>
                                 <AccordionTrigger className="hover:no-underline p-4 text-lg">
-                                    <div className="flex flex-col md:flex-row justify-between w-full pr-4 items-start md:items-center">
+                                    <div className="flex justify-between w-full pr-4">
                                         <span className="font-semibold">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
-                                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-1 text-sm text-right mt-2 md:mt-0">
-                                            {/* Cash In */}
-                                            <div className="flex flex-col border-r pr-4">
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Cash Sale</span> <span className="font-mono text-green-600">{dailySummary.cashSale.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Recovery</span> <span className="font-mono text-green-600">{dailySummary.recovery.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Other Income</span> <span className="font-mono text-green-600">{dailySummary.otherIncome.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Surplus Stock</span> <span className="font-mono text-green-600">{dailySummary.stockSurplus.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-green-600">PKR {totalCashIn.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            </div>
-                                            {/* Credit Sales */}
-                                            <div className="flex flex-col border-r pr-4">
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Credit Sale</span> <span className="font-mono text-blue-600">{dailySummary.creditSale.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Cash Advance</span> <span className="font-mono text-blue-600">{dailySummary.cashAdvance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Expenses</span> <span className="font-mono text-destructive">{dailySummary.expenses.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Short Stock</span> <span className="font-mono text-destructive">{dailySummary.stockShortage.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-destructive">PKR {totalCreditSales.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            </div>
-                                            {/* Purchases */}
-                                             <div className="flex flex-col col-span-2 lg:col-span-1">
-                                                <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Purchases</span> <span className="font-mono text-orange-600">{dailySummary.purchases.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 border-b"><span className="text-muted-foreground text-xs">Supplier Pymt</span> <span className="font-mono text-pink-600">{dailySummary.supplierPayment.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                                <div className="flex justify-between gap-2 font-bold"><span className="text-xs">= Total</span> <span className="font-mono text-orange-600">PKR {totalPurchases.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            </div>
-                                        </div>
                                     </div>
                                 </AccordionTrigger>
                                 <AccordionContent className="px-2 pb-2">
@@ -625,13 +597,24 @@ export default function LedgerPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                                <TableCell colSpan={5} className="font-bold">Opening Balance</TableCell>
-                                                <TableCell className={cn("text-right font-semibold font-mono", dayData.openingBalance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                {dayData.openingBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                </TableCell>
-                                                <TableCell />
-                                            </TableRow>
+                                          <TableRow className="bg-muted hover:bg-muted font-semibold">
+                                            <TableCell colSpan={7}>
+                                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs text-right">
+                                                    <div className="flex flex-col border-r pr-4">
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                    </div>
+                                                    <div className="flex flex-col border-r pr-4">
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                    </div>
+                                                    <div className="flex flex-col border-r pr-4">
+                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                         <div className="flex justify-between gap-2"><span className="text-muted-foreground">Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                    </div>
+                                                </div>
+                                            </TableCell>
+                                          </TableRow>
                                             {dayData.entries.slice().reverse().map((entry, index) => {
                                                 const date = new Date(entry.timestamp);
                                                 
@@ -652,10 +635,11 @@ export default function LedgerPage() {
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                         </TableCell>
                                                         <TableCell className={cn(
-                                                            isCreditSale && 'text-blue-600 font-medium',
+                                                            "font-medium",
+                                                            isCreditSale && 'text-blue-600',
                                                             isWalkinCashSale && 'text-green-600',
                                                             isSalary && 'text-pink-600',
-                                                            isExpense && 'text-destructive',
+                                                            (isExpense || entry.type === 'Cash Advance') && 'text-destructive',
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
                                                           <Badge 
