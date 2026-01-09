@@ -75,7 +75,7 @@ export default function AllTransactionsPage() {
     if (!isLoaded) return [];
 
     const sales: CombinedEntry[] = transactions.map(tx => {
-      const isCredit = tx.customerId && tx.customerName !== 'Walk-in Customer';
+      const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
       return {
         id: `sale-${tx.id}`,
         originalId: tx.id,
@@ -175,14 +175,13 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions]);
 
   const getBadgeVariant = (entry: CombinedEntry) => {
-    switch (entry.type) {
-      case 'Sale': return entry.isCreditSale ? 'default' : 'outline';
-      case 'Purchase': return 'destructive';
-      case 'Purchase Return': return 'secondary';
-      case 'Salary': return 'default';
-      case 'Expense': return 'destructive';
-      default: return 'default';
-    }
+    if(entry.type === 'Sale' && entry.isCreditSale) return 'default'
+    if(entry.type === 'Sale' && !entry.isCreditSale) return 'outline'
+    if(entry.type === 'Purchase') return 'destructive';
+    if(entry.type === 'Purchase Return') return 'secondary';
+    if(entry.type === 'Salary') return 'default';
+    if(entry.type === 'Expense') return 'destructive';
+    return 'default';
   };
   
   const getAmountClass = (entry: CombinedEntry) => {
@@ -287,6 +286,7 @@ export default function AllTransactionsPage() {
                     const customer = getCustomerForEntry(entry);
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
+                    const isExpense = entry.type === 'Expense';
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
@@ -296,16 +296,23 @@ export default function AllTransactionsPage() {
                         <Badge 
                             variant={getBadgeVariant(entry)}
                             className={cn('text-xs', 
-                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
-                                entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
+                                (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                 entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                entry.type === 'Purchase Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200'
+                                entry.type === 'Purchase Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200',
+                                (entry.type === 'Supplier Payment') && 'bg-pink-100 text-pink-800 border-pink-200',
+                                (entry.type === 'Sale Return') && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                (entry.type === 'Investment') && 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                                (entry.type === 'Withdrawal') && 'bg-purple-100 text-purple-800 border-purple-200',
+                                (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
+                                (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                             )}
                         >{entry.type}</Badge>
                         </TableCell>
                         <TableCell className={cn(entry.isCreditSale && 'font-medium')}>{entry.partner}</TableCell>
-                        <TableCell>{entry.details}</TableCell>
+                        <TableCell className={cn(isExpense && "text-destructive")}>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>

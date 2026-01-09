@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -122,11 +123,9 @@ export default function LedgerPage() {
           description = `Sale: ${tx.product} to ${customerName}`;
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
-        } else if (tx.fuelType) {
-            description = `Sale to ${customerName}`;
         }
         
-        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -597,20 +596,20 @@ export default function LedgerPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                          <TableRow className="bg-muted hover:bg-muted font-semibold">
-                                            <TableCell colSpan={7}>
+                                          <TableRow className="bg-red-800 hover:bg-red-900">
+                                            <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
                                                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-1 text-xs text-right">
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground">Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-white/80">Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-white/80 text-xs">Total Debits:</span> <span className="font-mono">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                     <div className="flex flex-col border-r pr-4">
-                                                        <div className="flex justify-between gap-2"><span className="text-muted-foreground text-xs">Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                        <div className="flex justify-between gap-2"><span className="text-white/80 text-xs">Total Credits:</span> <span className="font-mono">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                     <div className="flex flex-col">
-                                                         <div className="flex justify-between gap-2"><span className="text-muted-foreground">Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                                         <div className="flex justify-between gap-2"><span className="text-white/80">Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
                                                     </div>
                                                 </div>
                                             </TableCell>
@@ -629,7 +628,7 @@ export default function LedgerPage() {
                                                             "font-medium",
                                                             isCreditSale && 'text-blue-600',
                                                             isWalkinCashSale && 'text-green-600',
-                                                            (isExpense || entry.type === 'Cash Advance') && 'text-destructive',
+                                                            isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
@@ -639,37 +638,37 @@ export default function LedgerPage() {
                                                             isCreditSale && 'text-blue-600',
                                                             isWalkinCashSale && 'text-green-600',
                                                             isSalary && 'text-pink-600',
-                                                            (isExpense || entry.type === 'Cash Advance') && 'text-destructive',
+                                                            isExpense && 'text-destructive',
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
                                                           <Badge 
-                                                              variant={entry.debit > 0 ? 'destructive' : 'outline'}
-                                                              className={cn('text-xs', 
-                                                                  isWalkinCashSale && 'bg-green-100 text-green-800 border-green-200',
-                                                                  isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                  (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
-                                                                  entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                  entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                  entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                                                  entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                                                  entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                                                  entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                                                                  entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
-                                                                  entry.type === 'Other Income' && 'bg-green-100 text-green-800 border-green-200',
-                                                                  entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
-                                                                  isExpense && !isSalary && 'bg-red-100 text-red-800 border-red-200',
-                                                              )}
+                                                            variant={entry.debit > 0 ? 'destructive' : 'outline'}
+                                                            className={cn('text-xs', 
+                                                                (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
+                                                                (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
+                                                                (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
+                                                                entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                entry.type === 'Purchase' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
+                                                                entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                                                entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                                                                entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
+                                                                (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
+                                                                (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
+                                                          )}
                                                           >
                                                             {entry.type}
                                                           </Badge>
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono",
+                                                            isCreditSale && 'text-blue-600',
                                                             entry.type === 'Supplier Payment' || entry.type === 'Salary Expense' ? 'text-pink-600' : 'text-destructive',
-                                                            isCreditSale && 'text-blue-600'
                                                         )}>
                                                             {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono",
+                                                            isWalkinCashSale && 'text-green-600',
                                                             (entry.type === 'Customer Payment' || entry.type === 'Salary') ? 'text-teal-600' : 'text-green-600'
                                                         )}>
                                                             {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
