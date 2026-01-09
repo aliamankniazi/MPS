@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -99,7 +98,7 @@ export default function AllTransactionsPage() {
             partner: p.customerName,
             details: p.notes || 'Salary Payment',
             amount: p.amount,
-            original: p
+            original: p,
         }));
     
     const expenseEntries: CombinedEntry[] = expenses.map(e => ({
@@ -422,3 +421,5 @@ export default function AllTransactionsPage() {
     </>
   );
 }
+
+    
