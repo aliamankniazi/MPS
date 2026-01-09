@@ -125,15 +125,15 @@ export default function LedgerPage() {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description,
             type: 'Sale',
-            debit: isCreditSale ? tx.totalAmount : 0, // Debit for credit sales
-            credit: !isCreditSale ? tx.totalAmount : 0, // Credit for cash sales
+            debit: isCreditSale ? tx.totalAmount : 0,
+            credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -732,6 +732,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
