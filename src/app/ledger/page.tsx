@@ -133,7 +133,7 @@ export default function LedgerPage() {
             description,
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
-            credit: isCreditSale ? 0 : tx.totalAmount,
+            credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -742,3 +742,4 @@ export default function LedgerPage() {
 
 
     
+
