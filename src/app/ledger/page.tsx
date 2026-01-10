@@ -132,8 +132,8 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description,
             type: 'Sale',
-            debit: isCreditSale ? tx.totalAmount : 0, // Debit if it's a credit sale to a registered customer
-            credit: !isCreditSale ? tx.totalAmount : 0, // Credit if it's a cash sale (walk-in)
+            debit: isCreditSale ? tx.totalAmount : 0,
+            credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
         });
