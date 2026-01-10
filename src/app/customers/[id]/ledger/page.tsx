@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -365,10 +365,10 @@ export default function CustomerLedgerPage() {
                           </TableRow>
                         )}
                         <TableRow>
-                          <TableCell className={cn("font-medium", entry.type === 'Purchase' && 'text-green-600')}>
+                          <TableCell className={cn("font-medium", entry.type === 'Purchase' && 'text-green-600', entry.type === 'Payment' && 'text-teal-600')}>
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                           </TableCell>
-                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600', entry.type === 'Purchase' && 'text-green-600')}>{entry.description}</TableCell>
+                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600', entry.type === 'Purchase' && 'text-green-600', entry.type === 'Payment' && 'text-teal-600')}>{entry.description}</TableCell>
                           <TableCell>
                              <Badge 
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
@@ -383,7 +383,7 @@ export default function CustomerLedgerPage() {
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
                                 )}
                             >
-                              {entry.type}
+                              {entry.type === 'Payment' ? 'Amount' : entry.type}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-right font-mono text-destructive">

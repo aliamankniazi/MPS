@@ -125,7 +125,7 @@ export default function LedgerPage() {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -164,8 +164,8 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      credit: p.totalCost,
-      debit: 0,
+      credit: 0,
+      debit: p.totalCost, // Purchases are debits to the business
       original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
@@ -173,8 +173,8 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: sp.amount,
-      credit: 0,
+      debit: 0,
+      credit: sp.amount, // Paying a supplier is a credit from our cash
       original: sp,
     }));
     expenses.forEach(e => {
@@ -632,6 +632,7 @@ export default function LedgerPage() {
                                                             isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
                                                             isPurchase && 'text-green-600',
+                                                            entry.type === 'Customer Payment' && 'text-teal-600'
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                         </TableCell>
@@ -642,6 +643,7 @@ export default function LedgerPage() {
                                                             isSalary && 'text-pink-600',
                                                             isExpense && 'text-destructive',
                                                             isPurchase && 'text-green-600',
+                                                            entry.type === 'Customer Payment' && 'text-teal-600'
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
                                                           <Badge 
@@ -649,8 +651,9 @@ export default function LedgerPage() {
                                                             className={cn('text-xs', 
                                                                 (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
                                                                 (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
+                                                                (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200',
                                                                 entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                                                 entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
@@ -661,7 +664,7 @@ export default function LedgerPage() {
                                                                 (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                                                           )}
                                                           >
-                                                            {entry.type}
+                                                            {entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                           </Badge>
                                                         </TableCell>
                                                         <TableCell className={cn("text-right font-mono text-destructive")}>

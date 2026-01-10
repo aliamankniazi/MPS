@@ -32,7 +32,7 @@ type CombinedEntry = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense';
+  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense' | 'Customer Payment';
   partner: string;
   details: string;
   amount: number;
@@ -89,18 +89,17 @@ export default function AllTransactionsPage() {
       }
     });
 
-    const salaryPayments: CombinedEntry[] = customerPayments
-        .filter(p => p.paymentMethod === 'Salary')
-        .map(p => ({
-            id: `salary-${p.id}`,
-            originalId: p.id,
-            timestamp: p.timestamp,
-            type: 'Salary',
-            partner: p.customerName,
-            details: p.notes || 'Salary Payment',
-            amount: p.amount,
-            original: { ...p },
-        }));
+    const payments: CombinedEntry[] = customerPayments.map(p => ({
+        id: `payment-${p.id}`,
+        originalId: p.id,
+        timestamp: p.timestamp,
+        type: p.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
+        partner: p.customerName,
+        details: p.notes || `${p.paymentMethod} Payment`,
+        amount: p.amount,
+        original: { ...p },
+    }));
+
     
     const expenseEntries: CombinedEntry[] = expenses.map(e => ({
         id: `exp-${e.id}`,
@@ -136,7 +135,7 @@ export default function AllTransactionsPage() {
       original: { ...pr },
     }));
 
-    return [...sales, ...allPurchases, ...returns, ...salaryPayments, ...expenseEntries].sort((a, b) => {
+    return [...sales, ...allPurchases, ...returns, ...payments, ...expenseEntries].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
@@ -181,6 +180,7 @@ export default function AllTransactionsPage() {
     if(entry.type === 'Purchase Return') return 'secondary';
     if(entry.type === 'Salary') return 'default';
     if(entry.type === 'Expense') return 'destructive';
+    if (entry.type === 'Customer Payment') return 'outline';
     return 'default';
   };
   
@@ -190,6 +190,7 @@ export default function AllTransactionsPage() {
     if (entry.type === 'Salary') return 'text-pink-600';
       switch(entry.type) {
           case 'Sale': return 'text-green-600';
+          case 'Customer Payment': return 'text-teal-600';
           case 'Purchase Return': return 'text-blue-600';
           case 'Expense': return 'text-destructive';
           default: return '';
@@ -203,6 +204,7 @@ export default function AllTransactionsPage() {
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
     if (entry.type === 'Expense') return 'text-destructive';
+    if (entry.type === 'Customer Payment') return 'text-teal-600';
     return '';
   };
 
@@ -226,6 +228,7 @@ export default function AllTransactionsPage() {
             case 'Sale': deleteTransaction(entryToDelete.originalId); break;
             case 'Purchase': deletePurchase(entryToDelete.originalId); break;
             case 'Purchase Return': deletePurchaseReturn(entryToDelete.originalId); break;
+            case 'Customer Payment':
             case 'Salary': deleteCustomerPayment(entryToDelete.originalId); break;
             case 'Expense': deleteExpense(entryToDelete.originalId); break;
             default:
@@ -311,7 +314,7 @@ export default function AllTransactionsPage() {
                                 (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
                                 (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                             )}
-                        >{entry.type}</Badge>
+                        >{entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
                         </TableCell>
                         <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium')}>{entry.partner}</TableCell>
                         <TableCell className={cn(isExpense && "text-destructive")}>{entry.details}</TableCell>
@@ -426,3 +429,4 @@ export default function AllTransactionsPage() {
 }
 
     
+
