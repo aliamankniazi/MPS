@@ -164,7 +164,7 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      credit: p.totalCost, // Purchases are credits to the business's liability to the supplier
+      credit: p.totalCost, 
       debit: 0,
       original: p,
     }));
@@ -173,8 +173,8 @@ export default function LedgerPage() {
       timestamp: sp.timestamp,
       description: `Payment to ${sp.supplierName}`,
       type: 'Supplier Payment',
-      debit: 0,
-      credit: sp.amount, // Paying a supplier is a credit from our cash
+      debit: sp.amount, 
+      credit: 0, 
       original: sp,
     }));
     expenses.forEach(e => {
@@ -737,4 +737,5 @@ export default function LedgerPage() {
     
 
     
+
 
