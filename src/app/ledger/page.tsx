@@ -664,14 +664,10 @@ export default function LedgerPage() {
                                                             {entry.type}
                                                           </Badge>
                                                         </TableCell>
-                                                        <TableCell className={cn("text-right font-mono",
-                                                            isCreditSale ? 'text-blue-600' : 'text-destructive',
-                                                        )}>
+                                                        <TableCell className={cn("text-right font-mono text-destructive")}>
                                                             {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                         </TableCell>
-                                                        <TableCell className={cn("text-right font-mono",
-                                                            isPurchase ? 'text-green-600' : 'text-green-600',
-                                                        )}>
+                                                        <TableCell className={cn("text-right font-mono text-green-600")}>
                                                             {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                         </TableCell>
                                                         <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -732,6 +728,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
