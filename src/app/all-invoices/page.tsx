@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -183,7 +182,7 @@ export default function AllInvoicesPage() {
                                                 invoice.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
                                                 invoice.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200'
                                             )}
-                                        >{invoice.type}</Badge>
+                                        >{invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type}</Badge>
                                       </TableCell>
                                       <TableCell className={cn(invoice.isCreditSale && 'font-medium')}>{invoice.partner}</TableCell>
                                       <TableCell>{invoice.details}</TableCell>
