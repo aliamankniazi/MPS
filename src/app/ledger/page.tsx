@@ -125,7 +125,7 @@ export default function LedgerPage() {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
+        const isCreditSale = tx.paymentMethod === 'Credit';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -164,8 +164,8 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      debit: 0,
-      credit: p.totalCost,
+      debit: p.totalCost,
+      credit: 0,
       original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
@@ -631,7 +631,7 @@ export default function LedgerPage() {
                                                             isWalkinCashSale && 'text-green-600',
                                                             isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
-                                                            isPurchase && 'text-green-600',
+                                                            isPurchase && 'text-destructive',
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                         </TableCell>
@@ -641,7 +641,7 @@ export default function LedgerPage() {
                                                             isWalkinCashSale && 'text-green-600',
                                                             isSalary && 'text-pink-600',
                                                             isExpense && 'text-destructive',
-                                                            isPurchase && 'text-green-600',
+                                                            isPurchase && 'text-destructive',
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
                                                           <Badge 
@@ -652,7 +652,7 @@ export default function LedgerPage() {
                                                                 (entry.type === 'Customer Payment' || entry.type === 'Salary') && 'bg-teal-100 text-teal-800 border-teal-200',
                                                                 entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
+                                                                entry.type === 'Purchase' && 'bg-red-100 text-red-800 border-red-200',
                                                                 entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
                                                                 entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                                                 entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -729,3 +729,6 @@ export default function LedgerPage() {
   );
 }
 
+
+
+    
