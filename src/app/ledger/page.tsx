@@ -125,7 +125,7 @@ export default function LedgerPage() {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = !!tx.customerId && tx.customerId !== 'walkin';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -164,8 +164,8 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      debit: 0,
       credit: p.totalCost,
+      debit: 0,
       original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
