@@ -651,7 +651,7 @@ export default function LedgerPage() {
                                                             className={cn('text-xs', 
                                                                 (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
                                                                 (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200',
+                                                                (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                 entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                 entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
