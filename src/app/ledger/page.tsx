@@ -164,8 +164,8 @@ export default function LedgerPage() {
       timestamp: p.timestamp,
       description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
       type: 'Purchase',
-      credit: p.totalCost, 
-      debit: 0,
+      credit: 0, 
+      debit: p.totalCost,
       original: p,
     }));
      supplierPayments.forEach(sp => combined.push({
