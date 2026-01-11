@@ -138,6 +138,7 @@ export default function LedgerPage() {
             isCreditSale: isCreditSale,
         });
     });
+    
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         const isSalary = cp.paymentMethod === 'Salary';
@@ -151,6 +152,7 @@ export default function LedgerPage() {
           original: cp,
         })
     });
+    
      cashAdvances.forEach(ca => {
         if (!ca.timestamp || !isValid(new Date(ca.timestamp))) return;
         combined.push({
@@ -163,6 +165,7 @@ export default function LedgerPage() {
           original: ca,
         })
     });
+
     purchases.forEach(p => {
         if (!p.timestamp || !isValid(new Date(p.timestamp))) return;
         combined.push({
