@@ -125,7 +125,7 @@ export default function LedgerPage() {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
         
-        const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+        const isCreditSale = tx.customerId && tx.customerId !== 'walkin';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -781,4 +781,5 @@ export default function LedgerPage() {
     
 
     
+
 
