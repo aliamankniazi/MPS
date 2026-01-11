@@ -139,6 +139,7 @@ export default function LedgerPage() {
         });
     });
     customerPayments.forEach(cp => {
+        if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         const isSalary = cp.paymentMethod === 'Salary';
         combined.push({
           id: `cp-${cp.id}`,
@@ -150,34 +151,44 @@ export default function LedgerPage() {
           original: cp,
         })
     });
-     cashAdvances.forEach(ca => combined.push({
-      id: `ca-${ca.id}`,
-      timestamp: ca.timestamp,
-      description: ca.notes || `Cash Advance to ${ca.customerName}`,
-      type: 'Cash Advance',
-      debit: ca.amount,
-      credit: 0,
-      original: ca,
-    }));
-    purchases.forEach(p => combined.push({
-      id: `pur-${p.id}`,
-      timestamp: p.timestamp,
-      description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
-      type: 'Purchase',
-      credit: 0, 
-      debit: p.totalCost,
-      original: p,
-    }));
-     supplierPayments.forEach(sp => combined.push({
-      id: `sp-${sp.id}`,
-      timestamp: sp.timestamp,
-      description: `Payment to ${sp.supplierName}`,
-      type: 'Supplier Payment',
-      debit: sp.amount, 
-      credit: 0, 
-      original: sp,
-    }));
+     cashAdvances.forEach(ca => {
+        if (!ca.timestamp || !isValid(new Date(ca.timestamp))) return;
+        combined.push({
+          id: `ca-${ca.id}`,
+          timestamp: ca.timestamp,
+          description: ca.notes || `Cash Advance to ${ca.customerName}`,
+          type: 'Cash Advance',
+          debit: ca.amount,
+          credit: 0,
+          original: ca,
+        })
+    });
+    purchases.forEach(p => {
+        if (!p.timestamp || !isValid(new Date(p.timestamp))) return;
+        combined.push({
+            id: `pur-${p.id}`,
+            timestamp: p.timestamp,
+            description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
+            type: 'Purchase',
+            credit: 0, 
+            debit: p.totalCost,
+            original: p,
+        })
+    });
+     supplierPayments.forEach(sp => {
+        if (!sp.timestamp || !isValid(new Date(sp.timestamp))) return;
+        combined.push({
+            id: `sp-${sp.id}`,
+            timestamp: sp.timestamp,
+            description: `Payment to ${sp.supplierName}`,
+            type: 'Supplier Payment',
+            debit: sp.amount, 
+            credit: 0, 
+            original: sp,
+        })
+    });
     expenses.forEach(e => {
+        if (!e.timestamp || !isValid(new Date(e.timestamp))) return;
         const isSalaryExpense = e.category === 'Salaries';
         const description = isSalaryExpense ? e.description.replace('Salary for ', '') : e.description;
         combined.push({
@@ -190,16 +201,20 @@ export default function LedgerPage() {
             original: e,
         })
     });
-    purchaseReturns.forEach(pr => combined.push({
-        id: `pr-${pr.id}`,
-        timestamp: pr.timestamp,
-        description: `Return to ${pr.supplier}: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
-        type: 'Purchase Return',
-        debit: pr.totalRefund,
-        credit: 0,
-        original: pr,
-    }));
+    purchaseReturns.forEach(pr => {
+        if (!pr.timestamp || !isValid(new Date(pr.timestamp))) return;
+        combined.push({
+            id: `pr-${pr.id}`,
+            timestamp: pr.timestamp,
+            description: `Return to ${pr.supplier}: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
+            type: 'Purchase Return',
+            debit: pr.totalRefund,
+            credit: 0,
+            original: pr,
+        })
+    });
     saleReturns.forEach(sr => {
+      if (!sr.timestamp || !isValid(new Date(sr.timestamp))) return;
       combined.push({
         id: `sr-${sr.id}`,
         timestamp: sr.timestamp,
@@ -210,16 +225,20 @@ export default function LedgerPage() {
         original: sr,
       });
     });
-    otherIncomes.forEach(oi => combined.push({
-        id: `oi-${oi.id}`,
-        timestamp: oi.timestamp,
-        description: `Income: ${oi.description}`,
-        type: 'Other Income',
-        debit: 0,
-        credit: oi.amount,
-        original: oi,
-    }));
+    otherIncomes.forEach(oi => {
+        if (!oi.timestamp || !isValid(new Date(oi.timestamp))) return;
+        combined.push({
+            id: `oi-${oi.id}`,
+            timestamp: oi.timestamp,
+            description: `Income: ${oi.description}`,
+            type: 'Other Income',
+            debit: 0,
+            credit: oi.amount,
+            original: oi,
+        })
+    });
     investments.forEach(inv => {
+        if (!inv.timestamp || !isValid(new Date(inv.timestamp))) return;
         if (inv.type === 'Investment') {
             combined.push({
                 id: `inv-${inv.id}`,
@@ -244,6 +263,7 @@ export default function LedgerPage() {
     });
 
     stockAdjustments.forEach(adj => {
+        if (!adj.timestamp || !isValid(new Date(adj.timestamp))) return;
         const adjDate = new Date(adj.timestamp);
         if (adj.adjustment > 0) { // Surplus
             const salePrice = fuelPrices[adj.fuelType] || 0;
@@ -750,5 +770,7 @@ export default function LedgerPage() {
 
     
 
+
+    
 
     
