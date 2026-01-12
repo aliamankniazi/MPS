@@ -142,13 +142,14 @@ export default function LedgerPage() {
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         const isSalary = cp.paymentMethod === 'Salary';
+        // For general journal, salary is a debit (expense), other payments are credit (cash in)
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
-          description: cp.notes || `Payment from ${cp.customerName}`,
+          description: cp.notes || (isSalary ? `Salary to ${cp.customerName}` : `Payment from ${cp.customerName}`),
           type: isSalary ? 'Salary' : 'Customer Payment',
-          debit: 0,
-          credit: cp.amount,
+          debit: isSalary ? cp.amount : 0,
+          credit: isSalary ? 0 : cp.amount,
           original: cp,
         })
     });
@@ -173,8 +174,8 @@ export default function LedgerPage() {
             timestamp: p.timestamp,
             description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
             type: 'Purchase',
-            credit: p.totalCost, 
-            debit: 0,
+            credit: 0, // In General Journal, a purchase on credit doesn't affect cash balance
+            debit: p.totalCost,
             original: p,
         })
     });
@@ -198,7 +199,7 @@ export default function LedgerPage() {
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
             description: description,
-            type: isSalaryExpense ? 'Salary Expense' : 'Expense',
+            type: 'Expense',
             debit: e.amount,
             credit: 0,
             original: e,
@@ -211,8 +212,8 @@ export default function LedgerPage() {
             timestamp: pr.timestamp,
             description: `Return to ${pr.supplier}: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
             type: 'Purchase Return',
-            debit: pr.totalRefund,
-            credit: 0,
+            debit: 0,
+            credit: pr.totalRefund,
             original: pr,
         })
     });
@@ -642,7 +643,7 @@ export default function LedgerPage() {
                                                 
                                                 const isSale = entry.type === 'Sale';
                                                 const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
-                                                const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
+                                                const isExpense = entry.type === 'Expense';
                                                 const isPurchase = entry.type === 'Purchase';
                                                 const isCashAdvance = entry.type === 'Cash Advance';
 

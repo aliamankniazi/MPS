@@ -99,7 +99,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: p.notes || `Payment Received (${p.paymentMethod})`,
+              description: p.notes || (isSalary ? `Salary Received` : `Payment Received (${p.paymentMethod})`),
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
