@@ -210,12 +210,12 @@ export default function EmployeeManagementPage() {
                     </CardDescription>
                 </div>
                  <div className="flex items-center gap-4">
-                    <Select value={positionFilter} onValueChange={setPositionFilter}>
+                    <Select value={positionFilter || 'all'} onValueChange={(value) => setPositionFilter(value === 'all' ? '' : value)}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Filter by position..." />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="">All Positions</SelectItem>
+                            <SelectItem value="all">All Positions</SelectItem>
                             {allPositions.map(pos => (
                                 <SelectItem key={pos} value={pos}>{pos}</SelectItem>
                             ))}
