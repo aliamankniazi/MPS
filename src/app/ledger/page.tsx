@@ -640,8 +640,7 @@ export default function LedgerPage() {
                                             {dayData.entries.slice().reverse().map((entry, index) => {
                                                 const date = new Date(entry.timestamp);
                                                 
-                                                const isCashSale = entry.type === 'Sale' && !entry.isCreditSale;
-                                                const isCreditSale = entry.type === 'Sale' && !!entry.isCreditSale;
+                                                const isSale = entry.type === 'Sale';
                                                 const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
                                                 const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
                                                 const isPurchase = entry.type === 'Purchase';
@@ -651,7 +650,7 @@ export default function LedgerPage() {
                                                     <TableRow key={entry.id}>
                                                         <TableCell className={cn(
                                                             "font-medium",
-                                                            (isCreditSale || isCashSale) && 'text-destructive',
+                                                            isSale && 'text-destructive',
                                                             isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
                                                             isPurchase && 'text-green-600',
@@ -662,7 +661,7 @@ export default function LedgerPage() {
                                                         </TableCell>
                                                         <TableCell className={cn(
                                                             "font-medium",
-                                                            (isCreditSale || isCashSale) && 'text-destructive',
+                                                             isSale && 'text-destructive',
                                                             isSalary && 'text-pink-600',
                                                             isExpense && 'text-destructive',
                                                             isPurchase && 'text-green-600',
@@ -673,19 +672,17 @@ export default function LedgerPage() {
                                                           <Badge 
                                                             variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                                             className={cn('text-xs', 
-                                                                (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-red-100 text-red-800 border-red-200',
-                                                                (entry.type === 'Sale' && entry.isCreditSale) && 'bg-red-100 text-red-800 border-red-200',
+                                                                isSale && 'bg-red-100 text-red-800 border-red-200',
                                                                 (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                 entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                entry.type === 'Salary Expense' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
+                                                                isSalary && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                isPurchase && 'bg-green-100 text-green-800 border-green-200',
                                                                 entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
                                                                 entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                                                 entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                                                 entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                                                 (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
-                                                                (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
+                                                                (isCashAdvance || isExpense || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                                                           )}
                                                           >
                                                             {entry.type === 'Customer Payment' ? 'Amount' : entry.type}
@@ -795,3 +792,6 @@ export default function LedgerPage() {
 
 
 
+
+
+    

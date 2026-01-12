@@ -355,6 +355,8 @@ export default function CustomerLedgerPage() {
                     const showSeparator = formattedDate && formattedDate !== lastDate;
                     lastDate = formattedDate;
 
+                    const isSale = entry.type === 'Sale';
+
                     return (
                       <React.Fragment key={entry.id}>
                         {showSeparator && (
@@ -367,7 +369,7 @@ export default function CustomerLedgerPage() {
                         <TableRow>
                           <TableCell className={cn(
                               "font-medium", 
-                              entry.type === 'Sale' && 'text-destructive',
+                              isSale && 'text-destructive',
                               entry.type === 'Purchase' && 'text-green-600', 
                               entry.type === 'Payment' && 'text-teal-600',
                               entry.type === 'Cash Advance' && 'text-destructive'
@@ -375,7 +377,7 @@ export default function CustomerLedgerPage() {
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                           </TableCell>
                           <TableCell className={cn(
-                              entry.type === 'Sale' && 'text-destructive',
+                              isSale && 'text-destructive',
                               entry.type === 'Salary' && 'text-pink-600', 
                               entry.type === 'Purchase' && 'text-green-600', 
                               entry.type === 'Payment' && 'text-teal-600',
@@ -385,7 +387,7 @@ export default function CustomerLedgerPage() {
                              <Badge 
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                 className={cn('text-xs', 
-                                    entry.type === 'Sale' && 'bg-red-100 text-red-800 border-red-200',
+                                    isSale && 'bg-red-100 text-red-800 border-red-200',
                                     (entry.type === 'Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                     entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
@@ -459,3 +461,4 @@ export default function CustomerLedgerPage() {
   );
 }
 
+    
