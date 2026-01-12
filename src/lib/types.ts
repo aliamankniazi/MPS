@@ -109,9 +109,19 @@ export interface Employee {
   position: string;
   salary: number;
   hireDate: string;
-  terminationDate?: string;
+  terminationDate?: string | null;
   timestamp: string;
 }
+
+export interface AttendanceRecord {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  date: string;
+  status: 'Present' | 'Absent' | 'Leave';
+  notes?: string;
+}
+
 
 export interface CustomerPayment {
   id: string;
@@ -224,3 +234,5 @@ export interface Role {
     name: string;
     permissions: Permission[];
 }
+
+    

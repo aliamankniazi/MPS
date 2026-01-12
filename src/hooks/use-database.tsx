@@ -12,6 +12,7 @@ import {
     useMemo
 } from 'react';
 import type { 
+    AttendanceRecord,
     BankAccount,
     BusinessPartner,
     CashAdvance,
@@ -59,6 +60,7 @@ const PATHS = {
     initialFuelStock: 'initialFuelStock',
     stockAdjustments: 'stockAdjustments',
     products: 'products',
+    attendance: 'attendance',
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -94,6 +96,7 @@ interface DatabaseState {
     businessPartners: Record<string, Omit<BusinessPartner, 'id'>>;
     stockAdjustments: Record<string, Omit<StockAdjustment, 'id'>>;
     products: Record<string, Omit<Product, 'id'>>;
+    attendance: Record<string, Omit<AttendanceRecord, 'id'>>;
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     isLoaded: boolean;
@@ -119,6 +122,7 @@ interface ProcessedDatabaseState {
     businessPartners: BusinessPartner[];
     stockAdjustments: StockAdjustment[];
     products: Product[];
+    attendance: AttendanceRecord[];
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     isLoaded: boolean;
@@ -163,6 +167,7 @@ interface DatabaseActions {
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id'>) => void;
+    addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     addProduct: (product: Omit<Product, 'id'>) => void;
@@ -187,7 +192,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
         cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-        stockAdjustments: {}, products: {},
+        stockAdjustments: {}, products: {}, attendance: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
         isLoaded: false,
@@ -253,6 +258,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(createSorter('name', 'asc')),
             stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(createSorter('timestamp')),
             products: objectToArray<Product>(state.products).sort(createSorter('name', 'asc')),
+            attendance: objectToArray<AttendanceRecord>(state.attendance).sort(createSorter('date')),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
             isLoaded: state.isLoaded,
@@ -383,6 +389,20 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const addProduct = (p: Omit<Product, 'id'>) => addEntity(PATHS.products, p);
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(PATHS.products, id, u);
     const deleteProduct = (id: string) => deleteEntity(PATHS.products, id);
+    
+    const addAttendance = (record: Omit<AttendanceRecord, 'id'>) => {
+        // Find if a record for this employee and date already exists to update it
+        const todayStr = record.date.substring(0, 10);
+        const existingRecord = processedState.attendance.find(
+          a => a.employeeId === record.employeeId && a.date.startsWith(todayStr)
+        );
+    
+        if (existingRecord) {
+          updateEntity(PATHS.attendance, existingRecord.id, { status: record.status });
+        } else {
+          addEntity(PATHS.attendance, record);
+        }
+    };
 
 
     const addBusinessPartner = (partner: Omit<BusinessPartner, 'id'>) => {
@@ -431,7 +451,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
             bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
             cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-            stockAdjustments: {}, products: {},
+            stockAdjustments: {}, products: {}, attendance: {},
             fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
             isLoaded: true
         });
@@ -480,6 +500,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateBusinessPartner,
         deleteBusinessPartner,
         addStockAdjustment,
+        addAttendance,
         setFuelStock,
         updateFuelPrice,
         addProduct,

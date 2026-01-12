@@ -11,17 +11,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { format, isToday } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Employee } from '@/lib/types';
+import type { Employee, AttendanceRecord } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const employeeSchema = z.object({
@@ -36,7 +37,7 @@ const employeeSchema = z.object({
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
 export default function EmployeeManagementPage() {
-  const { employees, addEmployee, updateEmployee, deleteEmployee, isLoaded } = useDatabase();
+  const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded } = useDatabase();
   const { toast } = useToast();
   
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
@@ -44,6 +45,9 @@ export default function EmployeeManagementPage() {
   const [showTerminated, setShowTerminated] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+  const [historyDate, setHistoryDate] = useState<Date | undefined>();
+
+  const today = useMemo(() => new Date(), []);
 
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EmployeeFormValues>({
@@ -97,9 +101,39 @@ export default function EmployeeManagementPage() {
   }
 
   const allPositions = useMemo(() => {
-    // Filter out falsy values (empty strings, null, undefined) before creating the Set.
     return [...new Set(employees.map(e => e.position).filter(Boolean))];
   }, [employees]);
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter(emp => !emp.terminationDate);
+  }, [employees]);
+  
+  const todayAttendance = useMemo(() => {
+    return attendance.filter(a => isToday(new Date(a.date)));
+  }, [attendance]);
+  
+  const handleAttendanceChange = (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
+    const existingRecord = todayAttendance.find(a => a.employeeId === employee.id);
+
+    addAttendance({
+      employeeId: employee.id,
+      employeeName: employee.name,
+      date: today.toISOString(),
+      status: status,
+    });
+
+    toast({
+      title: 'Attendance Marked',
+      description: `${employee.name} marked as ${status}.`,
+    });
+  };
+  
+  const filteredHistory = useMemo(() => {
+    if (!historyDate) return [];
+    const selectedDateStr = format(historyDate, 'yyyy-MM-dd');
+    return attendance.filter(a => a.date.startsWith(selectedDateStr));
+  }, [attendance, historyDate]);
+
 
   const filteredEmployees = useMemo(() => {
     let filtered = employees;
@@ -108,7 +142,7 @@ export default function EmployeeManagementPage() {
         filtered = filtered.filter(emp => !emp.terminationDate);
     }
     
-    if (positionFilter) {
+    if (positionFilter && positionFilter !== 'all') {
       filtered = filtered.filter(emp => emp.position === positionFilter);
     }
 
@@ -138,167 +172,263 @@ export default function EmployeeManagementPage() {
   return (
     <>
     <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus /> New Employee
-            </CardTitle>
-            <CardDescription>Add a new employee to your records.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Employee Name</Label>
-                <Input id="name" {...register('name')} placeholder="e.g., Jane Doe" />
-                {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="mobileNumber">Mobile Number</Label>
-                <Input id="mobileNumber" {...register('mobileNumber')} placeholder="e.g., 03001234567" />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="position">Position</Label>
-                <Input id="position" {...register('position')} placeholder="e.g., Pump Attendant, Manager" />
-                {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="salary">Salary (PKR)</Label>
-                <Input id="salary" type="number" {...register('salary')} placeholder="e.g., 25000" />
-                {errors.salary && <p className="text-sm text-destructive">{errors.salary.message}</p>}
-              </div>
+        <div className="lg:col-span-2 space-y-8">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">Daily Attendance - {format(today, 'PPP')}</CardTitle>
+                    <CardDescription>Mark the attendance for all active employees for today.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {activeEmployees.map(emp => {
+                                const currentStatus = todayAttendance.find(a => a.employeeId === emp.id)?.status;
+                                return (
+                                <TableRow key={emp.id}>
+                                    <TableCell>
+                                        <div className="font-medium">{emp.name}</div>
+                                        <div className="text-sm text-muted-foreground">{emp.position}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <RadioGroup 
+                                            defaultValue={currentStatus} 
+                                            className="flex gap-4"
+                                            onValueChange={(value) => handleAttendanceChange(emp, value as 'Present' | 'Absent' | 'Leave')}
+                                        >
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="Present" id={`present-${emp.id}`} />
+                                                <Label htmlFor={`present-${emp.id}`} className="text-green-600 font-medium">Present</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="Absent" id={`absent-${emp.id}`} />
+                                                <Label htmlFor={`absent-${emp.id}`} className="text-destructive font-medium">Absent</Label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="Leave" id={`leave-${emp.id}`} />
+                                                <Label htmlFor={`leave-${emp.id}`} className="text-blue-600 font-medium">Leave</Label>
+                                            </div>
+                                        </RadioGroup>
+                                    </TableCell>
+                                </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
 
-               <div className="space-y-2">
-                <Label>Date of Joining</Label>
-                <Controller
-                  name="hireDate"
-                  control={control}
-                  render={({ field }) => (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
-                    </Popover>
-                  )}
-                />
-                {errors.hireDate && <p className="text-sm text-destructive">{errors.hireDate.message}</p>}
-              </div>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Attendance History</CardTitle>
+                            <CardDescription>View past attendance records by selecting a date.</CardDescription>
+                        </div>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                variant={"outline"}
+                                className={cn("w-[280px] justify-start text-left font-normal", !historyDate && "text-muted-foreground")}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {historyDate ? format(historyDate, "PPP") : <span>Pick a date to view history</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={historyDate} onSelect={setHistoryDate} /></PopoverContent>
+                        </Popover>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                     <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Status</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredHistory.length > 0 ? filteredHistory.map(record => (
+                                <TableRow key={record.id}>
+                                    <TableCell className="font-medium">{record.employeeName}</TableCell>
+                                    <TableCell>
+                                        <span className={cn('font-semibold', 
+                                            record.status === 'Present' && 'text-green-600',
+                                            record.status === 'Absent' && 'text-destructive',
+                                            record.status === 'Leave' && 'text-blue-600'
+                                        )}>
+                                            {record.status}
+                                        </span>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
+                                        {historyDate ? 'No records found for this date.' : 'Select a date to view history.'}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        </div>
 
-
-              <Button type="submit" className="w-full">Add Employee</Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div>
+        <div className="lg:col-span-1">
+             <Card>
+                <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                     <List /> Employee List
                     </CardTitle>
                     <CardDescription>
                     A record of all your employees.
                     </CardDescription>
-                </div>
-                 <div className="flex items-center gap-4">
-                    <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value === 'all' ? '' : value)}>
-                        <SelectTrigger className="w-[180px]">
-                            <SelectValue placeholder="Filter by position..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Positions</SelectItem>
-                            {allPositions.map(pos => (
-                                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <div className="relative w-full max-w-xs">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by name..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
-                        />
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center gap-4 mb-4">
+                        <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
+                            <SelectTrigger className="w-[180px]">
+                                <SelectValue placeholder="Filter by position..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Positions</SelectItem>
+                                {allPositions.map(pos => (
+                                    <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <div className="relative w-full max-w-xs">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by name..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                     <div className="flex items-center space-x-2 mb-4">
                         <Label htmlFor="show-terminated" className="flex-shrink-0">Show Terminated</Label>
                         <Switch id="show-terminated" checked={showTerminated} onCheckedChange={setShowTerminated} />
                     </div>
-                </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isLoaded && filteredEmployees.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Employee Details</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead className="text-right">Salary</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredEmployees.map(emp => (
-                      <TableRow key={emp.id}>
-                        <TableCell>
-                          <div className="font-medium">{emp.name}</div>
-                          <div className="text-sm text-muted-foreground">{emp.mobileNumber}</div>
-                        </TableCell>
-                        <TableCell>{emp.position}</TableCell>
-                        <TableCell className="text-right">PKR {emp.salary.toLocaleString()}</TableCell>
-                        <TableCell>
-                          {emp.terminationDate 
-                            ? <span className="text-destructive">Terminated ({format(new Date(emp.terminationDate), 'PP')})</span> 
-                            : <span className="text-green-600">Active (Joined: {format(new Date(emp.hireDate), 'PP')})</span>}
-                        </TableCell>
-                        <TableCell className="text-center space-x-0">
-                           <Button variant="ghost" size="icon" title="Edit" onClick={() => setEmployeeToEdit(emp)}>
-                                <Edit className="w-4 h-4" />
-                           </Button>
-                           {emp.terminationDate ? (
-                             <Button variant="ghost" size="icon" title="Reactivate Employee" className="text-green-600 hover:text-green-700" onClick={() => handleReactivate(emp)}>
-                                <UserCheck className="w-4 h-4" />
-                             </Button>
-                           ) : (
-                             <Button variant="ghost" size="icon" title="Terminate Employee" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToEdit(emp)}>
-                                <UserX className="w-4 h-4" />
-                             </Button>
-                           )}
-                           <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToDelete(emp)}>
-                                <Trash2 className="w-4 h-4" />
-                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                <Users className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">
-                    {searchTerm || positionFilter ? 'No Matching Employees' : 'No Employees Found'}
-                </h3>
-                <p>
-                    {searchTerm || positionFilter ? 'Try a different search or filter.' : 'Use the form to add your first employee.'}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+
+                    {isLoaded && filteredEmployees.length > 0 ? (
+                    <Table>
+                        <TableHeader>
+                        <TableRow>
+                            <TableHead>Employee Details</TableHead>
+                            <TableHead className="text-center">Actions</TableHead>
+                        </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                        {filteredEmployees.map(emp => (
+                            <TableRow key={emp.id}>
+                                <TableCell>
+                                <div className="font-medium">{emp.name}</div>
+                                <div className="text-sm text-muted-foreground">{emp.position}</div>
+                                <div className={`text-xs ${emp.terminationDate ? 'text-destructive' : 'text-green-600'}`}>
+                                    {emp.terminationDate 
+                                    ? `Terminated on ${format(new Date(emp.terminationDate), 'PP')}` 
+                                    : `Joined: ${format(new Date(emp.hireDate), 'PP')}`}
+                                </div>
+                                </TableCell>
+                                <TableCell className="text-center space-x-0">
+                                <Button variant="ghost" size="icon" title="Edit" onClick={() => setEmployeeToEdit(emp)}>
+                                        <Edit className="w-4 h-4" />
+                                </Button>
+                                {emp.terminationDate ? (
+                                    <Button variant="ghost" size="icon" title="Reactivate Employee" className="text-green-600 hover:text-green-700" onClick={() => handleReactivate(emp)}>
+                                        <UserCheck className="w-4 h-4" />
+                                    </Button>
+                                ) : (
+                                    <Button variant="ghost" size="icon" title="Terminate Employee" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToEdit(emp)}>
+                                        <UserX className="w-4 h-4" />
+                                    </Button>
+                                )}
+                                <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToDelete(emp)}>
+                                        <Trash2 className="w-4 h-4" />
+                                </Button>
+                                </TableCell>
+                            </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    ) : (
+                    <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                        <Users className="w-16 h-16" />
+                        <h3 className="text-xl font-semibold">
+                            {searchTerm || positionFilter ? 'No Matching Employees' : 'No Employees Found'}
+                        </h3>
+                        <p>
+                            {searchTerm || positionFilter ? 'Try a different search or filter.' : 'Use the form to add your first employee.'}
+                        </p>
+                    </div>
+                    )}
+                </CardContent>
+            </Card>
+            <Card className="mt-8">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                    <UserPlus /> New Employee
+                    </CardTitle>
+                    <CardDescription>Add a new employee to your records.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Employee Name</Label>
+                        <Input id="name" {...register('name')} placeholder="e.g., Jane Doe" />
+                        {errors.name && <p className="text-sm text-destructive">{errors.name.message}</p>}
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label htmlFor="mobileNumber">Mobile Number</Label>
+                        <Input id="mobileNumber" {...register('mobileNumber')} placeholder="e.g., 03001234567" />
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label htmlFor="position">Position</Label>
+                        <Input id="position" {...register('position')} placeholder="e.g., Pump Attendant, Manager" />
+                        {errors.position && <p className="text-sm text-destructive">{errors.position.message}</p>}
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <Label htmlFor="salary">Salary (PKR)</Label>
+                        <Input id="salary" type="number" {...register('salary')} placeholder="e.g., 25000" />
+                        {errors.salary && <p className="text-sm text-destructive">{errors.salary.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label>Date of Joining</Label>
+                        <Controller
+                        name="hireDate"
+                        control={control}
+                        render={({ field }) => (
+                            <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                            </Popover>
+                        )}
+                        />
+                        {errors.hireDate && <p className="text-sm text-destructive">{errors.hireDate.message}</p>}
+                    </div>
+
+
+                    <Button type="submit" className="w-full">Add Employee</Button>
+                    </form>
+                </CardContent>
+                </Card>
+        </div>
     </div>
     
     <Dialog open={!!employeeToEdit} onOpenChange={(isOpen) => !isOpen && setEmployeeToEdit(null)}>
@@ -380,3 +510,5 @@ export default function EmployeeManagementPage() {
     </>
   );
 }
+
+    

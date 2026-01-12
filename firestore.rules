@@ -28,5 +28,11 @@ service cloud.firestore {
     match /products/{productId} {
       allow read, write: if isSignedIn();
     }
+
+    match /attendance/{attendanceId} {
+      allow read, write: if isSignedIn();
+    }
   }
 }
+
+    
