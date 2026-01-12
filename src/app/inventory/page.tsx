@@ -23,9 +23,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
-const MAX_CAPACITY: Record<FuelType, number> = {
+const MAX_CAPACITY: Record<string, number> = {
   'Unleaded': 20000,
   'Premium': 10000,
   'Diesel': 25000,
@@ -51,6 +49,15 @@ export default function InventoryPage() {
   const { toast } = useToast();
   const [productToEdit, setProductToEdit] = React.useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
+
+  const mainProducts = React.useMemo(() => {
+    return products.filter(p => p.category === 'Main Product');
+  }, [products]);
+
+  const supplementaryProducts = React.useMemo(() => {
+    return products.filter(p => p.category === 'Supplementary Product');
+  }, [products]);
+
 
   const {
       register: registerProduct,
@@ -106,7 +113,7 @@ export default function InventoryPage() {
             <Package /> Fuel Inventory
           </CardTitle>
           <CardDescription>
-            Current stock levels for all fuel types.
+            Current stock levels for all main fuel products.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -118,18 +125,18 @@ export default function InventoryPage() {
                 <Skeleton className="h-4 w-full" />
               </div>
             ))
-          ) : FUEL_TYPES.length > 0 ? (
+          ) : mainProducts.length > 0 ? (
             <div className="grid gap-8 sm:grid-cols-1 lg:grid-cols-3">
-              {FUEL_TYPES.map(fuel => {
-                const currentStock = fuelStock[fuel] || 0;
-                const maxStock = MAX_CAPACITY[fuel];
+              {mainProducts.map(product => {
+                const currentStock = fuelStock[product.name as FuelType] || 0;
+                const maxStock = MAX_CAPACITY[product.name] || 20000;
                 const percentage = Math.min((currentStock / maxStock) * 100, 100);
                 
                 return (
-                   <Card key={fuel} className="flex flex-col">
+                   <Card key={product.id} className="flex flex-col">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                           <Droplets className="w-6 h-6 text-primary" /> {fuel}
+                           <Droplets className="w-6 h-6 text-primary" /> {product.name}
                         </CardTitle>
                     </CardHeader>
                      <CardContent className="flex-grow space-y-4">
@@ -137,7 +144,7 @@ export default function InventoryPage() {
                             <p className="text-3xl font-bold tracking-tighter">
                                 {currentStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
-                            <p className="text-muted-foreground">Litres in Stock</p>
+                            <p className="text-muted-foreground">{product.unit} in Stock</p>
                         </div>
                         <div className="space-y-2">
                            <Progress value={percentage} className="h-3 [&>div]:bg-primary" />
@@ -155,8 +162,8 @@ export default function InventoryPage() {
           ) : (
              <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Package className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Inventory Data</h3>
-                <p>Fuel stock levels are not available.</p>
+                <h3 className="text-xl font-semibold">No Main Products Found</h3>
+                <p>Add products with the category 'Main Product' to see them here.</p>
              </div>
           )}
           <div className="mt-6 text-center text-sm text-muted-foreground">
@@ -167,8 +174,8 @@ export default function InventoryPage() {
       
       <Card>
         <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2"><PlusCircle /> Add New Product</CardTitle>
-            <CardDescription>Add a new main or supplementary product to your catalog.</CardDescription>
+            <CardTitle className="text-xl flex items-center gap-2"><PlusCircle /> Product Catalog Management</CardTitle>
+            <CardDescription>Add, edit, or remove products from your catalog.</CardDescription>
         </CardHeader>
          <CardContent>
              <form onSubmit={handleSubmitProduct(onProductSubmit)} className="space-y-4">
@@ -209,7 +216,7 @@ export default function InventoryPage() {
                  <Button type="submit">Add Product</Button>
              </form>
              <Separator className="my-6" />
-             <h4 className="text-md font-medium mb-4">Product Catalog</h4>
+             <h4 className="text-md font-medium mb-4">Supplementary Products</h4>
              <div className="rounded-md border">
                 <Table>
                     <TableHeader>
@@ -221,7 +228,7 @@ export default function InventoryPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoaded && products && products.length > 0 ? products.map(p => (
+                        {isLoaded && supplementaryProducts && supplementaryProducts.length > 0 ? supplementaryProducts.map(p => (
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.name}</TableCell>
                                 <TableCell>{p.category}</TableCell>
@@ -236,7 +243,7 @@ export default function InventoryPage() {
                         )) : (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-24 text-center">
-                                    {isLoaded ? 'No products added yet.' : 'Loading products...'}
+                                    {isLoaded ? 'No supplementary products added yet.' : 'Loading products...'}
                                 </TableCell>
                             </TableRow>
                         )}
