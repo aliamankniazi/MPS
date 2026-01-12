@@ -35,6 +35,7 @@ type LedgerEntry = {
   debit: number;
   credit: number;
   balance: number;
+  original: any;
 };
 
 export default function CustomerLedgerPage() {
@@ -91,6 +92,7 @@ export default function CustomerLedgerPage() {
           type: 'Sale',
           debit: tx.totalAmount,
           credit: 0,
+          original: tx
         }));
 
         customerPaymentsReceived.forEach(p => {
@@ -102,6 +104,7 @@ export default function CustomerLedgerPage() {
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
+              original: p
             })
         });
         
@@ -113,6 +116,7 @@ export default function CustomerLedgerPage() {
               type: 'Cash Advance',
               debit: ca.amount,
               credit: 0,
+              original: ca
             })
         });
     } else if (entityType === 'Supplier') {
@@ -126,6 +130,7 @@ export default function CustomerLedgerPage() {
             type: 'Purchase',
             credit: p.totalCost, // Credit to supplier's account
             debit: 0,
+            original: p
         }));
 
         supplierPaymentsMade.forEach(sp => combined.push({
@@ -135,6 +140,7 @@ export default function CustomerLedgerPage() {
             type: 'Supplier Payment',
             debit: sp.amount,
             credit: 0,
+            original: sp
         }));
     } else if (entityType === 'Partner') {
         const partnerInvestments = investments.filter(inv => inv.partnerId === entityId);
@@ -148,6 +154,7 @@ export default function CustomerLedgerPage() {
                     type: 'Investment',
                     credit: inv.amount, // Credit to partner's capital account
                     debit: 0,
+                    original: inv
                 });
             } else {
                 combined.push({
@@ -157,6 +164,7 @@ export default function CustomerLedgerPage() {
                     type: 'Withdrawal',
                     debit: inv.amount, // Debit from partner's capital account
                     credit: 0,
+                    original: inv
                 });
             }
         });
