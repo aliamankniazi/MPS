@@ -37,7 +37,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
-  const { id: entityId } = params;
+  const entityId = params.id;
 
   const { 
     customers, 
