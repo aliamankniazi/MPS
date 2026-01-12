@@ -37,20 +37,20 @@ const productSchema = z.object({
 type ProductFormValues = z.infer<typeof productSchema>;
 
 export default function InventoryPage() {
-  const { 
-    fuelStock, 
+  const {
+    fuelStock,
     products,
     addProduct,
-    isLoaded 
+    isLoaded
   } = useDatabase();
   const { toast } = useToast();
 
-  const { 
-      register: registerProduct, 
-      handleSubmit: handleSubmitProduct, 
-      reset: resetProduct, 
+  const {
+      register: registerProduct,
+      handleSubmit: handleSubmitProduct,
+      reset: resetProduct,
       control: controlProduct,
-      formState: { errors: productErrors } 
+      formState: { errors: productErrors }
   } = useForm<ProductFormValues>({
       resolver: zodResolver(productSchema)
   });
@@ -129,7 +129,7 @@ export default function InventoryPage() {
              </div>
           )}
           <div className="mt-6 text-center text-sm text-muted-foreground">
-             <p>Need to correct the stock levels? <Button variant="link" asChild className="p-0 h-auto"><Link href="/settings">Adjust inventory in settings</Link></Button>.</p>
+             <p>Need to correct the stock levels? <Button variant="link" asChild className="p-0 h-auto"><Link href="/stock-adjustment">Adjust inventory manually</Link></Button>.</p>
           </div>
         </CardContent>
       </Card>
