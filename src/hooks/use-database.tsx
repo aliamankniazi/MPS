@@ -24,6 +24,7 @@ import type {
     Machine,
     MachineReading,
     OtherIncome,
+    Product,
     Purchase,
     PurchaseReturn,
     SaleReturn,
@@ -57,6 +58,7 @@ const PATHS = {
     fuelPrices: 'fuelPrices',
     initialFuelStock: 'initialFuelStock',
     stockAdjustments: 'stockAdjustments',
+    products: 'products',
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -91,6 +93,7 @@ interface DatabaseState {
     investments: Record<string, Omit<Investment, 'id'>>;
     businessPartners: Record<string, Omit<BusinessPartner, 'id'>>;
     stockAdjustments: Record<string, Omit<StockAdjustment, 'id'>>;
+    products: Record<string, Omit<Product, 'id'>>;
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     isLoaded: boolean;
@@ -115,6 +118,7 @@ interface ProcessedDatabaseState {
     investments: Investment[];
     businessPartners: BusinessPartner[];
     stockAdjustments: StockAdjustment[];
+    products: Product[];
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     isLoaded: boolean;
@@ -161,6 +165,9 @@ interface DatabaseActions {
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
+    addProduct: (product: Omit<Product, 'id'>) => void;
+    updateProduct: (id: string, updates: Partial<Product>) => void;
+    deleteProduct: (id: string) => void;
     clearAllData: () => void;
 }
 
@@ -180,7 +187,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
         cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-        stockAdjustments: {},
+        stockAdjustments: {}, products: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
         isLoaded: false,
@@ -245,6 +252,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             investments: objectToArray<Investment>(state.investments).sort(createSorter('timestamp')),
             businessPartners: objectToArray<BusinessPartner>(state.businessPartners).sort(createSorter('name', 'asc')),
             stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(createSorter('timestamp')),
+            products: objectToArray<Product>(state.products).sort(createSorter('name', 'asc')),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
             isLoaded: state.isLoaded,
@@ -372,6 +380,10 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
     const addStockAdjustment = (adj: Omit<StockAdjustment, 'id'>) => addEntity(PATHS.stockAdjustments, adj);
 
+    const addProduct = (p: Omit<Product, 'id'>) => addEntity(PATHS.products, p);
+    const updateProduct = (id: string, u: Partial<Product>) => updateEntity(PATHS.products, id, u);
+    const deleteProduct = (id: string) => deleteEntity(PATHS.products, id);
+
 
     const addBusinessPartner = (partner: Omit<BusinessPartner, 'id'>) => {
         const customerRecord = addCustomer({
@@ -419,7 +431,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
             bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
             cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-            stockAdjustments: {},
+            stockAdjustments: {}, products: {},
             fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
             isLoaded: true
         });
@@ -470,6 +482,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addStockAdjustment,
         setFuelStock,
         updateFuelPrice,
+        addProduct,
+        updateProduct,
+        deleteProduct,
         clearAllData,
     };
 
@@ -487,3 +502,5 @@ export const useDatabase = () => {
     }
     return context;
 };
+
+    
