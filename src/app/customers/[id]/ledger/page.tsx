@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -32,14 +31,15 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal';
+  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Salary Expense';
   debit: number;
   credit: number;
   balance: number;
 };
 
 export default function CustomerLedgerPage() {
-  const { id: entityId } = useParams() as { id: string };
+  const params = useParams();
+  const entityId = params.id as string;
 
 
   const { 
@@ -99,7 +99,7 @@ export default function CustomerLedgerPage() {
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: p.notes || (isSalary ? `Salary Received` : `Payment Received (${p.paymentMethod})`),
+              description: p.notes || (isSalary ? `Salary to ${p.customerName}` : `Payment from ${p.customerName}`),
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
@@ -355,6 +355,7 @@ export default function CustomerLedgerPage() {
                     lastDate = formattedDate;
 
                     const isSale = entry.type === 'Sale';
+                    const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
 
                     return (
                       <React.Fragment key={entry.id}>
@@ -377,7 +378,7 @@ export default function CustomerLedgerPage() {
                           </TableCell>
                           <TableCell className={cn(
                               isSale && 'text-destructive',
-                              entry.type === 'Salary' && 'text-pink-600', 
+                              isSalary && 'text-pink-600', 
                               entry.type === 'Purchase' && 'text-green-600', 
                               entry.type === 'Payment' && 'text-teal-600',
                               entry.type === 'Cash Advance' && 'text-destructive'
@@ -389,7 +390,7 @@ export default function CustomerLedgerPage() {
                                     isSale && 'bg-red-100 text-red-800 border-red-200',
                                     (entry.type === 'Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                    entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
+                                    isSalary && 'bg-pink-100 text-pink-800 border-pink-200',
                                     entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
