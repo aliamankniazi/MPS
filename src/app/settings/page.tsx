@@ -364,7 +364,9 @@ export default function SettingsPage() {
                                     <TableRow key={p.id}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>{p.category}</TableCell>
-                                        <TableCell className="text-right font-mono">PKR {p.price.toFixed(2)} / {p.unit}</TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {typeof p.price === 'number' ? `PKR ${p.price.toFixed(2)} / ${p.unit}` : 'N/A'}
+                                        </TableCell>
                                         <TableCell className="text-center">
                                             <Button variant="ghost" size="icon" title="Edit Product" onClick={() => setProductToEdit(p)}><Edit className="w-4 h-4" /></Button>
                                             <Button variant="ghost" size="icon" title="Delete Product" className="text-destructive" onClick={() => setProductToDelete(p)}><Trash2 className="w-4 h-4" /></Button>
@@ -536,3 +538,5 @@ export default function SettingsPage() {
     </>
   );
 }
+
+    
