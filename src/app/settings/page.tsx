@@ -93,7 +93,7 @@ export default function SettingsPage() {
   });
 
   const allUnits = React.useMemo(() => {
-    const unitsFromProducts = products.map(p => p.unit);
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
     return [...new Set(['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle', ...unitsFromProducts])];
   }, [products]);
 
