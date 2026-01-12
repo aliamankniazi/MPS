@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ArrowRight, ListOrdered } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ArrowRight, ListOrdered, Pencil, BookText } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -408,8 +408,13 @@ export default function AllTransactionsPage() {
                                 </TableCell>
                                 <TableCell className="p-2 text-right">
                                     <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/customers/${customer.id}/ledger`}>
-                                            <ArrowRight className="w-4 h-4" />
+                                        <Link href={`/customers/${customer.id}/ledger`} title="View Ledger">
+                                            <BookText className="w-4 h-4" />
+                                        </Link>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" asChild>
+                                        <Link href="/customers" title="Edit Customer">
+                                            <Pencil className="w-4 h-4" />
                                         </Link>
                                     </Button>
                                 </TableCell>
@@ -443,16 +448,3 @@ export default function AllTransactionsPage() {
     </>
   );
 }
-
-    
-
-
-
-
-
-
-
-    
-
-
-

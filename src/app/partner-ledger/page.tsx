@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText } from 'lucide-react';
+import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -414,12 +414,20 @@ export default function PartnerLedgerPage() {
                           <TableCell className={`text-right font-semibold font-mono ${entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
                               {entry.balance?.toFixed(2)}
                           </TableCell>
-                          <TableCell className="text-center">
-                              <Button asChild variant="ghost" size="icon" title="View Partner Ledger">
-                                <Link href={`/customers/${entry.entityId}/ledger`}>
-                                  <BookText className="w-5 h-5" />
-                                </Link>
-                              </Button>
+                          <TableCell className="text-center space-x-0">
+                                <Button asChild variant="ghost" size="icon" title="View Ledger">
+                                   <Link href={`/customers/${entry.entityId}/ledger`}>
+                                     <BookText className="w-4 h-4" />
+                                   </Link>
+                                </Button>
+                                <Button asChild variant="ghost" size="icon" title="Edit Partner">
+                                   <Link href="/customers">
+                                     <Pencil className="w-4 h-4" />
+                                   </Link>
+                                </Button>
+                                <Button variant="ghost" size="icon" title="Delete Entry" className="text-destructive hover:text-destructive">
+                                    <Trash2 className="w-4 h-4" />
+                                </Button>
                           </TableCell>
                         </TableRow>
                       </React.Fragment>
