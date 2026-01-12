@@ -37,8 +37,6 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
-  const entityId = params.id;
-
   const { 
     customers, 
     suppliers, 
@@ -63,6 +61,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
 
   const { entity, entityType } = useMemo(() => {
     if (!isLoaded) return { entity: null, entityType: null };
+    const entityId = params.id;
     const customer = customers.find(c => c.id === entityId);
     if (customer) return { entity: customer, entityType: 'Customer' };
     const supplier = suppliers.find(s => s.id === entityId);
@@ -70,11 +69,11 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     const partner = businessPartners.find(p => p.id === entityId);
     if (partner) return { entity: partner, entityType: 'Partner' };
     return { entity: null, entityType: null };
-  }, [entityId, customers, suppliers, businessPartners, isLoaded]);
+  }, [params.id, customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, finalBalance } = useMemo(() => {
     if (!entity) return { entries: [], finalBalance: 0 };
-
+    const entityId = params.id;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -185,7 +184,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, params.id]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
