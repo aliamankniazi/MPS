@@ -179,47 +179,38 @@ export default function EmployeeManagementPage() {
                     <CardDescription>Mark the attendance for all active employees for today.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Employee</TableHead>
-                                <TableHead>Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {activeEmployees.map(emp => {
-                                const currentStatus = todayAttendance.find(a => a.employeeId === emp.id)?.status;
-                                return (
-                                <TableRow key={emp.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{emp.name}</div>
-                                        <div className="text-sm text-muted-foreground">{emp.position}</div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <RadioGroup 
-                                            defaultValue={currentStatus} 
-                                            className="flex gap-4"
-                                            onValueChange={(value) => handleAttendanceChange(emp, value as 'Present' | 'Absent' | 'Leave')}
-                                        >
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="Present" id={`present-${emp.id}`} />
-                                                <Label htmlFor={`present-${emp.id}`} className="text-green-600 font-medium">Present</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="Absent" id={`absent-${emp.id}`} />
-                                                <Label htmlFor={`absent-${emp.id}`} className="text-destructive font-medium">Absent</Label>
-                                            </div>
-                                            <div className="flex items-center space-x-2">
-                                                <RadioGroupItem value="Leave" id={`leave-${emp.id}`} />
-                                                <Label htmlFor={`leave-${emp.id}`} className="text-blue-600 font-medium">Leave</Label>
-                                            </div>
-                                        </RadioGroup>
-                                    </TableCell>
-                                </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeEmployees.map(emp => {
+                             const currentStatus = todayAttendance.find(a => a.employeeId === emp.id)?.status;
+                             return (
+                                <Card key={emp.id} className="p-4">
+                                    <div className="font-medium text-center">{emp.name}</div>
+                                    <div className="text-sm text-muted-foreground text-center mb-4">{emp.position}</div>
+                                    <RadioGroup 
+                                        defaultValue={currentStatus} 
+                                        className="grid grid-cols-3 gap-2"
+                                        onValueChange={(value) => handleAttendanceChange(emp, value as 'Present' | 'Absent' | 'Leave')}
+                                    >
+                                        <Label htmlFor={`present-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Present' && 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300')}>
+                                            <RadioGroupItem value="Present" id={`present-${emp.id}`} className="sr-only" />
+                                            <UserCheck className="w-5 h-5"/>
+                                            <span className="text-xs font-semibold">Present</span>
+                                        </Label>
+                                         <Label htmlFor={`absent-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}>
+                                            <RadioGroupItem value="Absent" id={`absent-${emp.id}`} className="sr-only" />
+                                            <UserX className="w-5 h-5"/>
+                                            <span className="text-xs font-semibold">Absent</span>
+                                        </Label>
+                                         <Label htmlFor={`leave-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}>
+                                            <RadioGroupItem value="Leave" id={`leave-${emp.id}`} className="sr-only" />
+                                            <Clock className="w-5 h-5"/>
+                                            <span className="text-xs font-semibold">Leave</span>
+                                        </Label>
+                                    </RadioGroup>
+                                </Card>
+                             )
+                        })}
+                    </div>
                 </CardContent>
             </Card>
 
@@ -291,7 +282,7 @@ export default function EmployeeManagementPage() {
                 </CardHeader>
                 <CardContent>
                     <div className="flex items-center gap-4 mb-4">
-                        <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value)}>
+                        <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value === 'all' ? '' : value)}>
                             <SelectTrigger className="w-[180px]">
                                 <SelectValue placeholder="Filter by position..." />
                             </SelectTrigger>
@@ -510,5 +501,6 @@ export default function EmployeeManagementPage() {
     </>
   );
 }
+    
 
     
