@@ -116,10 +116,13 @@ export default function SalaryPaymentPage() {
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
     if (!employee) return;
+    
+    const salaryDescription = `Salary for ${employee.name} (${data.salaryMonth} ${data.salaryYear})`;
+    const paymentNotes = data.notes ? `${salaryDescription} - ${data.notes}` : salaryDescription;
 
     // 1. Log the salary as an expense
     addExpense({
-      description: `Salary for ${employee.name} for ${data.salaryMonth} ${data.salaryYear}`,
+      description: salaryDescription,
       category: 'Salaries',
       amount: employee.salary,
       timestamp: data.postingDate.toISOString(),
@@ -149,7 +152,7 @@ export default function SalaryPaymentPage() {
             amount: employee.salary,
             paymentMethod: 'Salary',
             timestamp: data.postingDate.toISOString(),
-            notes: `Salary for ${data.salaryMonth} ${data.salaryYear}`,
+            notes: paymentNotes,
         });
     }
 
@@ -284,5 +287,7 @@ export default function SalaryPaymentPage() {
     </div>
   );
 }
+
+    
 
     
