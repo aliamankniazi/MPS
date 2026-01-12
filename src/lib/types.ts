@@ -88,7 +88,9 @@ export interface Supplier {
   contact?: string;
   vehicleNumber?: string;
   driverName?: string;
+  driverContact?: string;
   helperName?: string;
+  helperContact?: string;
   timestamp: string;
 }
 

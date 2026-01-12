@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus, Package, Edit, PlusCircle } from 'lucide-react';
+import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus, Package, Edit, PlusCircle, Phone } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,7 +39,9 @@ const supplierSchema = z.object({
   contact: z.string().optional(),
   vehicleNumber: z.string().optional(),
   driverName: z.string().optional(),
+  driverContact: z.string().optional(),
   helperName: z.string().optional(),
+  helperContact: z.string().optional(),
 });
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
@@ -95,15 +97,13 @@ export default function SettingsPage() {
   const allUnits = React.useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
     const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
-    // Normalize to lowercase to prevent duplicates like 'Ltr' and 'ltr'
     const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
-    // Use Set to get unique values, then map back to original case for display if needed (or just keep lowercase)
     const uniqueUnits = [...new Set(combinedUnits)];
-    // Find the original casing for the unique units to make it look nicer in the dropdown
     return uniqueUnits.map(lowerUnit => {
         return unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit) || lowerUnit;
-    });
+    }).filter(Boolean);
   }, [products]);
+
 
   React.useEffect(() => {
       if (productToEdit) {
@@ -208,8 +208,16 @@ export default function SettingsPage() {
                                 <Input id="driverName" {...registerSupplier('driverName')} placeholder="e.g., Ali Khan" />
                             </div>
                             <div className="space-y-2">
+                                <Label htmlFor="driverContact">Driver's Contact (Optional)</Label>
+                                <Input id="driverContact" {...registerSupplier('driverContact')} placeholder="e.g., 0301-7654321" />
+                            </div>
+                            <div className="space-y-2">
                                 <Label htmlFor="helperName">Helper's Name (Optional)</Label>
                                 <Input id="helperName" {...registerSupplier('helperName')} placeholder="e.g., Ahmed" />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="helperContact">Helper's Contact (Optional)</Label>
+                                <Input id="helperContact" {...registerSupplier('helperContact')} placeholder="e.g., 0302-1122334" />
                             </div>
                         </div>
                         <Button type="submit">Add Supplier</Button>
@@ -234,8 +242,8 @@ export default function SettingsPage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2 text-sm"><Car className="w-4 h-4"/> {s.vehicleNumber || 'N/A'}</div>
-                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.driverName || 'N/A'} (Driver)</div>
-                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.helperName || 'N/A'} (Helper)</div>
+                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.driverName || 'N/A'} <span className="text-muted-foreground">{s.driverContact || ''}</span></div>
+                                            <div className="flex items-center gap-2 text-sm"><User className="w-4 h-4"/> {s.helperName || 'N/A'} <span className="text-muted-foreground">{s.helperContact || ''}</span></div>
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Button asChild variant="ghost" size="icon" title="View Ledger">
@@ -546,5 +554,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
