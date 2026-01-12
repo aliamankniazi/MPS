@@ -114,16 +114,18 @@ export default function AllTransactionsPage() {
     }));
 
     
-    const expenseEntries: CombinedEntry[] = expenses.map(e => ({
-        id: `exp-${e.id}`,
-        originalId: e.id,
-        timestamp: e.timestamp,
-        type: 'Expense',
-        partner: 'Internal',
-        details: e.description,
-        amount: e.amount,
-        original: { ...e },
-    }));
+    const expenseEntries: CombinedEntry[] = expenses
+        .filter(e => e.category !== 'Salaries') // Exclude salary expenses to avoid duplicates
+        .map(e => ({
+            id: `exp-${e.id}`,
+            originalId: e.id,
+            timestamp: e.timestamp,
+            type: 'Expense',
+            partner: 'Internal',
+            details: e.description,
+            amount: e.amount,
+            original: { ...e },
+        }));
 
 
     const allPurchases: CombinedEntry[] = purchases.map(p => ({
@@ -451,5 +453,6 @@ export default function AllTransactionsPage() {
 
 
     
+
 
 

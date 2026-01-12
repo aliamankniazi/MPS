@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -194,7 +193,9 @@ export default function LedgerPage() {
     expenses.forEach(e => {
         if (!e.timestamp || !isValid(new Date(e.timestamp))) return;
         const isSalaryExpense = e.category === 'Salaries';
-        const description = isSalaryExpense ? e.description.replace('Salary for ', '') : e.description;
+        if (isSalaryExpense) return; // Exclude salary expenses as they are handled by CustomerPayment 'Salary' type
+
+        const description = e.description;
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
