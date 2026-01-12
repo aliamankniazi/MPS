@@ -110,7 +110,7 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -125,7 +125,7 @@ export default function SalesPage() {
   });
 
   const { customerId } = watch();
-  const { quantity, price, product: selectedProductName } = watchItem();
+  const { quantity, price, product: selectedProductId } = watchItem();
 
   useEffect(() => {
     const total = (quantity || 0) * (price || 0);
@@ -133,15 +133,20 @@ export default function SalesPage() {
   }, [quantity, price, setItemValue]);
 
   useEffect(() => {
-    if (selectedProductName) {
-        const productDetails = products.find(p => p.id === selectedProductName);
+    if (selectedProductId) {
+        const productDetails = products.find(p => p.id === selectedProductId);
         if (productDetails) {
-            setItemValue('price', productDetails.price);
+            
+            const lastTransactionForProduct = transactions
+                .filter(t => t.product === productDetails.name)
+                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+            setItemValue('price', lastTransactionForProduct?.pricePerLitre ?? productDetails.price);
             setItemValue('unit', productDetails.unit);
             setItemValue('product', productDetails.name);
         }
     }
-  }, [selectedProductName, products, setItemValue]);
+  }, [selectedProductId, products, transactions, setItemValue]);
 
   useEffect(() => {
     if (!customerId || customerId === 'walkin') {
