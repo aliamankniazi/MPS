@@ -199,29 +199,28 @@ export default function AllTransactionsPage() {
   };
   
   const getAmountClass = (entry: CombinedEntry) => {
-    if (entry.type === 'Purchase') return 'text-green-600';
-    if (entry.isCreditSale) return 'text-destructive';
-    if (entry.type === 'Salary') return 'text-pink-600';
-    if (entry.type === 'Cash Advance') return 'text-destructive';
       switch(entry.type) {
           case 'Sale': return 'text-destructive';
           case 'Customer Payment': return 'text-teal-600';
+          case 'Purchase': return 'text-green-600';
           case 'Purchase Return': return 'text-blue-600';
+          case 'Salary': return 'text-pink-600';
           case 'Expense': return 'text-destructive';
+          case 'Cash Advance': return 'text-destructive';
           default: return '';
       }
   }
 
   const getRowClass = (entry: CombinedEntry) => {
-    if (entry.type === 'Purchase') return 'text-green-600';
-    const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
-    if (isWalkinCashSale) return 'text-destructive';
-    if (entry.isCreditSale) return 'text-destructive';
-    if (entry.type === 'Salary') return 'text-pink-600';
-    if (entry.type === 'Expense') return 'text-destructive';
-    if (entry.type === 'Cash Advance') return 'text-destructive';
-    if (entry.type === 'Customer Payment') return 'text-teal-600';
-    return '';
+    switch(entry.type) {
+        case 'Sale': return 'text-destructive';
+        case 'Customer Payment': return 'text-teal-600';
+        case 'Purchase': return 'text-green-600';
+        case 'Salary': return 'text-pink-600';
+        case 'Expense': return 'text-destructive';
+        case 'Cash Advance': return 'text-destructive';
+        default: return '';
+    }
   };
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
@@ -307,17 +306,17 @@ export default function AllTransactionsPage() {
                     const customer = getCustomerForEntry(entry);
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
-                    const isSale = entry.type === 'Sale';
+                    
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
-                        <TableCell className={cn("font-medium whitespace-nowrap", isSale && "text-destructive")}>
+                        <TableCell className="font-medium whitespace-nowrap">
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                         </TableCell>
                         <TableCell>
                         <Badge 
                             variant={getBadgeVariant(entry)}
                             className={cn('text-xs', 
-                                isSale && 'bg-red-100 text-red-800 border-red-200',
+                                entry.type === 'Sale' && 'bg-red-100 text-red-800 border-red-200',
                                 (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                 entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
@@ -331,8 +330,8 @@ export default function AllTransactionsPage() {
                             )}
                         >{entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
                         </TableCell>
-                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isSale && "text-destructive font-medium", entry.type === 'Purchase' && 'font-medium', entry.type === 'Cash Advance' && 'font-medium text-destructive', entry.type === 'Customer Payment' && 'font-medium text-teal-600')}>{entry.partner}</TableCell>
-                        <TableCell className={cn(isSale && "text-destructive", entry.type === 'Expense' && "text-destructive", entry.type === 'Cash Advance' && "text-destructive")}>{entry.details}</TableCell>
+                        <TableCell className="font-medium">{entry.partner}</TableCell>
+                        <TableCell>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
