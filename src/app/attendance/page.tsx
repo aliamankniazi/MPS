@@ -64,10 +64,10 @@ export default function EmployeeManagementPage() {
   
   const onEditSubmit: SubmitHandler<EmployeeFormValues> = (data) => {
     if (!employeeToEdit) return;
-    updateEmployee(employeeToEdit.id, { 
-      ...data, 
+    updateEmployee(employeeToEdit.id, {
+      ...data,
       hireDate: data.hireDate.toISOString(),
-      terminationDate: data.terminationDate ? data.terminationDate.toISOString() : undefined
+      terminationDate: data.terminationDate ? data.terminationDate.toISOString() : null,
     });
     toast({
         title: 'Employee Updated',
@@ -87,7 +87,7 @@ export default function EmployeeManagementPage() {
   };
 
   const handleReactivate = (employee: Employee) => {
-    updateEmployee(employee.id, { ...employee, terminationDate: undefined });
+    updateEmployee(employee.id, { ...employee, terminationDate: null });
     toast({
         title: 'Employee Reactivated',
         description: `${employee.name} is now an active employee.`,

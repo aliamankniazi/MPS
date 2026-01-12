@@ -146,7 +146,7 @@ interface DatabaseActions {
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
     addEmployee: (employee: Omit<Employee, 'id'>) => void;
-    updateEmployee: (id: string, updates: Partial<Employee>) => void;
+    updateEmployee: (id: string, updates: Partial<Employee> & { terminationDate?: string | null }) => void;
     deleteEmployee: (id: string) => void;
     addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => void;
     deleteCustomerPayment: (id: string) => void;
@@ -358,7 +358,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteBankAccount = (id: string) => deleteEntity(PATHS.bankAccounts, id);
 
     const addEmployee = (e: Omit<Employee, 'id'>) => addEntity(PATHS.employees, e);
-    const updateEmployee = (id: string, u: Partial<Employee>) => updateEntity(PATHS.employees, id, u);
+    const updateEmployee = (id: string, u: Partial<Employee> & { terminationDate?: string | null }) => updateEntity(PATHS.employees, id, u);
     const deleteEmployee = (id: string) => deleteEntity(PATHS.employees, id);
 
     const addCustomerPayment = (p: Omit<CustomerPayment, 'id'>) => addEntity(PATHS.customerPayments, p);
