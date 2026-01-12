@@ -39,7 +39,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage() {
-  const params = useParams();
+  const params = React.use(useParams());
   const entityId = params.id as string;
 
 
@@ -460,5 +460,4 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
     
