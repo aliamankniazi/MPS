@@ -92,6 +92,11 @@ export default function SettingsPage() {
       resolver: zodResolver(productSchema)
   });
 
+  const allUnits = React.useMemo(() => {
+    const unitsFromProducts = products.map(p => p.unit);
+    return [...new Set(['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle', ...unitsFromProducts])];
+  }, [products]);
+
   React.useEffect(() => {
       if (productToEdit) {
           setProductValue('name', productToEdit.name);
@@ -308,7 +313,18 @@ export default function SettingsPage() {
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="productUnit">Unit</Label>
-                                <Input id="productUnit" {...registerProduct('unit')} placeholder="e.g., Pcs, Ltr, Kg" />
+                                <Controller
+                                    name="unit"
+                                    control={controlProduct}
+                                    render={({ field }) => (
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    )}
+                                />
                                 {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
                             </div>
                             <div className="space-y-2">
@@ -458,7 +474,18 @@ export default function SettingsPage() {
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="editProductUnit">Unit</Label>
-                        <Input id="editProductUnit" {...registerProduct('unit')} />
+                        <Controller
+                            name="unit"
+                            control={controlProduct}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                      {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
                         {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
                     </div>
                     <div className="space-y-2">
