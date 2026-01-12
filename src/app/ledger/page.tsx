@@ -645,6 +645,7 @@ export default function LedgerPage() {
                                                 const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
                                                 const isExpense = entry.type === 'Expense' || entry.type === 'Salary Expense';
                                                 const isPurchase = entry.type === 'Purchase';
+                                                const isCashAdvance = entry.type === 'Cash Advance';
 
                                                 return (
                                                     <TableRow key={entry.id}>
@@ -655,6 +656,7 @@ export default function LedgerPage() {
                                                             isExpense && 'text-destructive',
                                                             isSalary && 'text-pink-600',
                                                             isPurchase && 'text-green-600',
+                                                            isCashAdvance && 'text-destructive',
                                                             entry.type === 'Customer Payment' && 'text-teal-600'
                                                         )}>
                                                             {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
@@ -666,6 +668,7 @@ export default function LedgerPage() {
                                                             isSalary && 'text-pink-600',
                                                             isExpense && 'text-destructive',
                                                             isPurchase && 'text-green-600',
+                                                            isCashAdvance && 'text-destructive',
                                                             entry.type === 'Customer Payment' && 'text-teal-600'
                                                         )}>{entry.description}</TableCell>
                                                         <TableCell>
@@ -781,6 +784,7 @@ export default function LedgerPage() {
     
 
     
+
 
 
 

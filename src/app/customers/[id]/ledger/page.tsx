@@ -365,10 +365,20 @@ export default function CustomerLedgerPage() {
                           </TableRow>
                         )}
                         <TableRow>
-                          <TableCell className={cn("font-medium", entry.type === 'Purchase' && 'text-green-600', entry.type === 'Payment' && 'text-teal-600')}>
+                          <TableCell className={cn(
+                              "font-medium", 
+                              entry.type === 'Purchase' && 'text-green-600', 
+                              entry.type === 'Payment' && 'text-teal-600',
+                              entry.type === 'Cash Advance' && 'text-destructive'
+                          )}>
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                           </TableCell>
-                          <TableCell className={cn(entry.type === 'Salary' && 'text-pink-600', entry.type === 'Purchase' && 'text-green-600', entry.type === 'Payment' && 'text-teal-600')}>{entry.description}</TableCell>
+                          <TableCell className={cn(
+                              entry.type === 'Salary' && 'text-pink-600', 
+                              entry.type === 'Purchase' && 'text-green-600', 
+                              entry.type === 'Payment' && 'text-teal-600',
+                              entry.type === 'Cash Advance' && 'text-destructive'
+                          )}>{entry.description}</TableCell>
                           <TableCell>
                              <Badge 
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}

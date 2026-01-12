@@ -32,7 +32,7 @@ type CombinedEntry = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense' | 'Customer Payment';
+  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense' | 'Customer Payment' | 'Cash Advance';
   partner: string;
   details: string;
   amount: number;
@@ -58,6 +58,7 @@ export default function AllTransactionsPage() {
     purchases, 
     purchaseReturns, 
     customerPayments,
+    cashAdvances,
     expenses,
     customers, 
     deleteTransaction, 
@@ -65,6 +66,7 @@ export default function AllTransactionsPage() {
     deletePurchaseReturn,
     deleteCustomerPayment,
     deleteExpense,
+    deleteCashAdvance,
     isLoaded 
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
@@ -98,6 +100,17 @@ export default function AllTransactionsPage() {
         details: p.notes || `${p.paymentMethod} Payment`,
         amount: p.amount,
         original: { ...p },
+    }));
+
+    const advances: CombinedEntry[] = cashAdvances.map(ca => ({
+        id: `advance-${ca.id}`,
+        originalId: ca.id,
+        timestamp: ca.timestamp,
+        type: 'Cash Advance',
+        partner: ca.customerName,
+        details: ca.notes || 'Cash Advance',
+        amount: ca.amount,
+        original: { ...ca },
     }));
 
     
@@ -135,14 +148,14 @@ export default function AllTransactionsPage() {
       original: { ...pr },
     }));
 
-    return [...sales, ...allPurchases, ...returns, ...payments, ...expenseEntries].sort((a, b) => {
+    return [...sales, ...allPurchases, ...returns, ...payments, ...advances, ...expenseEntries].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
         if (!isValid(dateB)) return -1;
         return dateB.getTime() - dateA.getTime()
     });
-  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, expenses]);
+  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
   const filteredEntries = useMemo(() => {
     if (!searchTerm) return combinedEntries;
@@ -180,6 +193,7 @@ export default function AllTransactionsPage() {
     if(entry.type === 'Purchase Return') return 'secondary';
     if(entry.type === 'Salary') return 'default';
     if(entry.type === 'Expense') return 'destructive';
+    if(entry.type === 'Cash Advance') return 'destructive';
     if (entry.type === 'Customer Payment') return 'outline';
     return 'default';
   };
@@ -188,6 +202,7 @@ export default function AllTransactionsPage() {
     if (entry.type === 'Purchase') return 'text-green-600';
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
+    if (entry.type === 'Cash Advance') return 'text-destructive';
       switch(entry.type) {
           case 'Sale': return 'text-green-600';
           case 'Customer Payment': return 'text-teal-600';
@@ -204,6 +219,7 @@ export default function AllTransactionsPage() {
     if (entry.isCreditSale) return 'text-blue-600';
     if (entry.type === 'Salary') return 'text-pink-600';
     if (entry.type === 'Expense') return 'text-destructive';
+    if (entry.type === 'Cash Advance') return 'text-destructive';
     if (entry.type === 'Customer Payment') return 'text-teal-600';
     return '';
   };
@@ -230,6 +246,7 @@ export default function AllTransactionsPage() {
             case 'Purchase Return': deletePurchaseReturn(entryToDelete.originalId); break;
             case 'Customer Payment':
             case 'Salary': deleteCustomerPayment(entryToDelete.originalId); break;
+            case 'Cash Advance': deleteCashAdvance(entryToDelete.originalId); break;
             case 'Expense': deleteExpense(entryToDelete.originalId); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
@@ -292,6 +309,7 @@ export default function AllTransactionsPage() {
                     const date = new Date(entry.timestamp);
                     const isExpense = entry.type === 'Expense';
                     const isPurchase = entry.type === 'Purchase';
+                    const isCashAdvance = entry.type === 'Cash Advance';
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
@@ -316,8 +334,8 @@ export default function AllTransactionsPage() {
                             )}
                         >{entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
                         </TableCell>
-                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium')}>{entry.partner}</TableCell>
-                        <TableCell className={cn(isExpense && "text-destructive")}>{entry.details}</TableCell>
+                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium', isCashAdvance && 'font-medium text-destructive')}>{entry.partner}</TableCell>
+                        <TableCell className={cn(isExpense && "text-destructive", isCashAdvance && "text-destructive")}>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
@@ -429,5 +447,6 @@ export default function AllTransactionsPage() {
 }
 
     
+
 
 
