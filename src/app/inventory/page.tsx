@@ -1,26 +1,65 @@
 
 'use client';
 
+import * as React from 'react';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Package, Droplets } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Package, Droplets, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
-import type { FuelType } from '@/lib/types';
+import type { FuelType, Product } from '@/lib/types';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
-// Assume a max capacity for progress bar visualization
 const MAX_CAPACITY: Record<FuelType, number> = {
   'Unleaded': 20000,
   'Premium': 10000,
   'Diesel': 25000,
 };
 
+const productSchema = z.object({
+  name: z.string().min(1, 'Product name is required'),
+  price: z.coerce.number().min(0, 'Price must be non-negative'),
+  unit: z.string().min(1, 'Unit is required'),
+  category: z.enum(['Main Product', 'Supplementary Product'], { required_error: 'Category is required' }),
+});
+type ProductFormValues = z.infer<typeof productSchema>;
+
 export default function InventoryPage() {
-  const { fuelStock, isLoaded } = useDatabase();
+  const { 
+    fuelStock, 
+    products, 
+    addProduct,
+    isLoaded 
+  } = useDatabase();
+  const { toast } = useToast();
+
+  const { 
+      register: registerProduct, 
+      handleSubmit: handleSubmitProduct, 
+      reset: resetProduct, 
+      control: controlProduct,
+      formState: { errors: productErrors } 
+  } = useForm<ProductFormValues>({
+      resolver: zodResolver(productSchema)
+  });
+
+  const onProductSubmit: SubmitHandler<ProductFormValues> = (data) => {
+    addProduct(data);
+    toast({ title: "Product Added", description: `${data.name} has been added.`});
+    resetProduct({name: '', price: 0, unit: '', category: undefined});
+  };
 
   const getProgressColor = (value: number) => {
     if (value < 15) return 'bg-red-500';
@@ -29,7 +68,7 @@ export default function InventoryPage() {
   };
 
   return (
-    <div className="p-4 md:p-8">
+    <div className="p-4 md:p-8 space-y-8">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -94,6 +133,80 @@ export default function InventoryPage() {
           </div>
         </CardContent>
       </Card>
+      
+      <Card>
+        <CardHeader>
+            <CardTitle className="text-xl flex items-center gap-2"><PlusCircle /> Add New Product</CardTitle>
+            <CardDescription>Add a new main or supplementary product to your catalog.</CardDescription>
+        </CardHeader>
+         <CardContent>
+             <form onSubmit={handleSubmitProduct(onProductSubmit)} className="space-y-4">
+                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                    <div className="space-y-2">
+                        <Label htmlFor="productName">Product Name</Label>
+                        <Input id="productName" {...registerProduct('name')} placeholder="e.g., Engine Oil" />
+                        {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="productPrice">Price</Label>
+                        <Input id="productPrice" type="number" step="0.01" {...registerProduct('price')} placeholder="e.g., 1200" />
+                        {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="productUnit">Unit</Label>
+                        <Input id="productUnit" {...registerProduct('unit')} placeholder="e.g., Pcs, Ltr, Kg" />
+                        {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Category</Label>
+                        <Controller
+                            name="category"
+                            control={controlProduct}
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="Main Product">Main Product</SelectItem>
+                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
+                    </div>
+                 </div>
+                 <Button type="submit">Add Product</Button>
+             </form>
+             <Separator className="my-6" />
+             <h4 className="text-md font-medium mb-4">Product Catalog</h4>
+             <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Product Name</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead className="text-right">Price</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoaded && products && products.length > 0 ? products.map(p => (
+                            <TableRow key={p.id}>
+                                <TableCell className="font-medium">{p.name}</TableCell>
+                                <TableCell>{p.category}</TableCell>
+                                <TableCell className="text-right font-mono">PKR {p.price.toFixed(2)} / {p.unit}</TableCell>
+                            </TableRow>
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={3} className="h-24 text-center">
+                                    {isLoaded ? 'No products added yet.' : 'Loading products...'}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+             </div>
+         </CardContent>
+     </Card>
     </div>
   );
 }
