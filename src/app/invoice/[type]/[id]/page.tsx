@@ -6,24 +6,25 @@ import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 
 export default function InvoicePage() {
   const params = useParams();
-  const type = params.type as 'sale' | 'purchase';
-  const id = params.id as string;
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
-  let invoiceData = null;
+  const invoiceData = useMemo(() => {
+    if (!isLoaded || !params) return null;
 
-  if (isLoaded) {
+    const type = params.type as 'sale' | 'purchase';
+    const id = params.id as string;
+
     if (type === 'sale') {
       const transaction = transactions.find(t => t.id === id);
       if (transaction) {
         const customer = transaction.customerId ? customers.find(c => c.id === transaction.customerId) : null;
         const bankAccount = transaction.bankAccountId ? bankAccounts.find(b => b.id === transaction.bankAccountId) : null;
-        invoiceData = {
+        return {
           type: 'Sale',
           id: transaction.id,
           date: transaction.timestamp,
@@ -50,7 +51,7 @@ export default function InvoicePage() {
       const purchase = purchases.find(p => p.id === id);
       if (purchase) {
         const supplier = suppliers.find(s => s.id === purchase.supplierId);
-        invoiceData = {
+        return {
           type: 'Purchase',
           id: purchase.id,
           date: purchase.timestamp,
@@ -73,7 +74,8 @@ export default function InvoicePage() {
         };
       }
     }
-  }
+    return null;
+  }, [isLoaded, params, transactions, purchases, customers, suppliers, bankAccounts]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">
