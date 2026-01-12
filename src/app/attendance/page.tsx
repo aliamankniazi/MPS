@@ -97,7 +97,8 @@ export default function EmployeeManagementPage() {
   }
 
   const allPositions = useMemo(() => {
-    return [...new Set(employees.map(e => e.position))];
+    // Filter out falsy values (empty strings, null, undefined) before creating the Set.
+    return [...new Set(employees.map(e => e.position).filter(Boolean))];
   }, [employees]);
 
   const filteredEmployees = useMemo(() => {
@@ -210,7 +211,7 @@ export default function EmployeeManagementPage() {
                     </CardDescription>
                 </div>
                  <div className="flex items-center gap-4">
-                    <Select value={positionFilter || 'all'} onValueChange={(value) => setPositionFilter(value === 'all' ? '' : value)}>
+                    <Select value={positionFilter} onValueChange={(value) => setPositionFilter(value === 'all' ? '' : value)}>
                         <SelectTrigger className="w-[180px]">
                             <SelectValue placeholder="Filter by position..." />
                         </SelectTrigger>
