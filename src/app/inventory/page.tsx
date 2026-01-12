@@ -193,7 +193,9 @@ export default function InventoryPage() {
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.name}</TableCell>
                                 <TableCell>{p.category}</TableCell>
-                                <TableCell className="text-right font-mono">PKR {p.price.toFixed(2)} / {p.unit}</TableCell>
+                                <TableCell className="text-right font-mono">
+                                    {typeof p.price === 'number' ? `PKR ${p.price.toFixed(2)} / ${p.unit}` : 'N/A'}
+                                </TableCell>
                             </TableRow>
                         )) : (
                             <TableRow>
