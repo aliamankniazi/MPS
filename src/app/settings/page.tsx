@@ -93,8 +93,16 @@ export default function SettingsPage() {
   });
 
   const allUnits = React.useMemo(() => {
+    const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
     const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
-    return [...new Set(['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle', ...unitsFromProducts])];
+    // Normalize to lowercase to prevent duplicates like 'Ltr' and 'ltr'
+    const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
+    // Use Set to get unique values, then map back to original case for display if needed (or just keep lowercase)
+    const uniqueUnits = [...new Set(combinedUnits)];
+    // Find the original casing for the unique units to make it look nicer in the dropdown
+    return uniqueUnits.map(lowerUnit => {
+        return unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit) || lowerUnit;
+    });
   }, [products]);
 
   React.useEffect(() => {
