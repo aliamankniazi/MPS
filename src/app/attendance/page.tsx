@@ -21,6 +21,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const employeeSchema = z.object({
@@ -42,6 +43,7 @@ export default function EmployeeManagementPage() {
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [showTerminated, setShowTerminated] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [positionFilter, setPositionFilter] = useState('');
 
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EmployeeFormValues>({
@@ -94,6 +96,10 @@ export default function EmployeeManagementPage() {
     });
   }
 
+  const allPositions = useMemo(() => {
+    return [...new Set(employees.map(e => e.position))];
+  }, [employees]);
+
   const filteredEmployees = useMemo(() => {
     let filtered = employees;
 
@@ -101,6 +107,10 @@ export default function EmployeeManagementPage() {
         filtered = filtered.filter(emp => !emp.terminationDate);
     }
     
+    if (positionFilter) {
+      filtered = filtered.filter(emp => emp.position === positionFilter);
+    }
+
     if (searchTerm) {
         filtered = filtered.filter(emp => 
             emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -109,7 +119,7 @@ export default function EmployeeManagementPage() {
     }
     
     return filtered;
-  }, [employees, showTerminated, searchTerm]);
+  }, [employees, showTerminated, searchTerm, positionFilter]);
   
   useEffect(() => {
     if (employeeToEdit) {
@@ -200,10 +210,21 @@ export default function EmployeeManagementPage() {
                     </CardDescription>
                 </div>
                  <div className="flex items-center gap-4">
+                    <Select value={positionFilter} onValueChange={setPositionFilter}>
+                        <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Filter by position..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">All Positions</SelectItem>
+                            {allPositions.map(pos => (
+                                <SelectItem key={pos} value={pos}>{pos}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                     <div className="relative w-full max-w-xs">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search by name or position..."
+                            placeholder="Search by name..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-10"
@@ -267,10 +288,10 @@ export default function EmployeeManagementPage() {
               <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 <Users className="w-16 h-16" />
                 <h3 className="text-xl font-semibold">
-                    {searchTerm ? 'No Matching Employees' : 'No Employees Found'}
+                    {searchTerm || positionFilter ? 'No Matching Employees' : 'No Employees Found'}
                 </h3>
                 <p>
-                    {searchTerm ? 'Try a different search term.' : 'Use the form to add your first employee.'}
+                    {searchTerm || positionFilter ? 'Try a different search or filter.' : 'Use the form to add your first employee.'}
                 </p>
               </div>
             )}
