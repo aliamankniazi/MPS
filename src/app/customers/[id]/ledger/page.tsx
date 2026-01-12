@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import React from 'react';
+import { useParams } from 'next/navigation';
 
 
 type LedgerEntry = {
@@ -36,7 +37,8 @@ type LedgerEntry = {
   balance: number;
 };
 
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+export default function CustomerLedgerPage() {
+  const params = useParams();
   const { 
     customers, 
     suppliers, 
@@ -61,7 +63,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
 
   const { entity, entityType } = useMemo(() => {
     if (!isLoaded) return { entity: null, entityType: null };
-    const entityId = params.id;
+    const entityId = params.id as string;
     const customer = customers.find(c => c.id === entityId);
     if (customer) return { entity: customer, entityType: 'Customer' };
     const supplier = suppliers.find(s => s.id === entityId);
@@ -73,7 +75,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
 
   const { entries, finalBalance } = useMemo(() => {
     if (!entity) return { entries: [], finalBalance: 0 };
-    const entityId = params.id;
+    const entityId = params.id as string;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -456,3 +458,5 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     </div>
   );
 }
+
+    
