@@ -39,7 +39,7 @@ type ProductFormValues = z.infer<typeof productSchema>;
 export default function InventoryPage() {
   const { 
     fuelStock, 
-    products, 
+    products,
     addProduct,
     isLoaded 
   } = useDatabase();
