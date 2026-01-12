@@ -1,7 +1,6 @@
 
 'use client';
 
-import { useParams } from 'next/navigation';
 import { Invoice } from '@/components/invoice';
 import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
@@ -9,9 +8,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
 import React from 'react';
 
-export default function InvoicePage() {
-  const { type, id } = useParams() as { type: 'sale' | 'purchase', id: string };
-
+export default function InvoicePage({ params }: { params: { type: 'sale' | 'purchase', id: string } }) {
+  const { type, id } = params;
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
   let invoiceData = null;
@@ -101,5 +99,3 @@ export default function InvoicePage() {
     </div>
   );
 }
-
-    

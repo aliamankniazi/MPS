@@ -2,7 +2,6 @@
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -37,9 +36,8 @@ type LedgerEntry = {
   balance: number;
 };
 
-export default function CustomerLedgerPage() {
-  const { id: entityId } = useParams() as { id: string };
-
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+  const { id: entityId } = params;
 
   const { 
     customers, 
@@ -459,6 +457,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-    
-
-    
