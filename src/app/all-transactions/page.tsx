@@ -310,6 +310,7 @@ export default function AllTransactionsPage() {
                     const isExpense = entry.type === 'Expense';
                     const isPurchase = entry.type === 'Purchase';
                     const isCashAdvance = entry.type === 'Cash Advance';
+                    const isCustomerPayment = entry.type === 'Customer Payment';
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
@@ -334,7 +335,7 @@ export default function AllTransactionsPage() {
                             )}
                         >{entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
                         </TableCell>
-                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium', isCashAdvance && 'font-medium text-destructive')}>{entry.partner}</TableCell>
+                        <TableCell className={cn(entry.isCreditSale && 'font-medium', isPurchase && 'font-medium', isCashAdvance && 'font-medium text-destructive', isCustomerPayment && 'font-medium text-teal-600')}>{entry.partner}</TableCell>
                         <TableCell className={cn(isExpense && "text-destructive", isCashAdvance && "text-destructive")}>{entry.details}</TableCell>
                         <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -447,6 +448,7 @@ export default function AllTransactionsPage() {
 }
 
     
+
 
 
 
