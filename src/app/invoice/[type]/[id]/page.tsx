@@ -10,9 +10,7 @@ import { useDatabase } from '@/hooks/use-database';
 import React from 'react';
 
 export default function InvoicePage() {
-  const params = useParams();
-  const type = params.type as 'sale' | 'purchase';
-  const id = params.id as string;
+  const { type, id } = useParams() as { type: 'sale' | 'purchase', id: string };
 
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
