@@ -60,11 +60,21 @@ export default function EmployeeManagementPage() {
   });
 
   const onAddSubmit: SubmitHandler<EmployeeFormValues> = (data) => {
-    addEmployee({ ...data, hireDate: data.hireDate.toISOString() });
-    toast({
-      title: 'Employee Added',
-      description: `${data.name} has been added to your records.`,
+    const newEmployee = addEmployee({ ...data, hireDate: data.hireDate.toISOString() });
+    
+    // Automatically mark the new employee as present for today
+    addAttendance({
+      employeeId: newEmployee.id,
+      employeeName: newEmployee.name,
+      date: today.toISOString(),
+      status: 'Present',
     });
+
+    toast({
+      title: 'Employee Added & Attendance Marked',
+      description: `${data.name} has been added and marked as Present for today.`,
+    });
+    
     reset({ name: '', mobileNumber: '', position: '', salary: 0, hireDate: new Date() });
   };
   
@@ -501,6 +511,4 @@ export default function EmployeeManagementPage() {
     </>
   );
 }
-    
-
     
