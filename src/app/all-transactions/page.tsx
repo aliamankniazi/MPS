@@ -188,8 +188,8 @@ export default function AllTransactionsPage() {
 
   const getBadgeVariant = (entry: CombinedEntry) => {
     if(entry.type === 'Purchase') return 'default';
-    if(entry.type === 'Sale' && entry.isCreditSale) return 'default'
-    if(entry.type === 'Sale' && !entry.isCreditSale) return 'outline'
+    if(entry.type === 'Sale' && entry.isCreditSale) return 'destructive'
+    if(entry.type === 'Sale' && !entry.isCreditSale) return 'destructive'
     if(entry.type === 'Purchase Return') return 'secondary';
     if(entry.type === 'Salary') return 'default';
     if(entry.type === 'Expense') return 'destructive';
@@ -200,11 +200,11 @@ export default function AllTransactionsPage() {
   
   const getAmountClass = (entry: CombinedEntry) => {
     if (entry.type === 'Purchase') return 'text-green-600';
-    if (entry.isCreditSale) return 'text-blue-600';
+    if (entry.isCreditSale) return 'text-destructive';
     if (entry.type === 'Salary') return 'text-pink-600';
     if (entry.type === 'Cash Advance') return 'text-destructive';
       switch(entry.type) {
-          case 'Sale': return 'text-green-600';
+          case 'Sale': return 'text-destructive';
           case 'Customer Payment': return 'text-teal-600';
           case 'Purchase Return': return 'text-blue-600';
           case 'Expense': return 'text-destructive';
@@ -215,8 +215,8 @@ export default function AllTransactionsPage() {
   const getRowClass = (entry: CombinedEntry) => {
     if (entry.type === 'Purchase') return 'text-green-600';
     const isWalkinCashSale = entry.type === 'Sale' && !entry.isCreditSale;
-    if (isWalkinCashSale) return 'text-green-600';
-    if (entry.isCreditSale) return 'text-blue-600';
+    if (isWalkinCashSale) return 'text-destructive';
+    if (entry.isCreditSale) return 'text-destructive';
     if (entry.type === 'Salary') return 'text-pink-600';
     if (entry.type === 'Expense') return 'text-destructive';
     if (entry.type === 'Cash Advance') return 'text-destructive';
@@ -320,8 +320,8 @@ export default function AllTransactionsPage() {
                         <Badge 
                             variant={getBadgeVariant(entry)}
                             className={cn('text-xs', 
-                                (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-green-100 text-green-800 border-green-200',
-                                (entry.type === 'Sale' && entry.isCreditSale) && 'bg-blue-100 text-blue-800 border-blue-200',
+                                (entry.type === 'Sale' && !entry.isCreditSale) && 'bg-red-100 text-red-800 border-red-200',
+                                (entry.type === 'Sale' && entry.isCreditSale) && 'bg-red-100 text-red-800 border-red-200',
                                 (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                 entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
@@ -448,6 +448,7 @@ export default function AllTransactionsPage() {
 }
 
     
+
 
 
 
