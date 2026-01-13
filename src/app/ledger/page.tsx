@@ -678,58 +678,44 @@ export default function LedgerPage() {
                                             <TableBody>
                                                 {dayData.entries.slice().reverse().map((entry, index) => {
                                                     const date = new Date(entry.timestamp);
-                                                    const isSale = entry.type === 'Sale';
-                                                    const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
-                                                    const isExpense = entry.type === 'Expense';
-                                                    const isPurchase = entry.type === 'Purchase';
-                                                    const isCashAdvance = entry.type === 'Cash Advance';
+                                                    
+                                                    const entryColorClass = cn({
+                                                        'text-destructive': ['Sale', 'Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
+                                                        'text-green-600': ['Purchase', 'Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
+                                                        'text-teal-600': entry.type === 'Customer Payment',
+                                                        'text-pink-600': ['Salary', 'Salary Expense', 'Supplier Payment'].includes(entry.type),
+                                                    });
 
                                                     return (
                                                         <TableRow key={entry.id}>
-                                                            <TableCell className={cn(
-                                                                "font-medium",
-                                                                isSale && 'text-destructive',
-                                                                isExpense && 'text-destructive',
-                                                                isSalary && 'text-pink-600',
-                                                                isPurchase && 'text-green-600',
-                                                                isCashAdvance && 'text-destructive',
-                                                                entry.type === 'Customer Payment' && 'text-teal-600'
-                                                            )}>
+                                                            <TableCell className={cn("font-medium", entryColorClass)}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
-                                                            <TableCell className={cn(
-                                                                "font-medium",
-                                                                isSale && 'text-destructive',
-                                                                isSalary && 'text-pink-600',
-                                                                isExpense && 'text-destructive',
-                                                                isPurchase && 'text-green-600',
-                                                                isCashAdvance && 'text-destructive',
-                                                                entry.type === 'Customer Payment' && 'text-teal-600'
-                                                            )}>{entry.description}</TableCell>
+                                                            <TableCell className={cn("font-medium", entryColorClass)}>{entry.description}</TableCell>
                                                             <TableCell>
                                                             <Badge 
                                                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                                                 className={cn('text-xs', 
-                                                                    isSale && 'bg-red-100 text-red-800 border-red-200',
+                                                                    entry.type === 'Sale' && 'bg-red-100 text-red-800 border-red-200',
                                                                     (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                    isSalary && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                    isPurchase && 'bg-green-100 text-green-800 border-green-200',
+                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200',
+                                                                    entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                                                     entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
                                                                     entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                                                     (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
-                                                                    (isCashAdvance || isExpense || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
+                                                                    (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                                                             )}
                                                             >
                                                                 {entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono text-destructive")}>
+                                                            <TableCell className="text-right font-mono text-destructive">
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono text-green-600")}>
+                                                            <TableCell className="text-right font-mono text-green-600">
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("text-right font-mono", entry.profit === undefined ? '' : entry.profit >= 0 ? 'text-green-600' : 'text-destructive')}>
@@ -786,5 +772,6 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
