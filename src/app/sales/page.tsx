@@ -23,7 +23,8 @@ import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-reac
 import { useDatabase } from '@/hooks/use-database';
 
 const saleItemSchema = z.object({
-  product: z.string().min(1, "Product is required"),
+  productId: z.string().min(1, "Product is required"),
+  productName: z.string().min(1, "Product name is required"),
   unit: z.string().min(1, "Unit is required"),
   quantity: z.coerce.number().min(0.01, "Quantity must be positive"),
   price: z.coerce.number().min(0, "Price cannot be negative"),
@@ -129,8 +130,8 @@ export default function SalesPage() {
   });
 
   const { customerId } = watch();
-  const { quantity, price, product: selectedProductName } = watchItem();
-  const selectedProductId = watchItem('product');
+  const { quantity, price } = watchItem();
+  const selectedProductId = watchItem('productId');
 
   useEffect(() => {
     const total = (quantity || 0) * (price || 0);
@@ -149,7 +150,7 @@ export default function SalesPage() {
 
             setItemValue('price', priceToSet);
             setItemValue('unit', productDetails.unit);
-            setItemValue('product', productDetails.name);
+            setItemValue('productName', productDetails.name);
         }
     }
   }, [selectedProductId, products, transactions, setItemValue]);
@@ -160,9 +161,9 @@ export default function SalesPage() {
     } else {
       setValue('paymentMethod', 'Credit');
     }
-    // Reset vehicle number when customer changes
-    setValue('vehicleNumber', '');
-  }, [customerId, setValue]);
+    const selectedCustomer = customers.find(c => c.id === customerId);
+    setValue('vehicleNumber', selectedCustomer?.vehicleNumber?.split(',')[0].trim() || '');
+  }, [customerId, setValue, customers]);
 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
@@ -210,7 +211,7 @@ export default function SalesPage() {
           fuelType: 'Unleaded', // Placeholder, as we have product now
           volume: item.quantity,
           pricePerLitre: item.price,
-          product: item.product,
+          product: item.productName,
           totalAmount: item.totalAmount,
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
           customerId: data.customerId,
@@ -245,7 +246,7 @@ export default function SalesPage() {
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="product">Product</Label>
                                    <Controller
-                                    name="product"
+                                    name="productId"
                                     control={controlItem}
                                     render={({ field }) => (
                                       <Select onValueChange={field.onChange} value={field.value}>
@@ -260,7 +261,7 @@ export default function SalesPage() {
                                       </Select>
                                     )}
                                   />
-                                  {itemErrors.product && <p className="text-sm text-destructive">{itemErrors.product.message}</p>}
+                                  {itemErrors.productId && <p className="text-sm text-destructive">{itemErrors.productId.message}</p>}
                               </div>
                               <div className="space-y-2">
                                   <Label htmlFor="unit">Unit</Label>
@@ -310,7 +311,7 @@ export default function SalesPage() {
                               <TableBody>
                                   {cart.length > 0 ? cart.map((item, index) => (
                                       <TableRow key={index}>
-                                          <TableCell>{item.product}</TableCell>
+                                          <TableCell>{item.productName}</TableCell>
                                           <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
                                           <TableCell className="text-right">{item.price.toFixed(2)}</TableCell>
                                           <TableCell className="text-right font-medium">{item.totalAmount.toFixed(2)}</TableCell>
