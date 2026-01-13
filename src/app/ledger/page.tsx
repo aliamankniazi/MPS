@@ -694,7 +694,7 @@ export default function LedgerPage() {
                                                                     (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                                                             )}
                                                             >
-                                                                {entry.type === 'Customer Payment' ? 'Amount' : entry.type}
+                                                              {entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right font-mono text-destructive">
@@ -760,3 +760,6 @@ export default function LedgerPage() {
 
 
 
+
+
+    
