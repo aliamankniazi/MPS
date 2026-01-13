@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -16,7 +17,7 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth, db, isFirebaseConfigValid, firebaseConfig } from '@/lib/firebase';
+import { auth, db, firebaseConfig } from '@/lib/firebase';
 import type { AuthFormValues, RoleId } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { ref, onValue, set } from 'firebase/database';

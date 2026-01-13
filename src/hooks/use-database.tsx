@@ -64,15 +64,15 @@ const PATHS = {
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
-  'Unleaded': 10000,
-  'Premium': 5000,
-  'Diesel': 15000,
+  'Unleaded': 0,
+  'Premium': 0,
+  'Diesel': 0,
 };
 
 const DEFAULT_FUEL_PRICES: Record<FuelType, number> = {
-  'Unleaded': 275.98,
-  'Premium': 285.50,
-  'Diesel': 282.44,
+  'Unleaded': 0,
+  'Premium': 0,
+  'Diesel': 0,
 };
 
 
@@ -323,7 +323,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return offlineEntity;
     }, []);
 
-    const updateEntity = useCallback(<T>(path: string, id: string, updates: Partial<T>) => {
+    const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
         if (!db) return;
         update(ref(db, `${path}/${id}`), updates);
     }, []);
