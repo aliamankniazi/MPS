@@ -662,8 +662,8 @@ export default function LedgerPage() {
                                                     const date = new Date(entry.timestamp);
                                                     
                                                     const entryColorClass = cn({
-                                                        'text-destructive': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600 font-semibold': entry.type === 'Sale' && !entry.isCreditSale,
+                                                        'text-blue-600': entry.type === 'Sale' && entry.isCreditSale,
+                                                        'text-green-600': entry.type === 'Sale' && !entry.isCreditSale,
                                                         'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
                                                         'text-green-600': ['Purchase', 'Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
                                                         'text-teal-600': entry.type === 'Customer Payment',
@@ -680,7 +680,7 @@ export default function LedgerPage() {
                                                             <Badge 
                                                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                                                 className={cn('text-xs', 
-                                                                    entry.type === 'Sale' && entry.isCreditSale && 'bg-red-100 text-red-800 border-red-200',
+                                                                    entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
                                                                     entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
                                                                     (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
@@ -694,7 +694,7 @@ export default function LedgerPage() {
                                                                     (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                                                             )}
                                                             >
-                                                              {entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
+                                                              {entry.type === 'Sale' && entry.isCreditSale ? 'Udhar Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
                                                             <TableCell className="text-right font-mono text-destructive">
@@ -761,5 +761,7 @@ export default function LedgerPage() {
 
 
 
+
+    
 
     
