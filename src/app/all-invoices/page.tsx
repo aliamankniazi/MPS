@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { FileText, XCircle, Printer, Search } from 'lucide-react';
+import { FileText, XCircle, Printer, Search, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import type { Transaction, Purchase } from '@/lib/types';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
 
 type CombinedInvoice = {
@@ -40,8 +42,8 @@ export default function AllInvoicesPage() {
   const { transactions, purchases, isLoaded } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const groupedInvoices = useMemo(() => {
-    if (!isLoaded) return {};
+  const allInvoicesForExport = useMemo(() => {
+    if (!isLoaded) return [];
 
     const salesInvoices: CombinedInvoice[] = transactions.map(tx => ({
       id: `sale-${tx.id}`,
@@ -64,16 +66,19 @@ export default function AllInvoicesPage() {
       details: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
       amount: p.totalCost,
     }));
-
-    const allInvoices = [...salesInvoices, ...purchaseInvoices].sort((a, b) => {
-      const dateA = new Date(a.timestamp);
-      const dateB = new Date(b.timestamp);
-      if (!isValid(dateA)) return 1;
-      if (!isValid(dateB)) return -1;
-      return dateB.getTime() - a.getTime();
-    });
     
-    const filtered = allInvoices.filter(invoice =>
+    return [...salesInvoices, ...purchaseInvoices].sort((a, b) => {
+        const dateA = new Date(a.timestamp);
+        const dateB = new Date(b.timestamp);
+        if (!isValid(dateA)) return 1;
+        if (!isValid(dateB)) return -1;
+        return dateB.getTime() - a.getTime();
+      });
+
+  }, [isLoaded, transactions, purchases]);
+
+  const groupedInvoices = useMemo(() => {
+    const filtered = allInvoicesForExport.filter(invoice =>
       !searchTerm ||
       invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
       invoice.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -96,7 +101,29 @@ export default function AllInvoicesPage() {
         return acc;
     }, {} as GroupedInvoices);
 
-  }, [isLoaded, transactions, purchases, searchTerm]);
+  }, [allInvoicesForExport, searchTerm]);
+  
+  const handleExportExcel = () => {
+    const dataToExport = allInvoicesForExport
+        .filter(invoice => 
+            !searchTerm ||
+            invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            invoice.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            invoice.details.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+        .map(invoice => ({
+            'Date': isValid(new Date(invoice.timestamp)) ? format(new Date(invoice.timestamp), 'PP pp') : 'Invalid Date',
+            'Type': invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type,
+            'Partner': invoice.partner,
+            'Details': invoice.details,
+            'Amount (PKR)': invoice.amount.toFixed(2),
+        }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Invoices');
+    XLSX.writeFile(workbook, 'AllInvoices.xlsx');
+  };
 
   const getBadgeVariant = (invoice: CombinedInvoice) => {
     if (invoice.type === 'Purchase') return 'outline';
@@ -130,14 +157,18 @@ export default function AllInvoicesPage() {
               </CardTitle>
               <CardDescription>A list of all generated sales and purchase invoices, grouped by month.</CardDescription>
             </div>
-            <div className="relative w-full max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Search by partner, type, or details..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                />
+             <div className="flex items-center gap-2">
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search invoices..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10"
+                    />
+                </div>
+                <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+                <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
             </div>
           </div>
         </CardHeader>

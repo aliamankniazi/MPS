@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
 import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2, Package } from 'lucide-react';
+import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2, Package, Printer, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isToday } from 'date-fns';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
 
 const chartConfig = {
@@ -100,6 +102,20 @@ export default function SummaryPage() {
         key: item.product, 
     }));
   }, [isLoaded, transactions, products]);
+  
+  const handleExportExcel = () => {
+    const dataToExport = productWiseSales.map(item => ({
+      'Product': item.product,
+      'Total Sold': `${item.totalSold.toFixed(2)} ${item.unit}`,
+      'Avg Price/Unit': (item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2),
+      'Total Revenue': item.totalRevenue.toFixed(2),
+    }));
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Product Sales');
+    XLSX.writeFile(workbook, 'ProductWiseSalesReport.xlsx');
+  };
 
 
   const handleGenerateSummary = () => {
@@ -130,11 +146,17 @@ export default function SummaryPage() {
     <div className="p-4 md:p-8 space-y-8">
       <div className="grid lg:grid-cols-2 gap-8">
         <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
                 <CardTitle className="flex items-center gap-2">
                     <Package /> Product Wise Sale Report
                 </CardTitle>
                 <CardDescription>A summary of sales for each product across all time.</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+                <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
+              </div>
             </CardHeader>
             <CardContent>
                 <Table>
