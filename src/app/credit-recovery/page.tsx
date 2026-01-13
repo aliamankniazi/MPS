@@ -115,13 +115,23 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const message = `Dear ${row.customer.name},
-This is a reminder regarding the payment of your total outstanding balance of Rs. ${row.currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}.
-Kindly clear this amount at your earliest convenience.
-Thank you
-Mianwali Petroleum Service
-Ballo Khel Road Mianwali
-Contact Info 03335425401`;
+        const period = dateRange?.from
+            ? dateRange.to
+                ? `from ${format(dateRange.from, "LLL dd, y")} to ${format(dateRange.to, "LLL dd, y")}`
+                : `for ${format(dateRange.from, "LLL dd, y")}`
+            : 'all time';
+
+        const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+        const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
+For Period: ${period}
+Your Previous Amount: ${formatCurrency(row.previousBalance)}
+New Sale Amount: ${formatCurrency(row.sale)}
+Paid Amount: ${formatCurrency(row.recovery)}
+Now your balance is: ${formatCurrency(row.currentBalance)}
+Thank You,
+Mianwali Petroleum Service`;
+
         return encodeURIComponent(message);
     }
 
@@ -263,5 +273,3 @@ Contact Info 03335425401`;
         </div>
     );
 }
-
-    
