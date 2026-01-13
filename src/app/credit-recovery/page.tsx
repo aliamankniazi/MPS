@@ -85,15 +85,15 @@ export default function CreditRecoveryPage() {
                 currentBalance,
             };
         }).filter(row => {
-            // Filter out customers with no activity or zero balance unless a specific customer is selected
+            // If a specific customer is selected, always show them.
             if (selectedCustomerId !== 'all') return true;
-
+        
+            // If a date range is selected, only show customers with sales or recoveries in that range.
             if (dateRange?.from || dateRange?.to) {
-                // Show if there was a balance or any activity in the range
-                return row.previousBalance !== 0 || row.sale > 0 || row.recovery > 0;
+                return row.sale > 0 || row.recovery > 0;
             }
-            
-            // If no date range, only show those with a non-zero final balance
+        
+            // If no filters are applied, show customers with a non-zero current balance.
             return row.currentBalance !== 0;
         });
 
