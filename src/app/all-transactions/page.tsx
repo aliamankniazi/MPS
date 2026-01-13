@@ -191,7 +191,7 @@ export default function AllTransactionsPage() {
   const getBadgeVariant = (entry: CombinedEntry) => {
     if(entry.type === 'Purchase') return 'default';
     if(entry.type === 'Sale' && entry.isCreditSale) return 'destructive'
-    if(entry.type === 'Sale' && !entry.isCreditSale) return 'destructive'
+    if(entry.type === 'Sale' && !entry.isCreditSale) return 'default'
     if(entry.type === 'Purchase Return') return 'secondary';
     if(entry.type === 'Salary') return 'default';
     if(entry.type === 'Expense') return 'destructive';
@@ -202,7 +202,7 @@ export default function AllTransactionsPage() {
   
   const getAmountClass = (entry: CombinedEntry) => {
       switch(entry.type) {
-          case 'Sale': return 'text-destructive';
+          case 'Sale': return entry.isCreditSale ? 'text-blue-600' : 'text-green-600';
           case 'Customer Payment': return 'text-teal-600';
           case 'Purchase': return 'text-green-600';
           case 'Purchase Return': return 'text-blue-600';
@@ -215,7 +215,7 @@ export default function AllTransactionsPage() {
 
   const getRowClass = (entry: CombinedEntry) => {
     switch(entry.type) {
-        case 'Sale': return 'text-destructive';
+        case 'Sale': return entry.isCreditSale ? 'text-blue-600' : 'text-green-600';
         case 'Customer Payment': return 'text-teal-600';
         case 'Purchase': return 'text-green-600';
         case 'Salary': return 'text-pink-600';
@@ -318,7 +318,8 @@ export default function AllTransactionsPage() {
                         <Badge 
                             variant={getBadgeVariant(entry)}
                             className={cn('text-xs', 
-                                entry.type === 'Sale' && 'bg-red-100 text-red-800 border-red-200',
+                                entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
+                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
                                 (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                 entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
                                 entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
@@ -330,7 +331,7 @@ export default function AllTransactionsPage() {
                                 (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
                                 (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
                             )}
-                        >{entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
+                        >{entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
                         </TableCell>
                         <TableCell className="font-medium">{entry.partner}</TableCell>
                         <TableCell>{entry.details}</TableCell>
