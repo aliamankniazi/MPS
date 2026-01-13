@@ -26,13 +26,14 @@ import {
   Receipt,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useRoles, type Permission } from '@/hooks/use-roles';
 
 interface ReportCardProps {
   title: string;
   description: string;
   href: string;
   icon: LucideIcon;
-  permission?: string; // Placeholder for future RBAC
+  permission: Permission;
 }
 
 const reportList: ReportCardProps[] = [
@@ -41,96 +42,112 @@ const reportList: ReportCardProps[] = [
     description: 'Identify top customers based on sales.',
     href: '/',
     icon: Users,
+    permission: 'view_dashboard',
   },
   {
     title: 'Date Wise Sale And Recovery Report',
     description: 'Track customer payments and balances.',
     href: '/credit-recovery',
     icon: CreditCard,
+    permission: 'view_credit_recovery',
   },
   {
     title: 'Customer Defaulter Report',
     description: 'View customers with outstanding balances.',
     href: '/credit-recovery',
     icon: UserX,
+    permission: 'view_credit_recovery',
   },
     {
     title: 'Supplier Report',
     description: 'View purchases, payments, and balances for suppliers.',
     href: '/supplier-report',
     icon: Truck,
+    permission: 'view_purchases',
   },
   {
     title: 'Date Wise Business Report',
     description: "A high-level business overview without individual journal entries.",
     href: '/ledger',
     icon: Briefcase,
+    permission: 'view_ledger',
   },
   {
     title: 'Product Wise Sale Report',
     description: 'Show Product Wise Sale Reports',
     href: '/ledger',
     icon: Package,
+    permission: 'view_ledger',
   },
   {
     title: 'Product Profit Margin Report',
     description: 'Analyze profit margins for each product.',
     href: '/summary',
     icon: Percent,
+    permission: 'view_summary',
   },
   {
     title: 'Product Profit/Loss by Invoice',
     description: 'Show Loss And Profit By Invoice in that report',
     href: '/ledger',
     icon: TrendingUp,
+    permission: 'view_ledger',
   },
   {
     title: 'Total Investment Report',
     description: 'Summary of total capital invested by partners.',
     href: '/investments',
     icon: PiggyBank,
+    permission: 'view_investments',
   },
   {
     title: 'Stock Sale & Purchase Report',
     description: 'Detailed report of stock ins and outs.',
     href: '/all-transactions',
     icon: History,
+    permission: 'view_all_transactions',
   },
   {
     title: 'Sale & Return Report',
     description: 'Unified view of all sales and returns.',
     href: '/all-transactions',
     icon: ShoppingCart,
+    permission: 'view_all_transactions',
   },
   {
     title: 'Product Stock Report',
     description: 'Current inventory levels for all products.',
     href: '/inventory',
     icon: Boxes,
+    permission: 'view_inventory',
   },
   {
     title: 'Customer Recovery & Sale',
     description: 'Individual customer transaction history.',
     href: '/partner-ledger',
     icon: HandCoins,
+    permission: 'view_partner_ledger',
   },
    {
     title: 'General Journal / Ledger',
     description: 'View all financial transactions chronologically.',
     href: '/ledger',
     icon: BookOpen,
+    permission: 'view_ledger',
   },
   {
     title: 'Cash Flow Report',
     description: 'Track cash in, cash out, and balance over time.',
     href: '/ledger',
     icon: Wallet,
+    permission: 'view_ledger',
   },
   {
     title: 'Expense Report',
     description: 'View a detailed breakdown of all business expenses.',
     href: '/expenses',
     icon: Receipt,
+    permission: 'view_expenses',
   }
 ];
 
@@ -158,6 +175,9 @@ const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) =
 );
 
 export default function ReportsPage() {
+  const { hasPermission } = useRoles();
+  const availableReports = reportList.filter(report => hasPermission(report.permission));
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -168,12 +188,12 @@ export default function ReportsPage() {
           <p className="text-muted-foreground">Select a report to view detailed analytics about your business operations.</p>
         </div>
         <Button asChild variant="outline">
-          <Link href="/dashboard"><LayoutDashboard className="mr-2"/>Go to Dashboard</Link>
+          <Link href="/"><LayoutDashboard className="mr-2"/>Go to Dashboard</Link>
         </Button>
       </div>
       
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {reportList.map(report => (
+        {availableReports.map(report => (
           <ReportCard key={report.title} {...report} />
         ))}
       </div>
