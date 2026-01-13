@@ -34,8 +34,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const FAKE_USER = { uid: 'offline-user', email: 'demo@example.com' } as User;
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -43,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const isConfigValid = isFirebaseConfigValid(firebaseConfig);
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
   // Effect to load user role from RTDB
@@ -74,13 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    if (!isConfigValid) {
-      // If Firebase isn't configured, use a mock user for offline demo purposes.
-      setUser(FAKE_USER);
-      setLoading(false);
-      return;
-    }
-    
     if (!auth) {
         // Handle case where auth is not initialized
         setLoading(false);
@@ -102,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [isConfigValid, assignRoleToUser]);
+  }, [assignRoleToUser]);
   
   // This effect handles route protection.
   useEffect(() => {
@@ -119,17 +109,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router, isAuthPage]);
 
   const signIn = (data: AuthFormValues) => {
-    if (!isConfigValid || !auth) return Promise.reject(new Error("Firebase is not configured."));
+    if (!auth) return Promise.reject(new Error("Firebase is not configured."));
     return signInWithEmailAndPassword(auth, data.email, data.password);
   };
 
   const signUp = (data: AuthFormValues) => {
-    if (!isConfigValid || !auth) return Promise.reject(new Error("Firebase is not configured."));
+    if (!auth) return Promise.reject(new Error("Firebase is not configured."));
     return createUserWithEmailAndPassword(auth, data.email, data.password);
   };
 
   const signOut = async () => {
-    if (isConfigValid && auth) {
+    if (auth) {
       await firebaseSignOut(auth);
     }
     setUser(null); // Explicitly set user to null on sign out
