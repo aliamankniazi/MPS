@@ -33,7 +33,7 @@ interface ReportCardProps {
 
 const reportList: ReportCardProps[] = [
   {
-    title: 'Date wise Credit Recovery',
+    title: 'Date Wise Sale And Recovery Report',
     description: 'Track customer payments and balances.',
     href: '/credit-recovery',
     icon: CreditCard,
@@ -46,7 +46,7 @@ const reportList: ReportCardProps[] = [
   },
   {
     title: 'Date Wise Business Report',
-    description: 'Overall summary of business activity.',
+    description: 'Show Only Business Overview Report Date Wise',
     href: '/ledger',
     icon: Briefcase,
   },
