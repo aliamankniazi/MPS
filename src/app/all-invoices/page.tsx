@@ -70,7 +70,7 @@ export default function AllInvoicesPage() {
       const dateB = new Date(b.timestamp);
       if (!isValid(dateA)) return 1;
       if (!isValid(dateB)) return -1;
-      return dateB.getTime() - dateA.getTime();
+      return dateB.getTime() - a.getTime();
     });
     
     const filtered = allInvoices.filter(invoice =>
@@ -99,9 +99,9 @@ export default function AllInvoicesPage() {
   }, [isLoaded, transactions, purchases, searchTerm]);
 
   const getBadgeVariant = (invoice: CombinedInvoice) => {
-    if (invoice.type === 'Purchase') return 'default';
-    if (invoice.isCreditSale) return 'default';
-    if (invoice.type === 'Sale') return 'outline';
+    if (invoice.type === 'Purchase') return 'outline';
+    if (invoice.isCreditSale) return 'destructive';
+    if (invoice.type === 'Sale') return 'default';
     return 'destructive';
   };
   
@@ -113,7 +113,8 @@ export default function AllInvoicesPage() {
 
   const getRowClass = (invoice: CombinedInvoice) => {
     if (invoice.type === 'Purchase') return 'text-green-600';
-    return invoice.isCreditSale ? 'text-blue-600' : '';
+    if (invoice.isCreditSale) return 'text-blue-600';
+    return invoice.type === 'Sale' ? 'text-green-600' : '';
   };
   
   const monthKeys = Object.keys(groupedInvoices);
