@@ -139,19 +139,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // Effect for route protection
-  useEffect(() => {
-    const isFullyLoaded = !authLoading && !rolesLoading && isDatabaseLoaded;
-    if (!isFullyLoaded) return;
-
-    if (!user && !isAuthPage) {
-        router.push('/login');
-    }
-    if (user && isAuthPage) {
-        router.push('/');
-    }
-  }, [user, authLoading, rolesLoading, isDatabaseLoaded, pathname, isAuthPage, router]);
-
   const hasPermission = useCallback((permission: Permission): boolean => {
       if (!userRole) return false;
       if (userRole === 'admin') return true; // Admin has all permissions
@@ -210,7 +197,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const isLoading = authLoading || rolesLoading || !isDatabaseLoaded;
+  const isLoading = authLoading || rolesLoading;
+
+  useEffect(() => {
+    if (isLoading) return; // Wait until auth state is resolved
+
+    if (!user && !isAuthPage) {
+        router.push('/login');
+    }
+    if (user && isAuthPage) {
+        router.push('/');
+    }
+  }, [user, isLoading, isAuthPage, router]);
+
 
   const value = {
     user,
@@ -236,7 +235,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   return (
       <AuthContext.Provider value={value}>
-        {user && !isAuthPage ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}
+        {user && !isAuthPage && isDatabaseLoaded ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}
+        {user && !isAuthPage && !isDatabaseLoaded && (
+            <div className="flex h-screen w-full items-center justify-center">
+                <p>Loading database...</p>
+            </div>
+        )}
       </AuthContext.Provider>
   );
 }

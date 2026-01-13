@@ -235,7 +235,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }
 
         const dataPaths = Object.keys(PATHS);
-        let loadedCount = 0;
+        const loadedPaths = new Set<string>();
 
         const listeners = dataPaths.map((key) => {
             const path = PATHS[key as keyof typeof PATHS];
@@ -248,31 +248,31 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     ...prevState,
                     [key]: data || (key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : {}),
                 }));
+
+                loadedPaths.add(key);
                 
-                loadedCount++;
-                if (loadedCount === dataPaths.length) {
+                if (loadedPaths.size === dataPaths.length) {
                     setState(prevState => ({ ...prevState, isLoaded: true }));
                 }
 
                 if (key === 'colorSettings' && !data) {
                     set(dbRef, DEFAULT_COLOR_SETTINGS);
                 }
-            }, {
-                // onlyOnce: true // Use onlyOnce if you don't need real-time updates after initial load
             });
         });
 
-        // Safety timeout to prevent infinite loading screen
         const timer = setTimeout(() => {
             if (!state.isLoaded) {
+                console.warn("Database loading timed out. Forcing isLoaded to true.");
                 setState(s => ({...s, isLoaded: true}));
             }
-        }, 5000);
+        }, 8000); // 8 second timeout
 
         return () => {
             listeners.forEach(unsubscribe => unsubscribe());
             clearTimeout(timer);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     
     const processedState = useMemo((): ProcessedDatabaseState => {
@@ -607,5 +607,6 @@ export const useDatabase = () => {
     
 
     
+
 
 
