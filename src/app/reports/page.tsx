@@ -23,6 +23,7 @@ import {
   Truck,
   Wallet,
   Users,
+  Receipt,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -125,6 +126,12 @@ const reportList: ReportCardProps[] = [
     href: '/ledger',
     icon: Wallet,
   },
+  {
+    title: 'Expense Report',
+    description: 'View a detailed breakdown of all business expenses.',
+    href: '/expenses',
+    icon: Receipt,
+  }
 ];
 
 const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) => (
