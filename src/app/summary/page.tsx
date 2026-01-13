@@ -95,7 +95,10 @@ export default function SummaryPage() {
         return acc;
     }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
 
-    return Object.values(salesByProduct);
+    return Object.values(salesByProduct).map(item => ({
+        ...item,
+        key: item.product, 
+    }));
   }, [isLoaded, transactions, products]);
 
 
@@ -125,81 +128,6 @@ export default function SummaryPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign /> Financial Report
-            </CardTitle>
-            <CardDescription>An overview of your business's financial performance.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!isLoaded ? (
-              <div className="space-y-4">
-                <Skeleton className="h-8 w-3/4" />
-                <Skeleton className="h-8 w-1/2" />
-                <Skeleton className="h-8 w-2/3" />
-              </div>
-            ) : financialSummary ? (
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-                 <Card className="lg:col-span-1">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">PKR {financialSummary.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <p className="text-xs text-muted-foreground">From all sales and income sources</p>
-                  </CardContent>
-                </Card>
-                 <Card className="lg:col-span-1">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Gross Profit</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">PKR {financialSummary.grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <p className="text-xs text-muted-foreground">Revenue - COGS</p>
-                  </CardContent>
-                </Card>
-                 <Card className="lg:col-span-1">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${financialSummary.netProfit >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                      PKR {financialSummary.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                    <p className="text-xs text-muted-foreground">After all expenses</p>
-                  </CardContent>
-                </Card>
-                 <Card className="lg:col-span-1">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Cost of Goods</CardTitle>
-                    <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">PKR {financialSummary.totalCostOfGoods.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <p className="text-xs text-muted-foreground">From all fuel purchases</p>
-                  </CardContent>
-                </Card>
-                 <Card className="lg:col-span-1">
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Expenses</CardTitle>
-                    <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">PKR {financialSummary.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <p className="text-xs text-muted-foreground">Salaries, utilities, etc.</p>
-                  </CardContent>
-                </Card>
-              </div>
-            ) : (
-              <p>No data available to generate a financial report.</p>
-            )}
-          </CardContent>
-        </Card>
-        
       <div className="grid lg:grid-cols-2 gap-8">
         <Card>
             <CardHeader>
