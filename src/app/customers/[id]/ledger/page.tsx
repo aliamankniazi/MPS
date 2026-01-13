@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState, useEffect, use } from 'react';
@@ -37,8 +38,8 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
-  const safeParams = use(Promise.resolve(params));
+export default function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
+  const params = use(Promise.resolve(unsafeParams));
   
   const { 
     customers, 
@@ -64,7 +65,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
 
   const { entity, entityType } = useMemo(() => {
     if (!isLoaded) return { entity: null, entityType: null };
-    const entityId = safeParams.id;
+    const entityId = params.id;
     const customer = customers.find(c => c.id === entityId);
     if (customer) return { entity: customer, entityType: 'Customer' };
     const supplier = suppliers.find(s => s.id === entityId);
@@ -72,11 +73,11 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     const partner = businessPartners.find(p => p.id === entityId);
     if (partner) return { entity: partner, entityType: 'Partner' };
     return { entity: null, entityType: null };
-  }, [safeParams, customers, suppliers, businessPartners, isLoaded]);
+  }, [params, customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, finalBalance } = useMemo(() => {
     if (!entity) return { entries: [], finalBalance: 0 };
-    const entityId = safeParams.id;
+    const entityId = params.id;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -194,7 +195,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, safeParams]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, params]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;

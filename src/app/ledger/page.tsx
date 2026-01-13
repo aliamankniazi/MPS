@@ -643,6 +643,7 @@ export default function LedgerPage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
+                                                    <TableHead>Sr #</TableHead>
                                                     <TableHead>Date & Time</TableHead>
                                                     <TableHead>Particulars</TableHead>
                                                     <TableHead>Type</TableHead>
@@ -658,16 +659,15 @@ export default function LedgerPage() {
                                                     
                                                     const entryColorClass = cn({
                                                         'text-blue-600': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale),
-                                                        'text-teal-600': entry.type === 'Purchase',
+                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Other Income' || entry.type === 'Stock Surplus' || entry.type === 'Investment' || entry.type === 'Purchase Return',
+                                                        'text-teal-600': entry.type === 'Purchase' || entry.type === 'Customer Payment',
                                                         'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
-                                                        'text-green-600': ['Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
-                                                        'text-teal-600': entry.type === 'Customer Payment',
                                                         'text-pink-600': ['Salary', 'Salary Expense', 'Supplier Payment'].includes(entry.type),
                                                     });
 
                                                     return (
                                                         <TableRow key={entry.id}>
+                                                            <TableCell>{dayData.entries.length - index}</TableCell>
                                                             <TableCell className={cn("font-medium", entryColorClass)}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
@@ -693,10 +693,10 @@ export default function LedgerPage() {
                                                               {entry.type === 'Sale' && entry.isCreditSale ? 'Udhar Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entry.type === 'Sale' && entry.isCreditSale ? 'text-blue-600' : (entry.debit > 0 ? 'text-destructive' : ''))}>
+                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", (entry.type === 'Sale' && !entry.isCreditSale) ? 'text-green-600' : (entry.credit > 0 ? entry.type === 'Purchase' ? 'text-teal-600' : 'text-green-600' : ''))}>
+                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
