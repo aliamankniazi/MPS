@@ -21,7 +21,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
@@ -50,6 +50,7 @@ const navGroups = [
             { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo, permission: 'view_purchase_returns' as Permission },
             { href: '/suppliers', label: 'Suppliers', icon: Contact, permission: 'view_settings' as Permission },
             { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen, permission: 'view_partner_ledger' as Permission },
+            { href: '/supplier-report', label: 'Supplier Report', icon: Truck, permission: 'view_purchases' as Permission },
         ]
     },
     {
@@ -189,5 +190,3 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
     </SidebarProvider>
   );
 }
-
-    
