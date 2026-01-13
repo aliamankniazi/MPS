@@ -4,7 +4,6 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/hooks/use-auth';
-import { RolesProvider } from '@/hooks/use-roles.tsx';
 import { PrintStyles } from '@/components/print-styles';
 import { DatabaseProvider } from '@/hooks/use-database';
 
@@ -27,13 +26,11 @@ export default function RootLayout({
           <PrintStyles />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-          <DatabaseProvider>
-            <RolesProvider>
-                {children}
-            </RolesProvider>
-          </DatabaseProvider>
-        </AuthProvider>
+        <DatabaseProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </DatabaseProvider>
         <Toaster />
       </body>
     </html>
