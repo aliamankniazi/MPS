@@ -21,7 +21,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { useRoles } from '@/hooks/use-roles';
@@ -81,7 +81,16 @@ const navGroups = [
             { href: '/expenses', label: 'Expenses', icon: Receipt, permission: 'view_expenses' as Permission },
             { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign, permission: 'view_other_incomes' as Permission },
             { href: '/bank-management', label: 'Bank Management', icon: Landmark, permission: 'manage_banks' as Permission },
+        ]
+    },
+    {
+        title: 'System',
+        icon: Cog,
+        permission: 'view_settings' as Permission,
+        links: [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit, permission: 'view_settings' as Permission },
+            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles, permission: 'generate_ai_summary' as Permission },
+            { href: '/roles', label: 'Role Management', icon: Shield, permission: 'manage_roles' as Permission },
         ]
     }
 ]

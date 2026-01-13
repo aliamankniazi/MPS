@@ -152,7 +152,7 @@ export default function InventoryPage() {
                             <p className="text-muted-foreground">{product.unit} in Stock</p>
                         </div>
                         <div className="space-y-2">
-                           <Progress value={percentage} className="h-3 [&>div]:bg-primary" />
+                           <Progress value={percentage} className="h-3" progressColor={getProgressColor(percentage)} />
                            <div className="flex justify-between text-xs text-muted-foreground">
                                <span>0 L</span>
                                <span>{percentage.toFixed(0)}%</span>
