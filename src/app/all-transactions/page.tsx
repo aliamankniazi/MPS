@@ -234,6 +234,12 @@ export default function AllTransactionsPage() {
       if (entry.type === 'Sale' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
           return customers.find(c => c.id === entry.original.customerId);
       }
+       if (entry.type === 'Customer Payment' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
+          return customers.find(c => c.id === entry.original.customerId);
+      }
+       if (entry.type === 'Cash Advance' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
+          return customers.find(c => c.id === entry.original.customerId);
+      }
       return undefined;
   }
   
@@ -308,7 +314,8 @@ export default function AllTransactionsPage() {
                     const customer = getCustomerForEntry(entry);
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
-                    
+                    const entityId = entry.original?.customerId || entry.original?.supplierId || entry.original?.partnerId;
+
                     return (
                     <TableRow key={entry.id} className={getRowClass(entry)}>
                         <TableCell className="font-medium whitespace-nowrap">
@@ -339,6 +346,18 @@ export default function AllTransactionsPage() {
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
+                            {entityId && (
+                                <Button asChild variant="ghost" size="icon" title="View Ledger">
+                                  <Link href={`/customers/${entityId}/ledger`}>
+                                    <BookText className="w-4 h-4" />
+                                  </Link>
+                                </Button>
+                            )}
+                             <Button asChild variant="ghost" size="icon" title="Edit">
+                                <Link href={'/customers'}>
+                                    <Pencil className="w-4 h-4" />
+                                </Link>
+                            </Button>
                             {isPrintable && (
                             <Button asChild variant="ghost" size="icon" title="Print Invoice">
                                 <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`} target="_blank">
@@ -346,7 +365,7 @@ export default function AllTransactionsPage() {
                                 </Link>
                             </Button>
                             )}
-                            {entry.type === 'Sale' && customer?.contact && (
+                            {customer?.contact && (
                                 <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
                                     <a 
                                     href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
