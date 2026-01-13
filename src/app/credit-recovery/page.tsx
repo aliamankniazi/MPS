@@ -115,14 +115,24 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
+        let periodString = "For Period: ";
+        if (dateRange?.from && dateRange?.to) {
+            periodString += `${format(dateRange.from, 'PP')} to ${format(dateRange.to, 'PP')}`;
+        } else if (dateRange?.from) {
+            periodString += `from ${format(dateRange.from, 'PP')}`;
+        } else {
+            periodString = "For All Time";
+        }
+        
         const message = `As-Salaam-Alaikum,
 Dear ${row.customer.name},
+${periodString}
 Your Previous Amount: ${row.previousBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 New Sale Amount: ${row.sale.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Paid Amount: ${row.recovery.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Now your balance is: ${row.currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Thank You,
-Mianwali Petroleum Service Mianwali`;
+Mianwali Petroleum Service`;
         return encodeURIComponent(message);
     }
 
