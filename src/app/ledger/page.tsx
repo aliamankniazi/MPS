@@ -519,7 +519,7 @@ export default function LedgerPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
            </Popover>
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
@@ -767,4 +767,5 @@ export default function LedgerPage() {
     
 
     
+
 
