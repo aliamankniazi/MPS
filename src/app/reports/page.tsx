@@ -52,7 +52,7 @@ const reportList: ReportCardProps[] = [
   },
   {
     title: 'Product Wise Sale Report',
-    description: 'Analyze sales performance by fuel type.',
+    description: 'Show Product Wise Sale Reports',
     href: '/ledger',
     icon: Package,
   },
