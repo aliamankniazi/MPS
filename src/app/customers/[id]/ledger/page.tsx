@@ -39,7 +39,7 @@ type LedgerEntry = {
 };
 
 export default function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
-  const params = use(Promise.resolve(unsafeParams));
+  const params = React.use(Promise.resolve(unsafeParams));
   
   const { 
     customers, 

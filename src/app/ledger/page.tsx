@@ -347,20 +347,22 @@ export default function LedgerPage() {
   }, [isLoaded, transactions, otherIncomes, purchases, expenses]);
 
 
-  const groupedEntries = useMemo(() => {
-    let filteredEntries = allEntries;
+  const filteredEntries = useMemo(() => {
+    let entries = allEntries;
 
     if (searchTerm) {
-        filteredEntries = filteredEntries.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
+        entries = entries.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
     }
     if (selectedType && selectedType !== 'all') {
-        filteredEntries = filteredEntries.filter(e => e.type === selectedType);
+        entries = entries.filter(e => e.type === selectedType);
     }
     if (selectedDate) {
-        filteredEntries = filteredEntries.filter(e => isValid(new Date(e.timestamp)) && isSameDay(new Date(e.timestamp), selectedDate));
+        entries = entries.filter(e => isValid(new Date(e.timestamp)) && isSameDay(new Date(e.timestamp), selectedDate));
     }
+    return entries;
+  }, [allEntries, searchTerm, selectedDate, selectedType]);
 
-
+  const groupedEntries = useMemo(() => {
     return filteredEntries.reduce((acc: GroupedEntries, entry: LedgerEntry) => {
       const date = new Date(entry.timestamp);
       if (!isValid(date)) return acc;
@@ -407,7 +409,7 @@ export default function LedgerPage() {
 
     }, {});
 
-  }, [allEntries, searchTerm, selectedDate, selectedType]);
+  }, [filteredEntries, allEntries]);
   
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -486,6 +488,8 @@ export default function LedgerPage() {
 
   const hasActiveFilters = searchTerm || selectedDate || selectedType;
   const currentDayKey = format(new Date(), 'yyyy-MM-dd');
+
+  let runningEntryCount = filteredEntries.length;
 
 
   return (
@@ -654,7 +658,7 @@ export default function LedgerPage() {
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {dayData.entries.slice().reverse().map((entry, index) => {
+                                                {dayData.entries.slice().reverse().map((entry) => {
                                                     const date = new Date(entry.timestamp);
                                                     
                                                     const entryColorClass = cn({
@@ -665,9 +669,11 @@ export default function LedgerPage() {
                                                         'text-pink-600': ['Salary', 'Salary Expense', 'Supplier Payment'].includes(entry.type),
                                                     });
 
+                                                    const currentSr = runningEntryCount--;
+
                                                     return (
                                                         <TableRow key={entry.id}>
-                                                            <TableCell>{dayData.entries.length - index}</TableCell>
+                                                            <TableCell>{currentSr}</TableCell>
                                                             <TableCell className={cn("font-medium", entryColorClass)}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
