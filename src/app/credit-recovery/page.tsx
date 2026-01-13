@@ -131,7 +131,7 @@ Contact Info 03335425401`;
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <FileText /> Customer Defaulter Report
+                        <FileText /> Customer Sale and Recovery Report
                     </CardTitle>
                     <CardDescription>
                         View sales, recoveries, and balances for customers. Use filters to refine the results.
@@ -263,3 +263,5 @@ Contact Info 03335425401`;
         </div>
     );
 }
+
+    
