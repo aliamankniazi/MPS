@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
 import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2 } from 'lucide-react';
+import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2, Package } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { isToday } from 'date-fns';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 
 const chartConfig = {
@@ -31,7 +32,7 @@ const chartConfig = {
 
 
 export default function SummaryPage() {
-  const { transactions, purchases, expenses, otherIncomes, isLoaded } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, products, isLoaded } = useDatabase();
 
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
@@ -70,6 +71,32 @@ export default function SummaryPage() {
         }
       ];
   }, [financialSummary]);
+
+  const productWiseSales = useMemo(() => {
+    if (!isLoaded || !products) return [];
+
+    const salesByProduct = transactions.reduce((acc, tx) => {
+        const productName = tx.product || tx.fuelType;
+        if (!productName || productName === 'undefined') return acc;
+        
+        if (!acc[productName]) {
+            const productInfo = products.find(p => p.name === productName);
+            acc[productName] = {
+                product: productName,
+                unit: productInfo?.unit || 'Ltr',
+                totalSold: 0,
+                totalRevenue: 0,
+            };
+        }
+        
+        acc[productName].totalSold += tx.volume || 0;
+        acc[productName].totalRevenue += tx.totalAmount;
+        
+        return acc;
+    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
+
+    return Object.values(salesByProduct);
+  }, [isLoaded, transactions, products]);
 
 
   const handleGenerateSummary = () => {
@@ -177,37 +204,39 @@ export default function SummaryPage() {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                    <BarChart2 /> Financial Chart
+                    <Package /> Product Wise Sale Report
                 </CardTitle>
-                <CardDescription>A visual representation of key financial metrics.</CardDescription>
+                <CardDescription>A summary of sales for each product across all time.</CardDescription>
             </CardHeader>
             <CardContent>
-                {isLoaded ? (
-                    <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
-                        <BarChart accessibilityLayer data={chartData}>
-                            <CartesianGrid vertical={false} />
-                            <XAxis
-                                dataKey="name"
-                                tickLine={false}
-                                tickMargin={10}
-                                axisLine={false}
-                            />
-                            <YAxis
-                                tickFormatter={(value) => `PKR ${value / 1000}k`}
-                            />
-                            <ChartTooltip 
-                                content={<ChartTooltipContent 
-                                    formatter={(value, name) => `${chartConfig[name as keyof typeof chartConfig].label}: PKR ${Number(value).toLocaleString()}`}
-                                />}
-                            />
-                            <Bar dataKey="totalRevenue" fill="var(--color-totalRevenue)" radius={4} />
-                            <Bar dataKey="totalCostOfGoods" fill="var(--color-totalCostOfGoods)" radius={4} />
-                            <Bar dataKey="netProfit" fill="var(--color-netProfit)" radius={4} />
-                        </BarChart>
-                    </ChartContainer>
-                ) : (
-                    <Skeleton className="w-full h-[250px]" />
-                )}
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Product</TableHead>
+                            <TableHead className="text-right">Total Sold</TableHead>
+                            <TableHead className="text-right">Avg Price/Unit</TableHead>
+                            <TableHead className="text-right">Total Revenue</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {isLoaded && productWiseSales.length > 0 ? (
+                            productWiseSales.map(item => (
+                                <TableRow key={item.product}>
+                                    <TableCell className="font-medium">{item.product}</TableCell>
+                                    <TableCell className="text-right">{item.totalSold.toFixed(2)} {item.unit}</TableCell>
+                                    <TableCell className="text-right">{(item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right font-semibold">{item.totalRevenue.toFixed(2)}</TableCell>
+                                </TableRow>
+                            ))
+                        ) : (
+                             <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    {isLoaded ? 'No product sales data available.' : 'Loading report...'}
+                                </TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
             </CardContent>
         </Card>
 
