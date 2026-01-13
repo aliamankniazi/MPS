@@ -697,7 +697,7 @@ export default function LedgerPage() {
                                                               {entry.type === 'Sale' && entry.isCreditSale ? 'Udhar Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
-                                                            <TableCell className="text-right font-mono text-destructive">
+                                                            <TableCell className={cn("text-right font-mono", entryColorClass, entry.debit > 0 ? (entry.isCreditSale ? 'text-blue-600' : 'text-destructive') : '')}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("text-right font-mono", entryColorClass)}>
