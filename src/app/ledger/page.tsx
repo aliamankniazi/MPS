@@ -538,7 +538,7 @@ export default function LedgerPage() {
         <div className="grid gap-6 lg:grid-cols-2">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Summary</CardTitle>
+                    <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Report</CardTitle>
                     <CardDescription>A summary of all product sales for all time.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -697,10 +697,10 @@ export default function LedgerPage() {
                                                               {entry.type === 'Sale' && entry.isCreditSale ? 'Udhar Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
                                                             </Badge>
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entryColorClass, entry.debit > 0 ? (entry.isCreditSale ? 'text-blue-600' : 'text-destructive') : '')}>
+                                                            <TableCell className={cn("text-right font-mono", entry.type === 'Sale' && entry.isCreditSale ? 'text-blue-600' : (entry.debit > 0 ? 'text-destructive' : ''))}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
+                                                            <TableCell className={cn("text-right font-mono", entry.credit > 0 ? 'text-green-600' : '')}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -765,3 +765,4 @@ export default function LedgerPage() {
     
 
     
+
