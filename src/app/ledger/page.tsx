@@ -491,6 +491,24 @@ export default function LedgerPage() {
 
   let runningEntryCount = filteredEntries.length;
 
+  const getEntryLink = (entry: LedgerEntry): string => {
+    if (entry.type === 'Sale') {
+      return `/invoice/sale/${entry.original.id}`;
+    }
+    if (entry.type === 'Purchase') {
+      return `/invoice/purchase/${entry.original.id}`;
+    }
+    if (entry.original.customerId) {
+        return `/customers/${entry.original.customerId}/ledger`;
+    }
+    if (entry.original.supplierId) {
+        return `/customers/${entry.original.supplierId}/ledger`;
+    }
+    if (entry.original.partnerId) {
+        return `/customers/${entry.original.partnerId}/ledger`;
+    }
+    return '#'; // Default fallback
+  }
 
   return (
     <>
@@ -663,6 +681,7 @@ export default function LedgerPage() {
                                                     const color = getEntryColor(entry);
                                                     const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
                                                     const currentSr = runningEntryCount--;
+                                                    const link = getEntryLink(entry);
 
                                                     return (
                                                         <TableRow key={entry.id}>
@@ -670,7 +689,11 @@ export default function LedgerPage() {
                                                             <TableCell className="font-medium" style={{ color }}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
-                                                            <TableCell className="font-medium" style={{ color }}>{entry.description}</TableCell>
+                                                            <TableCell className="font-medium" style={{ color }}>
+                                                                <Link href={link} className="hover:underline">
+                                                                    {entry.description}
+                                                                </Link>
+                                                            </TableCell>
                                                             <TableCell>
                                                             <Badge 
                                                                 className="text-xs border"
@@ -751,6 +774,7 @@ export default function LedgerPage() {
     
 
     
+
 
 
 
