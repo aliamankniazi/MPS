@@ -658,7 +658,8 @@ export default function LedgerPage() {
                                                     
                                                     const entryColorClass = cn({
                                                         'text-blue-600': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Purchase',
+                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale),
+                                                        'text-teal-600': entry.type === 'Purchase',
                                                         'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
                                                         'text-green-600': ['Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
                                                         'text-teal-600': entry.type === 'Customer Payment',
@@ -680,7 +681,7 @@ export default function LedgerPage() {
                                                                     (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                                                     (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                    entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
+                                                                    entry.type === 'Purchase' && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                                                     entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
                                                                     entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
@@ -695,7 +696,7 @@ export default function LedgerPage() {
                                                             <TableCell className={cn("text-right font-mono", entry.type === 'Sale' && entry.isCreditSale ? 'text-blue-600' : (entry.debit > 0 ? 'text-destructive' : ''))}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Purchase' ? 'text-green-600' : (entry.credit > 0 ? 'text-green-600' : ''))}>
+                                                            <TableCell className={cn("text-right font-mono", (entry.type === 'Sale' && !entry.isCreditSale) ? 'text-green-600' : (entry.credit > 0 ? entry.type === 'Purchase' ? 'text-teal-600' : 'text-green-600' : ''))}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -750,18 +751,13 @@ export default function LedgerPage() {
   );
 }
 
-
-
-
-
-
-
-
     
 
     
 
 
 
+
+    
 
     
