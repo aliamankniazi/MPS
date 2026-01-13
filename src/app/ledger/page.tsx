@@ -109,7 +109,7 @@ export default function LedgerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [selectedType, setSelectedType] = useState<string>('');
-  const [showJournal, setShowJournal] = useState(false);
+  const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
 
   const allEntries = useMemo(() => {
@@ -786,4 +786,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
