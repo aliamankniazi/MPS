@@ -125,7 +125,8 @@ export default function SalesPage() {
   });
 
   const { customerId } = watch();
-  const { quantity, price, product: selectedProductId } = watchItem();
+  const { quantity, price, product: selectedProductName } = watchItem();
+  const selectedProductId = watchItem('product');
 
   useEffect(() => {
     const total = (quantity || 0) * (price || 0);
@@ -136,12 +137,13 @@ export default function SalesPage() {
     if (selectedProductId) {
         const productDetails = products.find(p => p.id === selectedProductId);
         if (productDetails) {
-            
             const lastTransactionForProduct = transactions
                 .filter(t => t.product === productDetails.name)
                 .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            
+            const priceToSet = lastTransactionForProduct?.pricePerLitre ?? productDetails.price;
 
-            setItemValue('price', lastTransactionForProduct?.pricePerLitre ?? productDetails.price);
+            setItemValue('price', priceToSet);
             setItemValue('unit', productDetails.unit);
             setItemValue('product', productDetails.name);
         }
