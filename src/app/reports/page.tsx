@@ -22,6 +22,7 @@ import {
   BookOpen,
   Truck,
   Wallet,
+  Users,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -34,6 +35,12 @@ interface ReportCardProps {
 }
 
 const reportList: ReportCardProps[] = [
+  {
+    title: 'Top Customers Report',
+    description: 'Identify top customers based on sales.',
+    href: '/',
+    icon: Users,
+  },
   {
     title: 'Date Wise Sale And Recovery Report',
     description: 'Track customer payments and balances.',
