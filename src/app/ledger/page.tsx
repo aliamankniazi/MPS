@@ -127,6 +127,9 @@ export default function LedgerPage() {
         } else if(tx.fuelType && tx.volume) {
           description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
         }
+        if (tx.notes) {
+          description += ` (${tx.notes})`;
+        }
         
         const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
 
@@ -660,7 +663,7 @@ export default function LedgerPage() {
                                                     
                                                     const entryColorClass = cn({
                                                         'text-destructive': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600': entry.type === 'Sale' && !entry.isCreditSale,
+                                                        'text-green-600 font-semibold': entry.type === 'Sale' && !entry.isCreditSale,
                                                         'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
                                                         'text-green-600': ['Purchase', 'Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
                                                         'text-teal-600': entry.type === 'Customer Payment',
@@ -697,7 +700,7 @@ export default function LedgerPage() {
                                                             <TableCell className="text-right font-mono text-destructive">
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className="text-right font-mono text-green-600">
+                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -751,6 +754,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
