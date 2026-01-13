@@ -272,29 +272,23 @@ export default function LedgerPage() {
 
     stockAdjustments.forEach(adj => {
         if (!adj.timestamp || !isValid(new Date(adj.timestamp))) return;
-        const adjDate = new Date(adj.timestamp);
         if (adj.adjustment > 0) { // Surplus
-            const salePrice = fuelPrices[adj.fuelType] || 0;
             combined.push({
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
                 type: 'Stock Surplus',
                 debit: 0,
-                credit: adj.adjustment * salePrice,
+                credit: adj.value,
                 original: adj,
             });
         } else { // Shortage
-            const lastPurchase = purchases
-                .filter(p => p.fuelType === adj.fuelType && isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= adjDate)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
             combined.push({
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
                 type: 'Stock Shortage',
-                debit: Math.abs(adj.adjustment) * purchasePrice,
+                debit: adj.value,
                 credit: 0,
                 original: adj,
             });
@@ -757,6 +751,7 @@ export default function LedgerPage() {
     
 
     
+
 
 
 

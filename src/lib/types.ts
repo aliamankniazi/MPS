@@ -195,6 +195,7 @@ export interface StockAdjustment {
   fuelType: FuelType;
   adjustment: number;
   newStock: number;
+  value: number;
   timestamp: string;
 }
 

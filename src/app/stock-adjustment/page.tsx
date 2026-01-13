@@ -72,7 +72,7 @@ export default function StockAdjustmentPage() {
     addStockAdjustment({
         fuelType: data.fuelType,
         adjustment: data.adjustment,
-        newStock: newStock
+        newStock: newStock,
     });
 
     toast({
@@ -171,7 +171,8 @@ export default function StockAdjustmentPage() {
                         <TableRow>
                             <TableHead>Date</TableHead>
                             <TableHead>Fuel Type</TableHead>
-                            <TableHead className="text-right">Adjustment</TableHead>
+                            <TableHead className="text-right">Adjustment (Ltr)</TableHead>
+                            <TableHead className="text-right">Adjustment (Value)</TableHead>
                             <TableHead className="text-right">New Stock Level</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -184,6 +185,9 @@ export default function StockAdjustmentPage() {
                                     <TableCell className={`text-right font-mono ${adj.adjustment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                         {adj.adjustment.toLocaleString(undefined, { signDisplay: 'always', minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
                                     </TableCell>
+                                    <TableCell className={`text-right font-mono ${adj.adjustment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                        PKR {adj.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </TableCell>
                                     <TableCell className="text-right font-semibold font-mono">
                                         {adj.newStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
                                     </TableCell>
@@ -191,7 +195,7 @@ export default function StockAdjustmentPage() {
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                     {isLoaded ? 'No adjustments recorded for this date.' : 'Loading adjustments...'}
                                 </TableCell>
                             </TableRow>
@@ -204,3 +208,4 @@ export default function StockAdjustmentPage() {
     </div>
   );
 }
+

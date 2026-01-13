@@ -193,7 +193,7 @@ interface DatabaseActions {
     addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => void;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
-    addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id'>) => void;
+    addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'value'>) => void;
     addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
@@ -420,7 +420,21 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const addInvestment = (i: Omit<Investment, 'id'>) => addEntity(PATHS.investments, i);
     const deleteInvestment = (id: string) => deleteEntity(PATHS.investments, id);
 
-    const addStockAdjustment = (adj: Omit<StockAdjustment, 'id'>) => addEntity(PATHS.stockAdjustments, adj);
+    const addStockAdjustment = (adj: Omit<StockAdjustment, 'id' | 'value'>) => {
+        let value = 0;
+        if (adj.adjustment > 0) { // Surplus
+            const salePrice = state.fuelPrices[adj.fuelType] || 0;
+            value = adj.adjustment * salePrice;
+        } else { // Shortage
+            const lastPurchase = processedState.purchases
+                .filter(p => p.fuelType === adj.fuelType)
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
+            value = Math.abs(adj.adjustment) * purchasePrice;
+        }
+
+        addEntity(PATHS.stockAdjustments, { ...adj, value });
+    };
 
     const addProduct = (p: Omit<Product, 'id'>) => addEntity(PATHS.products, p);
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(PATHS.products, id, u);
@@ -574,3 +588,4 @@ export const useDatabase = () => {
     
 
     
+
