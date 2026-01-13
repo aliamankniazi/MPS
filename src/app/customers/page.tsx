@@ -102,10 +102,6 @@ export default function CustomersPage() {
 
   const openEditDialog = (customer: Customer) => {
     setCustomerToEdit(customer);
-    setEditValue('name', customer.name);
-    setEditValue('contact', customer.contact);
-    setEditValue('vehicleNumber', customer.vehicleNumber || '');
-    setEditValue('area', customer.area || '');
   }
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
@@ -267,13 +263,13 @@ export default function CustomersPage() {
     
     <Dialog open={!!customerToEdit} onOpenChange={(isOpen) => { if (!isOpen) { setCustomerToEdit(null); resetEdit(); } }}>
         <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Customer</DialogTitle>
+                <DialogDescription>
+                    Update the details for this customer.
+                </DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleSubmitEdit(onEditSubmit)}>
-                <DialogHeader>
-                    <DialogTitle>Edit Customer</DialogTitle>
-                    <DialogDescription>
-                        Update the details for this customer.
-                    </DialogDescription>
-                </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="space-y-2">
                         <Label htmlFor="edit-name">Customer Name</Label>
