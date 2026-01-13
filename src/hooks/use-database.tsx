@@ -234,21 +234,40 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const listeners = Object.entries(PATHS).map(([key, path]) => {
+        const dataPaths = Object.keys(PATHS);
+        let loadedCount = 0;
+
+        const listeners = dataPaths.map((key) => {
+            const path = PATHS[key as keyof typeof PATHS];
             const dbRef = ref(db, path);
-            const isDefaulted = key === 'colorSettings'
+            
             return onValue(dbRef, (snapshot) => {
                 const data = snapshot.val();
-                if (isDefaulted && !data) {
-                    set(dbRef, DEFAULT_COLOR_SETTINGS);
-                    setState(prevState => ({ ...prevState, [key]: DEFAULT_COLOR_SETTINGS }));
-                } else {
-                    setState(prevState => ({ ...prevState, [key]: data || {} }));
+                
+                setState(prevState => ({
+                    ...prevState,
+                    [key]: data || (key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : {}),
+                }));
+                
+                loadedCount++;
+                if (loadedCount === dataPaths.length) {
+                    setState(prevState => ({ ...prevState, isLoaded: true }));
                 }
-            }, { onlyOnce: false }); // Ensure we get live updates
+
+                if (key === 'colorSettings' && !data) {
+                    set(dbRef, DEFAULT_COLOR_SETTINGS);
+                }
+            }, {
+                // onlyOnce: true // Use onlyOnce if you don't need real-time updates after initial load
+            });
         });
 
-        const timer = setTimeout(() => setState(s => ({...s, isLoaded: true})), 1500);
+        // Safety timeout to prevent infinite loading screen
+        const timer = setTimeout(() => {
+            if (!state.isLoaded) {
+                setState(s => ({...s, isLoaded: true}));
+            }
+        }, 5000);
 
         return () => {
             listeners.forEach(unsubscribe => unsubscribe());
@@ -588,4 +607,5 @@ export const useDatabase = () => {
     
 
     
+
 

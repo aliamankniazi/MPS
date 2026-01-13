@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -21,6 +22,7 @@ import type { AuthFormValues, RoleId, Role, Permission } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { ref, onValue, set, get, update, push } from 'firebase/database';
 import { AppLayout } from '@/components/app-layout';
+import { useDatabase } from './use-database';
 
 const PERMISSIONS = [
     'view_dashboard', 'view_all_transactions', 'delete_transaction',
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
+  const { isLoaded: isDatabaseLoaded } = useDatabase();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -138,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Effect for route protection
   useEffect(() => {
-    const isFullyLoaded = !authLoading && !rolesLoading;
+    const isFullyLoaded = !authLoading && !rolesLoading && isDatabaseLoaded;
     if (!isFullyLoaded) return;
 
     if (!user && !isAuthPage) {
@@ -147,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && isAuthPage) {
         router.push('/');
     }
-  }, [user, authLoading, rolesLoading, pathname, isAuthPage, router]);
+  }, [user, authLoading, rolesLoading, isDatabaseLoaded, pathname, isAuthPage, router]);
 
   const hasPermission = useCallback((permission: Permission): boolean => {
       if (!userRole) return false;
@@ -207,7 +210,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const isLoading = authLoading || rolesLoading;
+  const isLoading = authLoading || rolesLoading || !isDatabaseLoaded;
 
   const value = {
     user,
@@ -223,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasPermission
   };
   
-  if (isLoading) {
+  if (isLoading && !isAuthPage) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <p>Loading user permissions...</p>
