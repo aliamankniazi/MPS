@@ -180,8 +180,8 @@ export default function LedgerPage() {
             timestamp: p.timestamp,
             description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
             type: 'Purchase',
-            credit: 0, // In General Journal, a purchase on credit doesn't affect cash balance
-            debit: p.totalCost,
+            credit: p.totalCost,
+            debit: 0,
             original: p,
         })
     });
@@ -663,9 +663,9 @@ export default function LedgerPage() {
                                                     
                                                     const entryColorClass = cn({
                                                         'text-blue-600': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600': entry.type === 'Sale' && !entry.isCreditSale,
+                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Purchase',
                                                         'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
-                                                        'text-green-600': ['Purchase', 'Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
+                                                        'text-green-600': ['Other Income', 'Stock Surplus', 'Investment', 'Purchase Return'].includes(entry.type),
                                                         'text-teal-600': entry.type === 'Customer Payment',
                                                         'text-pink-600': ['Salary', 'Salary Expense', 'Supplier Payment'].includes(entry.type),
                                                     });
@@ -700,7 +700,7 @@ export default function LedgerPage() {
                                                             <TableCell className={cn("text-right font-mono", entry.type === 'Sale' && entry.isCreditSale ? 'text-blue-600' : (entry.debit > 0 ? 'text-destructive' : ''))}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entry.credit > 0 ? 'text-green-600' : '')}>
+                                                            <TableCell className={cn("text-right font-mono", (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Purchase' ? 'text-green-600' : (entry.credit > 0 ? 'text-green-600' : ''))}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -765,4 +765,5 @@ export default function LedgerPage() {
     
 
     
+
 
