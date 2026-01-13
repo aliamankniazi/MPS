@@ -37,6 +37,7 @@ const transactionSchema = z.object({
   paymentMethod: z.string().optional(),
   invoiceDate: z.string().optional(),
   notes: z.string().optional(),
+  vehicleNumber: z.string().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -159,6 +160,8 @@ export default function SalesPage() {
     } else {
       setValue('paymentMethod', 'Credit');
     }
+    // Reset vehicle number when customer changes
+    setValue('vehicleNumber', '');
   }, [customerId, setValue]);
 
   const selectedCustomer = useMemo(() => {
@@ -195,6 +198,12 @@ export default function SalesPage() {
       return;
     }
     
+    // Combine notes
+    let finalNotes = data.notes || '';
+    if (data.vehicleNumber) {
+        finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
+    }
+
     // Create one transaction per cart item to maintain detail
     cart.forEach(item => {
         const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
@@ -206,7 +215,7 @@ export default function SalesPage() {
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
           customerId: data.customerId,
           customerName: selectedCustomer?.name || 'Walk-in Customer',
-          notes: data.notes,
+          notes: finalNotes,
         };
         addTransaction(transactionData);
     });
@@ -351,6 +360,27 @@ export default function SalesPage() {
                               <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
                           </div>
                       </div>
+                      {selectedCustomer?.vehicleNumber && (
+                        <div className="space-y-2">
+                            <Label>Vehicle Number</Label>
+                            <Controller
+                                name="vehicleNumber"
+                                control={control}
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select vehicle..." />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {selectedCustomer.vehicleNumber.split(',').map(v => v.trim()).filter(Boolean).map(v => (
+                                                <SelectItem key={v} value={v}>{v}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
+                        </div>
+                      )}
                        <div className="space-y-2">
                           <Label>Payment Method</Label>
                           <Controller
