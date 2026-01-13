@@ -80,7 +80,7 @@ export default function DashboardPage() {
     if (!isLoaded) return [];
 
     const customerTotals = transactions.reduce((acc, tx) => {
-        if (tx.customerId && tx.customerName) {
+        if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
                 id: tx.customerId,
                 name: tx.customerName,
