@@ -76,7 +76,6 @@ export function RolesProvider({ children }: { children: ReactNode }) {
                 }));
                 setRoles(rolesList);
             } else {
-                // If no roles in DB, set the default ones
                 const updates: Record<string, Omit<Role, 'id'>> = {};
                 DEFAULT_ROLES.forEach(r => {
                     updates[`${DB_PATH}/${r.id}`] = { name: r.name, permissions: r.permissions };
@@ -110,7 +109,6 @@ export function RolesProvider({ children }: { children: ReactNode }) {
 
     const hasPermission = useCallback((permission: Permission): boolean => {
         if (!userRole) return false;
-        // The admin role ALWAYS has all permissions.
         if (userRole === 'admin') return true;
         const role = roles.find(r => r.id === userRole);
         if (!role) return false;

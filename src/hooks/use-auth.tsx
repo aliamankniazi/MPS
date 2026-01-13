@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -17,10 +16,10 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth, db, firebaseConfig } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { AuthFormValues, RoleId } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
-import { ref, onValue, set } from 'firebase/database';
+import { ref, onValue, set, get } from 'firebase/database';
 
 
 interface AuthContextType {
@@ -30,7 +29,6 @@ interface AuthContextType {
   signUp: (data: AuthFormValues) => Promise<any>;
   signOut: () => Promise<void>;
   userRole: RoleId | null;
-  assignRoleToUser: (userId: string, roleId: RoleId) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -44,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-  // Effect to load user role from RTDB
   useEffect(() => {
     if (user && db) {
       const userRoleRef = ref(db, `userRoles/${user.uid}`);
@@ -58,73 +55,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  const assignRoleToUser = useCallback((userId: string, roleId: RoleId) => {
-    if (!db) return;
-    try {
-      const userRoleRef = ref(db, `userRoles/${userId}`);
-      set(userRoleRef, roleId);
-      if (user && user.uid === userId) {
-        setUserRole(roleId);
-      }
-    } catch (error) {
-      console.error("Failed to save user role to RTDB", error);
-    }
-  }, [user]);
-
   useEffect(() => {
     if (!auth) {
-        // Handle case where auth is not initialized
         setLoading(false);
         return;
     }
-
-    // This listener handles the auth state changes from Firebase.
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (currentUser && db) {
-        // Check if any roles exist. If not, this is the first user.
-        const rolesRef = ref(db, 'userRoles');
-        onValue(rolesRef, (snapshot) => {
-            if (!snapshot.exists()) {
-                assignRoleToUser(currentUser.uid, 'admin');
-            }
-        }, { onlyOnce: true });
-      }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [assignRoleToUser]);
+  }, []);
   
-  // This effect handles route protection.
   useEffect(() => {
-    if (loading) return; // Wait until auth state is determined
-
-    // If there is no user and the current page is not a public auth page, redirect to login.
+    if (loading) return;
     if (!user && !isAuthPage) {
         router.push('/login');
     }
-    // If there is a user and they are on an auth page, redirect to the dashboard.
     if (user && isAuthPage) {
         router.push('/');
     }
   }, [user, loading, pathname, router, isAuthPage]);
+
+  const assignRoleToUser = (userId: string, roleId: RoleId) => {
+    if (!db) return;
+    set(ref(db, `userRoles/${userId}`), roleId);
+  };
 
   const signIn = (data: AuthFormValues) => {
     if (!auth) return Promise.reject(new Error("Firebase is not configured."));
     return signInWithEmailAndPassword(auth, data.email, data.password);
   };
 
-  const signUp = (data: AuthFormValues) => {
-    if (!auth) return Promise.reject(new Error("Firebase is not configured."));
-    return createUserWithEmailAndPassword(auth, data.email, data.password);
+  const signUp = async (data: AuthFormValues) => {
+    if (!auth || !db) throw new Error("Firebase is not configured.");
+
+    const userRolesRef = ref(db, 'userRoles');
+    const snapshot = await get(userRolesRef);
+    const hasUsers = snapshot.exists();
+    
+    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    
+    if (!hasUsers) {
+      assignRoleToUser(userCredential.user.uid, 'admin');
+    } else {
+      assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
+    }
+    
+    return userCredential;
   };
 
   const signOut = async () => {
     if (auth) {
       await firebaseSignOut(auth);
     }
-    setUser(null); // Explicitly set user to null on sign out
-    router.push('/login'); // Redirect to login page after sign out
+    setUser(null);
+    router.push('/login');
   };
 
   const value = {
@@ -134,7 +120,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     userRole,
-    assignRoleToUser,
   };
   
   if (loading) {
