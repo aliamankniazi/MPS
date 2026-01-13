@@ -367,7 +367,7 @@ export default function SettingsPage() {
                                     name="unit"
                                     control={controlProduct}
                                     render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                                             <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
                                             <SelectContent>
                                                 {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
@@ -383,7 +383,7 @@ export default function SettingsPage() {
                                     name="category"
                                     control={controlProduct}
                                     render={({ field }) => (
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                                             <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="Main Product">Main Product</SelectItem>
@@ -530,8 +530,8 @@ export default function SettingsPage() {
                             name="unit"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                    <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
                                     <SelectContent>
                                       {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
                                     </SelectContent>
@@ -546,8 +546,8 @@ export default function SettingsPage() {
                             name="category"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                                    <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="Main Product">Main Product</SelectItem>
                                         <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
@@ -588,3 +588,4 @@ export default function SettingsPage() {
     </>
   );
 }
+
