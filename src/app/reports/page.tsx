@@ -21,6 +21,7 @@ import {
   LayoutDashboard,
   BookOpen,
   Truck,
+  Wallet,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -110,6 +111,12 @@ const reportList: ReportCardProps[] = [
     description: 'View all financial transactions chronologically.',
     href: '/ledger',
     icon: BookOpen,
+  },
+  {
+    title: 'Cash Flow Report',
+    description: 'Track cash in, cash out, and balance over time.',
+    href: '/ledger',
+    icon: Wallet,
   },
 ];
 
