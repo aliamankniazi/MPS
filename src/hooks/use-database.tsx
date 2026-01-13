@@ -63,6 +63,12 @@ const PATHS = {
     attendance: 'attendance',
 };
 
+const TRANSACTION_DATA_PATHS = [
+    'transactions', 'purchases', 'purchaseReturns', 'saleReturns', 'expenses',
+    'otherIncomes', 'customerPayments', 'supplierPayments', 'cashAdvances',
+    'machineReadings', 'investments', 'stockAdjustments', 'attendance'
+];
+
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
   'Unleaded': 0,
   'Premium': 0,
@@ -149,7 +155,7 @@ interface DatabaseActions {
     addBankAccount: (account: Omit<BankAccount, 'id'>) => void;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
-    addEmployee: (employee: Omit<Employee, 'id'>) => void;
+    addEmployee: (employee: Omit<Employee, 'id'>) => Employee;
     updateEmployee: (id: string, updates: Partial<Employee> & { terminationDate?: string | null }) => void;
     deleteEmployee: (id: string) => void;
     addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => void;
@@ -248,7 +254,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             customers: objectToArray<Customer>(state.customers).sort(createSorter('name', 'asc')),
             suppliers: objectToArray<Supplier>(state.suppliers).sort(createSorter('name', 'asc')),
             bankAccounts: objectToArray<BankAccount>(state.bankAccounts).sort(createSorter('timestamp')),
-            employees: objectToArray<Employee>(state.employees).sort(createSorter('timestamp')),
+            employees: objectToArray<Employee>(state.employees).sort(createSorter('name', 'asc')),
             customerPayments: objectToArray<CustomerPayment>(state.customerPayments).sort(createSorter('timestamp')),
             supplierPayments: objectToArray<SupplierPayment>(state.supplierPayments).sort(createSorter('timestamp')),
             cashAdvances: objectToArray<CashAdvance>(state.cashAdvances).sort(createSorter('timestamp')),
@@ -363,7 +369,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateBankAccount = (id: string, u: Partial<BankAccount>) => updateEntity(PATHS.bankAccounts, id, u);
     const deleteBankAccount = (id: string) => deleteEntity(PATHS.bankAccounts, id);
 
-    const addEmployee = (e: Omit<Employee, 'id'>) => addEntity(PATHS.employees, e);
+    const addEmployee = (e: Omit<Employee, 'id'>) => addEntity<Employee>(PATHS.employees, e);
     const updateEmployee = (id: string, u: Partial<Employee> & { terminationDate?: string | null }) => updateEntity(PATHS.employees, id, u);
     const deleteEmployee = (id: string) => deleteEntity(PATHS.employees, id);
 
@@ -442,19 +448,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     
     const clearAllData = () => {
         if(db) {
-            Object.values(PATHS).forEach(path => {
-                remove(ref(db, path));
+            TRANSACTION_DATA_PATHS.forEach(pathKey => {
+                const path = PATHS[pathKey as keyof typeof PATHS];
+                if (path) {
+                    remove(ref(db, path));
+                }
             });
         }
-        setState({
-            transactions: {}, purchases: {}, purchaseReturns: {}, saleReturns: {},
-            expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
-            bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
-            cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-            stockAdjustments: {}, products: {}, attendance: {},
-            fuelPrices: DEFAULT_FUEL_PRICES, initialFuelStock: DEFAULT_INITIAL_STOCK, 
-            isLoaded: true
+        
+        const newState: Partial<DatabaseState> = {};
+        TRANSACTION_DATA_PATHS.forEach(key => {
+            newState[key as keyof DatabaseState] = {};
         });
+
+        setState(s => ({
+            ...s,
+            ...newState,
+            isLoaded: true
+        }));
     };
 
 
@@ -523,5 +534,7 @@ export const useDatabase = () => {
     }
     return context;
 };
+
+    
 
     
