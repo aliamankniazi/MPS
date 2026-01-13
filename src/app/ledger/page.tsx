@@ -91,6 +91,7 @@ export default function LedgerPage() {
     stockAdjustments,
     fuelPrices,
     products,
+    colorSettings,
     isLoaded,
     deleteTransaction,
     deletePurchase,
@@ -421,6 +422,11 @@ export default function LedgerPage() {
     });
     groupedEntries[key].closingBalance = runningBalance;
   });
+
+  const getEntryColor = (entry: LedgerEntry) => {
+    const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
+    return colorSettings[type] || '#6b7280'; // default gray
+  };
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) {
@@ -519,7 +525,7 @@ export default function LedgerPage() {
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
            </Popover>
-            <Select value={selectedType} onValueChange={(value) => setSelectedType(value)}>
+            <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
                 </SelectTrigger>
@@ -660,49 +666,33 @@ export default function LedgerPage() {
                                             <TableBody>
                                                 {dayData.entries.slice().reverse().map((entry) => {
                                                     const date = new Date(entry.timestamp);
-                                                    
-                                                    const entryColorClass = cn({
-                                                        'text-blue-600': entry.type === 'Sale' && entry.isCreditSale,
-                                                        'text-green-600': (entry.type === 'Sale' && !entry.isCreditSale) || entry.type === 'Other Income' || entry.type === 'Stock Surplus' || entry.type === 'Investment' || entry.type === 'Purchase Return',
-                                                        'text-teal-600': entry.type === 'Purchase' || entry.type === 'Customer Payment',
-                                                        'text-destructive': ['Expense', 'Cash Advance', 'Stock Shortage', 'Withdrawal', 'Sale Return'].includes(entry.type),
-                                                        'text-pink-600': ['Salary', 'Salary Expense', 'Supplier Payment'].includes(entry.type),
-                                                    });
-
+                                                    const color = getEntryColor(entry);
+                                                    const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
                                                     const currentSr = runningEntryCount--;
 
                                                     return (
                                                         <TableRow key={entry.id}>
                                                             <TableCell>{currentSr}</TableCell>
-                                                            <TableCell className={cn("font-medium", entryColorClass)}>
+                                                            <TableCell className="font-medium" style={{ color }}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
-                                                            <TableCell className={cn("font-medium", entryColorClass)}>{entry.description}</TableCell>
+                                                            <TableCell className="font-medium" style={{ color }}>{entry.description}</TableCell>
                                                             <TableCell>
                                                             <Badge 
-                                                                variant={entry.debit > 0 ? 'destructive' : 'outline'}
-                                                                className={cn('text-xs', 
-                                                                    entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                                    entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
-                                                                    (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
-                                                                    entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                    (entry.type === 'Salary' || entry.type === 'Salary Expense') && 'bg-pink-100 text-pink-800 border-pink-200',
-                                                                    entry.type === 'Purchase' && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
-                                                                    entry.type === 'Purchase Return' && 'bg-orange-100 text-orange-800 border-orange-200',
-                                                                    entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                                                    entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                                                                    entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
-                                                                    (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
-                                                                    (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
-                                                            )}
+                                                                className="text-xs border"
+                                                                style={{
+                                                                    backgroundColor: `${color}20`,
+                                                                    color: color,
+                                                                    borderColor: `${color}40`,
+                                                                }}
                                                             >
-                                                              {entry.type === 'Sale' && entry.isCreditSale ? 'Udhar Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}
+                                                              {typeLabel}
                                                             </Badge>
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
+                                                            <TableCell className="text-right font-mono" style={{ color }}>
                                                                 {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
                                                             </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entryColorClass)}>
+                                                            <TableCell className="text-right font-mono" style={{ color }}>
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
@@ -767,5 +757,6 @@ export default function LedgerPage() {
     
 
     
+
 
 

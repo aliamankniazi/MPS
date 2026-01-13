@@ -61,6 +61,7 @@ const PATHS = {
     stockAdjustments: 'stockAdjustments',
     products: 'products',
     attendance: 'attendance',
+    colorSettings: 'colorSettings',
 };
 
 const TRANSACTION_DATA_PATHS = [
@@ -79,6 +80,24 @@ const DEFAULT_FUEL_PRICES: Record<FuelType, number> = {
   'Unleaded': 0,
   'Premium': 0,
   'Diesel': 0,
+};
+
+const DEFAULT_COLOR_SETTINGS: Record<string, string> = {
+    'Sale': '#22C55E', // green-500
+    'Credit Sale': '#3B82F6', // blue-500
+    'Customer Payment': '#14B8A6', // teal-500
+    'Purchase': '#14B8A6', // teal-500
+    'Purchase Return': '#F97316', // orange-500
+    'Sale Return': '#FBBF24', // yellow-500
+    'Expense': '#EF4444', // red-500
+    'Cash Advance': '#EF4444', // red-500
+    'Salary': '#EC4899', // pink-500
+    'Supplier Payment': '#EC4899', // pink-500
+    'Other Income': '#22C55E', // green-500
+    'Stock Surplus': '#22C55E', // green-500
+    'Stock Shortage': '#EF4444', // red-500
+    'Investment': '#6366F1', // indigo-500
+    'Withdrawal': '#8B5CF6', // purple-500
 };
 
 
@@ -105,6 +124,7 @@ interface DatabaseState {
     attendance: Record<string, Omit<AttendanceRecord, 'id'>>;
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
+    colorSettings: Record<string, string>;
     isLoaded: boolean;
 }
 
@@ -131,6 +151,7 @@ interface ProcessedDatabaseState {
     attendance: AttendanceRecord[];
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
+    colorSettings: Record<string, string>;
     isLoaded: boolean;
 }
 
@@ -176,6 +197,7 @@ interface DatabaseActions {
     addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
+    updateColorSetting: (key: string, color: string) => void;
     addProduct: (product: Omit<Product, 'id'>) => void;
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
@@ -201,6 +223,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         stockAdjustments: {}, products: {}, attendance: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
+        colorSettings: DEFAULT_COLOR_SETTINGS,
         isLoaded: false,
     });
 
@@ -213,9 +236,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         const listeners = Object.entries(PATHS).map(([key, path]) => {
             const dbRef = ref(db, path);
+            const isDefaulted = key === 'colorSettings'
             return onValue(dbRef, (snapshot) => {
                 const data = snapshot.val();
-                setState(prevState => ({ ...prevState, [key]: data || {} }));
+                if (isDefaulted && !data) {
+                    set(dbRef, DEFAULT_COLOR_SETTINGS);
+                    setState(prevState => ({ ...prevState, [key]: DEFAULT_COLOR_SETTINGS }));
+                } else {
+                    setState(prevState => ({ ...prevState, [key]: data || {} }));
+                }
             }, { onlyOnce: false }); // Ensure we get live updates
         });
 
@@ -267,6 +296,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             attendance: objectToArray<AttendanceRecord>(state.attendance).sort(createSorter('date')),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
+            colorSettings: state.colorSettings,
             isLoaded: state.isLoaded,
         };
     }, [state]);
@@ -445,6 +475,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         if (!db || isNaN(newPrice) || newPrice < 0) return;
         update(ref(db), { [`${PATHS.fuelPrices}/${fuelType}`]: newPrice });
     };
+
+    const updateColorSetting = (key: string, color: string) => {
+        if (!db) return;
+        update(ref(db), { [`${PATHS.colorSettings}/${key}`]: color });
+    };
     
     const clearAllData = () => {
         if(db) {
@@ -514,6 +549,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addAttendance,
         setFuelStock,
         updateFuelPrice,
+        updateColorSetting,
         addProduct,
         updateProduct,
         deleteProduct,

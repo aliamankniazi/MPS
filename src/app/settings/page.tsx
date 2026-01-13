@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import * as React from 'react';
@@ -7,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus, Package, Edit, PlusCircle, Phone } from 'lucide-react';
+import { Settings, Trash2, AlertTriangle, Droplets, BookText, Car, User, Truck, UserPlus, Package, Edit, PlusCircle, Phone, Palette } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,6 +35,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
+const TRANSACTION_TYPES_FOR_COLOR = [
+    'Sale', 'Credit Sale', 'Customer Payment', 'Purchase', 'Purchase Return', 'Sale Return',
+    'Expense', 'Cash Advance', 'Salary', 'Supplier Payment', 'Other Income',
+    'Stock Surplus', 'Stock Shortage', 'Investment', 'Withdrawal'
+];
+
+
 const supplierSchema = z.object({
   name: z.string().min(1, 'Supplier name is required'),
   contact: z.string().optional(),
@@ -59,6 +67,8 @@ export default function SettingsPage() {
     clearAllData,
     fuelPrices, 
     updateFuelPrice, 
+    colorSettings,
+    updateColorSetting,
     suppliers, 
     addSupplier, 
     deleteSupplier,
@@ -129,6 +139,10 @@ export default function SettingsPage() {
       updateFuelPrice(fuelType, price);
     }
   };
+
+  const handleColorChange = (key: string, color: string) => {
+    updateColorSetting(key, color);
+  };
   
   const onSupplierSubmit: SubmitHandler<SupplierFormValues> = (data) => {
     addSupplier(data);
@@ -179,6 +193,26 @@ export default function SettingsPage() {
           <CardDescription>Customize application settings, fuel prices, and suppliers.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-8">
+
+           <div className="space-y-4">
+            <h3 className="text-lg font-medium flex items-center gap-2"><Palette /> Transaction Colors</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {isLoaded && TRANSACTION_TYPES_FOR_COLOR.map(type => (
+                <div key={type} className="flex items-center justify-between rounded-lg border p-3">
+                  <Label htmlFor={`${type}-color`} className="text-sm font-medium">{type}</Label>
+                  <Input 
+                    id={`${type}-color`} 
+                    type="color" 
+                    value={colorSettings[type] || '#000000'} 
+                    onChange={(e) => handleColorChange(type, e.target.value)}
+                    className="w-10 h-10 p-1 bg-transparent border-none cursor-pointer"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <Separator />
         
           <div className="space-y-4">
             <h3 className="text-lg font-medium flex items-center gap-2"><Truck /> Supplier Management</h3>

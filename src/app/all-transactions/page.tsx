@@ -60,7 +60,8 @@ export default function AllTransactionsPage() {
     customerPayments,
     cashAdvances,
     expenses,
-    customers, 
+    customers,
+    colorSettings, 
     deleteTransaction, 
     deletePurchase, 
     deletePurchaseReturn,
@@ -187,42 +188,10 @@ export default function AllTransactionsPage() {
         .slice(0, 5);
 
   }, [isLoaded, transactions]);
-
-  const getBadgeVariant = (entry: CombinedEntry) => {
-    if(entry.type === 'Purchase') return 'default';
-    if(entry.type === 'Sale' && entry.isCreditSale) return 'destructive'
-    if(entry.type === 'Sale' && !entry.isCreditSale) return 'default'
-    if(entry.type === 'Purchase Return') return 'secondary';
-    if(entry.type === 'Salary') return 'default';
-    if(entry.type === 'Expense') return 'destructive';
-    if(entry.type === 'Cash Advance') return 'destructive';
-    if (entry.type === 'Customer Payment') return 'outline';
-    return 'default';
-  };
   
-  const getAmountClass = (entry: CombinedEntry) => {
-      switch(entry.type) {
-          case 'Sale': return entry.isCreditSale ? 'text-blue-600' : 'text-green-600';
-          case 'Customer Payment': return 'text-teal-600';
-          case 'Purchase': return 'text-green-600';
-          case 'Purchase Return': return 'text-blue-600';
-          case 'Salary': return 'text-pink-600';
-          case 'Expense': return 'text-destructive';
-          case 'Cash Advance': return 'text-destructive';
-          default: return '';
-      }
-  }
-
-  const getRowClass = (entry: CombinedEntry) => {
-    switch(entry.type) {
-        case 'Sale': return entry.isCreditSale ? 'text-blue-600' : 'text-green-600';
-        case 'Customer Payment': return 'text-teal-600';
-        case 'Purchase': return 'text-green-600';
-        case 'Salary': return 'text-pink-600';
-        case 'Expense': return 'text-destructive';
-        case 'Cash Advance': return 'text-destructive';
-        default: return '';
-    }
+  const getEntryColor = (entry: CombinedEntry) => {
+    const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
+    return colorSettings[type] || '#6b7280'; // default gray
   };
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
@@ -315,34 +284,28 @@ export default function AllTransactionsPage() {
                     const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
                     const date = new Date(entry.timestamp);
                     const entityId = entry.original?.customerId || entry.original?.supplierId || entry.original?.partnerId;
+                    const color = getEntryColor(entry);
+                    const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+
 
                     return (
-                    <TableRow key={entry.id} className={getRowClass(entry)}>
-                        <TableCell className="font-medium whitespace-nowrap">
+                    <TableRow key={entry.id}>
+                        <TableCell className="font-medium whitespace-nowrap" style={{ color }}>
                             {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                         </TableCell>
                         <TableCell>
                         <Badge 
-                            variant={getBadgeVariant(entry)}
-                            className={cn('text-xs', 
-                                entry.type === 'Sale' && entry.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                entry.type === 'Sale' && !entry.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
-                                (entry.type === 'Customer Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
-                                entry.type === 'Salary' && 'bg-pink-100 text-pink-800 border-pink-200',
-                                entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
-                                entry.type === 'Purchase Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                (entry.type === 'Supplier Payment') && 'bg-pink-100 text-pink-800 border-pink-200',
-                                (entry.type === 'Sale Return') && 'bg-yellow-100 text-yellow-800 border-yellow-200',
-                                (entry.type === 'Investment') && 'bg-indigo-100 text-indigo-800 border-indigo-200',
-                                (entry.type === 'Withdrawal') && 'bg-purple-100 text-purple-800 border-purple-200',
-                                (entry.type === 'Other Income' || entry.type === 'Stock Surplus') && 'bg-green-100 text-green-800 border-green-200',
-                                (entry.type === 'Cash Advance' || entry.type === 'Expense' || entry.type === 'Stock Shortage') && 'bg-red-100 text-red-800 border-red-200',
-                            )}
-                        >{entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type}</Badge>
+                            className="text-xs border"
+                            style={{ 
+                                backgroundColor: `${color}20`, 
+                                color: color,
+                                borderColor: `${color}40`,
+                            }}
+                        >{typeLabel}</Badge>
                         </TableCell>
                         <TableCell className="font-medium">{entry.partner}</TableCell>
                         <TableCell>{entry.details}</TableCell>
-                        <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(entry))}>
+                        <TableCell className="text-right font-semibold font-mono" style={{ color }}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
