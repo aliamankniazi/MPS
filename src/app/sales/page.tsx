@@ -121,7 +121,10 @@ export default function SalesPage() {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {}
+    defaultValues: {
+        customerId: 'walkin',
+        paymentMethod: 'Cash',
+    }
   });
 
   const { customerId } = watch();
@@ -202,7 +205,7 @@ export default function SalesPage() {
           totalAmount: item.totalAmount,
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
           customerId: data.customerId,
-          customerName: selectedCustomer?.name,
+          customerName: selectedCustomer?.name || 'Walk-in Customer',
           notes: data.notes,
         };
         addTransaction(transactionData);
