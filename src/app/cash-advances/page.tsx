@@ -163,7 +163,7 @@ export default function CashAdvancesPage() {
 
                 <div className="space-y-2">
                     <Label htmlFor="amount">Amount (PKR)</Label>
-                    <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 5000" step="0.01" />
+                    <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 5000" step="any" />
                     {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
                 </div>
 

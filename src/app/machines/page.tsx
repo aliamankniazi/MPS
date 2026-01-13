@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -114,7 +115,7 @@ export default function MachineManagementPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="volume">Current Volume (Litres)</Label>
-                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 12500" step="0.01" />
+                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 12500" step="any" />
                 {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
               </div>
 

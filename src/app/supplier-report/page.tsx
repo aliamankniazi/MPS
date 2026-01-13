@@ -115,10 +115,10 @@ export default function SupplierReportPage() {
     const generateWhatsAppMessage = (row: ReportRow) => {
         const message = `Dear ${row.supplier.name},
 Your account summary:
-Previous Balance: Rs. ${row.previousBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
-New Purchases: Rs. ${row.purchaseAmount.toLocaleString(undefined, {minimumFractionDigits: 2})}
-Payments Received: Rs. ${row.payment.toLocaleString(undefined, {minimumFractionDigits: 2})}
-Net Balance: Rs. ${row.currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2})}
+Previous Balance: Rs. ${row.previousBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+New Purchases: Rs. ${row.purchaseAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+Payments Received: Rs. ${row.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+Net Balance: Rs. ${row.currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Thank you,
 Mianwali Petroleum Service`;
         return encodeURIComponent(message);
@@ -202,12 +202,12 @@ Mianwali Petroleum Service`;
                                     <TableRow key={row.id}>
                                         <TableCell className="font-medium">{row.supplier.name}</TableCell>
                                         <TableCell>{row.supplier.contact || 'N/A'}</TableCell>
-                                        <TableCell className="text-right font-mono">{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600">{row.purchaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600">{row.purchaseVolume.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-destructive">{row.payment.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right font-mono">{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right font-mono text-green-600">{row.purchaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right font-mono text-green-600">{row.purchaseVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right font-mono text-destructive">{row.payment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className={`text-right font-bold font-mono ${row.currentBalance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                                            {row.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            {row.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </TableCell>
                                         <TableCell className="text-center">
                                             {row.supplier.contact && (

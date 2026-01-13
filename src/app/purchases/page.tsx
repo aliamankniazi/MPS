@@ -189,12 +189,12 @@ export default function PurchasesPage() {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                     <Label htmlFor="volume">Volume (Litres)</Label>
-                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="0.01" />
+                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="any" />
                     {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
                     </div>
                     <div className="space-y-2">
                     <Label htmlFor="totalCost">Total Cost (PKR)</Label>
-                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="0.01" />
+                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="any" />
                     {errors.totalCost && <p className="text-sm text-destructive">{errors.totalCost.message}</p>}
                     </div>
                 </div>

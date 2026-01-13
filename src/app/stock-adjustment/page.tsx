@@ -127,7 +127,7 @@ export default function StockAdjustmentPage() {
                 </div>
                 <div className="space-y-2 md:col-span-1">
                     <Label htmlFor="adjustment">Adjustment (L)</Label>
-                    <Input id="adjustment" type="number" {...register('adjustment')} placeholder="e.g., -50 or 100" step="0.01" />
+                    <Input id="adjustment" type="number" {...register('adjustment')} placeholder="e.g., -50 or 100" step="any" />
                 </div>
                     <div className="space-y-2 md:col-span-1">
                     <Label htmlFor="newStock">New Stock (L)</Label>

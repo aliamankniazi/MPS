@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -116,6 +116,7 @@ export default function SalesPage() {
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
+  const lastUserEditedField = useRef<'quantity' | 'totalAmount' | null>(null);
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -130,13 +131,24 @@ export default function SalesPage() {
   });
 
   const { customerId } = watch();
-  const { quantity, price } = watchItem();
+  const { quantity, price, totalAmount } = watchItem();
   const selectedProductId = watchItem('productId');
 
   useEffect(() => {
-    const total = (quantity || 0) * (price || 0);
-    setItemValue('totalAmount', total);
+    if (lastUserEditedField.current === 'quantity') {
+      const total = (quantity || 0) * (price || 0);
+      setItemValue('totalAmount', total, { shouldValidate: true });
+    }
   }, [quantity, price, setItemValue]);
+
+  useEffect(() => {
+    if (lastUserEditedField.current === 'totalAmount') {
+      if (price && price > 0) {
+        const newQuantity = (totalAmount || 0) / price;
+        setItemValue('quantity', newQuantity, { shouldValidate: true });
+      }
+    }
+  }, [totalAmount, price, setItemValue]);
 
   useEffect(() => {
     if (selectedProductId) {
@@ -270,19 +282,19 @@ export default function SalesPage() {
                               </div>
                                <div className="space-y-2">
                                   <Label htmlFor="quantity">Quantity</Label>
-                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="0.01" />
+                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="any" onChangeCapture={() => lastUserEditedField.current = 'quantity'} />
                                   {itemErrors.quantity && <p className="text-sm text-destructive">{itemErrors.quantity.message}</p>}
                               </div>
                                <div className="space-y-2">
                                   <Label htmlFor="price">Price</Label>
-                                  <Input id="price" type="number" {...registerItem('price')} step="0.01" />
+                                  <Input id="price" type="number" {...registerItem('price')} step="any" />
                                    {itemErrors.price && <p className="text-sm text-destructive">{itemErrors.price.message}</p>}
                               </div>
                           </div>
                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="totalAmount">Total Amount</Label>
-                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} readOnly className="bg-muted/50 font-bold" />
+                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} step="any" className="bg-muted/50 font-bold" onChangeCapture={() => lastUserEditedField.current = 'totalAmount'} />
                               </div>
                                <div className="md:col-span-1 flex items-end">
                                   <Button type="submit" className="w-full">Add to Cart</Button>

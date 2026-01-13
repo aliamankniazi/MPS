@@ -117,7 +117,7 @@ export default function BankManagementPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="balance">Initial Balance (PKR)</Label>
-                <Input id="balance" type="number" {...register('balance')} placeholder="e.g., 50000" step="0.01" />
+                <Input id="balance" type="number" {...register('balance')} placeholder="e.g., 50000" step="any" />
                 {errors.balance && <p className="text-sm text-destructive">{errors.balance.message}</p>}
               </div>
 
@@ -219,7 +219,7 @@ export default function BankManagementPage() {
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="edit-balance">Balance</Label>
-                        <Input id="edit-balance" type="number" {...registerEdit('balance')} step="0.01" />
+                        <Input id="edit-balance" type="number" {...registerEdit('balance')} step="any" />
                         {editErrors.balance && <p className="text-sm text-destructive">{editErrors.balance.message}</p>}
                     </div>
                 </div>
