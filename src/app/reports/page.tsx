@@ -20,6 +20,7 @@ import {
   HandCoins,
   LayoutDashboard,
   BookOpen,
+  Truck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -43,6 +44,12 @@ const reportList: ReportCardProps[] = [
     description: 'View customers with outstanding balances.',
     href: '/credit-recovery',
     icon: UserX,
+  },
+    {
+    title: 'Supplier Report',
+    description: 'View purchases, payments, and balances for suppliers.',
+    href: '/supplier-report',
+    icon: Truck,
   },
   {
     title: 'Date Wise Business Report',
