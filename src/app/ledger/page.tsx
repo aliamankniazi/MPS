@@ -121,12 +121,7 @@ export default function LedgerPage() {
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const customerName = tx.customerName || 'Walk-in Customer';
-        let description = `Sale to ${customerName}`;
-        if (tx.product && tx.product !== 'undefined') {
-          description = `Sale: ${tx.product} to ${customerName}`;
-        } else if(tx.fuelType && tx.volume) {
-          description = `Sale: ${tx.volume.toFixed(2)}L ${tx.fuelType} to ${customerName}`;
-        }
+        let description = `Sale: ${tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: tx.product} to ${customerName}`;
         if (tx.notes) {
           description += ` (${tx.notes})`;
         }
@@ -767,3 +762,6 @@ export default function LedgerPage() {
     
 
 
+
+
+    
