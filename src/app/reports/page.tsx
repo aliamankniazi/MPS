@@ -46,7 +46,7 @@ const reportList: ReportCardProps[] = [
   },
   {
     title: 'Date Wise Business Report',
-    description: 'Show Only Business Overview Report Date Wise',
+    description: "A high-level business overview without individual journal entries.",
     href: '/ledger',
     icon: Briefcase,
   },
