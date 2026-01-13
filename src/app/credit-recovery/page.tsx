@@ -131,7 +131,7 @@ Contact Info 03335425401`;
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <FileText /> Customer Credit Recovery Report
+                        <FileText /> Customer Defaulter Report
                     </CardTitle>
                     <CardDescription>
                         View sales, recoveries, and balances for customers. Use filters to refine the results.
