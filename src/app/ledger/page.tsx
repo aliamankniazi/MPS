@@ -43,7 +43,6 @@ type LedgerEntry = {
   debit: number;
   credit: number;
   balance: number;
-  profit?: number;
   original: any;
   isCreditSale?: boolean;
 };
@@ -119,22 +118,6 @@ export default function LedgerPage() {
 
     const sortedPurchases = [...purchases].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const getCostForSale = (sale: Transaction) => {
-        const saleDate = new Date(sale.timestamp);
-        const productName = sale.product || sale.fuelType;
-
-        const lastPurchase = sortedPurchases
-            .filter(p => (p.fuelType === productName || p.fuelType === sale.fuelType) && isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= saleDate)
-            .pop(); // .pop() gets the last element from the sorted array
-        
-        if (lastPurchase && lastPurchase.volume > 0) {
-            const costPerUnit = lastPurchase.totalCost / lastPurchase.volume;
-            return costPerUnit * (sale.volume || 0);
-        }
-        
-        return 0; // Or some default/fallback cost
-    };
-
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const customerName = tx.customerName || 'Walk-in Customer';
@@ -146,8 +129,6 @@ export default function LedgerPage() {
         }
         
         const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
-        const cost = getCostForSale(tx);
-        const profit = tx.totalAmount - cost;
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -156,7 +137,6 @@ export default function LedgerPage() {
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
             credit: !isCreditSale ? tx.totalAmount : 0,
-            profit: profit,
             original: tx,
             isCreditSale: isCreditSale,
         });
@@ -670,7 +650,6 @@ export default function LedgerPage() {
                                                     <TableHead>Type</TableHead>
                                                     <TableHead className="text-right">Debit</TableHead>
                                                     <TableHead className="text-right">Credit</TableHead>
-                                                    <TableHead className="text-right">Profit/Loss</TableHead>
                                                     <TableHead className="text-right">Balance</TableHead>
                                                     <TableHead className="text-center">Actions</TableHead>
                                                 </TableRow>
@@ -720,9 +699,6 @@ export default function LedgerPage() {
                                                             </TableCell>
                                                             <TableCell className="text-right font-mono text-green-600">
                                                                 {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                                                            </TableCell>
-                                                            <TableCell className={cn("text-right font-mono", entry.profit === undefined ? '' : entry.profit >= 0 ? 'text-green-600' : 'text-destructive')}>
-                                                                {entry.profit !== undefined ? entry.profit.toFixed(2) : '-'}
                                                             </TableCell>
                                                             <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
                                                                 {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -775,6 +751,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
