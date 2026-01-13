@@ -9,9 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone } from 'lucide-react';
+import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone, ArrowUp, ArrowDown, Banknote, TrendingUp, TrendingDown, Clock, Download, Upload, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,7 +23,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { BusinessPartner } from '@/lib/types';
 import Link from 'next/link';
-
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
 
 const investmentSchema = z.object({
   partnerId: z.string().min(1, 'Partner name is required'),
@@ -39,6 +39,7 @@ type InvestmentFormValues = z.infer<typeof investmentSchema>;
 const partnerSchema = z.object({
   name: z.string().min(1, 'Partner name is required.'),
   contact: z.string().optional(),
+  area: z.string().optional(),
   sharePercentage: z.coerce.number().min(0, "Percentage can't be negative.").max(100, "Percentage can't exceed 100."),
 });
 type PartnerFormValues = z.infer<typeof partnerSchema>;
@@ -56,7 +57,8 @@ export default function InvestmentsPage() {
   } = useDatabase();
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
-  
+  const [transactionPartner, setTransactionPartner] = useState<BusinessPartner | null>(null);
+
   const { toast } = useToast();
   
   // Form for new investments/withdrawals
@@ -83,6 +85,7 @@ export default function InvestmentsPage() {
       title: 'Transaction Recorded',
       description: `${data.type} of PKR ${data.amount} by ${partner.name} has been logged.`,
     });
+    setTransactionPartner(null);
     resetInvestment({ partnerId: '', amount: 0, notes: '', date: new Date(), type: 'Investment' });
   };
   
@@ -95,7 +98,7 @@ export default function InvestmentsPage() {
       toast({ title: 'Partner Added', description: `${data.name} has been added as a permanent partner.` });
     }
     setPartnerToEdit(null);
-    resetPartner({ name: '', sharePercentage: 0, contact: '' });
+    resetPartner({ name: '', sharePercentage: 0, contact: '', area: '' });
   };
 
   const openEditDialog = (partner: BusinessPartner) => {
@@ -103,6 +106,7 @@ export default function InvestmentsPage() {
     setPartnerValue('name', partner.name);
     setPartnerValue('sharePercentage', partner.sharePercentage);
     setPartnerValue('contact', partner.contact || '');
+    setPartnerValue('area', (partner as any).area || '');
   }
 
   const handleDeletePartner = () => {
@@ -111,6 +115,11 @@ export default function InvestmentsPage() {
     toast({ title: 'Partner Deleted', description: `${partnerToDelete.name} has been removed.`});
     setPartnerToDelete(null);
   }
+
+  const openTransactionDialog = (partner: BusinessPartner, type: 'Investment' | 'Withdrawal') => {
+    setTransactionPartner(partner);
+    resetInvestment({ partnerId: partner.id, amount: 0, notes: '', date: new Date(), type: type });
+  };
   
   const partnerSummary = useMemo(() => {
     if (!isLoaded) return [];
@@ -127,114 +136,201 @@ export default function InvestmentsPage() {
     
     return businessPartners.map(p => {
         const s = summary[p.id] || { investment: 0, withdrawal: 0 };
-        const netInvestment = s.investment - s.withdrawal;
         return { 
             ...p, 
-            netInvestment,
-            totalInvestment: s.investment,
-            totalWithdrawal: s.withdrawal,
+            investment: s.investment,
+            withdrawal: s.withdrawal,
+            profit: 0, // Placeholder
+            loss: 0, // Placeholder
         }
-    }).sort((a,b) => b.netInvestment - a.netInvestment);
+    }).sort((a,b) => b.sharePercentage - a.sharePercentage);
 
   }, [investments, businessPartners, isLoaded]);
 
-  const totalNetInvestment = useMemo(() => partnerSummary.reduce((sum, p) => sum + p.netInvestment, 0), [partnerSummary]);
   const totalSharePercentage = useMemo(() => businessPartners.reduce((sum, p) => sum + p.sharePercentage, 0), [businessPartners]);
 
   return (
-    <div className="p-4 md:p-8 space-y-8">
+    <div className="p-4 md:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+                <p className="text-sm text-muted-foreground">Home &gt; Partners</p>
+            </div>
+            <div className="flex items-center gap-2">
+                <div className="relative w-full max-w-xs">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search..." className="pl-10" />
+                </div>
+                 <Avatar>
+                    <AvatarImage src="https://github.com/shadcn.png" />
+                    <AvatarFallback>CN</AvatarFallback>
+                </Avatar>
+            </div>
+        </div>
+
+        <Card className="max-w-xs">
+            <CardHeader>
+                <CardTitle className="text-sm font-medium flex items-center justify-between">
+                    Total Company Shares <Clock className="w-4 h-4 text-muted-foreground"/>
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <p className="text-2xl font-bold">{totalSharePercentage.toFixed(2)}%</p>
+                <p className="text-xs text-muted-foreground">Total percentage allocated to partners</p>
+            </CardContent>
+        </Card>
+
+        <Card>
+            <CardHeader>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <CardTitle>Partner Percentages</CardTitle>
+                        <CardDescription>Management of partner shares, profits, and losses in the mining venture.</CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Select defaultValue="january">
+                            <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="january">January</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Select defaultValue="2026">
+                            <SelectTrigger className="w-[100px]"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="2026">2026</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        <Button variant="outline"><Banknote className="mr-2"/>Calculate P&L</Button>
+                        <Button variant="outline"><Upload className="mr-2"/>Sell Share</Button>
+                        <Button onClick={() => setPartnerToEdit({} as BusinessPartner)}><PlusCircle className="mr-2"/>Add Partner</Button>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                {isLoaded && partnerSummary.map(p => (
+                    <Card key={p.id} className="flex flex-col">
+                        <CardHeader>
+                            <div className="flex items-start gap-4">
+                                <Avatar className="w-16 h-16 border">
+                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${p.id}`} />
+                                    <AvatarFallback>{p.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                    <CardTitle className="text-lg">{p.name}</CardTitle>
+                                    <CardDescription>{(p as any).area || 'Mianwali'}</CardDescription>
+                                    <p className="text-xs text-muted-foreground">Ownership: {p.sharePercentage.toFixed(2)}%</p>
+                                </div>
+                                <div className="flex">
+                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(p)}><Edit className="w-4 h-4"/></Button>
+                                    <Button variant="ghost" size="icon" onClick={() => setPartnerToDelete(p)}><Trash2 className="w-4 h-4 text-destructive"/></Button>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="flex-grow space-y-4">
+                            <div>
+                                <Label className="text-xs">Ownership Percentage</Label>
+                                <div className="flex items-center gap-2">
+                                    <Progress value={p.sharePercentage} className="h-2"/>
+                                    <span className="font-semibold text-sm">{p.sharePercentage.toFixed(2)}%</span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <Card className="p-3 bg-blue-50 dark:bg-blue-900/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-blue-100 rounded-md"><Banknote className="w-4 h-4 text-blue-600"/></div>
+                                        <div>
+                                            <p className="text-xs text-blue-800 dark:text-blue-300">Investment</p>
+                                            <p className="font-bold text-blue-900 dark:text-blue-200">PKR {p.investment.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                                 <Card className="p-3 bg-purple-50 dark:bg-purple-900/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-purple-100 rounded-md"><Upload className="w-4 h-4 text-purple-600"/></div>
+                                        <div>
+                                            <p className="text-xs text-purple-800 dark:text-purple-300">Withdrawn</p>
+                                            <p className="font-bold text-purple-900 dark:text-purple-200">PKR {p.withdrawal.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                                 <Card className="p-3 bg-green-50 dark:bg-green-900/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-green-100 rounded-md"><TrendingUp className="w-4 h-4 text-green-600"/></div>
+                                        <div>
+                                            <p className="text-xs text-green-800 dark:text-green-300">Profit</p>
+                                            <p className="font-bold text-green-900 dark:text-green-200">PKR {p.profit.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                                 <Card className="p-3 bg-red-50 dark:bg-red-900/20">
+                                    <div className="flex items-center gap-2">
+                                        <div className="p-2 bg-red-100 rounded-md"><TrendingDown className="w-4 h-4 text-red-600"/></div>
+                                        <div>
+                                            <p className="text-xs text-red-800 dark:text-red-300">Loss</p>
+                                            <p className="font-bold text-red-900 dark:text-red-200">PKR {p.loss.toLocaleString()}</p>
+                                        </div>
+                                    </div>
+                                </Card>
+                            </div>
+                        </CardContent>
+                        <CardFooter className="grid grid-cols-2 gap-2">
+                            <Button variant="outline" onClick={() => openTransactionDialog(p, 'Investment')}><Banknote className="mr-2"/>Invest</Button>
+                            <Button variant="outline" onClick={() => openTransactionDialog(p, 'Withdrawal')}><Upload className="mr-2"/>Withdraw</Button>
+                        </CardFooter>
+                    </Card>
+                ))}
+                 {!isLoaded && Array.from({length:3}).map((_, i) => <Card key={i}><CardHeader><div className="h-16 w-full bg-muted animate-pulse rounded-md"/></CardHeader><CardContent><div className="h-32 w-full bg-muted animate-pulse rounded-md"/></CardContent></Card>)}
+            </CardContent>
+        </Card>
       
-      {/* Permanent Partner Management */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Users/>Permanent Partner Manager</CardTitle>
-          <CardDescription>Add, edit, or remove business partners and manage their share percentages.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Partner Name</TableHead>
-                        <TableHead className="text-right">Share %</TableHead>
-                        <TableHead className="text-right">Net Investment</TableHead>
-                        <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {isLoaded && partnerSummary.length > 0 ? partnerSummary.map(p => (
-                        <TableRow key={p.id}>
-                            <TableCell className="font-medium">{p.name}</TableCell>
-                            <TableCell className="text-right font-mono">{p.sharePercentage.toFixed(2)}%</TableCell>
-                            <TableCell className={`text-right font-semibold font-mono ${p.netInvestment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
-                                PKR {p.netInvestment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                            <TableCell className="text-center space-x-1">
-                                <Button asChild variant="ghost" size="icon" title="View Partner Ledger">
-                                   <Link href={`/customers/${p.id}/ledger`}>
-                                     <BookText className="w-5 h-5" />
-                                   </Link>
-                                </Button>
-                                <Button variant="ghost" size="icon" title="Edit Partner" onClick={() => openEditDialog(p)}><Edit className="w-4 h-4" /></Button>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" title="Delete Partner" onClick={() => setPartnerToDelete(p)}><Trash2 className="w-4 h-4" /></Button>
-                            </TableCell>
-                        </TableRow>
-                    )) : (
-                        <TableRow>
-                            <TableCell colSpan={4} className="h-24 text-center">
-                                {isLoaded ? 'No partners added yet. Use the button below to add one.' : 'Loading partners...'}
-                            </TableCell>
-                        </TableRow>
-                    )}
-                </TableBody>
-                <TableFooter>
-                    <TableRow className="font-bold">
-                        <TableCell>Total</TableCell>
-                        <TableCell className="text-right font-mono">{totalSharePercentage.toFixed(2)}%</TableCell>
-                        <TableCell className={`text-right font-mono ${totalNetInvestment >= 0 ? 'text-primary' : 'text-destructive'}`}>
-                            PKR {totalNetInvestment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell/>
-                    </TableRow>
-                </TableFooter>
-            </Table>
-        </CardContent>
-        <CardFooter>
-            <Button onClick={() => setPartnerToEdit({} as BusinessPartner)}><PlusCircle className="mr-2"/>Add New Partner</Button>
-        </CardFooter>
-      </Card>
-
-      <div className="grid lg:grid-cols-3 gap-8">
-        {/* Investment/Withdrawal Form */}
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlusCircle /> New Capital Transaction
-            </CardTitle>
-            <CardDescription>Record a new investment or withdrawal.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmitInvestment(onInvestmentSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Partner</Label>
-                 <Controller
-                  name="partnerId"
-                  control={controlInvestment}
-                  render={({ field }) => (
-                     <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a partner" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {isLoaded ? businessPartners.map(p => (
-                                <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            )) : <SelectItem value="loading" disabled>Loading partners...</SelectItem>}
-                        </SelectContent>
-                    </Select>
-                  )}
-                />
-                {investmentErrors.partnerId && <p className="text-sm text-destructive">{investmentErrors.partnerId.message}</p>}
-              </div>
-
+      {/* Dialog for Add/Edit Partner */}
+      <Dialog open={!!partnerToEdit} onOpenChange={(isOpen) => { if (!isOpen) { setPartnerToEdit(null); resetPartner(); } }}>
+        <DialogContent>
+            <form onSubmit={handleSubmitPartner(onPartnerSubmit)}>
+                <DialogHeader>
+                    <DialogTitle>{partnerToEdit?.id ? 'Edit Partner' : 'Add New Partner'}</DialogTitle>
+                    <DialogDescription>
+                        {partnerToEdit?.id ? 'Update the details for this partner.' : 'Add a new permanent partner to manage their investments and shares.'}
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Partner Name</Label>
+                        <Input id="name" {...registerPartner('name')} />
+                        {partnerErrors.name && <p className="text-sm text-destructive">{partnerErrors.name.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="contact" className="flex items-center gap-2"><Phone className="w-4 h-4"/> Contact Number (Optional)</Label>
+                        <Input id="contact" {...registerPartner('contact')} placeholder="e.g. 03001234567" />
+                        {partnerErrors.contact && <p className="text-sm text-destructive">{partnerErrors.contact.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="area">Area (Optional)</Label>
+                        <Input id="area" {...registerPartner('area')} placeholder="e.g., Chidro Khel, Mianwali" />
+                        {partnerErrors.area && <p className="text-sm text-destructive">{partnerErrors.area.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="sharePercentage" className="flex items-center gap-2"><Percent className="w-4 h-4"/> Share Percentage</Label>
+                        <Input id="sharePercentage" type="number" {...registerPartner('sharePercentage')} step="0.01" />
+                        {partnerErrors.sharePercentage && <p className="text-sm text-destructive">{partnerErrors.sharePercentage.message}</p>}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => { setPartnerToEdit(null); resetPartner(); }}>Cancel</Button>
+                    <Button type="submit">{partnerToEdit?.id ? 'Save Changes' : 'Add Partner'}</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Dialog for Invest/Withdraw */}
+      <Dialog open={!!transactionPartner} onOpenChange={(isOpen) => { if (!isOpen) setTransactionPartner(null)}}>
+        <DialogContent>
+          <form onSubmit={handleSubmitInvestment(onInvestmentSubmit)}>
+            <DialogHeader>
+              <DialogTitle>New Capital Transaction for {transactionPartner?.name}</DialogTitle>
+              <DialogDescription>Record a new investment or withdrawal.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
               <div className="space-y-2">
                 <Label>Type</Label>
                  <Controller
@@ -242,9 +338,7 @@ export default function InvestmentsPage() {
                   control={controlInvestment}
                   render={({ field }) => (
                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select transaction type" />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="Investment">Investment</SelectItem>
                             <SelectItem value="Withdrawal">Withdrawal</SelectItem>
@@ -274,121 +368,23 @@ export default function InvestmentsPage() {
                   render={({ field }) => (
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button
-                          variant={"outline"}
-                          className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !field.value && "text-muted-foreground"
-                          )}
-                        >
+                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={field.value}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
+                      <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
                     </Popover>
                   )}
                 />
                 {investmentErrors.date && <p className="text-sm text-destructive">{investmentErrors.date.message}</p>}
               </div>
-
-              <Button type="submit" className="w-full">Record Transaction</Button>
-            </form>
-          </CardContent>
-        </Card>
-        
-        {/* Transaction History */}
-        <div className="lg:col-span-2">
-            <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                <List /> Transaction History
-                </CardTitle>
-                <CardDescription>
-                A record of all partner investments and withdrawals.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {investments.length > 0 ? (
-                <Table>
-                    <TableHeader>
-                    <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Partner</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Notes</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                    </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {investments.map(t => (
-                        <TableRow key={t.id}>
-                            <TableCell className="font-medium">{format(new Date(t.timestamp), 'PP')}</TableCell>
-                            <TableCell>{t.partnerName}</TableCell>
-                            <TableCell>
-                                <Badge variant={t.type === 'Investment' ? 'outline' : 'destructive'} className={cn(t.type === 'Investment' && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}>
-                                    {t.type}
-                                </Badge>
-                            </TableCell>
-                            <TableCell>{t.notes || 'N/A'}</TableCell>
-                            <TableCell className={`text-right font-semibold ${t.type === 'Investment' ? 'text-green-600' : 'text-destructive'}`}>
-                                PKR {t.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </TableCell>
-                        </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-                ) : (
-                <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                    <PiggyBank className="w-16 h-16" />
-                    <h3 className="text-xl font-semibold">No Transactions Recorded</h3>
-                    <p>Use the form to log your first investment.</p>
-                </div>
-                )}
-            </CardContent>
-            </Card>
-        </div>
-      </div>
-      
-      {/* Dialog for Add/Edit Partner */}
-      <Dialog open={!!partnerToEdit} onOpenChange={(isOpen) => { if (!isOpen) { setPartnerToEdit(null); resetPartner(); } }}>
-        <DialogContent>
-            <form onSubmit={handleSubmitPartner(onPartnerSubmit)}>
-                <DialogHeader>
-                    <DialogTitle>{partnerToEdit?.id ? 'Edit Partner' : 'Add New Partner'}</DialogTitle>
-                    <DialogDescription>
-                        {partnerToEdit?.id ? 'Update the details for this partner.' : 'Add a new permanent partner to manage their investments and shares.'}
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Partner Name</Label>
-                        <Input id="name" {...registerPartner('name')} />
-                        {partnerErrors.name && <p className="text-sm text-destructive">{partnerErrors.name.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="contact" className="flex items-center gap-2"><Phone className="w-4 h-4"/> Contact Number (Optional)</Label>
-                        <Input id="contact" {...registerPartner('contact')} placeholder="e.g. 03001234567" />
-                        {partnerErrors.contact && <p className="text-sm text-destructive">{partnerErrors.contact.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="sharePercentage" className="flex items-center gap-2"><Percent className="w-4 h-4"/> Share Percentage</Label>
-                        <Input id="sharePercentage" type="number" {...registerPartner('sharePercentage')} step="0.01" />
-                        {partnerErrors.sharePercentage && <p className="text-sm text-destructive">{partnerErrors.sharePercentage.message}</p>}
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => { setPartnerToEdit(null); resetPartner(); }}>Cancel</Button>
-                    <Button type="submit">{partnerToEdit?.id ? 'Save Changes' : 'Add Partner'}</Button>
-                </DialogFooter>
-            </form>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setTransactionPartner(null)}>Cancel</Button>
+                <Button type="submit">Record Transaction</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
       
