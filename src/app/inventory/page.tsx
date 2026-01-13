@@ -75,15 +75,6 @@ export default function InventoryPage() {
       resolver: zodResolver(productSchema)
   });
   
-  React.useEffect(() => {
-      if (productToEdit) {
-          setProductValue('name', productToEdit.name);
-          setProductValue('price', productToEdit.price);
-          setProductValue('unit', productToEdit.unit);
-          setProductValue('category', productToEdit.category);
-      }
-  }, [productToEdit, setProductValue]);
-
   const onProductSubmit: SubmitHandler<ProductFormValues> = (data) => {
     if (productToEdit) {
         updateProduct(productToEdit.id, data);
@@ -95,6 +86,17 @@ export default function InventoryPage() {
     setProductToEdit(null);
     resetProduct({name: '', price: 0, unit: '', category: undefined});
   };
+
+  React.useEffect(() => {
+      if (productToEdit) {
+          setProductValue('name', productToEdit.name);
+          setProductValue('price', productToEdit.price);
+          setProductValue('unit', productToEdit.unit);
+          setProductValue('category', productToEdit.category);
+      } else {
+          resetProduct({name: '', price: 0, unit: '', category: undefined});
+      }
+  }, [productToEdit, setProductValue, resetProduct]);
   
   const handleDeleteProduct = () => {
       if (!productToDelete) return;
@@ -272,61 +274,61 @@ export default function InventoryPage() {
 
     <Dialog open={!!productToEdit} onOpenChange={(isOpen) => {if(!isOpen) setProductToEdit(null)}}>
         <DialogContent>
-            <form onSubmit={handleSubmitProduct(onProductSubmit)}>
-                <DialogHeader>
-                    <DialogTitle>Edit Product</DialogTitle>
-                    <DialogDescription>Update the details for this product.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                     <div className="space-y-2">
-                        <Label htmlFor="editProductName">Product Name</Label>
-                        <Input id="editProductName" {...registerProduct('name')} />
-                        {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="editProductPrice">Price</Label>
-                        <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('price')} />
-                        {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label htmlFor="editProductUnit">Unit</Label>
-                        <Controller
-                            name="unit"
-                            control={controlProduct}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                        {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Category</Label>
-                        <Controller
-                            name="category"
-                            control={controlProduct}
-                            render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Main Product">Main Product</SelectItem>
-                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            )}
-                        />
-                         {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
-                    </div>
+          <form onSubmit={handleSubmitProduct(onProductSubmit)}>
+            <DialogHeader>
+                <DialogTitle>Edit Product</DialogTitle>
+                <DialogDescription>Update the details for this product.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="editProductName">Product Name</Label>
+                    <Input id="editProductName" {...registerProduct('name')} />
+                    {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
                 </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setProductToEdit(null)}>Cancel</Button>
-                    <Button type="submit">Save Changes</Button>
-                </DialogFooter>
-            </form>
+                  <div className="space-y-2">
+                    <Label htmlFor="editProductPrice">Price</Label>
+                    <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('price')} />
+                    {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="editProductUnit">Unit</Label>
+                    <Controller
+                        name="unit"
+                        control={controlProduct}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                    {productErrors.unit && <p className="text-sm text-destructive">{productErrors.unit.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Controller
+                        name="category"
+                        control={controlProduct}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Main Product">Main Product</SelectItem>
+                                    <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    />
+                      {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
+                </div>
+            </div>
+            <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setProductToEdit(null)}>Cancel</Button>
+                <Button type="submit">Save Changes</Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
