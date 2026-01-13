@@ -64,7 +64,7 @@ const reportList: ReportCardProps[] = [
   },
   {
     title: 'Product Profit/Loss by Invoice',
-    description: 'Detailed profit/loss for each item sold.',
+    description: 'Show Loss And Profit By Invoice in that report',
     href: '/ledger',
     icon: TrendingUp,
   },
