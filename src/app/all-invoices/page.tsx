@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 type CombinedInvoice = {
@@ -41,6 +42,7 @@ type GroupedInvoices = {
 export default function AllInvoicesPage() {
   const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
 
   const allInvoicesForExport = useMemo(() => {
     if (!isLoaded) return [];
@@ -78,12 +80,19 @@ export default function AllInvoicesPage() {
   }, [isLoaded, transactions, purchases]);
 
   const groupedInvoices = useMemo(() => {
-    const filtered = allInvoicesForExport.filter(invoice =>
-      !searchTerm ||
-      invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      invoice.details.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filtered = allInvoicesForExport.filter(invoice => {
+        const searchMatch = !searchTerm ||
+            invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            invoice.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            invoice.details.toLowerCase().includes(searchTerm.toLowerCase());
+
+        if (!searchMatch) return false;
+        
+        if (!typeFilter) return true;
+
+        const invoiceTypeLabel = invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type;
+        return invoiceTypeLabel === typeFilter;
+    });
 
     return filtered.reduce((acc, invoice) => {
         const date = new Date(invoice.timestamp);
@@ -101,7 +110,7 @@ export default function AllInvoicesPage() {
         return acc;
     }, {} as GroupedInvoices);
 
-  }, [allInvoicesForExport, searchTerm]);
+  }, [allInvoicesForExport, searchTerm, typeFilter]);
   
   const handleExportExcel = () => {
     const dataToExport = allInvoicesForExport
@@ -123,13 +132,6 @@ export default function AllInvoicesPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Invoices');
     XLSX.writeFile(workbook, 'AllInvoices.xlsx');
-  };
-
-  const getBadgeVariant = (invoice: CombinedInvoice) => {
-    if (invoice.type === 'Purchase') return 'outline';
-    if (invoice.isCreditSale) return 'destructive';
-    if (invoice.type === 'Sale') return 'default';
-    return 'destructive';
   };
   
   const getAmountClass = (invoice: CombinedInvoice) => {
@@ -158,6 +160,17 @@ export default function AllInvoicesPage() {
               <CardDescription>A list of all generated sales and purchase invoices, grouped by month.</CardDescription>
             </div>
              <div className="flex items-center gap-2">
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by type..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="">All Types</SelectItem>
+                        <SelectItem value="Sale">Sale</SelectItem>
+                        <SelectItem value="Credit Sale">Credit Sale</SelectItem>
+                        <SelectItem value="Purchase">Purchase</SelectItem>
+                    </SelectContent>
+                </Select>
                 <div className="relative w-full max-w-sm">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
@@ -259,3 +272,5 @@ export default function AllInvoicesPage() {
     </div>
   );
 }
+
+    
