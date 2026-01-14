@@ -38,7 +38,7 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
   const { 
     customers, 
     suppliers, 
@@ -62,7 +62,6 @@ export default function CustomerLedgerPage({ params: unsafeParams }: { params: {
   const { toast } = useToast();
 
   const { entity, entityType } = useMemo(() => {
-    const params = use(Promise.resolve(unsafeParams));
     if (!isLoaded) return { entity: null, entityType: null };
     const entityId = params.id;
     const customer = customers.find(c => c.id === entityId);
@@ -72,10 +71,9 @@ export default function CustomerLedgerPage({ params: unsafeParams }: { params: {
     const partner = businessPartners.find(p => p.id === entityId);
     if (partner) return { entity: partner, entityType: 'Partner' };
     return { entity: null, entityType: null };
-  }, [unsafeParams, customers, suppliers, businessPartners, isLoaded]);
+  }, [params.id, customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, finalBalance } = useMemo(() => {
-    const params = use(Promise.resolve(unsafeParams));
     if (!entity) return { entries: [], finalBalance: 0 };
     const entityId = params.id;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
@@ -195,7 +193,7 @@ export default function CustomerLedgerPage({ params: unsafeParams }: { params: {
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, unsafeParams]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, params.id]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -448,19 +446,21 @@ export default function CustomerLedgerPage({ params: unsafeParams }: { params: {
       </Card>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the entry: <br />
-            <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            Yes, delete entry
-          </AlertDialogAction>
-        </AlertDialogFooter>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete the entry: <br />
+                <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete entry
+            </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );
