@@ -72,7 +72,7 @@ export default function AllInvoicesPage() {
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
         if (!isValid(dateB)) return -1;
-        return dateB.getTime() - a.getTime();
+        return dateB.getTime() - dateA.getTime();
       });
 
   }, [isLoaded, transactions, purchases]);
