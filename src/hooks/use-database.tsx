@@ -35,7 +35,7 @@ import type {
     Transaction,
 } from '@/lib/types';
 import { db } from '@/lib/firebase';
-import { ref, onValue, push, remove, set, update, serverTimestamp } from 'firebase/database';
+import { ref, onValue, push, remove, set, update, serverTimestamp, get } from 'firebase/database';
 
 // Centralized paths
 const PATHS = {
@@ -235,50 +235,46 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }
 
         const dataPaths = Object.keys(PATHS);
-        const loadedPaths = new Set<string>();
+        const subscriptions: (() => void)[] = [];
 
-        const checkAllDataLoaded = () => {
-            if (loadedPaths.size === dataPaths.length) {
-                setState(prevState => ({ ...prevState, isLoaded: true }));
+        const fetchData = async () => {
+            try {
+                const promises = dataPaths.map(key => {
+                    const path = PATHS[key as keyof typeof PATHS];
+                    const dbRef = ref(db, path);
+                    
+                    return new Promise<void>((resolve) => {
+                        const unsubscribe = onValue(dbRef, (snapshot) => {
+                            const data = snapshot.val();
+                            setState(prevState => ({
+                                ...prevState,
+                                [key]: data || (key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : {}),
+                            }));
+                             if (key === 'colorSettings' && !data) {
+                                set(dbRef, DEFAULT_COLOR_SETTINGS);
+                            }
+                            resolve(); // Resolve promise on first data load
+                        }, (error) => {
+                            console.error(`Error fetching ${key}:`, error);
+                            resolve(); // Resolve even on error to not block loading
+                        });
+                        subscriptions.push(unsubscribe);
+                    });
+                });
+                
+                await Promise.all(promises);
+                
+            } catch (error) {
+                console.error("Error setting up database listeners:", error);
+            } finally {
+                 setState(prevState => ({ ...prevState, isLoaded: true }));
             }
         };
 
-        const listeners = dataPaths.map((key) => {
-            const path = PATHS[key as keyof typeof PATHS];
-            const dbRef = ref(db, path);
-            
-            return onValue(dbRef, (snapshot) => {
-                const data = snapshot.val();
-                
-                setState(prevState => ({
-                    ...prevState,
-                    [key]: data || (key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : {}),
-                }));
-
-                loadedPaths.add(key);
-                checkAllDataLoaded();
-
-                if (key === 'colorSettings' && !data) {
-                    set(dbRef, DEFAULT_COLOR_SETTINGS);
-                }
-            });
-        });
-
-        // Fallback timer in case some paths have no data and don't trigger 'onValue'
-        const timer = setTimeout(() => {
-            if (!state.isLoaded) {
-                 checkAllDataLoaded(); // Check again after timeout
-                if (loadedPaths.size < dataPaths.length) {
-                    // Force load remaining paths
-                    dataPaths.forEach(key => loadedPaths.add(key));
-                    checkAllDataLoaded();
-                }
-            }
-        }, 8000); // 8 second timeout
+        fetchData();
 
         return () => {
-            listeners.forEach(unsubscribe => unsubscribe());
-            clearTimeout(timer);
+            subscriptions.forEach(unsubscribe => unsubscribe());
         };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -615,6 +611,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 

@@ -197,10 +197,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const isLoading = authLoading || rolesLoading;
+  const isLoading = authLoading || rolesLoading || (user && !isAuthPage && !isDatabaseLoaded);
 
   useEffect(() => {
-    if (isLoading) return; // Wait until auth state is resolved
+    if (authLoading || rolesLoading) return; // Wait until auth state is resolved
 
     if (!user && !isAuthPage) {
         router.push('/login');
@@ -208,7 +208,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && isAuthPage) {
         router.push('/');
     }
-  }, [user, isLoading, isAuthPage, router]);
+  }, [user, authLoading, rolesLoading, isAuthPage, router]);
 
 
   const value = {
@@ -224,10 +224,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     deleteRole,
     hasPermission
   };
-  
-  const showLoadingScreen = isLoading || (user && !isAuthPage && !isDatabaseLoaded);
 
-  if (showLoadingScreen && !isAuthPage) {
+  if (isLoading && !isAuthPage) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <p>Loading user permissions...</p>
