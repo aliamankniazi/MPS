@@ -139,12 +139,6 @@ export default function AllInvoicesPage() {
     if (invoice.isCreditSale) return 'text-blue-600';
     return invoice.type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
-
-  const getRowClass = (invoice: CombinedInvoice) => {
-    if (invoice.type === 'Purchase') return 'text-green-600';
-    if (invoice.isCreditSale) return 'text-blue-600';
-    return invoice.type === 'Sale' ? 'text-green-600' : '';
-  };
   
   const monthKeys = Object.keys(groupedInvoices);
 
@@ -217,7 +211,10 @@ export default function AllInvoicesPage() {
                                   const typeLabel = invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type;
                                   const color = colorSettings[typeLabel] || '#6b7280';
                                   return (
-                                    <TableRow key={invoice.id} className={getRowClass(invoice)}>
+                                    <TableRow 
+                                      key={invoice.id}
+                                      style={{ backgroundColor: `${color}1A` }}
+                                    >
                                       <TableCell className="font-medium whitespace-nowrap">
                                         {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                                       </TableCell>
