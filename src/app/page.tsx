@@ -105,7 +105,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-2">
             <Button asChild variant="outline">
-                <Link href="/sales">Pick a date range</Link>
+                <Link href="/reports">View All Reports</Link>
             </Button>
             <Button asChild>
                 <Link href="/sales">New Sale</Link>

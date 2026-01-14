@@ -39,8 +39,8 @@ interface ReportCardProps {
 const reportList: ReportCardProps[] = [
   {
     title: 'Top Customers Report',
-    description: 'Identify top customers based on sales.',
-    href: '/',
+    description: 'Identify and rank top customers based on sales.',
+    href: '/top-customers',
     icon: Users,
     permission: 'view_dashboard',
   },
