@@ -42,7 +42,7 @@ type GroupedInvoices = {
 export default function AllInvoicesPage() {
   const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
 
   const allInvoicesForExport = useMemo(() => {
     if (!isLoaded) return [];
@@ -88,7 +88,7 @@ export default function AllInvoicesPage() {
 
         if (!searchMatch) return false;
         
-        if (!typeFilter) return true;
+        if (!typeFilter || typeFilter === 'all') return true;
 
         const invoiceTypeLabel = invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type;
         return invoiceTypeLabel === typeFilter;
@@ -165,7 +165,7 @@ export default function AllInvoicesPage() {
                         <SelectValue placeholder="Filter by type..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="">All Types</SelectItem>
+                        <SelectItem value="all">All Types</SelectItem>
                         <SelectItem value="Sale">Sale</SelectItem>
                         <SelectItem value="Credit Sale">Credit Sale</SelectItem>
                         <SelectItem value="Purchase">Purchase</SelectItem>
@@ -272,5 +272,3 @@ export default function AllInvoicesPage() {
     </div>
   );
 }
-
-    
