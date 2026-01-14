@@ -152,7 +152,7 @@ const reportList: ReportCardProps[] = [
 ];
 
 const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) => (
-  <Card className="flex flex-col hover:shadow-lg transition-shadow">
+  <Card className="flex flex-col hover:shadow-lg transition-shadow rounded-2xl">
     <CardHeader className="flex-row items-center gap-4 space-y-0">
       <div className="p-3 bg-muted rounded-full">
         <Icon className="w-6 h-6 text-primary" />
