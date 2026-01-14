@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useMemo, useState, useEffect, use } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -38,9 +38,7 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
-  const params = use(Promise.resolve(unsafeParams));
-  
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
   const { 
     customers, 
     suppliers, 

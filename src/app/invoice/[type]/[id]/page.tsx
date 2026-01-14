@@ -6,17 +6,16 @@ import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
-import React, { useMemo, use } from 'react';
+import React, { useMemo } from 'react';
 
 export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
-  const safeParams = use(Promise.resolve(params));
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
   const invoiceData = useMemo(() => {
     if (!isLoaded) return null;
 
-    const type = safeParams.type as 'sale' | 'purchase';
-    const id = safeParams.id as string;
+    const type = params.type as 'sale' | 'purchase';
+    const id = params.id as string;
 
     if (type === 'sale') {
       const transaction = transactions.find(t => t.id === id);
@@ -74,7 +73,7 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
       }
     }
     return null;
-  }, [isLoaded, safeParams, transactions, purchases, customers, suppliers, bankAccounts]);
+  }, [isLoaded, params, transactions, purchases, customers, suppliers, bankAccounts]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">
