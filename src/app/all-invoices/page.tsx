@@ -39,7 +39,7 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded } = useDatabase();
+  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
 
   const allInvoicesForExport = useMemo(() => {
@@ -201,20 +201,22 @@ export default function AllInvoicesPage() {
                               <TableBody>
                                 {groupedInvoices[monthKey].invoices.map(invoice => {
                                   const date = new Date(invoice.timestamp);
+                                  const typeLabel = invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type;
+                                  const color = colorSettings[typeLabel] || '#6b7280';
                                   return (
                                     <TableRow key={invoice.id} className={getRowClass(invoice)}>
                                       <TableCell className="font-medium whitespace-nowrap">
                                         {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
                                       </TableCell>
                                       <TableCell>
-                                        <Badge 
-                                            variant={getBadgeVariant(invoice)}
-                                            className={cn('text-xs',
-                                                invoice.type === 'Sale' && !invoice.isCreditSale && 'bg-green-100 text-green-800 border-green-200',
-                                                invoice.isCreditSale && 'bg-blue-100 text-blue-800 border-blue-200',
-                                                invoice.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200'
-                                            )}
-                                        >{invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type}</Badge>
+                                        <Badge
+                                            className="text-xs border"
+                                            style={{
+                                                backgroundColor: `${color}20`,
+                                                color: color,
+                                                borderColor: `${color}40`,
+                                            }}
+                                        >{typeLabel}</Badge>
                                       </TableCell>
                                       <TableCell className={cn(invoice.isCreditSale && 'font-medium')}>{invoice.partner}</TableCell>
                                       <TableCell>{invoice.details}</TableCell>
