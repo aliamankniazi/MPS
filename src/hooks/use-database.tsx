@@ -237,6 +237,12 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         const dataPaths = Object.keys(PATHS);
         const loadedPaths = new Set<string>();
 
+        const checkAllDataLoaded = () => {
+            if (loadedPaths.size === dataPaths.length) {
+                setState(prevState => ({ ...prevState, isLoaded: true }));
+            }
+        };
+
         const listeners = dataPaths.map((key) => {
             const path = PATHS[key as keyof typeof PATHS];
             const dbRef = ref(db, path);
@@ -250,10 +256,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 }));
 
                 loadedPaths.add(key);
-                
-                if (loadedPaths.size === dataPaths.length) {
-                    setState(prevState => ({ ...prevState, isLoaded: true }));
-                }
+                checkAllDataLoaded();
 
                 if (key === 'colorSettings' && !data) {
                     set(dbRef, DEFAULT_COLOR_SETTINGS);
@@ -261,10 +264,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             });
         });
 
+        // Fallback timer in case some paths have no data and don't trigger 'onValue'
         const timer = setTimeout(() => {
             if (!state.isLoaded) {
-                console.warn("Database loading timed out. Forcing isLoaded to true.");
-                setState(s => ({...s, isLoaded: true}));
+                 checkAllDataLoaded(); // Check again after timeout
+                if (loadedPaths.size < dataPaths.length) {
+                    // Force load remaining paths
+                    dataPaths.forEach(key => loadedPaths.add(key));
+                    checkAllDataLoaded();
+                }
             }
         }, 8000); // 8 second timeout
 
@@ -607,6 +615,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 

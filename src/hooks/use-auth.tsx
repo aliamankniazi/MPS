@@ -225,7 +225,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasPermission
   };
   
-  if (isLoading && !isAuthPage) {
+  const showLoadingScreen = isLoading || (user && !isAuthPage && !isDatabaseLoaded);
+
+  if (showLoadingScreen && !isAuthPage) {
      return (
         <div className="flex h-screen w-full items-center justify-center">
             <p>Loading user permissions...</p>
@@ -235,12 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   return (
       <AuthContext.Provider value={value}>
-        {user && !isAuthPage && isDatabaseLoaded ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}
-        {user && !isAuthPage && !isDatabaseLoaded && (
-            <div className="flex h-screen w-full items-center justify-center">
-                <p>Loading database...</p>
-            </div>
-        )}
+        {user && !isAuthPage ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}
       </AuthContext.Provider>
   );
 }
