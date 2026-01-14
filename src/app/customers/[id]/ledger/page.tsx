@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, use } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -38,7 +38,7 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+export default function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
   const { 
     customers, 
     suppliers, 
@@ -62,6 +62,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
   const { toast } = useToast();
 
   const { entity, entityType } = useMemo(() => {
+    const params = use(Promise.resolve(unsafeParams));
     if (!isLoaded) return { entity: null, entityType: null };
     const entityId = params.id;
     const customer = customers.find(c => c.id === entityId);
@@ -71,9 +72,10 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     const partner = businessPartners.find(p => p.id === entityId);
     if (partner) return { entity: partner, entityType: 'Partner' };
     return { entity: null, entityType: null };
-  }, [params, customers, suppliers, businessPartners, isLoaded]);
+  }, [unsafeParams, customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, finalBalance } = useMemo(() => {
+    const params = use(Promise.resolve(unsafeParams));
     if (!entity) return { entries: [], finalBalance: 0 };
     const entityId = params.id;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
@@ -193,7 +195,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, params]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, isLoaded, unsafeParams]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -446,21 +448,19 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
       </Card>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the entry: <br />
-              <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, delete entry
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the entry: <br />
+            <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Yes, delete entry
+          </AlertDialogAction>
+        </AlertDialogFooter>
       </AlertDialog>
     </div>
   );
