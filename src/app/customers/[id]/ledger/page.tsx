@@ -1,8 +1,7 @@
 
-
 'use client';
 
-import { useMemo, useState, useEffect, use } from 'react';
+import { useMemo, useState, useEffect, React } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid } from 'date-fns';
@@ -24,7 +23,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import React from 'react';
 
 
 type LedgerEntry = {
@@ -38,7 +36,7 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+function CustomerLedger({ id: entityId }: { id: string }) {
   const { 
     customers, 
     suppliers, 
@@ -63,7 +61,6 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
 
   const { entity, entityType } = useMemo(() => {
     if (!isLoaded) return { entity: null, entityType: null };
-    const entityId = params.id;
     const customer = customers.find(c => c.id === entityId);
     if (customer) return { entity: customer, entityType: 'Customer' };
     const supplier = suppliers.find(s => s.id === entityId);
@@ -71,11 +68,10 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     const partner = businessPartners.find(p => p.id === entityId);
     if (partner) return { entity: partner, entityType: 'Partner' };
     return { entity: null, entityType: null };
-  }, [params.id, customers, suppliers, businessPartners, isLoaded]);
+  }, [entityId, customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, finalBalance } = useMemo(() => {
     if (!entity) return { entries: [], finalBalance: 0 };
-    const entityId = params.id;
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -193,7 +189,7 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, params.id]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -464,4 +460,13 @@ export default function CustomerLedgerPage({ params }: { params: { id: string } 
       </AlertDialog>
     </div>
   );
+}
+
+
+// This is the new Server Component that wraps the client component
+export default async function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
+  // `use` is still experimental but is the recommended way to handle promises in Server Components.
+  const params = await Promise.resolve(unsafeParams);
+  
+  return <CustomerLedger id={params.id} />;
 }

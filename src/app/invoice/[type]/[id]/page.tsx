@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { Invoice } from '@/components/invoice';
@@ -9,14 +8,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
 import React, { useMemo } from 'react';
 
-export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
+
+function InvoiceDisplay({ type, id }: { type: string, id: string }) {
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
   const invoiceData = useMemo(() => {
     if (!isLoaded) return null;
-
-    const type = params.type as 'sale' | 'purchase';
-    const id = params.id as string;
 
     if (type === 'sale') {
       const transaction = transactions.find(t => t.id === id);
@@ -74,7 +71,7 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
       }
     }
     return null;
-  }, [isLoaded, params, transactions, purchases, customers, suppliers, bankAccounts]);
+  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">
@@ -103,3 +100,10 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
     </div>
   );
 }
+
+export default async function InvoicePage({ params: unsafeParams }: { params: { type: string, id: string } }) {
+  const params = await Promise.resolve(unsafeParams);
+  
+  return <InvoiceDisplay type={params.type} id={params.id} />;
+}
+
