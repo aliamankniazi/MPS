@@ -99,14 +99,18 @@ function TransactionNav() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, addSupplierPayment, isLoaded } = useDatabase();
+  const { suppliers, addSupplierPayment, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
     defaultValues: {
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({ date: dateRange?.from || new Date(), supplierId: '', amount: 0, notes: '' });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -124,7 +128,7 @@ export default function SupplierPaymentsPage() {
       title: 'Payment Recorded',
       description: `Payment of PKR ${data.amount} to ${supplier.name} has been logged.`,
     });
-    reset({ supplierId: '', amount: 0, notes: '', date: new Date() });
+    reset({ supplierId: '', amount: 0, notes: '', date: dateRange?.from || new Date() });
   };
 
   return (

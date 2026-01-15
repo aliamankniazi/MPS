@@ -99,14 +99,18 @@ function TransactionNav() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded } = useDatabase();
+  const { customers, addCashAdvance, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),
     defaultValues: {
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     }
   });
+  
+  useEffect(() => {
+    reset({ date: dateRange?.from || new Date(), customerId: '', amount: 0, notes: '' });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -124,7 +128,7 @@ export default function CashAdvancesPage() {
       title: 'Cash Advance Recorded',
       description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
     });
-    reset({ customerId: '', amount: 0, notes: '', date: new Date() });
+    reset({ customerId: '', amount: 0, notes: '', date: dateRange?.from || new Date() });
   };
 
   return (

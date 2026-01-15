@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -19,7 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
@@ -34,7 +35,7 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense } = useDatabase();
+  const { expenses, addExpense, deleteExpense, dateRange } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -42,9 +43,13 @@ export default function ExpensesPage() {
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({ date: dateRange?.from || new Date(), description: '', amount: 0 });
+  }, [dateRange, reset]);
 
   const filteredExpenses = useMemo(() => {
     if (!searchTerm) return expenses;
@@ -63,7 +68,7 @@ export default function ExpensesPage() {
       title: 'Expense Recorded',
       description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    reset({ description: '', amount: 0, date: new Date() });
+    reset({ description: '', amount: 0, date: dateRange?.from || new Date() });
   };
   
   const handleDeleteExpense = () => {

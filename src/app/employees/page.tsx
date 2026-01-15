@@ -101,7 +101,7 @@ function TransactionNav() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
@@ -109,9 +109,19 @@ export default function SalaryPaymentPage() {
     defaultValues: {
       salaryMonth: format(new Date(), 'MMMM'),
       salaryYear: new Date().getFullYear().toString(),
-      postingDate: new Date(),
+      postingDate: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({ 
+        salaryMonth: format(new Date(), 'MMMM'),
+        salaryYear: new Date().getFullYear().toString(),
+        postingDate: dateRange?.from || new Date(),
+        employeeId: '',
+        notes: ''
+    });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
@@ -166,7 +176,7 @@ export default function SalaryPaymentPage() {
         employeeId: '',
         salaryMonth: format(new Date(), 'MMMM'),
         salaryYear: new Date().getFullYear().toString(),
-        postingDate: new Date(),
+        postingDate: dateRange?.from || new Date(),
         notes: ''
     });
   };
@@ -287,7 +297,3 @@ export default function SalaryPaymentPage() {
     </div>
   );
 }
-
-    
-
-    

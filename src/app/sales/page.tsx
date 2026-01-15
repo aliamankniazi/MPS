@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -21,6 +22,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
+import { format } from 'date-fns';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -112,7 +114,7 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions, dateRange } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -127,8 +129,13 @@ export default function SalesPage() {
     defaultValues: {
         customerId: 'walkin',
         paymentMethod: 'Cash',
+        invoiceDate: format(dateRange?.from || new Date(), 'yyyy-MM-dd'),
     }
   });
+
+  useEffect(() => {
+    setValue('invoiceDate', format(dateRange?.from || new Date(), 'yyyy-MM-dd'));
+  }, [dateRange, setValue]);
 
   const { customerId } = watch();
   const { quantity, price, totalAmount } = watchItem();
@@ -216,10 +223,12 @@ export default function SalesPage() {
     if (data.vehicleNumber) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
+    
+    const finalInvoiceDate = data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString();
 
     // Create one transaction per cart item to maintain detail
     cart.forEach(item => {
-        const transactionData: Omit<Transaction, 'id' | 'timestamp'> = {
+        const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
           fuelType: 'Unleaded', // Placeholder, as we have product now
           volume: item.quantity,
           pricePerLitre: item.price,
@@ -229,6 +238,7 @@ export default function SalesPage() {
           customerId: data.customerId,
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           notes: finalNotes,
+          timestamp: finalInvoiceDate,
         };
         addTransaction(transactionData);
     });
@@ -416,7 +426,7 @@ export default function SalesPage() {
                       </div>
                       <div className="space-y-2">
                           <Label>Invoice Date</Label>
-                          <Input type="date" {...register('invoiceDate')} defaultValue={new Date().toISOString().split('T')[0]}/>
+                          <Input type="date" {...register('invoiceDate')} />
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="notes">Notes</Label>

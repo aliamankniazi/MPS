@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -19,7 +20,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const INCOME_CATEGORIES: OtherIncomeCategory[] = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'];
 
@@ -33,16 +34,20 @@ const incomeSchema = z.object({
 type IncomeFormValues = z.infer<typeof incomeSchema>;
 
 export default function OtherIncomesPage() {
-  const { otherIncomes, addOtherIncome, deleteOtherIncome } = useDatabase();
+  const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
     defaultValues: {
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({ date: dateRange?.from || new Date(), description: '', amount: 0 });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
     addOtherIncome({
@@ -53,7 +58,7 @@ export default function OtherIncomesPage() {
       title: 'Income Recorded',
       description: `Income of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    reset({ description: '', amount: 0, date: new Date() });
+    reset({ description: '', amount: 0, date: dateRange?.from || new Date() });
   };
   
   const handleDeleteIncome = () => {

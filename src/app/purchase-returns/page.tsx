@@ -105,14 +105,24 @@ function TransactionNav() {
 
 
 export default function PurchaseReturnsPage() {
-  const { addPurchaseReturn, suppliers, isLoaded } = useDatabase();
+  const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
     defaultValues: {
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({
+        date: dateRange?.from || new Date(),
+        supplierId: '',
+        volume: 0,
+        totalRefund: 0,
+        reason: '',
+    });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -132,7 +142,7 @@ export default function PurchaseReturnsPage() {
         volume: 0,
         totalRefund: 0,
         reason: '',
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
   };
 

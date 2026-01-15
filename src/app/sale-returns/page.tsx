@@ -102,14 +102,24 @@ function TransactionNav() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded } = useDatabase();
+  const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
     defaultValues: {
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     }
   });
+
+  useEffect(() => {
+    reset({
+        date: dateRange?.from || new Date(),
+        customerId: '',
+        volume: 0,
+        totalRefund: 0,
+        reason: '',
+    });
+  }, [dateRange, reset]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -129,7 +139,7 @@ export default function SaleReturnsPage() {
         volume: 0,
         totalRefund: 0,
         reason: '',
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
   };
 

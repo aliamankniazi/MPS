@@ -27,6 +27,7 @@ const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 const adjustmentSchema = z.object({
   fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
   adjustment: z.coerce.number(),
+  date: z.date({ required_error: "A date is required."}),
 });
 
 type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
@@ -37,7 +38,8 @@ export default function StockAdjustmentPage() {
     fuelStock, 
     stockAdjustments,
     addStockAdjustment,
-    isLoaded 
+    isLoaded,
+    dateRange
   } = useDatabase();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
@@ -46,8 +48,16 @@ export default function StockAdjustmentPage() {
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       adjustment: 0,
+      date: dateRange?.from || new Date(),
     }
   });
+  
+  React.useEffect(() => {
+    reset({
+        adjustment: 0,
+        date: dateRange?.from || new Date(),
+    });
+  }, [dateRange, reset]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
@@ -73,13 +83,14 @@ export default function StockAdjustmentPage() {
         fuelType: data.fuelType,
         adjustment: data.adjustment,
         newStock: newStock,
+        timestamp: data.date.toISOString(),
     });
 
     toast({
       title: 'Stock Adjusted',
       description: `${data.fuelType} stock has been updated to ${newStock.toLocaleString()} L.`,
     });
-    reset({ fuelType: data.fuelType, adjustment: 0 });
+    reset({ fuelType: data.fuelType, adjustment: 0, date: dateRange?.from || new Date() });
   };
   
   const filteredAdjustments = React.useMemo(() => {
@@ -102,37 +113,68 @@ export default function StockAdjustmentPage() {
             <CardContent>
             <form onSubmit={handleSubmit(onAdjustmentSubmit)} className="space-y-4">
                 <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                <div className="space-y-2 md:col-span-1">
-                    <Label>Fuel Type</Label>
-                    <Controller
-                    name="fuelType"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a fuel type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {FUEL_TYPES.map(fuel => (
-                            <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    )}
-                    />
-                </div>
-                <div className="space-y-2 md:col-span-1">
-                    <Label htmlFor="currentStock">Current Stock (L)</Label>
-                    <Input id="currentStock" type="number" value={isLoaded ? currentStock.toFixed(2) : "Loading..."} readOnly disabled className="bg-muted/50" />
-                </div>
-                <div className="space-y-2 md:col-span-1">
-                    <Label htmlFor="adjustment">Adjustment (L)</Label>
-                    <Input id="adjustment" type="number" {...register('adjustment')} placeholder="e.g., -50 or 100" step="any" />
-                </div>
                     <div className="space-y-2 md:col-span-1">
-                    <Label htmlFor="newStock">New Stock (L)</Label>
-                    <Input id="newStock" type="number" value={selectedFuelType ? newStock.toFixed(2) : "..."} readOnly disabled className="bg-muted/50 font-bold" />
+                        <Label>Fuel Type</Label>
+                        <Controller
+                        name="fuelType"
+                        control={control}
+                        render={({ field }) => (
+                            <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a fuel type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {FUEL_TYPES.map(fuel => (
+                                <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                                ))}
+                            </SelectContent>
+                            </Select>
+                        )}
+                        />
+                    </div>
+                    <div className="space-y-2 md:col-span-1">
+                        <Label htmlFor="currentStock">Current Stock (L)</Label>
+                        <Input id="currentStock" type="number" value={isLoaded ? currentStock.toFixed(2) : "Loading..."} readOnly disabled className="bg-muted/50" />
+                    </div>
+                    <div className="space-y-2 md:col-span-1">
+                        <Label htmlFor="adjustment">Adjustment (L)</Label>
+                        <Input id="adjustment" type="number" {...register('adjustment')} placeholder="e.g., -50 or 100" step="any" />
+                    </div>
+                        <div className="space-y-2 md:col-span-1">
+                        <Label htmlFor="newStock">New Stock (L)</Label>
+                        <Input id="newStock" type="number" value={selectedFuelType ? newStock.toFixed(2) : "..."} readOnly disabled className="bg-muted/50 font-bold" />
+                    </div>
                 </div>
+                 <div className="space-y-2 max-w-xs">
+                    <Label>Date</Label>
+                     <Controller
+                        name="date"
+                        control={control}
+                        render={({ field }) => (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                "w-full justify-start text-left font-normal",
+                                !field.value && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                        )}
+                    />
                 </div>
                 <Button type="submit" disabled={!selectedFuelType || !isLoaded} className="flex items-center gap-2"><Edit /> Adjust Stock</Button>
             </form>
@@ -208,4 +250,3 @@ export default function StockAdjustmentPage() {
     </div>
   );
 }
-
