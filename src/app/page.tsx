@@ -191,7 +191,7 @@ export default function DashboardPage() {
                                 </TableCell>
                                 <TableCell className="p-2 text-right">
                                     <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/customers/${customer.id}/ledger`}>
+                                        <Link href={`/customers`}>
                                             <ArrowRight className="w-4 h-4" />
                                         </Link>
                                     </Button>
