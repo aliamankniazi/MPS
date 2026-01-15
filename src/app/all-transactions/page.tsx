@@ -309,13 +309,6 @@ export default function AllTransactionsPage() {
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
-                            {entityId && (
-                                <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                  <Link href={`/customers/${entityId}/ledger`}>
-                                    <BookText className="w-4 h-4" />
-                                  </Link>
-                                </Button>
-                            )}
                              <Button asChild variant="ghost" size="icon" title="Edit">
                                 <Link href={'/customers'}>
                                     <Pencil className="w-4 h-4" />
