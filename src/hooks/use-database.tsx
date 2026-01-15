@@ -230,7 +230,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: false,
     });
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
         if (!db) {
@@ -240,29 +240,29 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }
 
         const subscriptions: (() => void)[] = [];
-
-        const setupListener = (path: string, key: keyof DatabaseState, defaultValue: any = {}) => {
-            const dbRef = ref(db, path);
-            const unsubscribe = onValue(dbRef, (snapshot) => {
-                const data = snapshot.val();
-                 setState(prevState => ({
-                    ...prevState,
-                    [key]: data || defaultValue,
-                }));
-                 if (!data && (key === 'colorSettings' || key === 'fuelPrices')) {
-                    set(dbRef, defaultValue);
-                }
-            }, (error) => {
-                console.error(`Error fetching ${key}:`, error);
-            });
-            subscriptions.push(unsubscribe);
-        };
         
         const fetchAndListen = async () => {
             try {
                 // Fetch all data initially to ensure `isLoaded` is accurate
                 const allDataSnapshot = await get(ref(db));
                 const allData = allDataSnapshot.val() || {};
+
+                const setupListener = (path: string, key: keyof DatabaseState, defaultValue: any = {}) => {
+                    const dbRef = ref(db, path);
+                    const unsubscribe = onValue(dbRef, (snapshot) => {
+                        const data = snapshot.val();
+                         setState(prevState => ({
+                            ...prevState,
+                            [key]: data || defaultValue,
+                        }));
+                         if (!data && (key === 'colorSettings' || key === 'fuelPrices')) {
+                            set(dbRef, defaultValue);
+                        }
+                    }, (error) => {
+                        console.error(`Error fetching ${key}:`, error);
+                    });
+                    subscriptions.push(unsubscribe);
+                };
 
                 // Setup listeners after initial fetch
                 for (const key of Object.keys(PATHS)) {
@@ -630,6 +630,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
