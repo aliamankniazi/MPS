@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, isValid } from 'date-fns';
+import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
@@ -19,8 +19,34 @@ import { cn } from '@/lib/utils';
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, isLoaded, dateRange, setDateRange } = useDatabase();
 
+  const filteredData = useMemo(() => {
+    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [] };
+
+    if (!dateRange || !dateRange.from) {
+      return { transactions, purchases, expenses, otherIncomes };
+    }
+
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+
+    const filterByDate = (items: any[]) => items.filter(item => {
+      const itemDate = new Date(item.timestamp);
+      return isValid(itemDate) && itemDate >= from && itemDate <= to;
+    });
+
+    return {
+      transactions: filterByDate(transactions),
+      purchases: filterByDate(purchases),
+      expenses: filterByDate(expenses),
+      otherIncomes: filterByDate(otherIncomes),
+    };
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes, dateRange]);
+
+
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
+
+    const { transactions, purchases, expenses, otherIncomes } = filteredData;
 
     const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
     const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
@@ -52,7 +78,7 @@ export default function DashboardPage() {
       activeCustomers,
       bestSaleDay
     };
-  }, [isLoaded, transactions, purchases, expenses, otherIncomes]);
+  }, [isLoaded, filteredData]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -83,7 +109,7 @@ export default function DashboardPage() {
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
 
-    const customerTotals = transactions.reduce((acc, tx) => {
+    const customerTotals = filteredData.transactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
                 id: tx.customerId,
@@ -98,7 +124,7 @@ export default function DashboardPage() {
         .sort((a,b) => b.total - a.total)
         .slice(0, 5);
 
-  }, [isLoaded, transactions]);
+  }, [isLoaded, filteredData.transactions]);
   
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -276,5 +302,6 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 

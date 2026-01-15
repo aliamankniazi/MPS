@@ -103,6 +103,7 @@ const DEFAULT_COLOR_SETTINGS: Record<string, string> = {
 
 
 interface DatabaseState {
+    [key: string]: any; // Allow any key
     transactions: Record<string, Omit<Transaction, 'id'>>;
     purchases: Record<string, Omit<Purchase, 'id'>>;
     purchaseReturns: Record<string, Omit<PurchaseReturn, 'id'>>;
@@ -246,25 +247,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 // Fetch all data initially to ensure `isLoaded` is accurate
                 const allDataSnapshot = await get(ref(db));
                 const allData = allDataSnapshot.val() || {};
-
-                const setupListener = (path: string, key: keyof DatabaseState, defaultValue: any = {}) => {
-                    const dbRef = ref(db, path);
-                    const unsubscribe = onValue(dbRef, (snapshot) => {
-                        const data = snapshot.val();
-                         setState(prevState => ({
-                            ...prevState,
-                            [key]: data || defaultValue,
-                        }));
-                         if (!data && (key === 'colorSettings' || key === 'fuelPrices')) {
-                            set(dbRef, defaultValue);
-                        }
-                    }, (error) => {
-                        console.error(`Error fetching ${key}:`, error);
-                    });
-                    subscriptions.push(unsubscribe);
-                };
-
-                // Setup listeners after initial fetch
+                
+                const initialState: Partial<DatabaseState> = {};
                 for (const key of Object.keys(PATHS)) {
                     const pathKey = key as keyof typeof PATHS;
                     const defaultValue = 
@@ -272,20 +256,29 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                         key === 'fuelPrices' ? DEFAULT_FUEL_PRICES :
                         key === 'initialFuelStock' ? DEFAULT_INITIAL_STOCK :
                         {};
-                    
-                    // Update state with initially fetched data
-                    setState(prevState => ({
-                        ...prevState,
-                        [key]: allData[pathKey] || defaultValue,
-                    }));
-
-                    // Attach real-time listener
-                    setupListener(PATHS[pathKey], pathKey, defaultValue);
+                    initialState[key] = allData[pathKey] || defaultValue;
                 }
+                
+                setState(s => ({ ...s, ...initialState, isLoaded: true }));
+
+                // Setup listeners
+                for (const key of Object.keys(PATHS)) {
+                    const pathKey = key as keyof typeof PATHS;
+                    const dbRef = ref(db, PATHS[pathKey]);
+                    const unsubscribe = onValue(dbRef, (snapshot) => {
+                         setState(prevState => ({
+                            ...prevState,
+                            [key]: snapshot.val() || prevState[key],
+                        }));
+                    }, (error) => {
+                        console.error(`Error fetching ${key}:`, error);
+                    });
+                    subscriptions.push(unsubscribe);
+                }
+
             } catch (error) {
                 console.error("Error setting up database:", error);
-            } finally {
-                setState(prevState => ({ ...prevState, isLoaded: true }));
+                 setState(prevState => ({ ...prevState, isLoaded: true }));
             }
         };
 
@@ -630,6 +623,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
