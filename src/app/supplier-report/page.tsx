@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { DateRange } from 'react-day-picker';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, FileText, Printer, Search } from 'lucide-react';
@@ -43,7 +42,7 @@ export default function SupplierReportPage() {
     const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
 
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() });
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -55,8 +54,8 @@ export default function SupplierReportPage() {
         }
 
         const report: ReportRow[] = targetSuppliers.map(supplier => {
-            const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
-            const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : new Date();
+            const rangeStart = selectedDate ? startOfDay(selectedDate) : new Date(0);
+            const rangeEnd = selectedDate ? endOfDay(selectedDate) : new Date();
 
             // Previous Balance: Amount we owe the supplier. Credit is positive.
             const prevPurchases = purchases.filter(p => p.supplierId === supplier.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) < rangeStart);
@@ -88,7 +87,7 @@ export default function SupplierReportPage() {
         }).filter(row => {
             if (selectedSupplierId !== 'all') return true;
 
-            if (dateRange?.from || dateRange?.to) {
+            if (selectedDate) {
                 return row.previousBalance !== 0 || row.purchaseAmount > 0 || row.payment > 0;
             }
             
@@ -97,7 +96,7 @@ export default function SupplierReportPage() {
 
         return report.sort((a,b) => a.supplier.name.localeCompare(b.supplier.name));
 
-    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId, dateRange]);
+    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId, selectedDate]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -151,19 +150,19 @@ Mianwali Petroleum Service`;
                             </Select>
                         </div>
                          <div className="w-full md:w-auto flex-1">
-                            <label className="text-sm font-medium">Date Range</label>
+                            <label className="text-sm font-medium">Date</label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
-                                        className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                                        className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateRange?.from ? (dateRange.to ? (`${format(dateRange.from, "LLL dd, y")} - ${format(dateRange.to, "LLL dd, y")}`) : format(dateRange.from, "LLL dd, y")) : (<span>Pick a date range</span>)}
+                                        {selectedDate ? format(selectedDate, "PPP") : (<span>Pick a date</span>)}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                                    <Calendar initialFocus mode="single" selected={selectedDate} onSelect={setSelectedDate} />
                                 </PopoverContent>
                             </Popover>
                         </div>

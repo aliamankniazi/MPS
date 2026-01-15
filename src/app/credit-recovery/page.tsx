@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfDay, endOfDay, subDays, isValid } from 'date-fns';
-import { DateRange } from 'react-day-picker';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, FileText, Printer, Search } from 'lucide-react';
@@ -42,7 +41,7 @@ export default function CreditRecoveryPage() {
     const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() });
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -54,8 +53,8 @@ export default function CreditRecoveryPage() {
         }
 
         const report: ReportRow[] = targetCustomers.map(customer => {
-            const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
-            const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : new Date();
+            const rangeStart = selectedDate ? startOfDay(selectedDate) : new Date(0);
+            const rangeEnd = selectedDate ? endOfDay(selectedDate) : new Date();
 
             // Calculate Previous Balance
             const prevTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) < rangeStart);
@@ -89,7 +88,7 @@ export default function CreditRecoveryPage() {
             if (selectedCustomerId !== 'all') return true;
         
             // If a date range is selected, only show customers with sales or recoveries in that range.
-            if (dateRange?.from || dateRange?.to) {
+            if (selectedDate) {
                 return row.sale > 0 || row.recovery > 0;
             }
         
@@ -99,7 +98,7 @@ export default function CreditRecoveryPage() {
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
+    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, selectedDate]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -115,10 +114,8 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const period = dateRange?.from
-            ? dateRange.to
-                ? `from ${format(dateRange.from, "LLL dd, y")} to ${format(dateRange.to, "LLL dd, y")}`
-                : `for ${format(dateRange.from, "LLL dd, y")}`
+        const period = selectedDate
+            ? `for ${format(selectedDate, "LLL dd, y")}`
             : 'all time';
 
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -162,39 +159,30 @@ Mianwali Petroleum Service`;
                             </Select>
                         </div>
                          <div className="w-full md:w-auto flex-1">
-                            <label className="text-sm font-medium">Date Range</label>
+                            <label className="text-sm font-medium">Date</label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
                                             "w-full justify-start text-left font-normal",
-                                            !dateRange && "text-muted-foreground"
+                                            !selectedDate && "text-muted-foreground"
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateRange?.from ? (
-                                            dateRange.to ? (
-                                                <>
-                                                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                    {format(dateRange.to, "LLL dd, y")}
-                                                </>
-                                            ) : (
-                                                format(dateRange.from, "LLL dd, y")
-                                            )
+                                        {selectedDate ? (
+                                            format(selectedDate, "PPP")
                                         ) : (
-                                            <span>Pick a date range</span>
+                                            <span>Pick a date</span>
                                         )}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={setSelectedDate}
                                         initialFocus
-                                        mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={dateRange}
-                                        onSelect={setDateRange}
-                                        numberOfMonths={2}
                                     />
                                 </PopoverContent>
                             </Popover>
