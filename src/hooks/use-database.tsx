@@ -230,10 +230,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: false,
     });
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(),
-        to: new Date(),
-    });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
     useEffect(() => {
         if (!db) {
@@ -633,6 +630,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
