@@ -234,49 +234,61 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             return;
         }
 
-        const dataPaths = Object.keys(PATHS);
         const subscriptions: (() => void)[] = [];
 
-        const fetchData = async () => {
+        const setupListener = (path: string, key: keyof DatabaseState, defaultValue: any = {}) => {
+            const dbRef = ref(db, path);
+            const unsubscribe = onValue(dbRef, (snapshot) => {
+                const data = snapshot.val();
+                 setState(prevState => ({
+                    ...prevState,
+                    [key]: data || defaultValue,
+                }));
+                 if (!data && (key === 'colorSettings' || key === 'fuelPrices')) {
+                    set(dbRef, defaultValue);
+                }
+            }, (error) => {
+                console.error(`Error fetching ${key}:`, error);
+            });
+            subscriptions.push(unsubscribe);
+        };
+        
+        const fetchAndListen = async () => {
             try {
-                const promises = dataPaths.map(key => {
-                    const path = PATHS[key as keyof typeof PATHS];
-                    const dbRef = ref(db, path);
+                // Fetch all data initially to ensure `isLoaded` is accurate
+                const allDataSnapshot = await get(ref(db));
+                const allData = allDataSnapshot.val() || {};
+
+                // Setup listeners after initial fetch
+                for (const key of Object.keys(PATHS)) {
+                    const pathKey = key as keyof typeof PATHS;
+                    const defaultValue = 
+                        key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS :
+                        key === 'fuelPrices' ? DEFAULT_FUEL_PRICES :
+                        key === 'initialFuelStock' ? DEFAULT_INITIAL_STOCK :
+                        {};
                     
-                    return new Promise<void>((resolve) => {
-                        const unsubscribe = onValue(dbRef, (snapshot) => {
-                            const data = snapshot.val();
-                            setState(prevState => ({
-                                ...prevState,
-                                [key]: data || (key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : {}),
-                            }));
-                             if (key === 'colorSettings' && !data) {
-                                set(dbRef, DEFAULT_COLOR_SETTINGS);
-                            }
-                            resolve(); // Resolve promise on first data load
-                        }, (error) => {
-                            console.error(`Error fetching ${key}:`, error);
-                            resolve(); // Resolve even on error to not block loading
-                        });
-                        subscriptions.push(unsubscribe);
-                    });
-                });
-                
-                await Promise.all(promises);
-                
+                    // Update state with initially fetched data
+                    setState(prevState => ({
+                        ...prevState,
+                        [key]: allData[pathKey] || defaultValue,
+                    }));
+
+                    // Attach real-time listener
+                    setupListener(PATHS[pathKey], pathKey, defaultValue);
+                }
             } catch (error) {
-                console.error("Error setting up database listeners:", error);
+                console.error("Error setting up database:", error);
             } finally {
-                 setState(prevState => ({ ...prevState, isLoaded: true }));
+                setState(prevState => ({ ...prevState, isLoaded: true }));
             }
         };
 
-        fetchData();
+        fetchAndListen();
 
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     
     const processedState = useMemo((): ProcessedDatabaseState => {
@@ -611,6 +623,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
