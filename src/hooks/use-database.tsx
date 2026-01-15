@@ -241,48 +241,45 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }
 
         const subscriptions: (() => void)[] = [];
-        
-        const fetchAndListen = async () => {
-            try {
-                // Fetch all data initially to ensure `isLoaded` is accurate
-                const allDataSnapshot = await get(ref(db));
-                const allData = allDataSnapshot.val() || {};
-                
-                const initialState: Partial<DatabaseState> = {};
-                for (const key of Object.keys(PATHS)) {
-                    const pathKey = key as keyof typeof PATHS;
-                    const defaultValue = 
-                        key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS :
-                        key === 'fuelPrices' ? DEFAULT_FUEL_PRICES :
-                        key === 'initialFuelStock' ? DEFAULT_INITIAL_STOCK :
-                        {};
-                    initialState[key] = allData[pathKey] || defaultValue;
-                }
-                
-                setState(s => ({ ...s, ...initialState, isLoaded: true }));
+        const pathsToLoad = Object.keys(PATHS);
+        const initialLoads = new Set<string>();
 
-                // Setup listeners
-                for (const key of Object.keys(PATHS)) {
-                    const pathKey = key as keyof typeof PATHS;
-                    const dbRef = ref(db, PATHS[pathKey]);
-                    const unsubscribe = onValue(dbRef, (snapshot) => {
-                         setState(prevState => ({
-                            ...prevState,
-                            [key]: snapshot.val() || prevState[key],
-                        }));
-                    }, (error) => {
-                        console.error(`Error fetching ${key}:`, error);
-                    });
-                    subscriptions.push(unsubscribe);
-                }
-
-            } catch (error) {
-                console.error("Error setting up database:", error);
-                 setState(prevState => ({ ...prevState, isLoaded: true }));
+        const checkAllLoaded = () => {
+            if (initialLoads.size >= pathsToLoad.length && !state.isLoaded) {
+                 setState(s => ({ ...s, isLoaded: true }));
             }
         };
+        
+        pathsToLoad.forEach(key => {
+            const pathKey = key as keyof typeof PATHS;
+            const dbRef = ref(db, PATHS[pathKey]);
 
-        fetchAndListen();
+            const unsubscribe = onValue(dbRef, (snapshot) => {
+                const defaultValue = 
+                    key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS :
+                    key === 'fuelPrices' ? DEFAULT_FUEL_PRICES :
+                    key === 'initialFuelStock' ? DEFAULT_INITIAL_STOCK :
+                    {};
+
+                setState(prevState => ({
+                    ...prevState,
+                    [key]: snapshot.val() || defaultValue,
+                }));
+                
+                if (!initialLoads.has(key)) {
+                    initialLoads.add(key);
+                    checkAllLoaded();
+                }
+
+            }, (error) => {
+                console.error(`Error fetching ${key}:`, error);
+                if (!initialLoads.has(key)) {
+                    initialLoads.add(key);
+                    checkAllLoaded();
+                }
+            });
+            subscriptions.push(unsubscribe);
+        });
 
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
@@ -623,6 +620,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
