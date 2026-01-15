@@ -28,7 +28,7 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import type { Transaction, Product, Purchase } from '@/lib/types';
+import type { Transaction, Product, Purchase, DateRange } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -107,7 +107,10 @@ export default function LedgerPage() {
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date(),
+  });
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
@@ -351,11 +354,16 @@ export default function LedgerPage() {
     if (selectedType && selectedType !== 'all') {
         entries = entries.filter(e => e.type === selectedType);
     }
-    if (selectedDate) {
-        entries = entries.filter(e => isValid(new Date(e.timestamp)) && isSameDay(new Date(e.timestamp), selectedDate));
+    if (dateRange?.from) {
+      const rangeStart = startOfDay(dateRange.from);
+      const rangeEnd = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+      entries = entries.filter(e => {
+        const entryDate = new Date(e.timestamp);
+        return isValid(entryDate) && entryDate >= rangeStart && entryDate <= rangeEnd;
+      });
     }
     return entries;
-  }, [allEntries, searchTerm, selectedDate, selectedType]);
+  }, [allEntries, searchTerm, dateRange, selectedType]);
 
   const groupedEntries = useMemo(() => {
     return filteredEntries.reduce((acc: GroupedEntries, entry: LedgerEntry) => {
@@ -482,11 +490,11 @@ export default function LedgerPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setSelectedDate(undefined);
+    setDateRange(undefined);
     setSelectedType('');
   }
 
-  const hasActiveFilters = searchTerm || selectedDate || selectedType;
+  const hasActiveFilters = searchTerm || dateRange?.from || selectedType;
   const currentDayKey = format(new Date(), 'yyyy-MM-dd');
 
   let runningEntryCount = filteredEntries.length;
@@ -529,13 +537,24 @@ export default function LedgerPage() {
             <PopoverTrigger asChild>
                 <Button
                 variant={"outline"}
-                className={cn("w-full justify-start text-left font-normal md:w-48", !selectedDate && "text-muted-foreground")}
+                className={cn("w-full justify-start text-left font-normal md:w-auto", !dateRange && "text-muted-foreground")}
                 >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date</span>}
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "LLL dd, y")} -{" "}
+                      {format(dateRange.to, "LLL dd, y")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "LLL dd, y")
+                  )
+                ) : (
+                  <span>Pick a date range</span>
+                )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+            <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus /></PopoverContent>
            </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
@@ -763,21 +782,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-    
-
-    
-
-
-
-
-    
-
-    
-
-
-
-
-
-
-

@@ -1,8 +1,12 @@
 
 
+import type { DateRange as ReactDayPickerDateRange } from 'react-day-picker';
+
 export type FuelType = 'Unleaded' | 'Premium' | 'Diesel';
 
 export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary' | 'Credit';
+
+export type DateRange = ReactDayPickerDateRange;
 
 export interface Transaction {
   id: string;

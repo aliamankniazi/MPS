@@ -14,6 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, FileText, Printer, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Customer } from '@/lib/types';
+import type { DateRange } from 'react-day-picker';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -41,7 +42,10 @@ export default function CreditRecoveryPage() {
     const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: new Date(),
+        to: new Date(),
+    });
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -53,8 +57,9 @@ export default function CreditRecoveryPage() {
         }
 
         const report: ReportRow[] = targetCustomers.map(customer => {
-            const rangeStart = selectedDate ? startOfDay(selectedDate) : new Date(0);
-            const rangeEnd = selectedDate ? endOfDay(selectedDate) : new Date();
+            const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
+            const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : new Date());
+
 
             // Calculate Previous Balance
             const prevTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) < rangeStart);
@@ -88,7 +93,7 @@ export default function CreditRecoveryPage() {
             if (selectedCustomerId !== 'all') return true;
         
             // If a date range is selected, only show customers with sales or recoveries in that range.
-            if (selectedDate) {
+            if (dateRange?.from) {
                 return row.sale > 0 || row.recovery > 0;
             }
         
@@ -98,7 +103,7 @@ export default function CreditRecoveryPage() {
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, selectedDate]);
+    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -114,9 +119,12 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const period = selectedDate
-            ? `for ${format(selectedDate, "LLL dd, y")}`
-            : 'all time';
+        let period = 'all time';
+        if (dateRange?.from) {
+            period = dateRange.to 
+                ? `from ${format(dateRange.from, "LLL dd, y")} to ${format(dateRange.to, "LLL dd, y")}`
+                : `for ${format(dateRange.from, "LLL dd, y")}`;
+        }
 
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -159,30 +167,39 @@ Mianwali Petroleum Service`;
                             </Select>
                         </div>
                          <div className="w-full md:w-auto flex-1">
-                            <label className="text-sm font-medium">Date</label>
+                            <label className="text-sm font-medium">Date Range</label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant="outline"
                                         className={cn(
                                             "w-full justify-start text-left font-normal",
-                                            !selectedDate && "text-muted-foreground"
+                                            !dateRange && "text-muted-foreground"
                                         )}
                                     >
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {selectedDate ? (
-                                            format(selectedDate, "PPP")
+                                        {dateRange?.from ? (
+                                            dateRange.to ? (
+                                            <>
+                                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                                {format(dateRange.to, "LLL dd, y")}
+                                            </>
+                                            ) : (
+                                            format(dateRange.from, "LLL dd, y")
+                                            )
                                         ) : (
-                                            <span>Pick a date</span>
+                                            <span>Pick a date range</span>
                                         )}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
-                                        mode="single"
-                                        selected={selectedDate}
-                                        onSelect={setSelectedDate}
                                         initialFocus
+                                        mode="range"
+                                        defaultMonth={dateRange?.from}
+                                        selected={dateRange}
+                                        onSelect={setDateRange}
+                                        numberOfMonths={2}
                                     />
                                 </PopoverContent>
                             </Popover>
