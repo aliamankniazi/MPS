@@ -107,7 +107,7 @@ export default function LedgerPage() {
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
@@ -774,6 +774,7 @@ export default function LedgerPage() {
     
 
     
+
 
 
 

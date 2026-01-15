@@ -43,7 +43,7 @@ export default function SupplierReportPage() {
     const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
 
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() });
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {

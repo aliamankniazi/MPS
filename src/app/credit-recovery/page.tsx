@@ -42,7 +42,7 @@ export default function CreditRecoveryPage() {
     const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: new Date(), to: new Date() });
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
