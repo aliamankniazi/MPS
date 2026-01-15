@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -39,13 +40,9 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(),
-        to: new Date(),
-    });
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -149,7 +146,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Customer Sale and Recovery Report
                     </CardTitle>
                     <CardDescription>
-                        View sales, recoveries, and balances for customers. Use filters to refine the results.
+                        View sales, recoveries, and balances for customers. Use the global date filter on the dashboard to change the reporting period.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -165,44 +162,6 @@ Mianwali Petroleum Service`;
                                     {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                        </div>
-                         <div className="w-full md:w-auto flex-1">
-                            <label className="text-sm font-medium">Date Range</label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !dateRange && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateRange?.from ? (
-                                            dateRange.to ? (
-                                            <>
-                                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                {format(dateRange.to, "LLL dd, y")}
-                                            </>
-                                            ) : (
-                                            format(dateRange.from, "LLL dd, y")
-                                            )
-                                        ) : (
-                                            <span>Pick a date range</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={dateRange}
-                                        onSelect={setDateRange}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
                         </div>
                     </div>
                 </CardContent>

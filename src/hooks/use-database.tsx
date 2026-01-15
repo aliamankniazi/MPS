@@ -33,6 +33,7 @@ import type {
     Supplier,
     SupplierPayment,
     Transaction,
+    DateRange,
 } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { ref, onValue, push, remove, set, update, serverTimestamp, get } from 'firebase/database';
@@ -202,6 +203,8 @@ interface DatabaseActions {
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
     clearAllData: () => void;
+    dateRange: DateRange | undefined;
+    setDateRange: React.Dispatch<React.SetStateAction<DateRange | undefined>>;
 }
 
 type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { fuelStock: Record<FuelType, number> };
@@ -225,6 +228,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         initialFuelStock: DEFAULT_INITIAL_STOCK,
         colorSettings: DEFAULT_COLOR_SETTINGS,
         isLoaded: false,
+    });
+    
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({
+        from: new Date(),
+        to: new Date(),
     });
 
     useEffect(() => {
@@ -603,6 +611,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateProduct,
         deleteProduct,
         clearAllData,
+        dateRange,
+        setDateRange,
     };
 
     return (
@@ -623,6 +633,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 

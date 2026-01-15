@@ -93,6 +93,8 @@ export default function LedgerPage() {
     products,
     colorSettings,
     isLoaded,
+    dateRange,
+    setDateRange,
     deleteTransaction,
     deletePurchase,
     deleteExpense,
@@ -107,10 +109,6 @@ export default function LedgerPage() {
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(),
-    to: new Date(),
-  });
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
@@ -533,29 +531,6 @@ export default function LedgerPage() {
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="w-full md:w-48"
           />
-           <Popover>
-            <PopoverTrigger asChild>
-                <Button
-                variant={"outline"}
-                className={cn("w-full justify-start text-left font-normal md:w-auto", !dateRange && "text-muted-foreground")}
-                >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "LLL dd, y")} -{" "}
-                      {format(dateRange.to, "LLL dd, y")}
-                    </>
-                  ) : (
-                    format(dateRange.from, "LLL dd, y")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus /></PopoverContent>
-           </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
@@ -575,7 +550,7 @@ export default function LedgerPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Report</CardTitle>
-                    <CardDescription>A summary of all product sales for all time.</CardDescription>
+                    <CardDescription>A summary of all product sales for the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -603,7 +578,7 @@ export default function LedgerPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><DollarSign /> Profit Summary</CardTitle>
-                    <CardDescription>A summary of overall profit for all time.</CardDescription>
+                    <CardDescription>A summary of overall profit for the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                    <div className="flex justify-between items-center">

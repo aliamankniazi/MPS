@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -40,13 +41,9 @@ interface ReportRow {
 }
 
 export default function SupplierReportPage() {
-    const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
+    const { suppliers, purchases, supplierPayments, isLoaded, dateRange } = useDatabase();
 
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({
-        from: new Date(),
-        to: new Date(),
-    });
     const [searchTerm, setSearchTerm] = useState('');
 
     const reportData = useMemo(() => {
@@ -136,7 +133,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Supplier Report
                     </CardTitle>
                     <CardDescription>
-                        View purchases, payments, and balances for suppliers.
+                        View purchases, payments, and balances for suppliers. Use the global date filter on the dashboard to change the reporting period.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -152,44 +149,6 @@ Mianwali Petroleum Service`;
                                     {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                        </div>
-                         <div className="w-full md:w-auto flex-1">
-                            <label className="text-sm font-medium">Date</label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !dateRange && "text-muted-foreground"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dateRange?.from ? (
-                                            dateRange.to ? (
-                                            <>
-                                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                {format(dateRange.to, "LLL dd, y")}
-                                            </>
-                                            ) : (
-                                            format(dateRange.from, "LLL dd, y")
-                                            )
-                                        ) : (
-                                            <span>Pick a date range</span>
-                                        )}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                        initialFocus
-                                        mode="range"
-                                        defaultMonth={dateRange?.from}
-                                        selected={dateRange}
-                                        onSelect={setDateRange}
-                                        numberOfMonths={2}
-                                    />
-                                </PopoverContent>
-                            </Popover>
                         </div>
                     </div>
                 </CardContent>

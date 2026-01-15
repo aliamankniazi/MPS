@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo } from 'react';
@@ -8,12 +9,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, ArrowRight, ListOrdered, ShoppingCart } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, ArrowRight, ListOrdered, ShoppingCart, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, isLoaded } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, isLoaded, dateRange, setDateRange } = useDatabase();
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
@@ -104,6 +108,41 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
         <div className="flex items-center gap-2">
+            <Popover>
+                <PopoverTrigger asChild>
+                    <Button
+                        variant={"outline"}
+                        className={cn(
+                            "w-[280px] justify-start text-left font-normal",
+                            !dateRange && "text-muted-foreground"
+                        )}
+                    >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateRange?.from ? (
+                            dateRange.to ? (
+                            <>
+                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                {format(dateRange.to, "LLL dd, y")}
+                            </>
+                            ) : (
+                            format(dateRange.from, "LLL dd, y")
+                            )
+                        ) : (
+                            <span>Pick a date range</span>
+                        )}
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                        initialFocus
+                        mode="range"
+                        defaultMonth={dateRange?.from}
+                        selected={dateRange}
+                        onSelect={setDateRange}
+                        numberOfMonths={2}
+                    />
+                </PopoverContent>
+            </Popover>
             <Button asChild variant="outline">
                 <Link href="/reports">View All Reports</Link>
             </Button>
