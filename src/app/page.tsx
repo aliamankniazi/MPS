@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, ArrowRight, ListOrdered, ShoppingCart, Calendar as CalendarIcon } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, ListOrdered, ShoppingCart, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -108,15 +107,16 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
         <div className="flex items-center gap-2">
-            <Popover>
+             <Popover>
                 <PopoverTrigger asChild>
                     <Button
+                        id="date"
                         variant={"outline"}
                         className={cn(
-                            "w-[280px] justify-start text-left font-normal",
+                            "w-[300px] justify-start text-left font-normal",
                             !dateRange && "text-muted-foreground"
                         )}
-                    >
+                        >
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {dateRange?.from ? (
                             dateRange.to ? (
@@ -128,7 +128,7 @@ export default function DashboardPage() {
                             format(dateRange.from, "LLL dd, y")
                             )
                         ) : (
-                            <span>Pick a date range</span>
+                            <span>Pick a date</span>
                         )}
                     </Button>
                 </PopoverTrigger>
@@ -151,130 +151,126 @@ export default function DashboardPage() {
             </Button>
         </div>
       </div>
-      
-      {/* Stat Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">For selected period</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-pink-600">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">Total cost of goods</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-            <p className="text-xs text-muted-foreground">After all costs & expenses</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Best Sale Day</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'PP') : 'N/A'}</div>
-            <p className="text-xs text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
-            <p className="text-xs text-muted-foreground">Customers with recorded sales</p>
-          </CardContent>
-        </Card>
-      </div>
 
-      <div className="grid gap-6 lg:grid-cols-5">
-        <Card className="lg:col-span-2">
+       <div className="grid gap-6 lg:grid-cols-5">
+        <div className="lg:col-span-3 space-y-6">
+          {/* Stat Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">For selected period</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-pink-600">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">Total cost of goods</p>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
-                <CardDescription>Based on total sales in the selected period.</CardDescription>
+              <CardTitle>Sales Chart</CardTitle>
+              <CardDescription>A look at your sales revenue over the last 30 days.</CardDescription>
             </CardHeader>
             <CardContent>
-                <Table>
-                    <TableBody>
-                        {topCustomers.map((customer, index) => (
-                            <TableRow key={customer.id}>
-                                <TableCell className="p-2">
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarFallback>{index + 1}</AvatarFallback>
-                                        </Avatar>
-                                        <div>
-                                            <div className="font-medium">{customer.name}</div>
-                                            <div className="text-sm text-muted-foreground">Total: PKR {customer.total.toLocaleString()}</div>
-                                        </div>
-                                    </div>
-                                </TableCell>
-                                <TableCell className="p-2 text-right">
-                                    <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/customers`}>
-                                            <ArrowRight className="w-4 h-4" />
-                                        </Link>
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                         {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
-                    </TableBody>
-                </Table>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={salesChartData}>
+                  <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                  <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                      contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: 'var(--radius)',
+                          fontSize: '12px'
+                      }} 
+                      labelStyle={{ fontWeight: 'bold' }}
+                      formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
+                  />
+                  <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
+                </AreaChart>
+              </ResponsiveContainer>
             </CardContent>
-        </Card>
-        <Card className="lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Sales Chart</CardTitle>
-            <CardDescription>A look at your sales revenue based on the date filter.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={salesChartData}>
-                <defs>
-                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                    </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-                <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                <Tooltip 
-                    contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))', 
-                        borderColor: 'hsl(var(--border))',
-                        borderRadius: 'var(--radius)',
-                        fontSize: '12px'
-                    }} 
-                    labelStyle={{ fontWeight: 'bold' }}
-                    formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
-                />
-                <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
+          </Card>
+        </div>
+
+        <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
+                    <CardDescription>Based on total sales in the selected period.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableBody>
+                            {topCustomers.map((customer, index) => (
+                                <TableRow key={customer.id}>
+                                    <TableCell className="p-2">
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarFallback>{index + 1}</AvatarFallback>
+                                            </Avatar>
+                                            <div>
+                                                <div className="font-medium">{customer.name}</div>
+                                                <div className="text-sm text-muted-foreground">Total: PKR {customer.total.toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Users/>Active Customers</CardTitle>
+                    <CardDescription>Total number of unique customers with transactions.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <div className="text-4xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
+                 </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><TrendingUp/>Best Sale Day</CardTitle>
+                    <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'PP') : 'N/A'}</div>
+                    <p className="text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
+                 </CardContent>
+            </Card>
+        </div>
       </div>
     </div>
   );
