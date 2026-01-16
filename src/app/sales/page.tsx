@@ -144,7 +144,6 @@ export default function SalesPage() {
 
   const { customerId } = watch();
   const { quantity, price, totalAmount } = watchItem();
-  const selectedProductId = watchItem('productId');
 
   useEffect(() => {
     if (lastUserEditedField.current === 'quantity') {
@@ -162,22 +161,17 @@ export default function SalesPage() {
     }
   }, [totalAmount, price, setItemValue]);
 
-  useEffect(() => {
-    if (selectedProductId) {
-        const productDetails = products.find(p => p.id === selectedProductId);
-        if (productDetails) {
-            const lastTransactionForProduct = transactions
-                .filter(t => t.product === productDetails.name)
-                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            
-            const priceToSet = lastTransactionForProduct?.pricePerLitre ?? productDetails.price;
+  const handleProductSelect = useCallback((product: Product) => {
+    const lastTransactionForProduct = transactions
+        .filter(t => t.product === product.name)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
-            setItemValue('price', priceToSet);
-            setItemValue('unit', productDetails.unit);
-            setItemValue('productName', productDetails.name);
-        }
-    }
-  }, [selectedProductId, products, transactions, setItemValue]);
+    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.price;
+
+    setItemValue('price', priceToSet);
+    setItemValue('unit', product.unit);
+    setItemValue('productName', product.name);
+  }, [transactions, setItemValue]);
 
   useEffect(() => {
     if (!customerId || customerId === 'walkin') {
@@ -223,7 +217,6 @@ export default function SalesPage() {
       return;
     }
     
-    // Combine notes
     let finalNotes = data.notes || '';
     if (data.vehicleNumber) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
@@ -231,15 +224,14 @@ export default function SalesPage() {
     
     const finalInvoiceDate = data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString();
 
-    // Create one transaction per cart item to maintain detail
     cart.forEach(item => {
         const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
-          fuelType: 'Unleaded', // Placeholder, as we have product now
+          fuelType: 'Unleaded', 
           volume: item.quantity,
           pricePerLitre: item.price,
           product: item.productName,
           totalAmount: item.totalAmount,
-          paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash', // Default payment method
+          paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
           customerId: data.customerId,
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           notes: finalNotes,
@@ -302,6 +294,7 @@ export default function SalesPage() {
                                                     value={p.name}
                                                     onSelect={() => {
                                                       field.onChange(p.id);
+                                                      handleProductSelect(p);
                                                       setProductComboboxOpen(false);
                                                     }}
                                                   >
