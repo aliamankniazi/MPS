@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useMemo } from 'react';
@@ -9,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, ListOrdered, ShoppingCart, Calendar as CalendarIcon } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -74,6 +72,7 @@ export default function DashboardPage() {
     return {
       totalRevenue,
       totalPurchases: totalCostOfGoods,
+      totalExpenses,
       netProfit,
       activeCustomers,
       bestSaleDay
@@ -182,7 +181,7 @@ export default function DashboardPage() {
        <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-6">
           {/* Stat Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
@@ -201,6 +200,16 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-pink-600">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">Total cost of goods</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                <Receipt className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">For selected period</p>
               </CardContent>
             </Card>
              <Card>
@@ -302,6 +311,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 
 
 
