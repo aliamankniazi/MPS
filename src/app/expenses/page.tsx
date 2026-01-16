@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -21,6 +20,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState, useMemo, useEffect } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
@@ -39,6 +39,8 @@ export default function ExpensesPage() {
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
+  const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -76,14 +78,32 @@ export default function ExpensesPage() {
     deleteExpense(expenseToDelete.id);
     toast({
       title: 'Expense Deleted',
-      description: `The expense for "${expenseToDelete.description}" has been removed.`,
+      description: `The expense for "${expenseToDelete.description}" has been moved to the recycle bin.`,
     });
     setExpenseToDelete(null);
+  };
+
+  const handleDeleteSelectedExpenses = () => {
+    selectedExpenses.forEach(id => deleteExpense(id));
+    toast({
+      title: 'Expenses Deleted',
+      description: `${selectedExpenses.length} expenses have been moved to the recycle bin.`,
+    });
+    setSelectedExpenses([]);
+    setShowDeleteSelectedDialog(false);
   };
   
   const totalExpenses = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [filteredExpenses]);
+
+  const handleSelectAll = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+      setSelectedExpenses(filteredExpenses.map(e => e.id));
+    } else {
+      setSelectedExpenses([]);
+    }
+  };
 
   return (
     <>
@@ -199,15 +219,22 @@ export default function ExpensesPage() {
                     A record of all business expenses.
                     </CardDescription>
                 </div>
-                 <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search by description or category..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                    />
-                </div>
+                <div className="flex items-center gap-2">
+                     <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by description or category..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
+                    </div>
+                    {selectedExpenses.length > 0 && (
+                        <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>
+                            Delete ({selectedExpenses.length})
+                        </Button>
+                    )}
+                 </div>
             </div>
           </CardHeader>
           <CardContent>
@@ -215,6 +242,19 @@ export default function ExpensesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12 px-4">
+                        <Checkbox
+                            checked={
+                                selectedExpenses.length === filteredExpenses.length && filteredExpenses.length > 0
+                                ? true
+                                : selectedExpenses.length > 0
+                                ? 'indeterminate'
+                                : false
+                            }
+                            onCheckedChange={handleSelectAll}
+                            aria-label="Select all expenses"
+                        />
+                    </TableHead>
                     <TableHead>Date</TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Category</TableHead>
@@ -227,6 +267,17 @@ export default function ExpensesPage() {
                     const date = new Date(e.timestamp);
                     return (
                       <TableRow key={e.id}>
+                        <TableCell className="px-4">
+                            <Checkbox
+                                checked={selectedExpenses.includes(e.id)}
+                                onCheckedChange={(checked) => {
+                                    setSelectedExpenses(prev => 
+                                        checked ? [...prev, e.id] : prev.filter(id => id !== e.id)
+                                    );
+                                }}
+                                aria-label="Select expense"
+                            />
+                        </TableCell>
                         <TableCell className="font-medium">{isValid(date) ? format(date, 'PP') : 'Invalid Date'}</TableCell>
                         <TableCell>{e.description}</TableCell>
                         <TableCell>{e.category}</TableCell>
@@ -261,7 +312,7 @@ export default function ExpensesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the expense entry for: <br />
+              This action cannot be undone. This will move the expense entry to the recycle bin: <br />
               <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -272,7 +323,25 @@ export default function ExpensesPage() {
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+    </AlertDialog>
+
+    <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This will move {selectedExpenses.length} expense entries to the recycle bin.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={handleDeleteSelectedExpenses} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Yes, delete selected
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+
     </>
   );
 }
