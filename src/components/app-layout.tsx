@@ -21,11 +21,10 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
-import { useRoles } from '@/hooks/use-roles';
-import type { Permission } from '@/hooks/use-roles';
+import type { Permission } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 
@@ -91,6 +90,7 @@ const navGroups = [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit, permission: 'view_settings' as Permission },
             { href: '/ai-summary', label: 'AI Summary', icon: Sparkles, permission: 'generate_ai_summary' as Permission },
             { href: '/roles', label: 'Role Management', icon: Shield, permission: 'manage_roles' as Permission },
+            { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2, permission: 'view_recycle_bin' as Permission },
         ]
     }
 ]
@@ -116,8 +116,8 @@ const bottomNavItems = [
   { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
 ]
 
-export function AppLayout({ children, hasPermission }: { children: React.ReactNode, hasPermission: (permission: Permission) => boolean }) {
-  const { signOut, user } = useAuth();
+export function AppLayout({ children }: { children: React.ReactNode }) {
+  const { signOut, user, hasPermission } = useAuth();
   const pathname = usePathname();
 
   const isLinkActive = (href: string) => {
@@ -193,6 +193,7 @@ export function AppLayout({ children, hasPermission }: { children: React.ReactNo
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:hidden">
+          <SheetTitle className="sr-only">Mobile Menu</SheetTitle>
           <SidebarTrigger />
         </header>
         <main className="flex-1 bg-muted/30">{children}</main>

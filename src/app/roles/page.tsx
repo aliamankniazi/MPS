@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Shield, ShieldPlus, List, Edit, Trash2, AlertTriangle, KeyRound } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useRoles, PERMISSIONS, type Permission } from '@/hooks/use-roles';
+import { useAuth, PERMISSIONS, type Permission } from '@/hooks/use-auth';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Role } from '@/lib/types';
@@ -24,7 +24,7 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
     'Customers & Partners': ['view_customers', 'add_customer', 'edit_customer', 'delete_customer', 'view_partner_ledger', 'view_credit_recovery'],
     'Inventory & Purchases': ['view_inventory', 'view_purchases', 'add_purchase', 'delete_purchase', 'view_purchase_returns', 'add_purchase_return', 'delete_purchase_return', 'view_tank_readings', 'add_tank_reading'],
     'Financial': ['view_ledger', 'view_expenses', 'add_expense', 'delete_expense', 'view_other_incomes', 'add_other_income', 'delete_other_income', 'view_investments', 'add_investment', 'delete_investment', 'view_cash_advances', 'add_cash_advance', 'delete_cash_advance', 'view_supplier_payments', 'add_supplier_payment', 'delete_supplier_payment'],
-    'Administration': ['view_settings', 'manage_roles', 'manage_users', 'manage_employees', 'manage_banks'],
+    'Administration': ['view_settings', 'manage_roles', 'manage_users', 'manage_employees', 'manage_banks', 'view_recycle_bin', 'restore_deleted_items', 'delete_permanently'],
 };
 
 
@@ -36,7 +36,7 @@ const roleSchema = z.object({
 type RoleFormValues = z.infer<typeof roleSchema>;
 
 export default function RolesPage() {
-  const { roles, addRole, updateRole, deleteRole } = useRoles();
+  const { roles, addRole, updateRole, deleteRole } = useAuth();
   const { toast } = useToast();
   
   const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
