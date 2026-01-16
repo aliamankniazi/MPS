@@ -101,9 +101,6 @@ function InvoiceDisplay({ type, id }: { type: string, id: string }) {
   );
 }
 
-export default async function InvoicePage({ params: unsafeParams }: { params: { type: string, id: string } }) {
-  const params = await Promise.resolve(unsafeParams);
-  
+export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
   return <InvoiceDisplay type={params.type} id={params.id} />;
 }
-

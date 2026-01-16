@@ -210,13 +210,13 @@ function CustomerLedger({ id: entityId }: { id: string }) {
         }
 
         toast({
-            title: 'Entry Deleted',
-            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
+            title: 'Entry Moved to Recycle Bin',
+            description: `The ${entryToDelete.type} entry has been moved to the recycle bin.`,
         });
     } catch (error: any) {
         toast({
             variant: 'destructive',
-            title: 'Error Deleting',
+            title: 'Error',
             description: error.message || 'An unexpected error occurred.',
         });
     } finally {
@@ -446,14 +446,14 @@ function CustomerLedger({ id: entityId }: { id: string }) {
             <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This action cannot be undone. This will permanently delete the entry: <br />
+                This will move the entry to the recycle bin: <br />
                 <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
             </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Yes, delete entry
+                Yes, move to bin
             </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
@@ -464,9 +464,6 @@ function CustomerLedger({ id: entityId }: { id: string }) {
 
 
 // This is the new Server Component that wraps the client component
-export default async function CustomerLedgerPage({ params: unsafeParams }: { params: { id: string } }) {
-  // `use` is still experimental but is the recommended way to handle promises in Server Components.
-  const params = await Promise.resolve(unsafeParams);
-  
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
   return <CustomerLedger id={params.id} />;
 }
