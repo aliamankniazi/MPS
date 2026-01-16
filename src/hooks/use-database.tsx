@@ -28,6 +28,7 @@ import type {
     Product,
     Purchase,
     PurchaseReturn,
+    RecycledItem,
     SaleReturn,
     StockAdjustment,
     Supplier,
@@ -63,12 +64,13 @@ const PATHS = {
     products: 'products',
     attendance: 'attendance',
     colorSettings: 'colorSettings',
+    recycleBin: 'recycleBin',
 };
 
 const TRANSACTION_DATA_PATHS = [
     'transactions', 'purchases', 'purchaseReturns', 'saleReturns', 'expenses',
     'otherIncomes', 'customerPayments', 'supplierPayments', 'cashAdvances',
-    'machineReadings', 'investments', 'stockAdjustments', 'attendance'
+    'machineReadings', 'investments', 'stockAdjustments', 'attendance', 'recycleBin'
 ];
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -124,6 +126,7 @@ interface DatabaseState {
     stockAdjustments: Record<string, Omit<StockAdjustment, 'id'>>;
     products: Record<string, Omit<Product, 'id'>>;
     attendance: Record<string, Omit<AttendanceRecord, 'id'>>;
+    recycleBin: Record<string, Omit<RecycledItem, 'id'>>;
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     colorSettings: Record<string, string>;
@@ -151,6 +154,7 @@ interface ProcessedDatabaseState {
     stockAdjustments: StockAdjustment[];
     products: Product[];
     attendance: AttendanceRecord[];
+    recycleBin: RecycledItem[];
     fuelPrices: Record<FuelType, number>;
     initialFuelStock: Record<FuelType, number>;
     colorSettings: Record<string, string>;
@@ -204,6 +208,8 @@ interface DatabaseActions {
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
     clearAllData: () => void;
+    restoreFromRecycleBin: (item: RecycledItem) => Promise<void>;
+    deletePermanently: (id: string) => Promise<void>;
     dateRange: DateRange | undefined;
     setDateRange: React.Dispatch<React.SetStateAction<DateRange | undefined>>;
 }
@@ -224,7 +230,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: {}, otherIncomes: {}, customers: {}, suppliers: {},
         bankAccounts: {}, employees: {}, customerPayments: {}, supplierPayments: {},
         cashAdvances: {}, machines: {}, machineReadings: {}, investments: {}, businessPartners: {},
-        stockAdjustments: {}, products: {}, attendance: {},
+        stockAdjustments: {}, products: {}, attendance: {}, recycleBin: {},
         fuelPrices: DEFAULT_FUEL_PRICES,
         initialFuelStock: DEFAULT_INITIAL_STOCK,
         colorSettings: DEFAULT_COLOR_SETTINGS,
@@ -242,14 +248,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         const subscriptions: (() => void)[] = [];
         const pathsToLoad = Object.keys(PATHS);
-        const initialLoads = new Set<string>();
+        let loadedCount = 0;
 
-        const checkAllLoaded = () => {
-            if (initialLoads.size >= pathsToLoad.length && !state.isLoaded) {
-                 setState(s => ({ ...s, isLoaded: true }));
-            }
-        };
-        
         pathsToLoad.forEach(key => {
             const pathKey = key as keyof typeof PATHS;
             const dbRef = ref(db, PATHS[pathKey]);
@@ -265,19 +265,29 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     ...prevState,
                     [key]: snapshot.val() || defaultValue,
                 }));
-                
-                if (!initialLoads.has(key)) {
-                    initialLoads.add(key);
-                    checkAllLoaded();
-                }
-
             }, (error) => {
                 console.error(`Error fetching ${key}:`, error);
-                if (!initialLoads.has(key)) {
-                    initialLoads.add(key);
-                    checkAllLoaded();
+            }, {
+                // This `onlyOnce` option is a trick to know when the initial data is loaded.
+                // The listener will still fire for updates after the first load.
+                // We use a counter instead of a Set for simpler logic inside the listener.
+                onlyOnce: false 
+            });
+
+            // A separate listener to just check for the first data load
+            get(dbRef).then(() => {
+                loadedCount++;
+                if (loadedCount === pathsToLoad.length && !state.isLoaded) {
+                    setState(s => ({ ...s, isLoaded: true }));
+                }
+            }).catch(() => {
+                // Also increment on error to not block loading forever
+                loadedCount++;
+                if (loadedCount === pathsToLoad.length && !state.isLoaded) {
+                    setState(s => ({ ...s, isLoaded: true }));
                 }
             });
+
             subscriptions.push(unsubscribe);
         });
 
@@ -286,7 +296,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         };
     }, []);
     
-    const processedState = useMemo((): ProcessedDatabaseState => {
+    const processedState: ProcessedDatabaseState = useMemo(() => {
         const createSorter = (key: keyof (Transaction & { name: string }), order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
             const valA = a[key];
             const valB = b[key];
@@ -324,6 +334,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             stockAdjustments: objectToArray<StockAdjustment>(state.stockAdjustments).sort(createSorter('timestamp')),
             products: objectToArray<Product>(state.products).sort(createSorter('name', 'asc')),
             attendance: objectToArray<AttendanceRecord>(state.attendance).sort(createSorter('date')),
+            recycleBin: objectToArray<RecycledItem>(state.recycleBin).sort(createSorter('deletedAt')),
             fuelPrices: state.fuelPrices,
             initialFuelStock: state.initialFuelStock,
             colorSettings: state.colorSettings,
@@ -396,7 +407,39 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
     const deleteEntity = useCallback((path: string, id: string) => {
         if (!db) return;
-        remove(ref(db, `${path}/${id}`));
+
+        const sourceRef = ref(db, `${path}/${id}`);
+        get(sourceRef).then((snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                const recycledItem: Omit<RecycledItem, 'id'> = {
+                    originalPath: `${path}/${id}`,
+                    deletedAt: new Date().toISOString(),
+                    data: data,
+                };
+                const binRef = push(ref(db, PATHS.recycleBin));
+                set(binRef, recycledItem)
+                    .then(() => {
+                        remove(sourceRef);
+                    });
+            } else {
+                console.warn(`Attempted to delete non-existent entity at ${path}/${id}`);
+            }
+        }).catch(error => {
+            console.error(`Error fetching entity for deletion at ${path}/${id}:`, error);
+        });
+    }, []);
+
+    const restoreFromRecycleBin = useCallback(async (item: RecycledItem) => {
+        if (!db) return;
+        const originalRef = ref(db, item.originalPath);
+        await set(originalRef, item.data);
+        await remove(ref(db, `${PATHS.recycleBin}/${item.id}`));
+    }, []);
+
+    const deletePermanently = useCallback(async (id: string) => {
+        if (!db) return;
+        await remove(ref(db, `${PATHS.recycleBin}/${id}`));
     }, []);
     
     // Specific Actions
@@ -598,6 +641,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateProduct,
         deleteProduct,
         clearAllData,
+        restoreFromRecycleBin,
+        deletePermanently,
         dateRange,
         setDateRange,
     };
@@ -620,6 +665,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 

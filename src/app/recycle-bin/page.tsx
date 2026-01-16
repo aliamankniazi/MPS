@@ -112,7 +112,7 @@ export default function RecycleBinPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isLoaded && recycleBin.length > 0 ? (
+                                {isLoaded && recycleBin && recycleBin.length > 0 ? (
                                     recycleBin.map(item => (
                                         <TableRow key={item.id}>
                                             <TableCell className="font-medium">
