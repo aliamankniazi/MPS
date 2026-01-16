@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Wallet, Redo, DollarSign, User, Undo, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Wallet, Redo, DollarSign, User, Undo, Undo2, Check, ChevronsUpDown } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
@@ -107,6 +108,8 @@ function TransactionNav() {
 export default function PurchaseReturnsPage() {
   const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
+  const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
     defaultValues: {
@@ -165,16 +168,49 @@ export default function PurchaseReturnsPage() {
                     name="supplierId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a supplier" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {isLoaded ? suppliers.map(s => (
-                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                            )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        </SelectContent>
-                        </Select>
+                      <Popover open={supplierComboboxOpen} onOpenChange={setSupplierComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={supplierComboboxOpen}
+                            className="w-full justify-between"
+                          >
+                            {field.value
+                              ? suppliers.find((s) => s.id === field.value)?.name
+                              : "Select a supplier..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search supplier..." />
+                            <CommandList>
+                              <CommandEmpty>No supplier found.</CommandEmpty>
+                              <CommandGroup>
+                                {isLoaded ? suppliers.map(s => (
+                                  <CommandItem
+                                    key={s.id}
+                                    value={s.name}
+                                    onSelect={() => {
+                                      field.onChange(s.id);
+                                      setSupplierComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === s.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {s.name}
+                                  </CommandItem>
+                                )) : <CommandItem disabled>Loading...</CommandItem>}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     )}
                     />
                     {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}

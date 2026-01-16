@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Truck, Undo } from 'lucide-react';
+import { UserPlus, Sun, Truck, Undo, Check, ChevronsUpDown } from 'lucide-react';
 import type { PaymentMethod, Transaction, Product } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -23,6 +23,8 @@ import { cn } from '@/lib/utils';
 import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { format } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -119,6 +121,9 @@ export default function SalesPage() {
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
   const lastUserEditedField = useRef<'quantity' | 'totalAmount' | null>(null);
+
+  const [productComboboxOpen, setProductComboboxOpen] = useState(false);
+  const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -271,16 +276,49 @@ export default function SalesPage() {
                                     name="productId"
                                     control={controlItem}
                                     render={({ field }) => (
-                                      <Select onValueChange={field.onChange} value={field.value}>
-                                        <SelectTrigger>
-                                          <SelectValue placeholder="Select a product" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          {isLoaded && products ? products.map(p => (
-                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                                          )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                        </SelectContent>
-                                      </Select>
+                                      <Popover open={productComboboxOpen} onOpenChange={setProductComboboxOpen}>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            aria-expanded={productComboboxOpen}
+                                            className="w-full justify-between"
+                                          >
+                                            {field.value
+                                              ? products.find((p) => p.id === field.value)?.name
+                                              : "Select a product..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                          <Command>
+                                            <CommandInput placeholder="Search product..." />
+                                            <CommandList>
+                                              <CommandEmpty>No product found.</CommandEmpty>
+                                              <CommandGroup>
+                                                {isLoaded && products ? products.map(p => (
+                                                  <CommandItem
+                                                    key={p.id}
+                                                    value={p.name}
+                                                    onSelect={() => {
+                                                      field.onChange(p.id);
+                                                      setProductComboboxOpen(false);
+                                                    }}
+                                                  >
+                                                    <Check
+                                                      className={cn(
+                                                        "mr-2 h-4 w-4",
+                                                        field.value === p.id ? "opacity-100" : "opacity-0"
+                                                      )}
+                                                    />
+                                                    {p.name}
+                                                  </CommandItem>
+                                                )) : <CommandItem disabled>Loading...</CommandItem>}
+                                              </CommandGroup>
+                                            </CommandList>
+                                          </Command>
+                                        </PopoverContent>
+                                      </Popover>
                                     )}
                                   />
                                   {itemErrors.productId && <p className="text-sm text-destructive">{itemErrors.productId.message}</p>}
@@ -367,17 +405,65 @@ export default function SalesPage() {
                                 name="customerId"
                                 control={control}
                                 render={({ field }) => (
-                                  <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                                    <SelectTrigger>
-                                      <SelectValue placeholder="Walk-in Customer" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="walkin">Walk-in Customer</SelectItem>
-                                      {isLoaded ? customers.map(c => (
-                                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                      )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                    </SelectContent>
-                                  </Select>
+                                  <Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}>
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={customerComboboxOpen}
+                                        className="w-full justify-between"
+                                      >
+                                        {field.value && field.value !== 'walkin'
+                                          ? customers.find((c) => c.id === field.value)?.name
+                                          : "Walk-in Customer"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                      <Command>
+                                        <CommandInput placeholder="Search customer..." />
+                                        <CommandList>
+                                          <CommandEmpty>No customer found.</CommandEmpty>
+                                          <CommandGroup>
+                                            <CommandItem
+                                                key="walkin"
+                                                value="Walk-in Customer"
+                                                onSelect={() => {
+                                                  field.onChange('walkin');
+                                                  setCustomerComboboxOpen(false);
+                                                }}
+                                              >
+                                                <Check
+                                                  className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0"
+                                                  )}
+                                                />
+                                                Walk-in Customer
+                                              </CommandItem>
+                                            {isLoaded ? customers.map(c => (
+                                              <CommandItem
+                                                key={c.id}
+                                                value={c.name}
+                                                onSelect={() => {
+                                                  field.onChange(c.id);
+                                                  setCustomerComboboxOpen(false);
+                                                }}
+                                              >
+                                                <Check
+                                                  className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    field.value === c.id ? "opacity-100" : "opacity-0"
+                                                  )}
+                                                />
+                                                {c.name}
+                                              </CommandItem>
+                                            )) : <CommandItem disabled>Loading...</CommandItem>}
+                                          </CommandGroup>
+                                        </CommandList>
+                                      </Command>
+                                    </PopoverContent>
+                                  </Popover>
                                 )}
                               />
                               <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>

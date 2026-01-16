@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2, Wallet } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2, Wallet, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const salaryPaymentSchema = z.object({
   employeeId: z.string().min(1, 'Please select an employee.'),
@@ -103,6 +104,7 @@ function TransactionNav() {
 export default function SalaryPaymentPage() {
   const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
+  const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
@@ -200,16 +202,49 @@ export default function SalaryPaymentPage() {
                             name="employeeId"
                             control={control}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select an employee..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {isLoaded ? employees.map(e => (
-                                        <SelectItem key={e.id} value={e.id}>{e.name} - {e.position}</SelectItem>
-                                    )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                                </SelectContent>
-                                </Select>
+                                <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    aria-expanded={employeeComboboxOpen}
+                                    className="w-full justify-between"
+                                  >
+                                    {field.value
+                                      ? employees.find((e) => e.id === field.value)?.name
+                                      : "Select an employee..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                  <Command>
+                                    <CommandInput placeholder="Search employee..." />
+                                    <CommandList>
+                                      <CommandEmpty>No employee found.</CommandEmpty>
+                                      <CommandGroup>
+                                        {isLoaded ? employees.map(e => (
+                                          <CommandItem
+                                            key={e.id}
+                                            value={e.name}
+                                            onSelect={() => {
+                                              field.onChange(e.id);
+                                              setEmployeeComboboxOpen(false);
+                                            }}
+                                          >
+                                            <Check
+                                              className={cn(
+                                                "mr-2 h-4 w-4",
+                                                field.value === e.id ? "opacity-100" : "opacity-0"
+                                              )}
+                                            />
+                                            {e.name} - {e.position}
+                                          </CommandItem>
+                                        )) : <CommandItem disabled>Loading...</CommandItem>}
+                                      </CommandGroup>
+                                    </CommandList>
+                                  </Command>
+                                </PopoverContent>
+                              </Popover>
                             )}
                         />
                         {errors.employeeId && <p className="text-sm text-destructive">{errors.employeeId.message}</p>}

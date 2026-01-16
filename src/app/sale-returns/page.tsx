@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Undo, Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Undo2, Wallet, Redo, DollarSign, User } from 'lucide-react';
+import { Undo, Calendar as CalendarIcon, Sun, ShoppingCart, Truck, Undo2, Wallet, Redo, DollarSign, User, Check, ChevronsUpDown } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
@@ -104,6 +105,8 @@ function TransactionNav() {
 export default function SaleReturnsPage() {
   const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
+  const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
     defaultValues: {
@@ -162,16 +165,49 @@ export default function SaleReturnsPage() {
                     name="customerId"
                     control={control}
                     render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a customer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {isLoaded ? customers.map(c => (
-                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                            )) : <SelectItem value="loading" disabled>Loading...</SelectItem>}
-                        </SelectContent>
-                        </Select>
+                      <Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={customerComboboxOpen}
+                            className="w-full justify-between"
+                          >
+                            {field.value
+                              ? customers.find((c) => c.id === field.value)?.name
+                              : "Select a customer..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search customer..." />
+                            <CommandList>
+                              <CommandEmpty>No customer found.</CommandEmpty>
+                              <CommandGroup>
+                                {isLoaded ? customers.map(c => (
+                                  <CommandItem
+                                    key={c.id}
+                                    value={c.name}
+                                    onSelect={() => {
+                                      field.onChange(c.id);
+                                      setCustomerComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        field.value === c.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {c.name}
+                                  </CommandItem>
+                                )) : <CommandItem disabled>Loading...</CommandItem>}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     )}
                     />
                     {errors.customerId && <p className="text-sm text-destructive">{errors.customerId.message}</p>}
