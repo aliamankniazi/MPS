@@ -28,6 +28,7 @@ const customerSchema = z.object({
   contact: z.string().min(1, 'Contact information is required'),
   vehicleNumber: z.string().optional(),
   area: z.string().optional(),
+  openingBalance: z.coerce.number().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -124,6 +125,7 @@ export default function CustomersPage() {
       setEditValue('contact', customerToEdit.contact);
       setEditValue('vehicleNumber', customerToEdit.vehicleNumber || '');
       setEditValue('area', customerToEdit.area || '');
+      setEditValue('openingBalance', customerToEdit.openingBalance || 0);
     } else {
       resetEdit();
     }
@@ -164,6 +166,12 @@ export default function CustomersPage() {
                 <Label htmlFor="area">Area (Optional)</Label>
                 <Input id="area" {...register('area')} placeholder="e.g., Mianwali City" />
                 {errors.area && <p className="text-sm text-destructive">{errors.area.message}</p>}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="openingBalance">Opening Balance (PKR)</Label>
+                <Input id="openingBalance" type="number" {...register('openingBalance')} placeholder="e.g., 5000" step="any" />
+                {errors.openingBalance && <p className="text-sm text-destructive">{errors.openingBalance.message}</p>}
               </div>
 
               <Button type="submit" className="w-full">Add Customer</Button>
@@ -290,6 +298,11 @@ export default function CustomersPage() {
                         <Label htmlFor="edit-area">Area</Label>
                         <Input id="edit-area" {...registerEdit('area')} />
                         {editErrors.area && <p className="text-sm text-destructive">{editErrors.area.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-openingBalance">Opening Balance (PKR)</Label>
+                        <Input id="edit-openingBalance" type="number" {...registerEdit('openingBalance')} step="any" />
+                        {editErrors.openingBalance && <p className="text-sm text-destructive">{editErrors.openingBalance.message}</p>}
                     </div>
                 </div>
                 <DialogFooter>

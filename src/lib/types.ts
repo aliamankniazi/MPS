@@ -84,6 +84,7 @@ export interface Customer {
   area?: string;
   isPartner?: boolean;
   timestamp: string;
+  openingBalance?: number;
 }
 
 export interface Supplier {
@@ -235,7 +236,8 @@ export const PERMISSIONS = [
     'view_other_incomes', 'add_other_income', 'delete_other_income',
     'view_ledger', 'view_summary', 'generate_ai_summary',
     'manage_employees', 'manage_banks',
-    'view_settings', 'manage_roles', 'manage_users', 'view_recycle_bin', 'restore_deleted_items', 'delete_permanently'
+    'view_settings', 'manage_roles', 'manage_users', 
+    'view_recycle_bin', 'restore_deleted_items', 'delete_permanently'
 ] as const;
 
 export type Permission = typeof PERMISSIONS[number];

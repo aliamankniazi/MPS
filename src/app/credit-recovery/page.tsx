@@ -57,6 +57,7 @@ export default function CreditRecoveryPage() {
             const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
             const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : new Date());
 
+            const openingBalance = customer.openingBalance || 0;
 
             // Calculate Previous Balance
             const prevTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) < rangeStart);
@@ -65,7 +66,7 @@ export default function CreditRecoveryPage() {
             
             const prevDebit = prevTx.reduce((sum, tx) => sum + tx.totalAmount, 0) + prevAdvances.reduce((sum, ca) => sum + ca.amount, 0);
             const prevCredit = prevPayments.reduce((sum, p) => sum + p.amount, 0);
-            const previousBalance = prevDebit - prevCredit;
+            const previousBalance = openingBalance + prevDebit - prevCredit;
             
             // Calculate Sale and Recovery in date range
             const rangeTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) >= rangeStart && new Date(tx.timestamp) <= rangeEnd);

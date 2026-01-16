@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState, useEffect, React } from 'react';
@@ -173,7 +174,9 @@ function CustomerLedger({ id: entityId }: { id: string }) {
         return dateA.getTime() - dateB.getTime();
     });
 
-    let runningBalance = 0;
+    const openingBalance = (entityType === 'Customer' && 'openingBalance' in entity && entity.openingBalance) ? entity.openingBalance : 0;
+    let runningBalance = openingBalance;
+
     const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
       const date = new Date(entry.timestamp);
       if(!isValid(date)) {

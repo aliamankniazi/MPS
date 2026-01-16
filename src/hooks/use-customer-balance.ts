@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo } from 'react';
@@ -12,12 +13,15 @@ import { useDatabase } from '@/hooks/use-database';
  * @returns An object containing the calculated balance and a loading state.
  */
 export function useCustomerBalance(customerId: string | null) {
-  const { transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+  const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
   const balance = useMemo(() => {
     if (!customerId || !isLoaded) {
       return 0;
     }
+
+    const customer = customers.find(c => c.id === customerId);
+    const openingBalance = customer?.openingBalance || 0;
 
     const customerTransactions = transactions
       .filter(tx => tx.customerId === customerId)
@@ -31,9 +35,9 @@ export function useCustomerBalance(customerId: string | null) {
       .filter(p => p.customerId === customerId)
       .reduce((sum, p) => sum + p.amount, 0);
 
-    return customerTransactions + customerCashAdvances - customerPaymentsReceived;
+    return openingBalance + customerTransactions + customerCashAdvances - customerPaymentsReceived;
 
-  }, [customerId, transactions, customerPayments, cashAdvances, isLoaded]);
+  }, [customerId, customers, transactions, customerPayments, cashAdvances, isLoaded]);
 
   return { balance, isLoaded };
 }
