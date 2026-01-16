@@ -38,7 +38,7 @@ const PERMISSIONS = [
     'view_other_incomes', 'add_other_income', 'delete_other_income',
     'view_ledger', 'view_summary', 'generate_ai_summary',
     'manage_employees', 'manage_banks',
-    'view_settings', 'manage_roles', 'manage_users'
+    'view_settings', 'manage_roles', 'manage_users', 'view_recycle_bin', 'restore_deleted_items', 'delete_permanently'
 ] as const;
 
 
@@ -235,7 +235,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   return (
       <AuthContext.Provider value={value}>
-        {user && !isAuthPage ? <AppLayout hasPermission={hasPermission}>{children}</AppLayout> : children}
+        {user && !isAuthPage ? <AppLayout>{children}</AppLayout> : children}
       </AuthContext.Provider>
   );
 }

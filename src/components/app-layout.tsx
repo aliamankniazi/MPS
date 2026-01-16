@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import type { Permission } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { SheetTitle } from './ui/sheet';
 
 
 const navGroups = [
