@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -21,6 +20,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
+import { SheetTitle } from '@/components/ui/sheet';
 import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
