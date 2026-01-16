@@ -106,6 +106,7 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
+    deleteStockAdjustment,
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
@@ -495,6 +496,7 @@ export default function LedgerPage() {
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
             case 'ca': deleteCashAdvance(id); break;
+            case 'adj': deleteStockAdjustment(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -545,6 +547,7 @@ export default function LedgerPage() {
                 case 'inv': deleteInvestment(id); break;
                 case 'wdr': deleteInvestment(id); break;
                 case 'ca': deleteCashAdvance(id); break;
+                case 'adj': deleteStockAdjustment(id); break;
                 default:
                     throw new Error('Unknown entry type for deletion.');
             }
@@ -888,4 +891,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
