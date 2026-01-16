@@ -2,7 +2,7 @@
 
 'use client';
 
-import React, { useMemo, useState, useEffect, use } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
@@ -33,6 +33,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 type LedgerEntry = {
@@ -112,6 +113,9 @@ export default function LedgerPage() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
+
+  const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
+  const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -423,6 +427,30 @@ export default function LedgerPage() {
     groupedEntries[key].closingBalance = runningBalance;
   });
 
+  const handleSelectEntry = useCallback((entryId: string, isSelected: boolean) => {
+    setSelectedEntries(prev => {
+        if (isSelected) {
+            return [...prev, entryId];
+        } else {
+            return prev.filter(id => id !== entryId);
+        }
+    });
+  }, []);
+
+  const handleSelectAllForDay = useCallback((dayKey: string, isSelected: boolean) => {
+      if (!groupedEntries[dayKey]) return;
+      const dayEntryIds = groupedEntries[dayKey].entries.map(e => e.id).filter(id => id.includes('-'));
+      
+      setSelectedEntries(prev => {
+        const otherDaySelections = prev.filter(id => !dayEntryIds.includes(id));
+        if (isSelected) {
+          return [...otherDaySelections, ...dayEntryIds];
+        } else {
+          return otherDaySelections;
+        }
+      });
+  }, [groupedEntries]);
+
   const getEntryColor = (entry: LedgerEntry) => {
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280'; // default gray
@@ -486,6 +514,65 @@ export default function LedgerPage() {
     }
   };
 
+  const handleDeleteSelectedEntries = () => {
+    if (selectedEntries.length === 0) return;
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    selectedEntries.forEach(entryId => {
+        if (!entryId || !entryId.includes('-')) {
+            errorCount++;
+            return;
+        }
+
+        const [typePrefix, id] = entryId.split(/-(.*)/s);
+        if (!id) {
+            errorCount++;
+            return;
+        }
+
+        try {
+            switch(typePrefix) {
+                case 'tx': deleteTransaction(id); break;
+                case 'pur': deletePurchase(id); break;
+                case 'cp': deleteCustomerPayment(id); break;
+                case 'sp': deleteSupplierPayment(id); break;
+                case 'exp': deleteExpense(id); break;
+                case 'pr': deletePurchaseReturn(id); break;
+                case 'sr': deleteSaleReturn(id); break;
+                case 'oi': deleteOtherIncome(id); break;
+                case 'inv': deleteInvestment(id); break;
+                case 'wdr': deleteInvestment(id); break;
+                case 'ca': deleteCashAdvance(id); break;
+                default:
+                    throw new Error('Unknown entry type for deletion.');
+            }
+            successCount++;
+        } catch (error: any) {
+            errorCount++;
+            console.error(`Failed to delete entry ${entryId}:`, error);
+        }
+    });
+
+    if (successCount > 0) {
+        toast({
+            title: 'Entries Deleted',
+            description: `${successCount} entries have been successfully deleted.`,
+        });
+    }
+    if (errorCount > 0) {
+        toast({
+            variant: 'destructive',
+            title: 'Deletion Error',
+            description: `Failed to delete ${errorCount} entries.`,
+        });
+    }
+
+    setSelectedEntries([]);
+    setShowDeleteSelectedDialog(false);
+  };
+
   const clearFilters = () => {
     setSearchTerm('');
     setDateRange(undefined);
@@ -543,6 +630,15 @@ export default function LedgerPage() {
             <Button variant="outline" onClick={() => setShowJournal(!showJournal)}>{showJournal ? 'Show Business Report' : 'Show Full Journal'}</Button>
 
            {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Clear</Button>}
+
+           {selectedEntries.length > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={() => setShowDeleteSelectedDialog(true)}
+              >
+                Delete Selected ({selectedEntries.length})
+              </Button>
+            )}
         </div>
        </header>
 
@@ -617,6 +713,9 @@ export default function LedgerPage() {
                        const dayData = groupedEntries[dayKey];
                        if (dayData.entries.length === 0 && !hasActiveFilters) return null;
                        
+                       const dayEntryIds = dayData.entries.map(e => e.id).filter(id => id.includes('-'));
+                       const areAllSelected = dayEntryIds.length > 0 && dayEntryIds.every(id => selectedEntries.includes(id));
+                       const areSomeSelected = dayEntryIds.some(id => selectedEntries.includes(id));
 
                         return (
                         <AccordionItem value={dayKey} key={dayKey} className="border-b-0">
@@ -659,6 +758,13 @@ export default function LedgerPage() {
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
+                                                    <TableHead className="w-12 px-4">
+                                                      <Checkbox
+                                                        checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false}
+                                                        onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)}
+                                                        aria-label="Select all entries for this day"
+                                                      />
+                                                    </TableHead>
                                                     <TableHead>Sr #</TableHead>
                                                     <TableHead>Date & Time</TableHead>
                                                     <TableHead>Particulars</TableHead>
@@ -679,6 +785,14 @@ export default function LedgerPage() {
 
                                                     return (
                                                         <TableRow key={entry.id}>
+                                                            <TableCell className="px-4">
+                                                              <Checkbox
+                                                                checked={selectedEntries.includes(entry.id)}
+                                                                onCheckedChange={(checked) => handleSelectEntry(entry.id, !!checked)}
+                                                                disabled={!entry.id.includes('-')}
+                                                                aria-label="Select row"
+                                                              />
+                                                            </TableCell>
                                                             <TableCell>{currentSr}</TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
@@ -754,6 +868,24 @@ export default function LedgerPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected {selectedEntries.length} entries.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSelectedEntries} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete {selectedEntries.length} entries
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
+
