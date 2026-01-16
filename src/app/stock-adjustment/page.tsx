@@ -10,9 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Package, Edit, List, Calendar as CalendarIcon } from 'lucide-react';
+import { Package, Edit, List, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { FuelType } from '@/lib/types';
+import type { FuelType, StockAdjustment } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,6 +20,16 @@ import { format, isSameDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
@@ -38,11 +48,13 @@ export default function StockAdjustmentPage() {
     fuelStock, 
     stockAdjustments,
     addStockAdjustment,
+    deleteStockAdjustment,
     isLoaded,
     dateRange
   } = useDatabase();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
+  const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 
   const { register, handleSubmit, control, reset, watch } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
@@ -98,8 +110,19 @@ export default function StockAdjustmentPage() {
     return stockAdjustments.filter(adj => isSameDay(new Date(adj.timestamp), selectedDate));
   }, [stockAdjustments, selectedDate]);
 
+  const handleDeleteAdjustment = () => {
+    if (!adjustmentToDelete) return;
+    deleteStockAdjustment(adjustmentToDelete.id);
+    toast({
+      title: 'Adjustment Deleted',
+      description: `The stock adjustment has been moved to the recycle bin.`,
+    });
+    setAdjustmentToDelete(null);
+  };
+
 
   return (
+    <>
     <div className="p-4 md:p-8 space-y-8">
         <Card>
             <CardHeader>
@@ -216,6 +239,7 @@ export default function StockAdjustmentPage() {
                             <TableHead className="text-right">Adjustment (Ltr)</TableHead>
                             <TableHead className="text-right">Adjustment (Value)</TableHead>
                             <TableHead className="text-right">New Stock Level</TableHead>
+                            <TableHead className="text-center">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -233,11 +257,16 @@ export default function StockAdjustmentPage() {
                                     <TableCell className="text-right font-semibold font-mono">
                                         {adj.newStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
                                     </TableCell>
+                                    <TableCell className="text-center">
+                                        <Button variant="ghost" size="icon" title="Delete" onClick={() => setAdjustmentToDelete(adj)}>
+                                            <Trash2 className="w-4 h-4 text-destructive" />
+                                        </Button>
+                                    </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                                     {isLoaded ? 'No adjustments recorded for this date.' : 'Loading adjustments...'}
                                 </TableCell>
                             </TableRow>
@@ -248,5 +277,23 @@ export default function StockAdjustmentPage() {
         </Card>
 
     </div>
+      <AlertDialog open={!!adjustmentToDelete} onOpenChange={(isOpen) => !isOpen && setAdjustmentToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will move the stock adjustment entry to the recycle bin: <br/>
+              <strong className="font-medium text-foreground">{adjustmentToDelete?.adjustment.toFixed(2)}L of {adjustmentToDelete?.fuelType} on {adjustmentToDelete && format(new Date(adjustmentToDelete.timestamp), 'PP')}</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteAdjustment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete entry
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

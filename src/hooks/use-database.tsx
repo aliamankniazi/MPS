@@ -200,6 +200,7 @@ interface DatabaseActions {
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'value'>) => void;
+    deleteStockAdjustment: (id: string) => void;
     addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
@@ -267,11 +268,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 }));
             }, (error) => {
                 console.error(`Error fetching ${key}:`, error);
-            }, {
-                // This `onlyOnce` option is a trick to know when the initial data is loaded.
-                // The listener will still fire for updates after the first load.
-                // We use a counter instead of a Set for simpler logic inside the listener.
-                onlyOnce: false 
             });
 
             // A separate listener to just check for the first data load
@@ -294,7 +290,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    }, []);
+    }, [state.isLoaded]);
     
     const processedState: ProcessedDatabaseState = useMemo(() => {
         const createSorter = (key: keyof (Transaction & { name: string }), order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
@@ -508,6 +504,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         addEntity(PATHS.stockAdjustments, { ...adj, value });
     };
+    const deleteStockAdjustment = (id: string) => deleteEntity(PATHS.stockAdjustments, id);
 
     const addProduct = (p: Omit<Product, 'id'>) => addEntity(PATHS.products, p);
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(PATHS.products, id, u);
@@ -534,6 +531,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             contact: partner.contact || '',
             area: 'Business Partner',
             isPartner: true,
+            openingBalance: 0
         });
 
         if (db) {
@@ -633,6 +631,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateBusinessPartner,
         deleteBusinessPartner,
         addStockAdjustment,
+        deleteStockAdjustment,
         addAttendance,
         setFuelStock,
         updateFuelPrice,
@@ -665,6 +664,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
