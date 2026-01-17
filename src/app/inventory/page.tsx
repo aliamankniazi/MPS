@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Droplets, PlusCircle, Edit, Trash2, AlertTriangle } from 'lucide-react';
+import { Package, Droplets, PlusCircle, Edit, Trash2, AlertTriangle, Boxes } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
@@ -117,7 +117,7 @@ export default function InventoryPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package /> Fuel Inventory
+            <Package /> Main Product Inventory (Fuel)
           </CardTitle>
           <CardDescription>
             Current stock levels for all main fuel products.
@@ -181,6 +181,48 @@ export default function InventoryPage() {
       
       <Card>
         <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Boxes /> Supplementary Product Inventory
+          </CardTitle>
+          <CardDescription>
+            Inventory for supplementary products like oils and lubricants.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Product Name</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                        <TableHead className="text-right">Stock Level</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {isLoaded && supplementaryProducts && supplementaryProducts.length > 0 ? supplementaryProducts.map(p => (
+                        <TableRow key={p.id}>
+                            <TableCell className="font-medium">{p.name}</TableCell>
+                            <TableCell className="text-right font-mono">
+                                {typeof p.price === 'number' ? `PKR ${p.price.toFixed(2)} / ${p.unit}` : 'N/A'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                                Not Tracked
+                            </TableCell>
+                        </TableRow>
+                    )) : (
+                        <TableRow>
+                            <TableCell colSpan={3} className="h-24 text-center">
+                                {isLoaded ? 'No supplementary products added yet.' : 'Loading products...'}
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+            <p className="text-xs text-muted-foreground mt-2">Note: Automatic stock tracking for supplementary products is not yet available as their purchases cannot be recorded.</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
             <CardTitle className="text-xl flex items-center gap-2"><PlusCircle /> Product Catalog Management</CardTitle>
             <CardDescription>Add, edit, or remove products from your catalog.</CardDescription>
         </CardHeader>
@@ -234,7 +276,7 @@ export default function InventoryPage() {
                  <Button type="submit">Add Product</Button>
              </form>
              <Separator className="my-6" />
-             <h4 className="text-md font-medium mb-4">Supplementary Products</h4>
+             <h4 className="text-md font-medium mb-4">Product Catalog List</h4>
              <div className="rounded-md border">
                 <Table>
                     <TableHeader>
@@ -246,7 +288,7 @@ export default function InventoryPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoaded && supplementaryProducts && supplementaryProducts.length > 0 ? supplementaryProducts.map(p => (
+                        {isLoaded && products && products.length > 0 ? products.map(p => (
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.name}</TableCell>
                                 <TableCell>{p.category}</TableCell>
@@ -261,7 +303,7 @@ export default function InventoryPage() {
                         )) : (
                             <TableRow>
                                 <TableCell colSpan={4} className="h-24 text-center">
-                                    {isLoaded ? 'No supplementary products added yet.' : 'Loading products...'}
+                                    {isLoaded ? 'No products added yet.' : 'Loading products...'}
                                 </TableCell>
                             </TableRow>
                         )}
