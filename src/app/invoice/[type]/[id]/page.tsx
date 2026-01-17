@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Invoice } from '@/components/invoice';
@@ -8,8 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
 import React, { useMemo } from 'react';
 
-
-function InvoiceDisplay({ type, id }: { type: string, id: string }) {
+export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
+  const { type, id } = params;
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
 
   const invoiceData = useMemo(() => {
@@ -99,8 +98,4 @@ function InvoiceDisplay({ type, id }: { type: string, id: string }) {
       </div>
     </div>
   );
-}
-
-export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
-  return <InvoiceDisplay type={params.type} id={params.id} />;
 }

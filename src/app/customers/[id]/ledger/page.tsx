@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useMemo, useState, useEffect, React } from 'react';
@@ -37,7 +35,8 @@ type LedgerEntry = {
   original: any;
 };
 
-function CustomerLedger({ id: entityId }: { id: string }) {
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+  const { id: entityId } = params;
   const { 
     customers, 
     suppliers, 
@@ -463,10 +462,4 @@ function CustomerLedger({ id: entityId }: { id: string }) {
       </AlertDialog>
     </div>
   );
-}
-
-
-// This is the new Server Component that wraps the client component
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
-  return <CustomerLedger id={params.id} />;
 }
