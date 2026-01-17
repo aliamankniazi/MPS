@@ -46,6 +46,7 @@ type LedgerEntry = {
   balance: number;
   original: any;
   isCreditSale?: boolean;
+  notes?: string;
 };
 
 type GroupedEntries = {
@@ -128,10 +129,7 @@ export default function LedgerPage() {
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const customerName = tx.customerName || 'Walk-in Customer';
-        let description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: (tx.product || 'General Sale');
-        if (tx.notes) {
-          description += ` (${tx.notes})`;
-        }
+        const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: (tx.product || 'General Sale');
         
         const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
 
@@ -145,13 +143,14 @@ export default function LedgerPage() {
             credit: !isCreditSale ? tx.totalAmount : 0,
             original: tx,
             isCreditSale: isCreditSale,
+            notes: tx.notes,
         });
     });
     
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         const isSalary = cp.paymentMethod === 'Salary';
-        const description = cp.notes || (isSalary ? `Salary Payment` : `Payment Received`);
+        const description = isSalary ? `Salary Payment` : `Payment Received`;
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
@@ -161,6 +160,7 @@ export default function LedgerPage() {
           debit: isSalary ? cp.amount : 0,
           credit: isSalary ? 0 : cp.amount,
           original: cp,
+          notes: cp.notes,
         })
     });
     
@@ -169,12 +169,13 @@ export default function LedgerPage() {
         combined.push({
           id: `ca-${ca.id}`,
           timestamp: ca.timestamp,
-          description: ca.notes || 'Cash Advance',
+          description: 'Cash Advance',
           partnerName: ca.customerName,
           type: 'Cash Advance',
           debit: ca.amount,
           credit: 0,
           original: ca,
+          notes: ca.notes,
         })
     });
 
@@ -233,6 +234,7 @@ export default function LedgerPage() {
             debit: 0,
             credit: pr.totalRefund,
             original: pr,
+            notes: pr.reason,
         })
     });
     saleReturns.forEach(sr => {
@@ -246,6 +248,7 @@ export default function LedgerPage() {
         debit: sr.totalRefund,
         credit: 0,
         original: sr,
+        notes: sr.reason,
       });
     });
     otherIncomes.forEach(oi => {
@@ -267,23 +270,25 @@ export default function LedgerPage() {
             combined.push({
                 id: `inv-${inv.id}`,
                 timestamp: inv.timestamp,
-                description: inv.notes || 'Investment',
+                description: 'Investment',
                 partnerName: inv.partnerName,
                 type: 'Investment',
                 debit: 0,
                 credit: inv.amount,
                 original: inv,
+                notes: inv.notes,
             });
         } else {
             combined.push({
                 id: `wdr-${inv.id}`,
                 timestamp: inv.timestamp,
-                description: inv.notes || 'Withdrawal',
+                description: 'Withdrawal',
                 partnerName: inv.partnerName,
                 type: 'Withdrawal',
                 debit: inv.amount,
                 credit: 0,
                 original: inv,
+                notes: inv.notes,
             });
         }
     });
@@ -790,6 +795,7 @@ export default function LedgerPage() {
                                                     <TableHead>Sr #</TableHead>
                                                     <TableHead>Date & Time</TableHead>
                                                     <TableHead>Partner</TableHead>
+                                                    <TableHead>Notes</TableHead>
                                                     <TableHead>Particulars</TableHead>
                                                     <TableHead>Type</TableHead>
                                                     <TableHead className="text-right">Debit</TableHead>
@@ -825,6 +831,7 @@ export default function LedgerPage() {
                                                                     {entry.partnerName}
                                                                 </Link>
                                                             </TableCell>
+                                                            <TableCell>{entry.notes || ''}</TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
                                                                 {entry.description}
                                                             </TableCell>
@@ -914,6 +921,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 
