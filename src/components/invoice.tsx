@@ -1,4 +1,3 @@
-
 'use client';
 
 import { format } from 'date-fns';
@@ -148,25 +147,25 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <h3 className="font-bold mt-4 mb-1">TERMS AND CONDITIONS</h3>
             <p>Thanks for doing business with us!</p>
             <p className="font-bold mt-4">Amount in Words:</p>
-            <p className="capitalize">{totalAmountInWords} rupees only.</p>
+            <p className="capitalize font-bold">{totalAmountInWords} rupees only.</p>
         </div>
         <div className="text-right">
             <div className="inline-block text-left">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <span className="font-semibold">Sub Total:</span>
-                    <span>RS {data.totalAmount.toFixed(2)}</span>
+                    <span className="font-bold">RS {data.totalAmount.toFixed(2)}</span>
                     <span className="font-semibold">Discount:</span>
-                    <span>RS 0 (0%)</span>
+                    <span className="font-bold">RS 0 (0%)</span>
                     <span className="font-semibold">GST@:</span>
-                    <span>0</span>
+                    <span className="font-bold">0</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">RS {data.totalAmount.toFixed(2)}</span>
                     <span className="font-semibold">Paid:</span>
-                    <span>RS 0.00</span>
+                    <span className="font-bold">RS 0.00</span>
                     <span className="font-semibold">Invoice Balance:</span>
-                    <span>RS {data.totalAmount.toFixed(2)}</span>
+                    <span className="font-bold">RS {data.totalAmount.toFixed(2)}</span>
                     <span className="font-semibold">Payment Mode:</span>
-                    <span>{data.paymentMethod}</span>
+                    <span className="font-bold">{data.paymentMethod}</span>
                 </div>
             </div>
         </div>
