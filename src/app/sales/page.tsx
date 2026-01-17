@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -11,20 +12,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Truck, Undo, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
 import type { PaymentMethod, Transaction, Product } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { DollarSign, Redo, ShoppingCart, User, Wallet, Undo2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
+import { TransactionNav } from '@/components/transaction-nav';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -79,41 +79,6 @@ function PageHeader() {
       </header>
     );
 }
-
-
-function TransactionNav() {
-    const pathname = usePathname();
-    const navItems = [
-      { href: '/sales', label: 'Sale', icon: ShoppingCart },
-      { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-      { href: '/sale-returns', label: 'Sale Return', icon: Undo },
-      { href: '/purchases', label: 'Purchase', icon: Truck },
-      { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
-      { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
-      { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
-      { href: '/employees', label: 'Salary Payment', icon: User },
-    ];
-    return (
-        <nav className="bg-background shadow-sm">
-            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
-                {navItems.map(item => (
-                    <Button
-                        asChild
-                        key={item.href}
-                        variant="ghost"
-                        className={cn(
-                            "border-b-2 rounded-none flex-shrink-0",
-                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
-                        )}
-                    >
-                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
-                    </Button>
-                ))}
-            </div>
-        </nav>
-    );
-}
-
 
 export default function SalesPage() {
   const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions, dateRange, setDateRange } = useDatabase();
@@ -613,5 +578,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
-    

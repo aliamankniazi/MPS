@@ -9,19 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, ShoppingCart, Redo, DollarSign, User, Truck, Undo, Undo2, Wallet, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { TransactionNav } from '@/components/transaction-nav';
 
 
 const cashAdvanceSchema = z.object({
@@ -63,39 +61,6 @@ function PageHeader() {
             </div>
         </div>
       </header>
-    );
-}
-
-function TransactionNav() {
-    const pathname = usePathname();
-    const navItems = [
-      { href: '/sales', label: 'Sale', icon: ShoppingCart },
-      { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-      { href: '/sale-returns', label: 'Sale Return', icon: Undo },
-      { href: '/purchases', label: 'Purchase', icon: Truck },
-      { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
-      { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
-      { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
-      { href: '/employees', label: 'Salary Payment', icon: User },
-    ];
-    return (
-        <nav className="bg-background shadow-sm">
-            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
-                {navItems.map(item => (
-                    <Button
-                        asChild
-                        key={item.href}
-                        variant="ghost"
-                        className={cn(
-                            "border-b-2 rounded-none flex-shrink-0",
-                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
-                        )}
-                    >
-                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
-                    </Button>
-                ))}
-            </div>
-        </nav>
     );
 }
 
