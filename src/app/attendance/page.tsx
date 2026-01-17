@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -59,11 +60,11 @@ export default function EmployeeManagementPage() {
     resolver: zodResolver(employeeSchema),
   });
 
-  const onAddSubmit: SubmitHandler<EmployeeFormValues> = (data) => {
-    const newEmployee = addEmployee({ ...data, hireDate: data.hireDate.toISOString() });
+  const onAddSubmit: SubmitHandler<EmployeeFormValues> = async (data) => {
+    const newEmployee = await addEmployee({ ...data, hireDate: data.hireDate.toISOString(), timestamp: new Date().toISOString() });
     
     // Automatically mark the new employee as present for today
-    addAttendance({
+    await addAttendance({
       employeeId: newEmployee.id,
       employeeName: newEmployee.name,
       date: today.toISOString(),

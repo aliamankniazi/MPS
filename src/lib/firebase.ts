@@ -3,6 +3,7 @@
 import { initializeApp, getApps, getApp, type FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
+import { getFirestore } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig: FirebaseOptions = {
@@ -29,5 +30,6 @@ const app = !getApps().length && isFirebaseConfigValid(firebaseConfig)
 // Get auth and database instances only if app is initialized
 const auth = app ? getAuth(app) : null;
 const db = app ? getDatabase(app) : null;
+const firestore = app ? getFirestore(app) : null;
 
-export { app, auth, db, isFirebaseConfigValid, firebaseConfig };
+export { app, auth, db, firestore, isFirebaseConfigValid, firebaseConfig };

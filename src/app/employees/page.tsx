@@ -87,7 +87,7 @@ export default function SalaryPaymentPage() {
     }
   }, [dateRange, setValue]);
 
-  const onSubmit: SubmitHandler<SalaryPaymentFormValues> = (data) => {
+  const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
     if (!employee) return;
     
@@ -95,7 +95,7 @@ export default function SalaryPaymentPage() {
     const paymentNotes = data.notes ? `${salaryDescription} - ${data.notes}` : salaryDescription;
 
     // 1. Log the salary as an expense
-    addExpense({
+    await addExpense({
       description: salaryDescription,
       category: 'Salaries',
       amount: employee.salary,
@@ -107,11 +107,12 @@ export default function SalaryPaymentPage() {
     
     let customerId = employeeAsCustomer?.id;
     if (!employeeAsCustomer) {
-        const newCustomer = addCustomer({
+        const newCustomer = await addCustomer({
             name: employee.name,
             contact: employee.mobileNumber || '',
             area: 'Employee',
             isPartner: false,
+            timestamp: new Date().toISOString(),
         });
         customerId = newCustomer.id;
         employeeAsCustomer = newCustomer;
@@ -120,7 +121,7 @@ export default function SalaryPaymentPage() {
 
     // 3. Log a payment against the employee's customer record (acts as a CREDIT to balance their account)
     if (customerId) {
-        addCustomerPayment({
+        await addCustomerPayment({
             customerId: customerId,
             customerName: employee.name,
             amount: employee.salary,
