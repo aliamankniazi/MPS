@@ -59,8 +59,14 @@ export default function InventoryPage() {
   }, [products]);
   
   const allUnits = React.useMemo(() => {
-    const unitsFromProducts = products.map(p => p.unit);
-    return [...new Set(['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle', ...unitsFromProducts])];
+    const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean) as string[];
+    const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
+    const uniqueUnits = [...new Set(combinedUnits)];
+    return uniqueUnits.map(lowerUnit => {
+        const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
+        return originalCasing || lowerUnit;
+    }).filter(Boolean);
   }, [products]);
 
 
@@ -394,3 +400,5 @@ export default function InventoryPage() {
     </>
   );
 }
+
+    

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -106,11 +105,12 @@ export default function SettingsPage() {
 
   const allUnits = React.useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
-    const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean) as string[];
     const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
     const uniqueUnits = [...new Set(combinedUnits)];
     return uniqueUnits.map(lowerUnit => {
-        return unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit) || lowerUnit;
+        const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
+        return originalCasing || lowerUnit;
     }).filter(Boolean);
   }, [products]);
 
@@ -530,8 +530,8 @@ export default function SettingsPage() {
                             name="unit"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                                    <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
                                     </SelectContent>
@@ -546,11 +546,11 @@ export default function SettingsPage() {
                             name="category"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                                    <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Main Product">Main Product</SelectItem>
-                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                        <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
+                                        <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
@@ -589,3 +589,4 @@ export default function SettingsPage() {
   );
 }
 
+    
