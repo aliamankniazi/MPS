@@ -827,7 +827,7 @@ export default function LedgerPage() {
                                                                 {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
-                                                                <Link href={link} className="hover:underline">
+                                                                <Link href={link} className="hover:underline" target="_blank" rel="noopener noreferrer">
                                                                     {entry.partnerName}
                                                                 </Link>
                                                             </TableCell>
@@ -921,6 +921,7 @@ export default function LedgerPage() {
     </>
   );
 }
+
 
 
 

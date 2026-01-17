@@ -281,7 +281,7 @@ export default function SettingsPage() {
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                               <Link href={`/customers/${s.id}/ledger`}>
+                                               <Link href={`/customers/${s.id}/ledger`} target="_blank" rel="noopener noreferrer">
                                                  <BookText className="w-5 h-5" />
                                                </Link>
                                             </Button>

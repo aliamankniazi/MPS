@@ -231,7 +231,7 @@ export default function CustomersPage() {
                         </TableCell>
                         <TableCell className="text-center space-x-0">
                            <Button asChild variant="ghost" size="icon" title="View Ledger">
-                              <Link href={`/customers/${c.id}/ledger`}>
+                              <Link href={`/customers/${c.id}/ledger`} target="_blank" rel="noopener noreferrer">
                                 <BookText className="w-5 h-5" />
                               </Link>
                            </Button>

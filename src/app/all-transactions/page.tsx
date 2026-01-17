@@ -446,7 +446,7 @@ export default function AllTransactionsPage() {
                                 </TableCell>
                                 <TableCell className="p-2 text-right">
                                     <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/customers/${customer.id}/ledger`} title="View Ledger">
+                                        <Link href={`/customers/${customer.id}/ledger`} title="View Ledger" target="_blank" rel="noopener noreferrer">
                                             <BookText className="w-4 h-4" />
                                         </Link>
                                     </Button>

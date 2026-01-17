@@ -416,7 +416,7 @@ export default function PartnerLedgerPage() {
                           </TableCell>
                           <TableCell className="text-center space-x-0">
                                 <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                   <Link href={`/customers/${entry.entityId}/ledger`}>
+                                   <Link href={`/customers/${entry.entityId}/ledger`} target="_blank" rel="noopener noreferrer">
                                      <BookText className="w-4 h-4" />
                                    </Link>
                                 </Button>
