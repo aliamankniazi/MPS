@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Truck, Undo, Check, ChevronsUpDown } from 'lucide-react';
+import { UserPlus, Sun, Truck, Undo, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
 import type { PaymentMethod, Transaction, Product } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,6 +25,7 @@ import { useDatabase } from '@/hooks/use-database';
 import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Calendar } from '@/components/ui/calendar';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -40,7 +41,7 @@ type SaleItemFormValues = z.infer<typeof saleItemSchema>;
 const transactionSchema = z.object({
   customerId: z.string().optional(),
   paymentMethod: z.string().optional(),
-  invoiceDate: z.string().optional(),
+  invoiceDate: z.date({ required_error: "An invoice date is required."}),
   notes: z.string().optional(),
   vehicleNumber: z.string().optional(),
 });
@@ -116,7 +117,7 @@ function TransactionNav() {
 
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions, dateRange } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions, dateRange, setDateRange } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -134,12 +135,14 @@ export default function SalesPage() {
     defaultValues: {
         customerId: 'walkin',
         paymentMethod: 'Cash',
-        invoiceDate: format(dateRange?.from || new Date(), 'yyyy-MM-dd'),
+        invoiceDate: dateRange?.from || new Date(),
     }
   });
 
   useEffect(() => {
-    setValue('invoiceDate', format(dateRange?.from || new Date(), 'yyyy-MM-dd'));
+    if (dateRange?.from) {
+        setValue('invoiceDate', dateRange.from);
+    }
   }, [dateRange, setValue]);
 
   const { customerId } = watch();
@@ -222,7 +225,7 @@ export default function SalesPage() {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
     
-    const finalInvoiceDate = data.invoiceDate ? new Date(data.invoiceDate).toISOString() : new Date().toISOString();
+    const finalInvoiceDate = data.invoiceDate.toISOString();
 
     cart.forEach(item => {
         const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
@@ -245,6 +248,7 @@ export default function SalesPage() {
       description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
     });
     
+    setDateRange({ from: data.invoiceDate, to: data.invoiceDate });
     reset();
     setCart([]);
   };
@@ -505,7 +509,35 @@ export default function SalesPage() {
                       </div>
                       <div className="space-y-2">
                           <Label>Invoice Date</Label>
-                          <Input type="date" {...register('invoiceDate')} />
+                            <Controller
+                            name="invoiceDate"
+                            control={control}
+                            render={({ field }) => (
+                                <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !field.value && "text-muted-foreground"
+                                    )}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                    mode="single"
+                                    selected={field.value}
+                                    onSelect={field.onChange}
+                                    initialFocus
+                                    />
+                                </PopoverContent>
+                                </Popover>
+                            )}
+                            />
+                            {errors.invoiceDate && <p className="text-sm text-destructive">{errors.invoiceDate.message}</p>}
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="notes">Notes</Label>

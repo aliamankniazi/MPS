@@ -100,11 +100,11 @@ function TransactionNav() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded, dateRange } = useDatabase();
+  const { customers, addCashAdvance, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CashAdvanceFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),
     defaultValues: {
       date: dateRange?.from || new Date(),
@@ -112,8 +112,10 @@ export default function CashAdvancesPage() {
   });
   
   useEffect(() => {
-    reset({ date: dateRange?.from || new Date(), customerId: '', amount: 0, notes: '' });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -131,7 +133,8 @@ export default function CashAdvancesPage() {
       title: 'Cash Advance Recorded',
       description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
     });
-    reset({ customerId: '', amount: 0, notes: '', date: dateRange?.from || new Date() });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
 
   return (

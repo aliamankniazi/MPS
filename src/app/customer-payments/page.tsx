@@ -101,11 +101,11 @@ function TransactionNav() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded, dateRange } = useDatabase();
+  const { customers, addCustomerPayment, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerPaymentFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),
     defaultValues: {
       date: dateRange?.from || new Date(),
@@ -113,8 +113,10 @@ export default function CustomerPaymentsPage() {
   });
 
   useEffect(() => {
-    reset({ date: dateRange?.from || new Date(), customerId: '', amount: 0, notes: '' });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -132,7 +134,8 @@ export default function CustomerPaymentsPage() {
       title: 'Payment Recorded',
       description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
     });
-    reset({ customerId: '', amount: 0, notes: '', date: dateRange?.from || new Date() });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
 
   return (

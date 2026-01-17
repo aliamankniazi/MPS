@@ -102,11 +102,11 @@ function TransactionNav() {
 
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, isLoaded, dateRange } = useDatabase();
+  const { addPurchase, suppliers, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
       date: dateRange?.from || new Date(),
@@ -114,13 +114,10 @@ export default function PurchasesPage() {
   });
 
   useEffect(() => {
-    reset({
-        date: dateRange?.from || new Date(),
-        supplierId: '',
-        volume: 0,
-        totalCost: 0,
-    });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -135,12 +132,8 @@ export default function PurchasesPage() {
       title: 'Purchase Recorded',
       description: `Delivery from ${supplier.name} has been logged.`,
     });
-    reset({
-        supplierId: '',
-        volume: 0,
-        totalCost: 0,
-        date: dateRange?.from || new Date(),
-    });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
 
   return (

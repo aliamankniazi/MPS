@@ -106,11 +106,11 @@ function TransactionNav() {
 
 
 export default function PurchaseReturnsPage() {
-  const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
+  const { addPurchaseReturn, suppliers, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
     defaultValues: {
         date: dateRange?.from || new Date(),
@@ -118,14 +118,10 @@ export default function PurchaseReturnsPage() {
   });
 
   useEffect(() => {
-    reset({
-        date: dateRange?.from || new Date(),
-        supplierId: '',
-        volume: 0,
-        totalRefund: 0,
-        reason: '',
-    });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -140,13 +136,8 @@ export default function PurchaseReturnsPage() {
       title: 'Purchase Return Recorded',
       description: `Return to ${supplier.name} has been logged.`,
     });
-    reset({
-        supplierId: '',
-        volume: 0,
-        totalRefund: 0,
-        reason: '',
-        date: dateRange?.from || new Date(),
-    });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
 
   return (

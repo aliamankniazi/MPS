@@ -50,13 +50,14 @@ export default function StockAdjustmentPage() {
     addStockAdjustment,
     deleteStockAdjustment,
     isLoaded,
-    dateRange
+    dateRange,
+    setDateRange
   } = useDatabase();
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 
-  const { register, handleSubmit, control, reset, watch } = useForm<AdjustmentFormValues>({
+  const { register, handleSubmit, control, reset, watch, setValue } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       adjustment: 0,
@@ -65,11 +66,10 @@ export default function StockAdjustmentPage() {
   });
   
   React.useEffect(() => {
-    reset({
-        adjustment: 0,
-        date: dateRange?.from || new Date(),
-    });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
@@ -102,7 +102,8 @@ export default function StockAdjustmentPage() {
       title: 'Stock Adjusted',
       description: `${data.fuelType} stock has been updated to ${newStock.toLocaleString()} L.`,
     });
-    reset({ fuelType: data.fuelType, adjustment: 0, date: dateRange?.from || new Date() });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
   
   const filteredAdjustments = React.useMemo(() => {

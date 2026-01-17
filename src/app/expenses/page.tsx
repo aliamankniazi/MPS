@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -35,14 +36,14 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, dateRange } = useDatabase();
+  const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
         date: dateRange?.from || new Date(),
@@ -50,8 +51,10 @@ export default function ExpensesPage() {
   });
 
   useEffect(() => {
-    reset({ date: dateRange?.from || new Date(), description: '', amount: 0 });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const filteredExpenses = useMemo(() => {
     let filtered = expenses;
@@ -82,7 +85,8 @@ export default function ExpensesPage() {
       title: 'Expense Recorded',
       description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    reset({ description: '', amount: 0, date: dateRange?.from || new Date() });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
   
   const handleDeleteExpense = () => {

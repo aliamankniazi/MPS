@@ -102,11 +102,11 @@ function TransactionNav() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
     defaultValues: {
       salaryMonth: format(new Date(), 'MMMM'),
@@ -116,14 +116,10 @@ export default function SalaryPaymentPage() {
   });
 
   useEffect(() => {
-    reset({ 
-        salaryMonth: format(new Date(), 'MMMM'),
-        salaryYear: new Date().getFullYear().toString(),
-        postingDate: dateRange?.from || new Date(),
-        employeeId: '',
-        notes: ''
-    });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('postingDate', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
@@ -174,13 +170,8 @@ export default function SalaryPaymentPage() {
       description: `Salary for ${employee.name} has been successfully recorded.`,
     });
     
-    reset({
-        employeeId: '',
-        salaryMonth: format(new Date(), 'MMMM'),
-        salaryYear: new Date().getFullYear().toString(),
-        postingDate: dateRange?.from || new Date(),
-        notes: ''
-    });
+    setDateRange({ from: data.postingDate, to: data.postingDate });
+    reset();
   };
 
   return (

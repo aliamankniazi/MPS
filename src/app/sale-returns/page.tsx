@@ -103,11 +103,11 @@ function TransactionNav() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
+  const { addSaleReturn, customers, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
     defaultValues: {
         date: dateRange?.from || new Date(),
@@ -115,14 +115,10 @@ export default function SaleReturnsPage() {
   });
 
   useEffect(() => {
-    reset({
-        date: dateRange?.from || new Date(),
-        customerId: '',
-        volume: 0,
-        totalRefund: 0,
-        reason: '',
-    });
-  }, [dateRange, reset]);
+    if (dateRange?.from) {
+        setValue('date', dateRange.from);
+    }
+  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -137,13 +133,8 @@ export default function SaleReturnsPage() {
       title: 'Sale Return Recorded',
       description: `Return from ${customer.name} has been logged.`,
     });
-    reset({
-        customerId: '',
-        volume: 0,
-        totalRefund: 0,
-        reason: '',
-        date: dateRange?.from || new Date(),
-    });
+    setDateRange({ from: data.date, to: data.date });
+    reset();
   };
 
   return (
