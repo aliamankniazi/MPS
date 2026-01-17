@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -37,6 +38,7 @@ import type {
 } from '@/lib/types';
 import { db } from '@/lib/firebase';
 import { ref, onValue, push, remove, set, update, serverTimestamp, get } from 'firebase/database';
+import { isValid } from 'date-fns';
 
 // Centralized paths
 const PATHS = {
@@ -250,6 +252,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         const pathsToLoad = Object.keys(PATHS);
         let loadedCount = 0;
 
+        const handleLoad = () => {
+            loadedCount++;
+            if (loadedCount === pathsToLoad.length) {
+                if (!state.isLoaded) {
+                    setState(s => ({ ...s, isLoaded: true }));
+                }
+            }
+        };
+
         pathsToLoad.forEach(key => {
             const pathKey = key as keyof typeof PATHS;
             const dbRef = ref(db, PATHS[pathKey]);
@@ -265,24 +276,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     ...prevState,
                     [key]: snapshot.val() || defaultValue,
                 }));
+                handleLoad();
             }, (error) => {
                 console.error(`Error fetching ${key}:`, error);
+                handleLoad();
             });
-
-            // A separate listener to just check for the first data load
-            get(dbRef).then(() => {
-                loadedCount++;
-                if (loadedCount === pathsToLoad.length) {
-                    setState(s => ({ ...s, isLoaded: true }));
-                }
-            }).catch(() => {
-                // Also increment on error to not block loading forever
-                loadedCount++;
-                if (loadedCount === pathsToLoad.length) {
-                    setState(s => ({ ...s, isLoaded: true }));
-                }
-            });
-
             subscriptions.push(unsubscribe);
         });
 
@@ -382,18 +380,37 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state.isLoaded, state.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends { id: string, timestamp?: any }>(path: string, entity: Omit<T, 'id' | 'timestamp'>): T => {
-        const newEntityWithTimestamp = { ...entity, timestamp: serverTimestamp() };
+    const addEntity = useCallback(<T extends { id: string, timestamp?: any }>(path: string, entity: Omit<T, 'id'>): T => {
+        const entityWithTimestamp = { ...entity };
+        if (!entityWithTimestamp.timestamp) {
+            entityWithTimestamp.timestamp = serverTimestamp();
+        }
+
+        const transactionDate = (entity as any).timestamp ? new Date((entity as any).timestamp) : new Date();
+
         if (db) {
             const newEntityRef = push(ref(db, path));
-            set(newEntityRef, newEntityWithTimestamp);
-            return { ...entity, id: newEntityRef.key! } as T; // timestamp is handled by server
+            set(newEntityRef, entityWithTimestamp);
+
+            if (isValid(transactionDate)) {
+                 setDateRange({ from: transactionDate, to: transactionDate });
+            }
+            
+            return { ...entity, id: newEntityRef.key! } as T;
         }
+
         // Offline fallback
-        const offlineEntity = { ...entity, id: crypto.randomUUID(), timestamp: new Date().toISOString() } as T;
-        setState(s => ({...s, [path]: {...(s as any)[path], [offlineEntity.id]: newEntityWithTimestamp } }));
+        const offlineId = crypto.randomUUID();
+        const offlineTimestamp = entityWithTimestamp.timestamp || new Date().toISOString();
+        const offlineEntity = { ...entity, id: offlineId, timestamp: offlineTimestamp } as T;
+        
+        setState(s => ({ ...s, [path]: { ...(s as any)[path], [offlineId]: { ...entity, timestamp: offlineTimestamp } } }));
+
+        if (isValid(transactionDate)) {
+             setDateRange({ from: transactionDate, to: transactionDate });
+        }
         return offlineEntity;
-    }, []);
+    }, [db]);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
         if (!db) return;
@@ -663,6 +680,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
