@@ -264,8 +264,8 @@ export default function InventoryPage() {
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="Main Product">Main Product</SelectItem>
-                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                        <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
+                                        <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
@@ -357,8 +357,8 @@ export default function InventoryPage() {
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Main Product">Main Product</SelectItem>
-                                    <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
+                                    <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
+                                    <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
