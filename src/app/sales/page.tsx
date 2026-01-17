@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -135,9 +134,20 @@ export default function SalesPage() {
     defaultValues: {
         customerId: 'walkin',
         paymentMethod: 'Cash',
-        invoiceDate: dateRange?.from || new Date(),
+        invoiceDate: new Date(),
     }
   });
+
+  const allUnits = useMemo(() => {
+    const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
+    const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
+    const uniqueUnits = [...new Set(combinedUnits)];
+    return uniqueUnits.map(lowerUnit => {
+        const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
+        return originalCasing || lowerUnit;
+    }).filter(Boolean);
+  }, [products]);
 
   useEffect(() => {
     if (dateRange?.from) {
@@ -207,7 +217,15 @@ export default function SalesPage() {
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
-    resetItem();
+    // Reset form for next item, but keep the unit selected
+    resetItem({
+        unit: data.unit,
+        productId: undefined,
+        productName: undefined,
+        quantity: undefined,
+        price: undefined,
+        totalAmount: undefined,
+    });
   };
 
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
@@ -250,6 +268,7 @@ export default function SalesPage() {
     
     setDateRange({ from: data.invoiceDate, to: data.invoiceDate });
     reset();
+    resetItem();
     setCart([]);
   };
 
@@ -322,8 +341,23 @@ export default function SalesPage() {
                               </div>
                               <div className="space-y-2">
                                   <Label htmlFor="unit">Unit</Label>
-                                  <Input id="unit" {...registerItem('unit')} placeholder="e.g., Ltr, Kg, Pcs" />
-                                   {itemErrors.unit && <p className="text-sm text-destructive">{itemErrors.unit.message}</p>}
+                                   <Controller
+                                      name="unit"
+                                      control={controlItem}
+                                      render={({ field }) => (
+                                          <Select onValueChange={field.onChange} value={field.value || ''}>
+                                              <SelectTrigger>
+                                                  <SelectValue placeholder="Select unit..." />
+                                              </SelectTrigger>
+                                              <SelectContent>
+                                                  {allUnits.map(unit => (
+                                                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
+                                                  ))}
+                                              </SelectContent>
+                                          </Select>
+                                      )}
+                                  />
+                                  {itemErrors.unit && <p className="text-sm text-destructive">{itemErrors.unit.message}</p>}
                               </div>
                                <div className="space-y-2">
                                   <Label htmlFor="quantity">Quantity</Label>
@@ -579,3 +613,5 @@ export default function SalesPage() {
     </div>
   );
 }
+
+    
