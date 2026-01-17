@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -8,12 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, isLoaded } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, isLoaded } = useDatabase();
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
@@ -60,6 +59,31 @@ export default function DashboardPage() {
       totalShortage,
     };
   }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments]);
+
+  const productStats = useMemo(() => {
+    if (!isLoaded || !products) return [];
+
+    const mainProducts = products.filter(p => p.category === 'Main Product');
+
+    return mainProducts.map(product => {
+        const salesForProduct = transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+        const purchasesForProduct = purchases.filter(p => p.fuelType === product.name);
+
+        salesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        purchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        const lastSale = salesForProduct[0];
+        const lastPurchase = purchasesForProduct[0];
+
+        return {
+            name: product.name,
+            lastSaleRate: lastSale ? lastSale.pricePerLitre : product.price,
+            lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
+            lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
+        };
+    });
+
+  }, [isLoaded, products, transactions, purchases]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -189,6 +213,30 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {productStats.map(stat => (
+                <Card key={stat.name}>
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-medium flex items-center gap-2"><Fuel size={16} />{stat.name}</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-1 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Last Rate</span>
+                            <span className="font-mono font-semibold">PKR {stat.lastSaleRate.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Last Sale</span>
+                            <span className="font-mono">{stat.lastSaleDate ? format(stat.lastSaleDate, 'dd MMM, yy') : 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Last Purchase</span>
+                            <span className="font-mono">{stat.lastPurchaseDate ? format(stat.lastPurchaseDate, 'dd MMM, yy') : 'N/A'}</span>
+                        </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
 
           <Card>
             <CardHeader>
