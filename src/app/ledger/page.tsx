@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -369,63 +368,68 @@ export default function LedgerPage() {
   }, [allEntries, searchTerm, dateRange, selectedType]);
 
   const groupedEntries = useMemo(() => {
-    return filteredEntries.reduce((acc: GroupedEntries, entry: LedgerEntry) => {
-      const date = new Date(entry.timestamp);
-      if (!isValid(date)) return acc;
+    const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : null;
+    
+    const openingBalanceForRange = rangeStart
+      ? allEntries
+          .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < rangeStart)
+          .reduce((bal, item) => bal + item.credit - item.debit, 0)
+      : 0;
 
-      const dayKey = format(date, 'yyyy-MM-dd');
-      if (!acc[dayKey]) {
-        const dayStart = startOfDay(date);
-        const openingBalance = allEntries
-          .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < dayStart)
-          .reduce((bal, item) => bal + item.credit - item.debit, 0);
+    let lastDayClosingBalance = openingBalanceForRange;
+    
+    // Get unique day keys from filtered entries and sort them chronologically
+    const dayKeysSorted = [...new Set(filteredEntries.map(e => format(new Date(e.timestamp), 'yyyy-MM-dd')))]
+      .filter(key => isValid(new Date(key)))
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-        acc[dayKey] = { 
-          entries: [],
-          openingBalance,
-          closingBalance: 0,
-          totalDebit: 0,
-          totalCredit: 0,
-          dailySummary: {
-            cashSale: 0, recovery: 0, otherIncome: 0, stockSurplus: 0,
-            creditSale: 0, cashAdvance: 0, expenses: 0, stockShortage: 0,
-            purchases: 0, supplierPayment: 0,
-          }
-        };
-      }
+    const result: GroupedEntries = {};
+
+    for (const dayKey of dayKeysSorted) {
+      const dayEntries = filteredEntries.filter(e => format(new Date(e.timestamp), 'yyyy-MM-dd') === dayKey);
       
-      acc[dayKey].entries.push(entry);
-      acc[dayKey].totalDebit += entry.debit;
-      acc[dayKey].totalCredit += entry.credit;
+      const dayOpeningBalance = lastDayClosingBalance;
+
+      const dayDebit = dayEntries.reduce((sum, e) => sum + e.debit, 0);
+      const dayCredit = dayEntries.reduce((sum, e) => sum + e.credit, 0);
+
+      lastDayClosingBalance = dayOpeningBalance + dayCredit - dayDebit;
       
-      // Daily Summary Calculation
-      if(entry.type === 'Sale' && !entry.isCreditSale) acc[dayKey].dailySummary.cashSale += entry.credit;
-      if(entry.type === 'Sale' && entry.isCreditSale) acc[dayKey].dailySummary.creditSale += entry.debit;
-      if(entry.type === 'Customer Payment' || entry.type === 'Salary') acc[dayKey].dailySummary.recovery += entry.credit;
-      if(entry.type === 'Other Income') acc[dayKey].dailySummary.otherIncome += entry.credit;
-      if(entry.type === 'Stock Surplus') acc[dayKey].dailySummary.stockSurplus += entry.credit;
-      if(entry.type === 'Cash Advance') acc[dayKey].dailySummary.cashAdvance += entry.debit;
-      if(entry.type === 'Expense' || entry.type === 'Salary Expense') acc[dayKey].dailySummary.expenses += entry.debit;
-      if(entry.type === 'Stock Shortage') acc[dayKey].dailySummary.stockShortage += entry.debit;
-      if(entry.type === 'Purchase') acc[dayKey].dailySummary.purchases += entry.credit;
-      if(entry.type === 'Supplier Payment') acc[dayKey].dailySummary.supplierPayment += entry.debit;
+      result[dayKey] = {
+        entries: dayEntries,
+        openingBalance: dayOpeningBalance,
+        closingBalance: lastDayClosingBalance,
+        totalDebit: dayDebit,
+        totalCredit: dayCredit,
+        dailySummary: dayEntries.reduce((summary, entry) => {
+          if (entry.type === 'Sale' && !entry.isCreditSale) summary.cashSale += entry.credit;
+          if (entry.type === 'Sale' && entry.isCreditSale) summary.creditSale += entry.debit;
+          if (entry.type === 'Customer Payment' || entry.type === 'Salary') summary.recovery += entry.credit;
+          if (entry.type === 'Other Income') summary.otherIncome += entry.credit;
+          if (entry.type === 'Stock Surplus') summary.stockSurplus += entry.credit;
+          if (entry.type === 'Cash Advance') summary.cashAdvance += entry.debit;
+          if (entry.type === 'Expense' || entry.type === 'Salary Expense') summary.expenses += entry.debit;
+          if (entry.type === 'Stock Shortage') summary.stockShortage += entry.debit;
+          if (entry.type === 'Purchase') summary.purchases += entry.credit;
+          if (entry.type === 'Supplier Payment') summary.supplierPayment += entry.debit;
+          return summary;
+        }, { cashSale: 0, recovery: 0, otherIncome: 0, stockSurplus: 0, creditSale: 0, cashAdvance: 0, expenses: 0, stockShortage: 0, purchases: 0, supplierPayment: 0 })
+      };
+    }
+    
+    return result;
 
-
-      return acc;
-
-    }, {});
-
-  }, [filteredEntries, allEntries]);
+  }, [filteredEntries, allEntries, dateRange]);
   
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
+  // This loop calculates the running balance for each individual entry *within* a day for display purposes.
   dayKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
         runningBalance += entry.credit - entry.debit;
         entry.balance = runningBalance;
     });
-    groupedEntries[key].closingBalance = runningBalance;
   });
 
   const handleSelectEntry = useCallback((entryId: string, isSelected: boolean) => {
@@ -714,7 +718,7 @@ export default function LedgerPage() {
                 <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentDayKey, ...dayKeys.filter(k => k !== currentDayKey)]}>
                     {dayKeys.map(dayKey => {
                        const dayData = groupedEntries[dayKey];
-                       if (dayData.entries.length === 0 && !hasActiveFilters) return null;
+                       if (!dayData || dayData.entries.length === 0) return null;
                        
                        const dayEntryIds = dayData.entries.map(e => e.id).filter(id => id.includes('-'));
                        const areAllSelected = dayEntryIds.length > 0 && dayEntryIds.every(id => selectedEntries.includes(id));
@@ -891,5 +895,4 @@ export default function LedgerPage() {
     </>
   );
 }
-
 
