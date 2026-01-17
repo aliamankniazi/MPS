@@ -60,12 +60,11 @@ export default function InventoryPage() {
   
   const allUnits = React.useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
-    const unitsFromProducts = products.map(p => p.unit).filter(Boolean) as string[];
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
     const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
     const uniqueUnits = [...new Set(combinedUnits)];
     return uniqueUnits.map(lowerUnit => {
-        const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
-        return originalCasing || lowerUnit;
+        return unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit) || lowerUnit;
     }).filter(Boolean);
   }, [products]);
 
@@ -99,10 +98,8 @@ export default function InventoryPage() {
           setProductValue('price', productToEdit.price);
           setProductValue('unit', productToEdit.unit);
           setProductValue('category', productToEdit.category);
-      } else {
-          resetProduct({name: '', price: 0, unit: '', category: undefined});
       }
-  }, [productToEdit, setProductValue, resetProduct]);
+  }, [productToEdit, setProductValue]);
   
   const handleDeleteProduct = () => {
       if (!productToDelete) return;
@@ -123,78 +120,74 @@ export default function InventoryPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Package /> Main Product Inventory (Fuel)
+            <Package /> Inventory Status
           </CardTitle>
           <CardDescription>
-            Current stock levels for all main fuel products.
+            Current stock levels for all products.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {!isLoaded ? (
-            Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="space-y-2">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-5 w-48" />
-                <Skeleton className="h-4 w-full" />
-              </div>
-            ))
-          ) : mainProducts.length > 0 ? (
-            <div className="grid gap-8 sm:grid-cols-1 lg:grid-cols-3">
-              {mainProducts.map(product => {
-                const currentStock = fuelStock[product.name as FuelType] || 0;
-                const maxStock = MAX_CAPACITY[product.name] || 20000;
-                const percentage = Math.min((currentStock / maxStock) * 100, 100);
-                
-                return (
-                   <Card key={product.id} className="flex flex-col">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                           <Droplets className="w-6 h-6 text-primary" /> {product.name}
-                        </CardTitle>
-                    </CardHeader>
-                     <CardContent className="flex-grow space-y-4">
-                        <div className="text-center">
-                            <p className="text-3xl font-bold tracking-tighter">
-                                {currentStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </p>
-                            <p className="text-muted-foreground">{product.unit} in Stock</p>
-                        </div>
-                        <div className="space-y-2">
-                           <Progress value={percentage} className="h-3" progressColor={getProgressColor(percentage)} />
-                           <div className="flex justify-between text-xs text-muted-foreground">
-                               <span>0 L</span>
-                               <span>{percentage.toFixed(0)}%</span>
-                               <span>{maxStock.toLocaleString()} L</span>
-                           </div>
-                        </div>
-                     </CardContent>
-                   </Card>
-                );
-              })}
+            <div>
+                <h3 className="text-lg font-medium mb-4">Main Products (Fuel)</h3>
+                {!isLoaded ? (
+                Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                    <Skeleton className="h-6 w-32" />
+                    <Skeleton className="h-5 w-48" />
+                    <Skeleton className="h-4 w-full" />
+                    </div>
+                ))
+                ) : mainProducts.length > 0 ? (
+                <div className="grid gap-8 sm:grid-cols-1 lg:grid-cols-3">
+                    {mainProducts.map(product => {
+                    const currentStock = fuelStock[product.name as FuelType] || 0;
+                    const maxStock = MAX_CAPACITY[product.name] || 20000;
+                    const percentage = Math.min((currentStock / maxStock) * 100, 100);
+                    
+                    return (
+                        <Card key={product.id} className="flex flex-col">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <Droplets className="w-6 h-6 text-primary" /> {product.name}
+                            </CardTitle>
+                        </CardHeader>
+                            <CardContent className="flex-grow space-y-4">
+                            <div className="text-center">
+                                <p className="text-3xl font-bold tracking-tighter">
+                                    {currentStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                                <p className="text-muted-foreground">{product.unit} in Stock</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Progress value={percentage} className="h-3" progressColor={getProgressColor(percentage)} />
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                    <span>0 L</span>
+                                    <span>{percentage.toFixed(0)}%</span>
+                                    <span>{maxStock.toLocaleString()} L</span>
+                                </div>
+                            </div>
+                            </CardContent>
+                        </Card>
+                    );
+                    })}
+                </div>
+                ) : (
+                <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                    <Package className="w-16 h-16" />
+                    <h3 className="text-xl font-semibold">No Main Products Found</h3>
+                    <p>Add products with the category 'Main Product' to see them here.</p>
+                </div>
+                )}
+                <div className="mt-6 text-center text-sm text-muted-foreground">
+                <p>Need to correct the stock levels? <Button variant="link" asChild className="p-0 h-auto"><Link href="/stock-adjustment">Adjust inventory manually</Link></Button>.</p>
+                </div>
             </div>
-          ) : (
-             <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                <Package className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">No Main Products Found</h3>
-                <p>Add products with the category 'Main Product' to see them here.</p>
-             </div>
-          )}
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-             <p>Need to correct the stock levels? <Button variant="link" asChild className="p-0 h-auto"><Link href="/stock-adjustment">Adjust inventory manually</Link></Button>.</p>
-          </div>
-        </CardContent>
-      </Card>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Boxes /> Supplementary Product Inventory
-          </CardTitle>
-          <CardDescription>
-            Inventory for supplementary products like oils and lubricants.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          
+          <Separator />
+
+          <div>
+            <h3 className="text-lg font-medium">Supplementary Products</h3>
+            <p className="text-sm text-muted-foreground mb-4">Inventory for supplementary products like oils and lubricants.</p>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -224,6 +217,7 @@ export default function InventoryPage() {
                 </TableBody>
             </Table>
             <p className="text-xs text-muted-foreground mt-2">Note: Automatic stock tracking for supplementary products is not yet available as their purchases cannot be recorded.</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -251,7 +245,7 @@ export default function InventoryPage() {
                             name="unit"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <SelectTrigger><SelectValue placeholder="Select unit..." /></SelectTrigger>
                                     <SelectContent>
                                         {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
@@ -270,8 +264,8 @@ export default function InventoryPage() {
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger><SelectValue placeholder="Select category..." /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
-                                        <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
+                                        <SelectItem value="Main Product">Main Product</SelectItem>
+                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
@@ -344,7 +338,7 @@ export default function InventoryPage() {
                         name="unit"
                         control={controlProduct}
                         render={({ field }) => (
-                            <Select onValueChange={field.onChange} value={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value || ''}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
@@ -363,8 +357,8 @@ export default function InventoryPage() {
                             <Select onValueChange={field.onChange} value={field.value}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
-                                    <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
+                                    <SelectItem value="Main Product">Main Product</SelectItem>
+                                    <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -400,5 +394,3 @@ export default function InventoryPage() {
     </>
   );
 }
-
-    
