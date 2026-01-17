@@ -8,8 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { FileText, Printer, Search } from 'lucide-react';
-import type { Supplier } from '@/lib/types';
+import { FileText, Printer, Search, Calendar as CalendarIcon } from 'lucide-react';
+import type { Supplier, DateRange } from '@/lib/types';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -35,7 +39,7 @@ interface ReportRow {
 }
 
 export default function SupplierReportPage() {
-    const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
+    const { suppliers, purchases, supplierPayments, isLoaded, dateRange, setDateRange } = useDatabase();
 
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -48,20 +52,34 @@ export default function SupplierReportPage() {
             targetSuppliers = suppliers.filter(c => c.id === selectedSupplierId);
         }
 
+        const from = dateRange?.from ? startOfDay(dateRange.from) : null;
+        const to = dateRange?.to ? endOfDay(dateRange.to) : (from ? endOfDay(from) : null);
+
         const report: ReportRow[] = targetSuppliers.map(supplier => {
             
-            // Previous Balance: Amount we owe the supplier. Credit is positive.
-            const allPurchases = purchases.filter(p => p.supplierId === supplier.id);
-            const allPayments = supplierPayments.filter(p => p.supplierId === supplier.id);
+            const openingBalance = 
+              purchases.filter(p => p.supplierId === supplier.id && from && new Date(p.timestamp) < from)
+                       .reduce((sum, p) => sum + p.totalCost, 0) -
+              supplierPayments.filter(p => p.supplierId === supplier.id && from && new Date(p.timestamp) < from)
+                            .reduce((sum, p) => sum + p.amount, 0);
+
+            const filterByDateRange = (item: { timestamp: string }) => {
+                if (!from || !to) return true;
+                const itemDate = new Date(item.timestamp);
+                return isValid(itemDate) && itemDate >= from && itemDate <= to;
+            }
+            
+            const allPurchases = purchases.filter(p => p.supplierId === supplier.id && filterByDateRange(p));
+            const allPayments = supplierPayments.filter(p => p.supplierId === supplier.id && filterByDateRange(p));
             
             const totalCredit = allPurchases.reduce((sum, p) => sum + p.totalCost, 0);
             const totalDebit = allPayments.reduce((sum, p) => sum + p.amount, 0);
-            const currentBalance = totalCredit - totalDebit;
+            const currentBalance = openingBalance + totalCredit - totalDebit;
 
             return {
                 id: supplier.id,
                 supplier,
-                previousBalance: 0, // In all-time report, previous balance is always 0
+                previousBalance: openingBalance, 
                 purchaseAmount: totalCredit,
                 purchaseVolume: allPurchases.reduce((sum, p) => sum + p.volume, 0),
                 payment: totalDebit,
@@ -74,7 +92,7 @@ export default function SupplierReportPage() {
 
         return report.sort((a,b) => a.supplier.name.localeCompare(b.supplier.name));
 
-    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId]);
+    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -109,7 +127,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Supplier Report
                     </CardTitle>
                     <CardDescription>
-                        View all-time purchases, payments, and balances for suppliers.
+                        View purchases, payments, and balances for suppliers.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -125,6 +143,45 @@ Mianwali Petroleum Service`;
                                     {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="w-full md:w-auto">
+                            <label className="text-sm font-medium">Date Range</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !dateRange && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dateRange?.from ? (
+                                            dateRange.to ? (
+                                            <>
+                                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                                {format(dateRange.to, "LLL dd, y")}
+                                            </>
+                                            ) : (
+                                            format(dateRange.from, "LLL dd, y")
+                                            )
+                                        ) : (
+                                            <span>Pick a date range</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dateRange?.from}
+                                        selected={dateRange}
+                                        onSelect={setDateRange}
+                                        numberOfMonths={2}
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                 </CardContent>

@@ -4,14 +4,14 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
+import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment, DateRange } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +25,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 
 type CombinedEntry = {
@@ -68,6 +70,8 @@ export default function AllTransactionsPage() {
     deleteExpense,
     deleteCashAdvance,
     isLoaded,
+    dateRange,
+    setDateRange
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
@@ -160,19 +164,39 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
   const filteredEntries = useMemo(() => {
-    if (!searchTerm) return combinedEntries;
+    let entries = combinedEntries;
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from);
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+      entries = entries.filter(entry => {
+          const entryDate = new Date(entry.timestamp);
+          return isValid(entryDate) && entryDate >= from && entryDate <= to;
+      });
+    }
+
+    if (!searchTerm) return entries;
     
-    return combinedEntries.filter(entry =>
+    return entries.filter(entry =>
       (entry.partner && entry.partner.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.type && entry.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [combinedEntries, searchTerm]);
+  }, [combinedEntries, searchTerm, dateRange]);
 
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
+
+    let currentTransactions = transactions;
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+        currentTransactions = transactions.filter(tx => {
+            const txDate = new Date(tx.timestamp);
+            return isValid(txDate) && txDate >= from && txDate <= to;
+        });
+    }
     
-    const customerTotals = transactions.reduce((acc, tx) => {
+    const customerTotals = currentTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
                 id: tx.customerId,
@@ -187,7 +211,7 @@ export default function AllTransactionsPage() {
         .sort((a,b) => b.total - a.total)
         .slice(0, 5);
 
-  }, [isLoaded, transactions]);
+  }, [isLoaded, transactions, dateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
@@ -257,12 +281,50 @@ export default function AllTransactionsPage() {
                     </CardTitle>
                     <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
                 </div>
-                <Input 
-                    placeholder="Search by partner, type, details..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="max-w-sm"
-                />
+                 <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[260px] justify-start text-left font-normal",
+                                    !dateRange && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                    dateRange.to ? (
+                                    <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                    </>
+                                    ) : (
+                                    format(dateRange.from, "LLL dd, y")
+                                    )
+                                ) : (
+                                    <span>Pick a date range</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                    <Input 
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="max-w-sm"
+                    />
+                </div>
             </div>
             </CardHeader>
             <CardContent>

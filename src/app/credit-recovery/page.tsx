@@ -8,9 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { format } from 'date-fns';
-import { FileText, Printer, Search } from 'lucide-react';
-import type { Customer } from '@/lib/types';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
+import { FileText, Printer, Search, Calendar as CalendarIcon } from 'lucide-react';
+import type { Customer, DateRange } from '@/lib/types';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -35,7 +38,7 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -48,23 +51,38 @@ export default function CreditRecoveryPage() {
             targetCustomers = customers.filter(c => c.id === selectedCustomerId);
         }
 
+        const from = dateRange?.from ? startOfDay(dateRange.from) : null;
+        const to = dateRange?.to ? endOfDay(dateRange.to) : (from ? endOfDay(from) : null);
+
         const report: ReportRow[] = targetCustomers.map(customer => {
-            const openingBalance = customer.openingBalance || 0;
-            
-            // Calculate total debits (sales, cash advances)
+            const customerOpeningBalance = customer.openingBalance || 0;
+
+            const openingBalance = customerOpeningBalance +
+              transactions.filter(tx => tx.customerId === customer.id && from && new Date(tx.timestamp) < from)
+                          .reduce((sum, tx) => sum + tx.totalAmount, 0) +
+              cashAdvances.filter(ca => ca.customerId === customer.id && from && new Date(ca.timestamp) < from)
+                          .reduce((sum, ca) => sum + ca.amount, 0) -
+              customerPayments.filter(p => p.customerId === customer.id && from && new Date(p.timestamp) < from)
+                          .reduce((sum, p) => sum + p.amount, 0);
+
+            const filterByDateRange = (item: { timestamp: string }) => {
+                if (!from || !to) return true;
+                const itemDate = new Date(item.timestamp);
+                return isValid(itemDate) && itemDate >= from && itemDate <= to;
+            }
+
             const totalSales = transactions
-                .filter(tx => tx.customerId === customer.id)
+                .filter(tx => tx.customerId === customer.id && filterByDateRange(tx))
                 .reduce((sum, tx) => sum + tx.totalAmount, 0);
 
             const totalCashAdvances = cashAdvances
-                .filter(ca => ca.customerId === customer.id)
+                .filter(ca => ca.customerId === customer.id && filterByDateRange(ca))
                 .reduce((sum, ca) => sum + ca.amount, 0);
-
+            
             const totalDebit = totalSales + totalCashAdvances;
 
-            // Calculate total credits (payments)
             const totalRecovery = customerPayments
-                .filter(p => p.customerId === customer.id)
+                .filter(p => p.customerId === customer.id && filterByDateRange(p))
                 .reduce((sum, p) => sum + p.amount, 0);
             
             const currentBalance = openingBalance + totalDebit - totalRecovery;
@@ -78,15 +96,13 @@ export default function CreditRecoveryPage() {
                 currentBalance,
             };
         }).filter(row => {
-            // If a specific customer is selected, always show them.
             if (selectedCustomerId !== 'all') return true;
-            // Otherwise, only show customers with a non-zero current balance.
             return row.currentBalance !== 0;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId]);
+    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -102,7 +118,9 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const period = 'all time';
+        const period = dateRange?.from ? 
+            (dateRange.to ? `${format(dateRange.from, 'PP')} to ${format(dateRange.to, 'PP')}` : format(dateRange.from, 'PP'))
+            : 'all time';
 
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -127,7 +145,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Customer Sale and Recovery Report
                     </CardTitle>
                     <CardDescription>
-                        View all-time sales, recoveries, and balances for customers.
+                        View sales, recoveries, and balances for customers. Use the filters to narrow down the report.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -143,6 +161,45 @@ Mianwali Petroleum Service`;
                                     {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>
+                        </div>
+                        <div className="w-full md:w-auto">
+                            <label className="text-sm font-medium">Date Range</label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        id="date"
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !dateRange && "text-muted-foreground"
+                                        )}
+                                        >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {dateRange?.from ? (
+                                            dateRange.to ? (
+                                            <>
+                                                {format(dateRange.from, "LLL dd, y")} -{" "}
+                                                {format(dateRange.to, "LLL dd, y")}
+                                            </>
+                                            ) : (
+                                            format(dateRange.from, "LLL dd, y")
+                                            )
+                                        ) : (
+                                            <span>Pick a date range</span>
+                                        )}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="end">
+                                    <Calendar
+                                        initialFocus
+                                        mode="range"
+                                        defaultMonth={dateRange?.from}
+                                        selected={dateRange}
+                                        onSelect={setDateRange}
+                                        numberOfMonths={2}
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                 </CardContent>

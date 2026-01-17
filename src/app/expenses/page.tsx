@@ -12,8 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search } from 'lucide-react';
-import type { ExpenseCategory, Expense } from '@/lib/types';
-import { format, isValid } from 'date-fns';
+import type { ExpenseCategory, Expense, DateRange } from '@/lib/types';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -35,7 +35,7 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense } = useDatabase();
+  const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -50,13 +50,23 @@ export default function ExpensesPage() {
   });
 
   const filteredExpenses = useMemo(() => {
-    if (!searchTerm) return expenses;
+    let currentExpenses = expenses;
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+        currentExpenses = currentExpenses.filter(expense => {
+            const expenseDate = new Date(expense.timestamp);
+            return isValid(expenseDate) && expenseDate >= from && expenseDate <= to;
+        });
+    }
     
-    return expenses.filter(expense => 
+    if (!searchTerm) return currentExpenses;
+    
+    return currentExpenses.filter(expense => 
         expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [expenses, searchTerm]);
+  }, [expenses, searchTerm, dateRange]);
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
     addExpense({
@@ -222,6 +232,42 @@ export default function ExpensesPage() {
                     </CardDescription>
                 </div>
                 <div className="flex items-center gap-2">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[260px] justify-start text-left font-normal",
+                                    !dateRange && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                    dateRange.to ? (
+                                    <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                    </>
+                                    ) : (
+                                    format(dateRange.from, "LLL dd, y")
+                                    )
+                                ) : (
+                                    <span>Pick a date range</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                            />
+                        </PopoverContent>
+                    </Popover>
                      <div className="relative w-full max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input

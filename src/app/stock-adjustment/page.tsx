@@ -11,11 +11,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Package, Edit, List, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { FuelType, StockAdjustment } from '@/lib/types';
+import type { FuelType, StockAdjustment, DateRange } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -48,7 +48,9 @@ export default function StockAdjustmentPage() {
     stockAdjustments,
     addStockAdjustment,
     deleteStockAdjustment,
-    isLoaded
+    isLoaded,
+    dateRange,
+    setDateRange,
   } = useDatabase();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
@@ -69,6 +71,18 @@ export default function StockAdjustmentPage() {
     const adj = Number(adjustmentValue) || 0;
     return Number(currentStock) + adj;
   }, [currentStock, adjustmentValue]);
+
+  const filteredAdjustments = React.useMemo(() => {
+    if (!dateRange || !dateRange.from) {
+      return stockAdjustments;
+    }
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+    return stockAdjustments.filter(adj => {
+        const adjDate = new Date(adj.timestamp);
+        return isValid(adjDate) && adjDate >= from && adjDate <= to;
+    });
+  }, [stockAdjustments, dateRange]);
 
 
   const onAdjustmentSubmit: SubmitHandler<AdjustmentFormValues> = (data) => {
@@ -200,6 +214,42 @@ export default function StockAdjustmentPage() {
                         <CardTitle className="flex items-center gap-2"><List /> Adjustment History</CardTitle>
                         <CardDescription>A log of all manual stock adjustments.</CardDescription>
                     </div>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant={"outline"}
+                                className={cn(
+                                    "w-[260px] justify-start text-left font-normal",
+                                    !dateRange && "text-muted-foreground"
+                                )}
+                                >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateRange?.from ? (
+                                    dateRange.to ? (
+                                    <>
+                                        {format(dateRange.from, "LLL dd, y")} -{" "}
+                                        {format(dateRange.to, "LLL dd, y")}
+                                    </>
+                                    ) : (
+                                    format(dateRange.from, "LLL dd, y")
+                                    )
+                                ) : (
+                                    <span>Pick a date range</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={dateRange?.from}
+                                selected={dateRange}
+                                onSelect={setDateRange}
+                                numberOfMonths={2}
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
             </CardHeader>
             <CardContent>
@@ -215,8 +265,8 @@ export default function StockAdjustmentPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoaded && stockAdjustments.length > 0 ? (
-                            stockAdjustments.map(adj => (
+                        {isLoaded && filteredAdjustments.length > 0 ? (
+                            filteredAdjustments.map(adj => (
                                 <TableRow key={adj.id}>
                                     <TableCell className="font-medium">{format(new Date(adj.timestamp), 'PP pp')}</TableCell>
                                     <TableCell>{adj.fuelType}</TableCell>

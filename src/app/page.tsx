@@ -13,6 +13,8 @@ import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import type { DateRange } from '@/lib/types';
+
 
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, isLoaded, dateRange, setDateRange } = useDatabase();
@@ -391,9 +393,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-
-
-
-
-

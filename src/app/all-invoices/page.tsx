@@ -4,19 +4,21 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { FileText, XCircle, Printer, Search, Download } from 'lucide-react';
+import { FileText, XCircle, Printer, Search, Download, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Transaction, Purchase } from '@/lib/types';
+import type { Transaction, Purchase, DateRange } from '@/lib/types';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 
 type CombinedInvoice = {
@@ -40,14 +42,31 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
+  const { transactions, purchases, isLoaded, colorSettings, dateRange, setDateRange } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
   const allInvoicesForExport = useMemo(() => {
     if (!isLoaded) return [];
 
-    const salesInvoices: CombinedInvoice[] = transactions.map(tx => ({
+    let allTransactions = transactions;
+    let allPurchases = purchases;
+
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+
+        const filterByDate = (items: any[]) => items.filter(item => {
+            const itemDate = new Date(item.timestamp);
+            return isValid(itemDate) && itemDate >= from && itemDate <= to;
+        });
+
+        allTransactions = filterByDate(transactions);
+        allPurchases = filterByDate(purchases);
+    }
+
+
+    const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => ({
       id: `sale-${tx.id}`,
       originalId: tx.id,
       timestamp: tx.timestamp,
@@ -59,7 +78,7 @@ export default function AllInvoicesPage() {
       isCreditSale: tx.paymentMethod === 'Credit',
     }));
 
-    const purchaseInvoices: CombinedInvoice[] = purchases.map(p => ({
+    const purchaseInvoices: CombinedInvoice[] = allPurchases.map(p => ({
       id: `purchase-${p.id}`,
       originalId: p.id,
       timestamp: p.timestamp,
@@ -77,7 +96,7 @@ export default function AllInvoicesPage() {
         return dateB.getTime() - dateA.getTime();
       });
 
-  }, [isLoaded, transactions, purchases]);
+  }, [isLoaded, transactions, purchases, dateRange]);
 
   const groupedInvoices = useMemo(() => {
     let filtered = allInvoicesForExport;
@@ -149,7 +168,43 @@ export default function AllInvoicesPage() {
               </CardTitle>
               <CardDescription>A list of all generated sales and purchase invoices, grouped by month.</CardDescription>
             </div>
-             <div className="flex items-center gap-2">
+             <div className="flex items-center gap-2 flex-wrap">
+                 <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            id="date"
+                            variant={"outline"}
+                            className={cn(
+                                "w-[260px] justify-start text-left font-normal",
+                                !dateRange && "text-muted-foreground"
+                            )}
+                            >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (
+                                dateRange.to ? (
+                                <>
+                                    {format(dateRange.from, "LLL dd, y")} -{" "}
+                                    {format(dateRange.to, "LLL dd, y")}
+                                </>
+                                ) : (
+                                format(dateRange.from, "LLL dd, y")
+                                )
+                            ) : (
+                                <span>Pick a date range</span>
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar
+                            initialFocus
+                            mode="range"
+                            defaultMonth={dateRange?.from}
+                            selected={dateRange}
+                            onSelect={setDateRange}
+                            numberOfMonths={2}
+                        />
+                    </PopoverContent>
+                </Popover>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Filter by type..." />

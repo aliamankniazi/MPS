@@ -8,8 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
-import { Award, BookText, Search } from 'lucide-react';
+import { Award, BookText, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
+import type { DateRange } from '@/lib/types';
 
 
 interface CustomerRanking {
@@ -20,13 +25,23 @@ interface CustomerRanking {
 }
 
 export default function TopCustomersPage() {
-    const { transactions, isLoaded } = useDatabase();
+    const { transactions, isLoaded, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const customerRankings = useMemo(() => {
         if (!isLoaded) return [];
 
-        const customerData = transactions.reduce((acc, tx) => {
+        let filteredTransactions = transactions;
+        if (dateRange?.from) {
+            const from = startOfDay(dateRange.from);
+            const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+            filteredTransactions = transactions.filter(tx => {
+                const txDate = new Date(tx.timestamp);
+                return isValid(txDate) && txDate >= from && txDate <= to;
+            });
+        }
+
+        const customerData = filteredTransactions.reduce((acc, tx) => {
             if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
                 if (!acc[tx.customerId]) {
                     acc[tx.customerId] = {
@@ -44,7 +59,7 @@ export default function TopCustomersPage() {
 
         return Object.values(customerData).sort((a, b) => b.totalSales - a.totalSales);
 
-    }, [isLoaded, transactions]);
+    }, [isLoaded, transactions, dateRange]);
     
     const filteredRankings = useMemo(() => {
         if (!searchTerm) return customerRankings;
@@ -62,14 +77,52 @@ export default function TopCustomersPage() {
                     <CardDescription>
                         A ranked list of all customers by total sales value.
                     </CardDescription>
-                     <div className="relative w-full max-w-sm pt-4">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by customer name..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
-                        />
+                     <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-4">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                        "w-full sm:w-[260px] justify-start text-left font-normal",
+                                        !dateRange && "text-muted-foreground"
+                                    )}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                        dateRange.to ? (
+                                        <>
+                                            {format(dateRange.from, "LLL dd, y")} -{" "}
+                                            {format(dateRange.to, "LLL dd, y")}
+                                        </>
+                                        ) : (
+                                        format(dateRange.from, "LLL dd, y")
+                                        )
+                                    ) : (
+                                        <span>Pick a date range</span>
+                                    )}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
+                                />
+                            </PopoverContent>
+                        </Popover>
+                        <div className="relative w-full max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search by customer name..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10"
+                            />
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
