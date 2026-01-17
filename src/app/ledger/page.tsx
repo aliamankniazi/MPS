@@ -39,6 +39,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
+  partnerName: string;
   type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage' | 'Daily Closing Stock' | 'Salary Expense';
   debit: number;
   credit: number;
@@ -127,7 +128,7 @@ export default function LedgerPage() {
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
         const customerName = tx.customerName || 'Walk-in Customer';
-        let description = `Sale: ${tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: tx.product} to ${customerName}`;
+        let description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: (tx.product || 'General Sale');
         if (tx.notes) {
           description += ` (${tx.notes})`;
         }
@@ -138,6 +139,7 @@ export default function LedgerPage() {
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description,
+            partnerName: customerName,
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
             credit: !isCreditSale ? tx.totalAmount : 0,
@@ -149,11 +151,12 @@ export default function LedgerPage() {
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         const isSalary = cp.paymentMethod === 'Salary';
-        // For general journal, salary is a debit (expense), other payments are credit (cash in)
+        const description = cp.notes || (isSalary ? `Salary Payment` : `Payment Received`);
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
-          description: cp.notes || (isSalary ? `Salary to ${cp.customerName}` : `Payment from ${cp.customerName}`),
+          description,
+          partnerName: cp.customerName,
           type: isSalary ? 'Salary' : 'Customer Payment',
           debit: isSalary ? cp.amount : 0,
           credit: isSalary ? 0 : cp.amount,
@@ -166,7 +169,8 @@ export default function LedgerPage() {
         combined.push({
           id: `ca-${ca.id}`,
           timestamp: ca.timestamp,
-          description: ca.notes || `Cash Advance to ${ca.customerName}`,
+          description: ca.notes || 'Cash Advance',
+          partnerName: ca.customerName,
           type: 'Cash Advance',
           debit: ca.amount,
           credit: 0,
@@ -176,10 +180,12 @@ export default function LedgerPage() {
 
     purchases.forEach(p => {
         if (!p.timestamp || !isValid(new Date(p.timestamp))) return;
+        const description = p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase');
         combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
-            description: `Purchase from ${p.supplier}: ${p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType}`,
+            description,
+            partnerName: p.supplier,
             type: 'Purchase',
             credit: p.totalCost,
             debit: 0,
@@ -191,7 +197,8 @@ export default function LedgerPage() {
         combined.push({
             id: `sp-${sp.id}`,
             timestamp: sp.timestamp,
-            description: `Payment to ${sp.supplierName}`,
+            description: `Payment Made (${sp.paymentMethod})`,
+            partnerName: sp.supplierName,
             type: 'Supplier Payment',
             debit: sp.amount, 
             credit: 0, 
@@ -208,6 +215,7 @@ export default function LedgerPage() {
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
             description: description,
+            partnerName: 'Internal',
             type: 'Expense',
             debit: e.amount,
             credit: 0,
@@ -219,7 +227,8 @@ export default function LedgerPage() {
         combined.push({
             id: `pr-${pr.id}`,
             timestamp: pr.timestamp,
-            description: `Return to ${pr.supplier}: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
+            description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
+            partnerName: pr.supplier,
             type: 'Purchase Return',
             debit: 0,
             credit: pr.totalRefund,
@@ -231,7 +240,8 @@ export default function LedgerPage() {
       combined.push({
         id: `sr-${sr.id}`,
         timestamp: sr.timestamp,
-        description: `Return from ${sr.customerName}: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+        description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+        partnerName: sr.customerName,
         type: 'Sale Return',
         debit: sr.totalRefund,
         credit: 0,
@@ -244,6 +254,7 @@ export default function LedgerPage() {
             id: `oi-${oi.id}`,
             timestamp: oi.timestamp,
             description: `Income: ${oi.description}`,
+            partnerName: 'Internal',
             type: 'Other Income',
             debit: 0,
             credit: oi.amount,
@@ -256,7 +267,8 @@ export default function LedgerPage() {
             combined.push({
                 id: `inv-${inv.id}`,
                 timestamp: inv.timestamp,
-                description: `Investment from ${inv.partnerName}`,
+                description: inv.notes || 'Investment',
+                partnerName: inv.partnerName,
                 type: 'Investment',
                 debit: 0,
                 credit: inv.amount,
@@ -266,7 +278,8 @@ export default function LedgerPage() {
             combined.push({
                 id: `wdr-${inv.id}`,
                 timestamp: inv.timestamp,
-                description: `Withdrawal by ${inv.partnerName}`,
+                description: inv.notes || 'Withdrawal',
+                partnerName: inv.partnerName,
                 type: 'Withdrawal',
                 debit: inv.amount,
                 credit: 0,
@@ -282,6 +295,7 @@ export default function LedgerPage() {
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
+                partnerName: 'Inventory',
                 type: 'Stock Surplus',
                 debit: 0,
                 credit: adj.value,
@@ -292,6 +306,7 @@ export default function LedgerPage() {
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
+                partnerName: 'Inventory',
                 type: 'Stock Shortage',
                 debit: adj.value,
                 credit: 0,
@@ -774,6 +789,7 @@ export default function LedgerPage() {
                                                     </TableHead>
                                                     <TableHead>Sr #</TableHead>
                                                     <TableHead>Date & Time</TableHead>
+                                                    <TableHead>Partner</TableHead>
                                                     <TableHead>Particulars</TableHead>
                                                     <TableHead>Type</TableHead>
                                                     <TableHead className="text-right">Debit</TableHead>
@@ -806,8 +822,11 @@ export default function LedgerPage() {
                                                             </TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
                                                                 <Link href={link} className="hover:underline">
-                                                                    {entry.description}
+                                                                    {entry.partnerName}
                                                                 </Link>
+                                                            </TableCell>
+                                                            <TableCell className="font-medium" style={{ color }}>
+                                                                {entry.description}
                                                             </TableCell>
                                                             <TableCell>
                                                             <Badge 
@@ -895,4 +914,6 @@ export default function LedgerPage() {
     </>
   );
 }
+
+
 
