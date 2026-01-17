@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { useToast } from '@/hooks/use-toast';
 import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -54,12 +54,24 @@ export default function ExpensesPage() {
   }, [dateRange, reset]);
 
   const filteredExpenses = useMemo(() => {
-    if (!searchTerm) return expenses;
-    return expenses.filter(expense => 
+    let filtered = expenses;
+
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        filtered = filtered.filter(expense => {
+            const expenseDate = new Date(expense.timestamp);
+            return isValid(expenseDate) && expenseDate >= from && expenseDate <= to;
+        });
+    }
+
+    if (!searchTerm) return filtered;
+    
+    return filtered.filter(expense => 
         expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [expenses, searchTerm]);
+  }, [expenses, searchTerm, dateRange]);
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
     addExpense({

@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Archive, XCircle, Printer, Trash2, AlertTriangle, ArrowRight, ListOrdered, Pencil, BookText } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -68,7 +67,8 @@ export default function AllTransactionsPage() {
     deleteCustomerPayment,
     deleteExpense,
     deleteCashAdvance,
-    isLoaded 
+    isLoaded,
+    dateRange,
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
@@ -161,18 +161,40 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
   const filteredEntries = useMemo(() => {
-    if (!searchTerm) return combinedEntries;
-    return combinedEntries.filter(entry =>
+    let filtered = combinedEntries;
+
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        filtered = filtered.filter(entry => {
+            const entryDate = new Date(entry.timestamp);
+            return isValid(entryDate) && entryDate >= from && entryDate <= to;
+        });
+    }
+    
+    if (!searchTerm) return filtered;
+    
+    return filtered.filter(entry =>
       (entry.partner && entry.partner.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.type && entry.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [combinedEntries, searchTerm]);
+  }, [combinedEntries, searchTerm, dateRange]);
 
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
 
-    const customerTotals = transactions.reduce((acc, tx) => {
+    let filteredTransactions = transactions;
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        filteredTransactions = transactions.filter(tx => {
+            const txDate = new Date(tx.timestamp);
+            return isValid(txDate) && txDate >= from && txDate <= to;
+        });
+    }
+    
+    const customerTotals = filteredTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
                 id: tx.customerId,
@@ -187,7 +209,7 @@ export default function AllTransactionsPage() {
         .sort((a,b) => b.total - a.total)
         .slice(0, 5);
 
-  }, [isLoaded, transactions]);
+  }, [isLoaded, transactions, dateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { 
@@ -273,13 +272,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             // A separate listener to just check for the first data load
             get(dbRef).then(() => {
                 loadedCount++;
-                if (loadedCount === pathsToLoad.length && !state.isLoaded) {
+                if (loadedCount === pathsToLoad.length) {
                     setState(s => ({ ...s, isLoaded: true }));
                 }
             }).catch(() => {
                 // Also increment on error to not block loading forever
                 loadedCount++;
-                if (loadedCount === pathsToLoad.length && !state.isLoaded) {
+                if (loadedCount === pathsToLoad.length) {
                     setState(s => ({ ...s, isLoaded: true }));
                 }
             });
@@ -290,7 +289,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    }, [state.isLoaded]);
+    }, []);
     
     const processedState: ProcessedDatabaseState = useMemo(() => {
         const createSorter = (key: keyof (Transaction & { name: string }), order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
@@ -664,6 +663,7 @@ export const useDatabase = () => {
     
 
     
+
 
 
 
