@@ -22,6 +22,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useParams } from 'next/navigation';
 
 
 type LedgerEntry = {
@@ -35,7 +36,8 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
+export default function CustomerLedgerPage() {
+  const params = useParams<{ id: string }>();
   const { id: entityId } = params;
   const { 
     customers, 
