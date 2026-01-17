@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -14,13 +13,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { useToast } from '@/hooks/use-toast';
 import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
@@ -36,45 +35,28 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
+  const { expenses, addExpense, deleteExpense } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<ExpenseFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
-        date: dateRange?.from || new Date(),
+        date: new Date(),
     }
   });
 
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
-
   const filteredExpenses = useMemo(() => {
-    let filtered = expenses;
-
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-        filtered = filtered.filter(expense => {
-            const expenseDate = new Date(expense.timestamp);
-            return isValid(expenseDate) && expenseDate >= from && expenseDate <= to;
-        });
-    }
-
-    if (!searchTerm) return filtered;
+    if (!searchTerm) return expenses;
     
-    return filtered.filter(expense => 
+    return expenses.filter(expense => 
         expense.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         expense.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
-  }, [expenses, searchTerm, dateRange]);
+  }, [expenses, searchTerm]);
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
     addExpense({
@@ -85,8 +67,12 @@ export default function ExpensesPage() {
       title: 'Expense Recorded',
       description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
-    reset();
+    reset({
+        description: '',
+        category: undefined,
+        amount: 0,
+        date: new Date(),
+    });
   };
   
   const handleDeleteExpense = () => {

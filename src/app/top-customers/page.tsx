@@ -10,7 +10,6 @@ import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { Award, BookText, Search } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { startOfDay, endOfDay, isValid } from 'date-fns';
 
 
 interface CustomerRanking {
@@ -21,23 +20,13 @@ interface CustomerRanking {
 }
 
 export default function TopCustomersPage() {
-    const { transactions, isLoaded, dateRange } = useDatabase();
+    const { transactions, isLoaded } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const customerRankings = useMemo(() => {
         if (!isLoaded) return [];
 
-        let filteredTransactions = transactions;
-        if (dateRange?.from) {
-            const from = startOfDay(dateRange.from);
-            const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-            filteredTransactions = transactions.filter(tx => {
-                const txDate = new Date(tx.timestamp);
-                return isValid(txDate) && txDate >= from && txDate <= to;
-            });
-        }
-
-        const customerData = filteredTransactions.reduce((acc, tx) => {
+        const customerData = transactions.reduce((acc, tx) => {
             if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
                 if (!acc[tx.customerId]) {
                     acc[tx.customerId] = {
@@ -55,7 +44,7 @@ export default function TopCustomersPage() {
 
         return Object.values(customerData).sort((a, b) => b.totalSales - a.totalSales);
 
-    }, [isLoaded, transactions, dateRange]);
+    }, [isLoaded, transactions]);
     
     const filteredRankings = useMemo(() => {
         if (!searchTerm) return customerRankings;

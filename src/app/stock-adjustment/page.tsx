@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import * as React from 'react';
@@ -16,7 +15,7 @@ import type { FuelType, StockAdjustment } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
@@ -49,27 +48,18 @@ export default function StockAdjustmentPage() {
     stockAdjustments,
     addStockAdjustment,
     deleteStockAdjustment,
-    isLoaded,
-    dateRange,
-    setDateRange
+    isLoaded
   } = useDatabase();
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = React.useState<Date | undefined>();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 
   const { register, handleSubmit, control, reset, watch, setValue } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
     defaultValues: {
       adjustment: 0,
-      date: dateRange?.from || new Date(),
+      date: new Date(),
     }
   });
-  
-  React.useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
@@ -102,15 +92,13 @@ export default function StockAdjustmentPage() {
       title: 'Stock Adjusted',
       description: `${data.fuelType} stock has been updated to ${newStock.toLocaleString()} L.`,
     });
-    setDateRange({ from: data.date, to: data.date });
-    reset();
+    reset({
+        fuelType: undefined,
+        adjustment: 0,
+        date: new Date()
+    });
   };
   
-  const filteredAdjustments = React.useMemo(() => {
-    if (!selectedDate) return stockAdjustments;
-    return stockAdjustments.filter(adj => isSameDay(new Date(adj.timestamp), selectedDate));
-  }, [stockAdjustments, selectedDate]);
-
   const handleDeleteAdjustment = () => {
     if (!adjustmentToDelete) return;
     deleteStockAdjustment(adjustmentToDelete.id);
@@ -212,23 +200,6 @@ export default function StockAdjustmentPage() {
                         <CardTitle className="flex items-center gap-2"><List /> Adjustment History</CardTitle>
                         <CardDescription>A log of all manual stock adjustments.</CardDescription>
                     </div>
-                     <Popover>
-                        <PopoverTrigger asChild>
-                        <Button
-                            variant={"outline"}
-                            className={cn(
-                            "w-full sm:w-[240px] justify-start text-left font-normal",
-                            !selectedDate && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date...</span>}
-                        </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus />
-                        </PopoverContent>
-                    </Popover>
                 </div>
             </CardHeader>
             <CardContent>
@@ -244,8 +215,8 @@ export default function StockAdjustmentPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {isLoaded && filteredAdjustments.length > 0 ? (
-                            filteredAdjustments.map(adj => (
+                        {isLoaded && stockAdjustments.length > 0 ? (
+                            stockAdjustments.map(adj => (
                                 <TableRow key={adj.id}>
                                     <TableCell className="font-medium">{format(new Date(adj.timestamp), 'PP pp')}</TableCell>
                                     <TableCell>{adj.fuelType}</TableCell>
@@ -268,7 +239,7 @@ export default function StockAdjustmentPage() {
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                                    {isLoaded ? 'No adjustments recorded for this date.' : 'Loading adjustments...'}
+                                    {isLoaded ? 'No adjustments recorded.' : 'Loading adjustments...'}
                                 </TableCell>
                             </TableRow>
                         )}

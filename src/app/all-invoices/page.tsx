@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { FileText, XCircle, Printer, Search, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -40,7 +40,7 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings, dateRange } = useDatabase();
+  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
@@ -82,15 +82,6 @@ export default function AllInvoicesPage() {
   const groupedInvoices = useMemo(() => {
     let filtered = allInvoicesForExport;
 
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-        filtered = filtered.filter(invoice => {
-            const invoiceDate = new Date(invoice.timestamp);
-            return isValid(invoiceDate) && invoiceDate >= from && invoiceDate <= to;
-        });
-    }
-
     filtered = filtered.filter(invoice => {
         const searchMatch = !searchTerm ||
             invoice.partner.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -121,7 +112,7 @@ export default function AllInvoicesPage() {
         return acc;
     }, {} as GroupedInvoices);
 
-  }, [allInvoicesForExport, searchTerm, typeFilter, dateRange]);
+  }, [allInvoicesForExport, searchTerm, typeFilter]);
   
   const handleExportExcel = () => {
     const dataToExport = Object.values(groupedInvoices).flatMap(group => group.invoices)

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,13 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, FileText, Printer, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { FileText, Printer, Search } from 'lucide-react';
 import type { Supplier } from '@/lib/types';
-import type { DateRange } from 'react-day-picker';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -41,7 +35,7 @@ interface ReportRow {
 }
 
 export default function SupplierReportPage() {
-    const { suppliers, purchases, supplierPayments, isLoaded, dateRange } = useDatabase();
+    const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
 
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -55,49 +49,32 @@ export default function SupplierReportPage() {
         }
 
         const report: ReportRow[] = targetSuppliers.map(supplier => {
-            const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
-            const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : new Date());
-
+            
             // Previous Balance: Amount we owe the supplier. Credit is positive.
-            const prevPurchases = purchases.filter(p => p.supplierId === supplier.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) < rangeStart);
-            const prevPayments = supplierPayments.filter(p => p.supplierId === supplier.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) < rangeStart);
+            const allPurchases = purchases.filter(p => p.supplierId === supplier.id);
+            const allPayments = supplierPayments.filter(p => p.supplierId === supplier.id);
             
-            const prevCredit = prevPurchases.reduce((sum, p) => sum + p.totalCost, 0);
-            const prevDebit = prevPayments.reduce((sum, p) => sum + p.amount, 0);
-            const previousBalance = prevCredit - prevDebit;
-            
-            // Activity in date range
-            const rangePurchases = purchases.filter(p => p.supplierId === supplier.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) >= rangeStart && new Date(p.timestamp) <= rangeEnd);
-            const rangePayments = supplierPayments.filter(p => p.supplierId === supplier.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) >= rangeStart && new Date(p.timestamp) <= rangeEnd);
-
-            const purchaseAmount = rangePurchases.reduce((sum, p) => sum + p.totalCost, 0);
-            const purchaseVolume = rangePurchases.reduce((sum, p) => sum + p.volume, 0);
-            const payment = rangePayments.reduce((sum, p) => sum + p.amount, 0);
-            
-            const currentBalance = previousBalance + purchaseAmount - payment;
+            const totalCredit = allPurchases.reduce((sum, p) => sum + p.totalCost, 0);
+            const totalDebit = allPayments.reduce((sum, p) => sum + p.amount, 0);
+            const currentBalance = totalCredit - totalDebit;
 
             return {
                 id: supplier.id,
                 supplier,
-                previousBalance,
-                purchaseAmount,
-                purchaseVolume,
-                payment,
+                previousBalance: 0, // In all-time report, previous balance is always 0
+                purchaseAmount: totalCredit,
+                purchaseVolume: allPurchases.reduce((sum, p) => sum + p.volume, 0),
+                payment: totalDebit,
                 currentBalance,
             };
         }).filter(row => {
             if (selectedSupplierId !== 'all') return true;
-
-            if (dateRange?.from) {
-                return row.previousBalance !== 0 || row.purchaseAmount > 0 || row.payment > 0;
-            }
-            
             return row.currentBalance !== 0;
         });
 
         return report.sort((a,b) => a.supplier.name.localeCompare(b.supplier.name));
 
-    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId, dateRange]);
+    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -115,9 +92,8 @@ export default function SupplierReportPage() {
     const generateWhatsAppMessage = (row: ReportRow) => {
         const message = `Dear ${row.supplier.name},
 Your account summary:
-Previous Balance: Rs. ${row.previousBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-New Purchases: Rs. ${row.purchaseAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
-Payments Received: Rs. ${row.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+Total Purchases: Rs. ${row.purchaseAmount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+Total Payments Made: Rs. ${row.payment.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Net Balance: Rs. ${row.currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
 Thank you,
 Mianwali Petroleum Service`;
@@ -133,7 +109,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Supplier Report
                     </CardTitle>
                     <CardDescription>
-                        View purchases, payments, and balances for suppliers. Use the global date filter on the dashboard to change the reporting period.
+                        View all-time purchases, payments, and balances for suppliers.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -172,10 +148,9 @@ Mianwali Petroleum Service`;
                                 <TableRow>
                                     <TableHead>Supplier Name</TableHead>
                                     <TableHead>Contact</TableHead>
-                                    <TableHead className="text-right">Previous Balance</TableHead>
-                                    <TableHead className="text-right">New Purchases (Amt)</TableHead>
-                                    <TableHead className="text-right">New Purchases (Ltr)</TableHead>
-                                    <TableHead className="text-right">Payment Made</TableHead>
+                                    <TableHead className="text-right">Total Purchases (Amt)</TableHead>
+                                    <TableHead className="text-right">Total Purchases (Ltr)</TableHead>
+                                    <TableHead className="text-right">Total Payment Made</TableHead>
                                     <TableHead className="text-right">Current Balance</TableHead>
                                     <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
@@ -185,7 +160,6 @@ Mianwali Petroleum Service`;
                                     <TableRow key={row.id}>
                                         <TableCell className="font-medium">{row.supplier.name}</TableCell>
                                         <TableCell>{row.supplier.contact || 'N/A'}</TableCell>
-                                        <TableCell className="text-right font-mono">{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className="text-right font-mono text-green-600">{row.purchaseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className="text-right font-mono text-green-600">{row.purchaseVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className="text-right font-mono text-destructive">{row.payment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

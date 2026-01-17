@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,13 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon, FileText, Printer, Search } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { FileText, Printer, Search } from 'lucide-react';
 import type { Customer } from '@/lib/types';
-import type { DateRange } from 'react-day-picker';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -40,7 +35,7 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
 
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
@@ -54,54 +49,44 @@ export default function CreditRecoveryPage() {
         }
 
         const report: ReportRow[] = targetCustomers.map(customer => {
-            const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
-            const rangeEnd = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : new Date());
-
             const openingBalance = customer.openingBalance || 0;
+            
+            // Calculate total debits (sales, cash advances)
+            const totalSales = transactions
+                .filter(tx => tx.customerId === customer.id)
+                .reduce((sum, tx) => sum + tx.totalAmount, 0);
 
-            // Calculate Previous Balance
-            const prevTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) < rangeStart);
-            const prevPayments = customerPayments.filter(p => p.customerId === customer.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) < rangeStart);
-            const prevAdvances = cashAdvances.filter(ca => ca.customerId === customer.id && isValid(new Date(ca.timestamp)) && new Date(ca.timestamp) < rangeStart);
-            
-            const prevDebit = prevTx.reduce((sum, tx) => sum + tx.totalAmount, 0) + prevAdvances.reduce((sum, ca) => sum + ca.amount, 0);
-            const prevCredit = prevPayments.reduce((sum, p) => sum + p.amount, 0);
-            const previousBalance = openingBalance + prevDebit - prevCredit;
-            
-            // Calculate Sale and Recovery in date range
-            const rangeTx = transactions.filter(tx => tx.customerId === customer.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) >= rangeStart && new Date(tx.timestamp) <= rangeEnd);
-            const rangePayments = customerPayments.filter(p => p.customerId === customer.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) >= rangeStart && new Date(p.timestamp) <= rangeEnd);
-            const rangeAdvances = cashAdvances.filter(ca => ca.customerId === customer.id && isValid(new Date(ca.timestamp)) && new Date(ca.timestamp) >= rangeStart && new Date(ca.timestamp) <= rangeEnd);
+            const totalCashAdvances = cashAdvances
+                .filter(ca => ca.customerId === customer.id)
+                .reduce((sum, ca) => sum + ca.amount, 0);
 
-            const sale = rangeTx.reduce((sum, tx) => sum + tx.totalAmount, 0) + rangeAdvances.reduce((sum, ca) => sum + ca.amount, 0);
-            const recovery = rangePayments.reduce((sum, p) => sum + p.amount, 0);
+            const totalDebit = totalSales + totalCashAdvances;
+
+            // Calculate total credits (payments)
+            const totalRecovery = customerPayments
+                .filter(p => p.customerId === customer.id)
+                .reduce((sum, p) => sum + p.amount, 0);
             
-            const currentBalance = previousBalance + sale - recovery;
+            const currentBalance = openingBalance + totalDebit - totalRecovery;
 
             return {
                 id: customer.id,
                 customer,
-                previousBalance,
-                sale,
-                recovery,
+                previousBalance: openingBalance,
+                sale: totalDebit,
+                recovery: totalRecovery,
                 currentBalance,
             };
         }).filter(row => {
             // If a specific customer is selected, always show them.
             if (selectedCustomerId !== 'all') return true;
-        
-            // If a date range is selected, only show customers with sales or recoveries in that range.
-            if (dateRange?.from) {
-                return row.sale > 0 || row.recovery > 0;
-            }
-        
-            // If no filters are applied, show customers with a non-zero current balance.
+            // Otherwise, only show customers with a non-zero current balance.
             return row.currentBalance !== 0;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
+    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -117,21 +102,16 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        let period = 'all time';
-        if (dateRange?.from) {
-            period = dateRange.to 
-                ? `from ${format(dateRange.from, "LLL dd, y")} to ${format(dateRange.to, "LLL dd, y")}`
-                : `for ${format(dateRange.from, "LLL dd, y")}`;
-        }
+        const period = 'all time';
 
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
         const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-For Period: ${period}
-Your Previous Amount: ${formatCurrency(row.previousBalance)}
-New Sale Amount: ${formatCurrency(row.sale)}
-Paid Amount: ${formatCurrency(row.recovery)}
-Now your balance is: ${formatCurrency(row.currentBalance)}
+Your account summary for ${period}:
+Opening Balance: ${formatCurrency(row.previousBalance)}
+Total Purchases: ${formatCurrency(row.sale)}
+Total Payments: ${formatCurrency(row.recovery)}
+Current Balance: ${formatCurrency(row.currentBalance)}
 Thank You,
 Mianwali Petroleum Service`;
 
@@ -147,7 +127,7 @@ Mianwali Petroleum Service`;
                         <FileText /> Customer Sale and Recovery Report
                     </CardTitle>
                     <CardDescription>
-                        View sales, recoveries, and balances for customers. Use the global date filter on the dashboard to change the reporting period.
+                        View all-time sales, recoveries, and balances for customers.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -193,9 +173,9 @@ Mianwali Petroleum Service`;
                                     <TableHead>Customer Name/Code</TableHead>
                                     <TableHead>Area</TableHead>
                                     <TableHead>Mobile</TableHead>
-                                    <TableHead className="text-right">Previous Balance</TableHead>
-                                    <TableHead className="text-right">Sale</TableHead>
-                                    <TableHead className="text-right">Recovery Amount</TableHead>
+                                    <TableHead className="text-right">Opening Balance</TableHead>
+                                    <TableHead className="text-right">Total Sale</TableHead>
+                                    <TableHead className="text-right">Total Recovery</TableHead>
                                     <TableHead className="text-right">Current Balance</TableHead>
                                     <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
