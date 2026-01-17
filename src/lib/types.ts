@@ -215,6 +215,11 @@ export interface RecycledItem {
     data: any;
 }
 
+export type DateRange = {
+  from: Date | undefined;
+  to: Date | undefined;
+};
+
 
 // RBAC Types
 export const PERMISSIONS = [
