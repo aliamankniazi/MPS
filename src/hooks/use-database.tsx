@@ -45,10 +45,11 @@ import {
     doc, 
     updateDoc, 
     serverTimestamp,
-    setDoc,
     getDocs, 
 } from 'firebase/firestore';
 import { isValid } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 // Centralized paths
 const FIRESTORE_PATHS = {
@@ -248,7 +249,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 setState(prevState => ({ ...prevState, [key]: data }));
                 handleLoad();
             }, (error) => {
-                console.error(`Error fetching Firestore collection ${key}:`, error);
+                const contextualError = new FirestorePermissionError({
+                    operation: 'list',
+                    path: path,
+                });
+                errorEmitter.emit('permission-error', contextualError);
                 handleLoad();
             });
             subscriptions.push(unsubscribe);
