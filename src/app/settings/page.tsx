@@ -75,7 +75,8 @@ export default function SettingsPage() {
     addProduct,
     updateProduct,
     deleteProduct,
-    isLoaded 
+    isLoaded,
+    purchases
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToDelete, setSupplierToDelete] = React.useState<Supplier | null>(null);
@@ -405,15 +406,24 @@ export default function SettingsPage() {
                                 <TableRow>
                                     <TableHead>Product Name</TableHead>
                                     <TableHead>Category</TableHead>
-                                    <TableHead className="text-right">Price</TableHead>
+                                    <TableHead className="text-right">Purchase Rate</TableHead>
+                                    <TableHead className="text-right">Sale Rate</TableHead>
                                     <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {isLoaded && products && products.length > 0 ? products.map(p => (
+                                {isLoaded && products && products.length > 0 ? products.map(p => {
+                                    const lastPurchase = purchases
+                                        .filter(purchase => purchase.fuelType === p.name)
+                                        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                                    const purchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
+                                    return (
                                     <TableRow key={p.id}>
                                         <TableCell className="font-medium">{p.name}</TableCell>
                                         <TableCell>{p.category}</TableCell>
+                                        <TableCell className="text-right font-mono">
+                                            {purchaseRate > 0 ? `PKR ${purchaseRate.toFixed(2)} / ${p.unit}` : 'N/A'}
+                                        </TableCell>
                                         <TableCell className="text-right font-mono">
                                             {typeof p.price === 'number' ? `PKR ${p.price.toFixed(2)} / ${p.unit}` : 'N/A'}
                                         </TableCell>
@@ -422,9 +432,9 @@ export default function SettingsPage() {
                                             <Button variant="ghost" size="icon" title="Delete Product" className="text-destructive" onClick={() => setProductToDelete(p)}><Trash2 className="w-4 h-4" /></Button>
                                         </TableCell>
                                     </TableRow>
-                                )) : (
+                                )}) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
+                                        <TableCell colSpan={5} className="h-24 text-center">
                                             {isLoaded ? 'No products added yet.' : 'Loading products...'}
                                         </TableCell>
                                     </TableRow>
@@ -588,5 +598,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
