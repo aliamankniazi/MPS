@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2 } from 'lucide-react';
+import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -15,6 +14,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useDatabase } from '@/hooks/use-database';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 type CombinedEntry = {
   id: string;
@@ -40,11 +51,19 @@ export default function PartnerLedgerPage() {
       supplierPayments, 
       businessPartners, 
       investments, 
-      isLoaded 
+      isLoaded,
+      deleteTransaction,
+      deleteCustomerPayment,
+      deleteCashAdvance,
+      deletePurchase,
+      deleteSupplierPayment,
+      deleteInvestment,
   } = useDatabase();
   
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
+  const { toast } = useToast();
 
   const entities = useMemo(() => {
     if (!isLoaded) return [];
@@ -240,6 +259,47 @@ export default function PartnerLedgerPage() {
     };
   }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, selectedEntityId, selectedDate, isLoaded, entities]);
   
+  const handleDeleteEntry = () => {
+    if (!entryToDelete) return;
+
+    if (!entryToDelete.id || !entryToDelete.id.includes('-')) {
+        toast({
+            variant: 'destructive',
+            title: 'Delete Failed',
+            description: 'This is a calculated entry and cannot be deleted.',
+        });
+        setEntryToDelete(null);
+        return;
+    }
+
+    const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
+
+    try {
+        switch(typePrefix) {
+            case 'tx': deleteTransaction(id); break;
+            case 'pay': deleteCustomerPayment(id); break;
+            case 'adv': deleteCashAdvance(id); break;
+            case 'pur': deletePurchase(id); break;
+            case 'sp': deleteSupplierPayment(id); break;
+            case 'inv': deleteInvestment(id); break;
+            default:
+                throw new Error('Could not delete entry of unknown type.');
+        }
+        toast({
+            title: 'Entry Deleted',
+            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
+        });
+    } catch (error: any) {
+         toast({
+            variant: 'destructive',
+            title: 'Error Deleting',
+            description: error.message || 'An unexpected error occurred.',
+        });
+    } finally {
+        setEntryToDelete(null);
+    }
+  };
+
   const getBadgeVariant = (type: CombinedEntry['type']) => {
     switch (type) {
       case 'Sale':
@@ -265,6 +325,7 @@ export default function PartnerLedgerPage() {
   const selectedEntity = entities.find(e => e.id === selectedEntityId);
 
   return (
+    <>
     <div className="p-4 md:p-8 space-y-6">
        <Card>
         <CardHeader>
@@ -425,7 +486,7 @@ export default function PartnerLedgerPage() {
                                      <Pencil className="w-4 h-4" />
                                    </Link>
                                 </Button>
-                                <Button variant="ghost" size="icon" title="Delete Entry" className="text-destructive hover:text-destructive">
+                                <Button variant="ghost" size="icon" title="Delete Entry" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
                                     <Trash2 className="w-4 h-4" />
                                 </Button>
                           </TableCell>
@@ -470,5 +531,23 @@ export default function PartnerLedgerPage() {
         </CardContent>
       </Card>
     </div>
+    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
+        <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+            This action cannot be undone. This will permanently delete the entry for: <br />
+            <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
+            </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Yes, delete entry
+            </AlertDialogAction>
+        </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
