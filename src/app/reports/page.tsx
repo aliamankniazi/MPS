@@ -26,7 +26,7 @@ import {
   Receipt,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { useRoles, type Permission } from '@/hooks/use-roles';
+import type { Permission } from '@/hooks/use-roles';
 
 interface ReportCardProps {
   title: string;
@@ -175,8 +175,7 @@ const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) =
 );
 
 export default function ReportsPage() {
-  const { hasPermission } = useRoles();
-  const availableReports = reportList.filter(report => hasPermission(report.permission));
+  const availableReports = reportList;
 
   return (
     <div className="p-4 md:p-8 space-y-6">
