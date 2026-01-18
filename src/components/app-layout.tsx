@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -24,7 +23,6 @@ import {
 import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
-import type { Permission } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { SheetTitle } from './ui/sheet';
 
@@ -33,65 +31,59 @@ const navGroups = [
     {
         title: 'Transactions',
         icon: History,
-        permission: 'view_all_transactions' as Permission,
         links: [
-            { href: '/all-transactions', label: 'All Transactions', icon: History, permission: 'view_all_transactions' as Permission },
-            { href: '/all-invoices', label: 'All Invoices', icon: Receipt, permission: 'view_all_transactions' as Permission },
-            { href: '/ledger', label: 'General Journal', icon: BookOpen, permission: 'view_ledger' as Permission },
-            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins, permission: 'view_credit_recovery' as Permission },
+            { href: '/all-transactions', label: 'All Transactions', icon: History },
+            { href: '/all-invoices', label: 'All Invoices', icon: Receipt },
+            { href: '/ledger', label: 'General Journal', icon: BookOpen },
+            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins },
         ]
     },
     {
         title: 'Purchases & Suppliers',
         icon: ShoppingCart,
-        permission: 'view_purchases' as Permission,
         links: [
-            { href: '/purchases', label: 'Purchases', icon: ShoppingCart, permission: 'view_purchases' as Permission },
-            { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo, permission: 'view_purchase_returns' as Permission },
-            { href: '/suppliers', label: 'Suppliers', icon: Contact, permission: 'view_settings' as Permission },
-            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen, permission: 'view_partner_ledger' as Permission },
-            { href: '/supplier-report', label: 'Supplier Report', icon: Truck, permission: 'view_purchases' as Permission },
+            { href: '/purchases', label: 'Purchases', icon: ShoppingCart },
+            { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo },
+            { href: '/suppliers', label: 'Suppliers', icon: Contact },
+            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen },
+            { href: '/supplier-report', label: 'Supplier Report', icon: Truck },
         ]
     },
     {
         title: 'People & Partners',
         icon: Users,
-        permission: 'view_customers' as Permission,
         links: [
-            { href: '/customers', label: 'Customers & Partners', icon: Users, permission: 'view_customers' as Permission },
-            { href: '/attendance', label: 'Attendance', icon: CalendarCheck, permission: 'manage_employees' as Permission },
-            { href: '/investments', label: 'Partner Investments', icon: PiggyBank, permission: 'view_investments' as Permission },
+            { href: '/customers', label: 'Customers & Partners', icon: Users },
+            { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
+            { href: '/investments', label: 'Partner Investments', icon: PiggyBank },
         ]
     },
     {
         title: 'Inventory',
         icon: Package,
-        permission: 'view_inventory' as Permission,
         links: [
-            { href: '/inventory', label: 'Stock Levels', icon: Box, permission: 'view_inventory' as Permission },
-            { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench, permission: 'view_settings' as Permission },
-            { href: '/machines', label: 'Machine Reading', icon: Fuel, permission: 'view_tank_readings' as Permission },
+            { href: '/inventory', label: 'Stock Levels', icon: Box },
+            { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench },
+            { href: '/machines', label: 'Machine Reading', icon: Fuel },
         ]
     },
     {
         title: 'Financials',
         icon: DollarSign,
-        permission: 'view_ledger' as Permission,
         links: [
-            { href: '/expenses', label: 'Expenses', icon: Receipt, permission: 'view_expenses' as Permission },
-            { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign, permission: 'view_other_incomes' as Permission },
-            { href: '/bank-management', label: 'Bank Management', icon: Landmark, permission: 'manage_banks' as Permission },
+            { href: '/expenses', label: 'Expenses', icon: Receipt },
+            { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign },
+            { href: '/bank-management', label: 'Bank Management', icon: Landmark },
         ]
     },
     {
         title: 'System',
         icon: Cog,
-        permission: 'view_settings' as Permission,
         links: [
-            { href: '/tasks', label: 'Task Automation', icon: BrainCircuit, permission: 'view_settings' as Permission },
-            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles, permission: 'generate_ai_summary' as Permission },
-            { href: '/roles', label: 'Role Management', icon: Shield, permission: 'manage_roles' as Permission },
-            { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2, permission: 'view_recycle_bin' as Permission },
+            { href: '/tasks', label: 'Task Automation', icon: BrainCircuit },
+            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles },
+            { href: '/roles', label: 'Role Management', icon: Shield },
+            { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },
         ]
     }
 ]
@@ -108,17 +100,17 @@ const AppLogo = () => (
 );
 
 const topNavItems = [
-  { href: '/', label: 'Dashboard', icon: LayoutDashboard, permission: 'view_dashboard' as Permission },
-  { href: '/sales', label: 'New Transaction', icon: ArrowRightLeft, permission: 'view_dashboard' as Permission },
+  { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/sales', label: 'New Transaction', icon: ArrowRightLeft },
 ];
 
 const bottomNavItems = [
-  { href: '/reports', label: 'Reports', icon: FileBarChart, permission: 'view_summary' as Permission },
-  { href: '/settings', label: 'Settings', icon: Settings, permission: 'view_settings' as Permission },
+  { href: '/reports', label: 'Reports', icon: FileBarChart },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { signOut, user, hasPermission } = useAuth();
+  const { signOut, user } = useAuth();
   const pathname = usePathname();
 
   const isLinkActive = (href: string) => {
@@ -134,7 +126,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarHeader>
         <SidebarContent>
           <SidebarMenu>
-            {topNavItems.map(item => hasPermission(item.permission) && (
+            {topNavItems.map(item => (
               <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
                       <Link href={item.href} legacyBehavior={false}>
@@ -149,14 +141,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="w-full h-px bg-sidebar-border my-2" />
             </SidebarMenuItem>
 
-            {navGroups.map((group) => hasPermission(group.permission) && (
+            {navGroups.map((group) => (
                 <SidebarGroup key={group.title}>
                     <SidebarGroupLabel className="flex items-center">
                         <group.icon className="mr-2"/>
                         {group.title}
                     </SidebarGroupLabel>
                     <SidebarMenuSub>
-                        {group.links.map(link => hasPermission(link.permission) && (
+                        {group.links.map(link => (
                         <SidebarMenuSubItem key={link.href}>
                             <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
                                 <Link href={link.href}>
@@ -173,7 +165,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
-            {bottomNavItems.map(item => hasPermission(item.permission) && (
+            {bottomNavItems.map(item => (
               <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
                       <Link href={item.href} legacyBehavior={false}>
