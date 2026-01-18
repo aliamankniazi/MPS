@@ -97,7 +97,15 @@ export default function DashboardPage() {
 
     const mainProducts = products.filter(p => p.category === 'Main Product');
 
-    return mainProducts.map(product => {
+    const sortedProducts = mainProducts.map(product => {
+      const totalVolumeSold = transactions
+        .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
+        .reduce((sum, t) => sum + t.volume, 0);
+      return { ...product, totalVolumeSold };
+    }).sort((a, b) => b.totalVolumeSold - a.totalVolumeSold);
+
+
+    return sortedProducts.map(product => {
         const salesForProduct = transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
         const purchasesForProduct = purchases.filter(p => p.fuelType === product.name);
 
