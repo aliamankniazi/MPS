@@ -45,7 +45,9 @@ import {
     doc, 
     updateDoc, 
     serverTimestamp,
-    getDocs, 
+    getDocs,
+    getDoc,
+    setDoc
 } from 'firebase/firestore';
 import { isValid } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -194,8 +196,8 @@ interface DatabaseActions {
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
     clearAllData: () => void;
-    restoreFromRecycleBin: (item: RecycledItem) => Promise<void>;
-    deletePermanently: (id: string) => Promise<void>;
+    restoreFromRecycleBin: (item: RecycledItem) => void;
+    deletePermanently: (id: string) => void;
     dateRange: DateRange | undefined;
     setDateRange: React.Dispatch<React.SetStateAction<DateRange | undefined>>;
 }
@@ -367,60 +369,118 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state.isLoaded, state.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(async <T extends { id: string, timestamp?: any }>(path: string, entity: Omit<T, 'id'>): Promise<T> => {
-        if (!firestore) throw new Error("Firestore is not initialized.");
-
-        const entityWithTimestamp = { ...entity, timestamp: entity.timestamp || new Date().toISOString() };
+    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'>): Promise<T> => {
+        if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
         
-        const docRef = await addDoc(collection(firestore, path), {
-            ...entity,
-            timestamp: serverTimestamp()
+        const dataToSend = { ...entity, timestamp: serverTimestamp() };
+        
+        return new Promise<T>((resolve, reject) => {
+            addDoc(collection(firestore, path), dataToSend)
+                .then(docRef => {
+                    const transactionDate = (entity as any).timestamp ? new Date((entity as any).timestamp) : new Date();
+                    if (isValid(transactionDate)) {
+                        setDateRange({ from: transactionDate, to: transactionDate });
+                    }
+                    resolve({ ...entity, id: docRef.id, timestamp: new Date().toISOString() } as T);
+                })
+                .catch(error => {
+                    errorEmitter.emit('permission-error', new FirestorePermissionError({
+                        path: path,
+                        operation: 'create',
+                        requestResourceData: dataToSend,
+                    }));
+                    reject(error);
+                });
         });
-
-        const transactionDate = (entity as any).timestamp ? new Date((entity as any).timestamp) : new Date();
-        if (isValid(transactionDate)) {
-             setDateRange({ from: transactionDate, to: transactionDate });
-        }
-        
-        return { ...entityWithTimestamp, id: docRef.id } as T;
-    }, [firestore]);
+    }, [firestore, setDateRange]);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
         if (!firestore) return;
-        updateDoc(doc(firestore, path, id), updates);
+        const docRef = doc(firestore, path, id);
+        updateDoc(docRef, updates).catch(error => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: docRef.path,
+                operation: 'update',
+                requestResourceData: updates,
+            }));
+        });
     }, [firestore]);
 
-    const deleteEntity = useCallback(async (path: string, id: string) => {
+    const deleteEntity = useCallback((path: string, id: string) => {
         if (!firestore) return;
-
         const sourceRef = doc(firestore, path, id);
-        const snapshot = await getDocs(collection(firestore, path));
-        const docToDelete = snapshot.docs.find(d => d.id === id);
+        
+        getDoc(sourceRef).then(docSnapshot => {
+            if (docSnapshot.exists()) {
+                const data = docSnapshot.data();
+                const recycledItem: Omit<RecycledItem, 'id'> = {
+                    originalPath: `${path}/${id}`,
+                    deletedAt: new Date().toISOString(),
+                    data: data,
+                };
+                const recycleBinRef = collection(firestore, FIRESTORE_PATHS.recycleBin);
+                
+                addDoc(recycleBinRef, recycledItem).then(() => {
+                    deleteDoc(sourceRef).catch(error => {
+                        errorEmitter.emit(
+                            'permission-error',
+                            new FirestorePermissionError({ path: sourceRef.path, operation: 'delete' })
+                        );
+                    });
+                }).catch(error => {
+                     errorEmitter.emit(
+                        'permission-error',
+                        new FirestorePermissionError({ path: recycleBinRef.path, operation: 'create', requestResourceData: recycledItem })
+                    );
+                });
 
-        if (docToDelete) {
-            const data = docToDelete.data();
-            const recycledItem: Omit<RecycledItem, 'id'> = {
-                originalPath: `${path}/${id}`,
-                deletedAt: new Date().toISOString(),
-                data: data,
-            };
-            await addDoc(collection(firestore, FIRESTORE_PATHS.recycleBin), recycledItem);
-            await deleteDoc(sourceRef);
-        } else {
-            console.warn(`Attempted to delete non-existent entity at ${path}/${id}`);
-        }
+            } else {
+                 console.warn(`Attempted to delete non-existent entity at ${path}/${id}`);
+            }
+        }).catch(error => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sourceRef.path, operation: 'get' }));
+        });
     }, [firestore]);
 
-    const restoreFromRecycleBin = useCallback(async (item: RecycledItem) => {
+    const restoreFromRecycleBin = useCallback((item: RecycledItem) => {
         if (!firestore) return;
         const originalRef = doc(firestore, item.originalPath);
-        await setDoc(originalRef, item.data);
-        await deleteDoc(doc(firestore, FIRESTORE_PATHS.recycleBin, item.id));
+        
+        setDoc(originalRef, item.data).then(() => {
+            const recycleBinDocRef = doc(firestore, FIRESTORE_PATHS.recycleBin, item.id);
+            deleteDoc(recycleBinDocRef).catch(error => {
+                errorEmitter.emit(
+                    'permission-error',
+                    new FirestorePermissionError({
+                        path: recycleBinDocRef.path,
+                        operation: 'delete',
+                    })
+                );
+            });
+        }).catch(error => {
+            errorEmitter.emit(
+                'permission-error',
+                new FirestorePermissionError({
+                    path: originalRef.path,
+                    operation: 'create', // Using setDoc, can be create or update
+                    requestResourceData: item.data
+                })
+            );
+        });
     }, [firestore]);
 
-    const deletePermanently = useCallback(async (id: string) => {
+    const deletePermanently = useCallback((id: string) => {
         if (!firestore) return;
-        await deleteDoc(doc(firestore, FIRESTORE_PATHS.recycleBin, id));
+        const docRef = doc(firestore, FIRESTORE_PATHS.recycleBin, id);
+        deleteDoc(docRef).catch(error => {
+            errorEmitter.emit(
+                'permission-error',
+                new FirestorePermissionError({
+                    path: docRef.path,
+                    operation: 'delete'
+                })
+            );
+        });
     }, [firestore]);
     
     // Specific Actions
@@ -552,9 +612,19 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const clearAllData = async () => {
         if (firestore) {
             for (const path of Object.values(FIRESTORE_PATHS)) {
-                const querySnapshot = await getDocs(collection(firestore, path));
-                const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref));
-                await Promise.all(deletePromises);
+                try {
+                    const querySnapshot = await getDocs(collection(firestore, path));
+                    const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref));
+                    await Promise.all(deletePromises);
+                } catch(e: any) {
+                     errorEmitter.emit(
+                        'permission-error',
+                        new FirestorePermissionError({
+                            path: path,
+                            operation: 'list'
+                        })
+                    );
+                }
             }
         }
         if (db) {
@@ -636,3 +706,5 @@ export const useDatabase = () => {
     }
     return context;
 };
+
+    
