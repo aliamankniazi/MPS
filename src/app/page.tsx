@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -13,11 +14,11 @@ import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { DateRange } from '@/lib/types';
+import type { DateRange, FuelType } from '@/lib/types';
 
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
@@ -27,7 +28,7 @@ export default function DashboardPage() {
     }
 
     const from = startOfDay(dateRange.from);
-    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
 
     const filterByDate = (items: any[]) => items.filter(item => {
       const itemDate = new Date(item.timestamp);
@@ -93,7 +94,7 @@ export default function DashboardPage() {
   }, [isLoaded, filteredData]);
   
   const productStats = useMemo(() => {
-    if (!isLoaded || !products) return [];
+    if (!isLoaded || !products || !fuelStock) return [];
 
     const mainProducts = products.filter(p => p.category === 'Main Product');
 
@@ -117,13 +118,14 @@ export default function DashboardPage() {
 
         return {
             name: product.name,
+            stock: fuelStock[product.name as FuelType] || 0,
             lastSaleRate: lastSale ? lastSale.pricePerLitre : product.price,
             lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
             lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
         };
     });
 
-  }, [isLoaded, products, transactions, purchases]);
+  }, [isLoaded, products, transactions, purchases, fuelStock]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -298,6 +300,10 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">
+                            <span className="text-muted-foreground">Stock Available</span>
+                            <span className="font-mono font-semibold">{stat.stock.toLocaleString(undefined, { maximumFractionDigits: 2 })} Ltr</span>
+                        </div>
+                        <div className="flex justify-between">
                             <span className="text-muted-foreground">Last Rate</span>
                             <span className="font-mono font-semibold">PKR {stat.lastSaleRate.toFixed(2)}</span>
                         </div>
@@ -401,3 +407,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
