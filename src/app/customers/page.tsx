@@ -45,7 +45,7 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export default function CustomersPage() {
-  const { customers, addCustomer, updateCustomer, deleteCustomer } = useDatabase();
+  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -60,17 +60,44 @@ export default function CustomersPage() {
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, formState: { errors: editErrors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
   });
+
+  const allPeople = useMemo(() => {
+    const peopleMap = new Map<string, Customer>();
+
+    customers.forEach(c => {
+        peopleMap.set(c.id, c);
+    });
+
+    // This ensures that any business partner is shown, even if their corresponding customer record is missing for some reason.
+    businessPartners.forEach(p => {
+        if (!peopleMap.has(p.id)) {
+            peopleMap.set(p.id, {
+                id: p.id,
+                name: p.name,
+                contact: p.contact || '',
+                timestamp: p.timestamp,
+                isPartner: true,
+            });
+        } else {
+            // Ensure the isPartner flag is set if they are in businessPartners
+            const customer = peopleMap.get(p.id)!;
+            customer.isPartner = true;
+        }
+    });
+    
+    return Array.from(peopleMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [customers, businessPartners]);
   
   const filteredCustomers = useMemo(() => {
-    if (!searchTerm) return customers;
+    if (!searchTerm) return allPeople;
     const lowercasedTerm = searchTerm.toLowerCase();
-    return customers.filter(c =>
+    return allPeople.filter(c =>
         c.name.toLowerCase().includes(lowercasedTerm) ||
         (c.contact && String(c.contact).toLowerCase().includes(lowercasedTerm)) ||
         (c.area && c.area.toLowerCase().includes(lowercasedTerm)) ||
         (c.vehicleNumber && c.vehicleNumber.toLowerCase().includes(lowercasedTerm))
     );
-  }, [customers, searchTerm]);
+  }, [allPeople, searchTerm]);
 
   const onAddSubmit: SubmitHandler<CustomerFormValues> = (data) => {
     addCustomer({ ...data, isPartner: false });
