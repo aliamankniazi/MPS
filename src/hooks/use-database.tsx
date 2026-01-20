@@ -34,7 +34,7 @@ import type {
     SupplierPayment,
     Transaction,
 } from '@/lib/types';
-import { firestore } from '@/lib/firebase';
+import { firestore, auth } from '@/lib/firebase';
 import { 
     collection, 
     onSnapshot, 
@@ -48,6 +48,7 @@ import {
     setDoc,
     writeBatch
 } from 'firebase/firestore';
+import { onAuthStateChanged, type User } from 'firebase/auth';
 import { isValid } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -217,8 +218,34 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         },
         isLoaded: false,
     });
+    const [user, setUser] = useState<User | null>(null);
+    const [isAuthLoading, setIsAuthLoading] = useState(true);
 
     useEffect(() => {
+        if (!auth) {
+            console.warn("Auth service not available. Data fetching will be skipped.");
+            setIsAuthLoading(false);
+            return;
+        }
+        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+            setUser(firebaseUser);
+            setIsAuthLoading(false);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        if (isAuthLoading) {
+            return; // Wait for authentication state to be resolved.
+        }
+
+        if (!user) {
+            // No user is signed in, so we don't fetch data to avoid permission errors.
+            // We mark the state as loaded to allow the app to render login/signup pages.
+            setState(s => ({ ...s, isLoaded: true }));
+            return;
+        }
+
         if (!firestore) {
             console.warn("Firestore is not configured. App may be in offline mode.");
             setState(s => ({ ...s, isLoaded: true }));
@@ -299,7 +326,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    }, []);
+    }, [user, isAuthLoading]);
     
     const processedState: ProcessedDatabaseState = useMemo(() => {
         const createSorter = (key: string, order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
