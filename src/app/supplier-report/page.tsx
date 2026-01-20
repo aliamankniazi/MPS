@@ -39,8 +39,8 @@ interface ReportRow {
 }
 
 export default function SupplierReportPage() {
-    const { suppliers, purchases, supplierPayments, isLoaded, dateRange, setDateRange } = useDatabase();
-
+    const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 

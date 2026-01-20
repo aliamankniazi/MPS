@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -81,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions, dateRange, setDateRange } = useDatabase();
+  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -113,12 +112,6 @@ export default function SalesPage() {
         return originalCasing || lowerUnit;
     }).filter(Boolean);
   }, [products]);
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('invoiceDate', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const { customerId } = watch();
   const { quantity, price, totalAmount } = watchItem();
@@ -231,7 +224,6 @@ export default function SalesPage() {
       description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
     });
     
-    setDateRange({ from: data.invoiceDate, to: data.invoiceDate });
     reset();
     resetItem();
     setCart([]);

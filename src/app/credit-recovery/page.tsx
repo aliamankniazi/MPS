@@ -38,8 +38,8 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
-
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 

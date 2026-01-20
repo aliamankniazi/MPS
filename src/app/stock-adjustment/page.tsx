@@ -49,9 +49,8 @@ export default function StockAdjustmentPage() {
     addStockAdjustment,
     deleteStockAdjustment,
     isLoaded,
-    dateRange,
-    setDateRange,
   } = useDatabase();
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 

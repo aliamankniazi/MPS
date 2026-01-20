@@ -409,7 +409,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     reject(error);
                 });
         });
-    }, [firestore]);
+    }, []);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
         if (!firestore) return;
@@ -421,7 +421,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 requestResourceData: updates,
             }));
         });
-    }, [firestore]);
+    }, []);
 
     const deleteEntity = useCallback((path: string, id: string) => {
         if (!firestore) return;
@@ -457,7 +457,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }).catch(error => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sourceRef.path, operation: 'get' }));
         });
-    }, [firestore]);
+    }, []);
 
     const restoreFromRecycleBin = useCallback((item: RecycledItem) => {
         if (!firestore) return;
@@ -484,7 +484,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 })
             );
         });
-    }, [firestore]);
+    }, []);
 
     const deletePermanently = useCallback((id: string) => {
         if (!firestore) return;
@@ -498,7 +498,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 })
             );
         });
-    }, [firestore]);
+    }, []);
     
     // Specific Actions
     const addTransaction = (t: Omit<Transaction, 'id'>) => addEntity<Transaction>(FIRESTORE_PATHS.transactions, t);
@@ -615,7 +615,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         if (!firestore) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
         updateDoc(settingsRef, { [`initialFuelStock.${fuelType}`]: newStock });
-    }, [firestore]);
+    }, []);
 
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
         if (!firestore || isNaN(newPrice) || newPrice < 0) return;
