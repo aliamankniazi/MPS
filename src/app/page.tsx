@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -209,6 +208,7 @@ export default function DashboardPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="end">
                     <Calendar
+                        key="dashboard-calendar"
                         initialFocus
                         mode="range"
                         defaultMonth={dateRange?.from}

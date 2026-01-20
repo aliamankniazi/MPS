@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -95,12 +94,17 @@ export default function SalesPage() {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
+  });
+
+  useEffect(() => {
+    reset({
         customerId: 'walkin',
         paymentMethod: 'Cash',
         invoiceDate: new Date(),
-    }
-  });
+        notes: '',
+        vehicleNumber: '',
+    });
+  }, [reset]);
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
@@ -519,10 +523,11 @@ export default function SalesPage() {
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    initialFocus
+                                        key="sales-calendar"
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        initialFocus
                                     />
                                 </PopoverContent>
                                 </Popover>
