@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search } from 'lucide-react';
+import { Receipt, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, DollarSign, Search, X } from 'lucide-react';
 import type { ExpenseCategory, Expense, DateRange } from '@/lib/types';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -67,6 +67,13 @@ export default function ExpensesPage() {
         expense.category.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }, [expenses, searchTerm, dateRange]);
+
+  const hasActiveFilters = searchTerm || dateRange?.from;
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setDateRange(undefined);
+  };
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
     addExpense({
@@ -277,6 +284,11 @@ export default function ExpensesPage() {
                             className="pl-10"
                         />
                     </div>
+                    {hasActiveFilters && (
+                        <Button variant="ghost" onClick={clearFilters}>
+                            <X className="mr-2 h-4 w-4" /> Clear
+                        </Button>
+                    )}
                     {selectedExpenses.length > 0 && (
                         <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>
                             Delete ({selectedExpenses.length})
@@ -393,3 +405,4 @@ export default function ExpensesPage() {
     </>
   );
 }
+      
