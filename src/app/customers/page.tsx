@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -21,6 +20,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Customer } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
 
 
 const customerSchema = z.object({
@@ -29,6 +30,8 @@ const customerSchema = z.object({
   vehicleNumber: z.string().optional(),
   area: z.string().optional(),
   openingBalance: z.coerce.number().optional(),
+  isPartner: z.boolean().optional(),
+  sharePercentage: z.coerce.number().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -52,7 +55,7 @@ const contactDisplay = (contact: any): string => {
 };
 
 export default function CustomersPage() {
-  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer } = useDatabase();
+  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer, updateBusinessPartner, deleteBusinessPartner } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -64,18 +67,19 @@ export default function CustomersPage() {
     resolver: zodResolver(customerSchema),
   });
 
-  const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, formState: { errors: editErrors } } = useForm<CustomerFormValues>({
+  const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, watch: watchEdit, formState: { errors: editErrors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
   });
+  
+  const isPartnerWatch = watchEdit('isPartner');
 
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, Customer>();
 
     customers.forEach(c => {
-        peopleMap.set(c.id, c);
+        peopleMap.set(c.id, { ...c, isPartner: false }); // default to not partner
     });
-
-    // This ensures that any business partner is shown, even if their corresponding customer record is missing for some reason.
+    
     businessPartners.forEach(p => {
         if (!peopleMap.has(p.id)) {
             peopleMap.set(p.id, {
@@ -86,7 +90,6 @@ export default function CustomersPage() {
                 isPartner: true,
             });
         } else {
-            // Ensure the isPartner flag is set if they are in businessPartners
             const customer = peopleMap.get(p.id)!;
             customer.isPartner = true;
         }
@@ -117,7 +120,30 @@ export default function CustomersPage() {
   
   const onEditSubmit: SubmitHandler<CustomerFormValues> = (data) => {
     if (!customerToEdit) return;
-    updateCustomer(customerToEdit.id, data);
+    
+    updateCustomer(customerToEdit.id, {
+        name: data.name,
+        contact: data.contact,
+        vehicleNumber: data.vehicleNumber,
+        area: data.area,
+        openingBalance: data.openingBalance,
+    });
+    
+    const isAlreadyPartner = businessPartners.some(p => p.id === customerToEdit.id);
+
+    if (data.isPartner) {
+        const partnerData = {
+            name: data.name,
+            sharePercentage: data.sharePercentage || 0,
+            contact: data.contact,
+        };
+        // This will create if not exists, or update if it does.
+        // Requires a flexible backend function (e.g., using set with merge).
+        updateBusinessPartner(customerToEdit.id, partnerData);
+    } else if (isAlreadyPartner) {
+        deleteBusinessPartner(customerToEdit.id);
+    }
+
     toast({
         title: 'Customer Updated',
         description: "The customer's details have been saved."
@@ -165,15 +191,19 @@ export default function CustomersPage() {
 
   useEffect(() => {
     if (customerToEdit) {
+      const isPartner = businessPartners.some(p => p.id === customerToEdit.id);
+      const partnerData = businessPartners.find(p => p.id === customerToEdit.id);
       setEditValue('name', customerToEdit.name);
       setEditValue('contact', contactDisplay(customerToEdit.contact));
       setEditValue('vehicleNumber', customerToEdit.vehicleNumber || '');
       setEditValue('area', customerToEdit.area || '');
       setEditValue('openingBalance', customerToEdit.openingBalance || 0);
+      setEditValue('isPartner', isPartner);
+      setEditValue('sharePercentage', partnerData?.sharePercentage || 0);
     } else {
       resetEdit();
     }
-  }, [customerToEdit, setEditValue, resetEdit]);
+  }, [customerToEdit, setEditValue, resetEdit, businessPartners]);
 
   return (
     <>
@@ -201,8 +231,8 @@ export default function CustomersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="vehicleNumber">Vehicle Number (Optional)</Label>
-                <Input id="vehicleNumber" {...register('vehicleNumber')} placeholder="e.g., ABC-123" />
+                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma-separated for multiple)</Label>
+                <Input id="vehicleNumber" {...register('vehicleNumber')} placeholder="e.g., ABC-123, RIL-456" />
                 {errors.vehicleNumber && <p className="text-sm text-destructive">{errors.vehicleNumber.message}</p>}
               </div>
               
@@ -334,7 +364,7 @@ export default function CustomersPage() {
                         {editErrors.contact && <p className="text-sm text-destructive">{editErrors.contact.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="edit-vehicleNumber">Vehicle Number</Label>
+                        <Label htmlFor="edit-vehicleNumber">Vehicle Number (comma-separated for multiple)</Label>
                         <Input id="edit-vehicleNumber" {...registerEdit('vehicleNumber')} />
                         {editErrors.vehicleNumber && <p className="text-sm text-destructive">{editErrors.vehicleNumber.message}</p>}
                     </div>
@@ -347,6 +377,20 @@ export default function CustomersPage() {
                         <Label htmlFor="edit-openingBalance">Opening Balance (PKR)</Label>
                         <Input id="edit-openingBalance" type="number" {...registerEdit('openingBalance')} step="any" />
                         {editErrors.openingBalance && <p className="text-sm text-destructive">{editErrors.openingBalance.message}</p>}
+                    </div>
+                     <Separator className="my-4"/>
+                    <div className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                            <Switch id="isPartner" checked={isPartnerWatch} onCheckedChange={(checked) => setEditValue('isPartner', checked)} />
+                            <Label htmlFor="isPartner">Make Business Partner</Label>
+                        </div>
+                        {isPartnerWatch && (
+                        <div className="space-y-2 pl-4">
+                            <Label htmlFor="sharePercentage">Share Percentage (%)</Label>
+                            <Input id="sharePercentage" type="number" {...registerEdit('sharePercentage')} step="0.01" />
+                            {editErrors.sharePercentage && <p className="text-sm text-destructive">{editErrors.sharePercentage.message}</p>}
+                        </div>
+                        )}
                     </div>
                 </div>
                 <DialogFooter>

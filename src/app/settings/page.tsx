@@ -235,8 +235,8 @@ export default function SettingsPage() {
                                 <Input id="supplierContact" {...registerSupplier('contact')} placeholder="e.g., 0300-1234567" />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="vehicleNumber">Vehicle Number (Optional)</Label>
-                                <Input id="vehicleNumber" {...registerSupplier('vehicleNumber')} placeholder="e.g., TKA-123" />
+                                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma-separated)</Label>
+                                <Input id="vehicleNumber" {...registerSupplier('vehicleNumber')} placeholder="e.g., TKA-123, TKB-456" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="driverName">Driver's Name (Optional)</Label>
@@ -559,8 +559,8 @@ export default function SettingsPage() {
                                 <Select onValueChange={field.onChange} value={field.value}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem key="Main Product" value="Main Product">Main Product</SelectItem>
-                                        <SelectItem key="Supplementary Product" value="Supplementary Product">Supplementary Product</SelectItem>
+                                        <SelectItem value="Main Product">Main Product</SelectItem>
+                                        <SelectItem value="Supplementary Product">Supplementary Product</SelectItem>
                                     </SelectContent>
                                 </Select>
                             )}
