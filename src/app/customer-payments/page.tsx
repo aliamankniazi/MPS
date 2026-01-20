@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { PaymentMethod } from '@/lib/types';
+import type { PaymentMethod, DateRange } from '@/lib/types';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
@@ -66,9 +66,10 @@ function PageHeader() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { customers, addCustomerPayment, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),

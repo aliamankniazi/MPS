@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import type { DateRange } from '@/lib/types';
 
 const salaryPaymentSchema = z.object({
   employeeId: z.string().min(1, 'Please select an employee.'),
@@ -68,9 +69,10 @@ function PageHeader() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),

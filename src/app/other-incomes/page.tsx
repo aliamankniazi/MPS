@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
-import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
+import type { OtherIncomeCategory, OtherIncome, DateRange } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -34,9 +34,10 @@ const incomeSchema = z.object({
 type IncomeFormValues = z.infer<typeof incomeSchema>;
 
 export default function OtherIncomesPage() {
-  const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange, setDateRange } = useDatabase();
+  const { otherIncomes, addOtherIncome, deleteOtherIncome } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),

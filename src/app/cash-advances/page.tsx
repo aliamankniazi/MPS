@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import type { DateRange } from '@/lib/types';
 
 
 const cashAdvanceSchema = z.object({
@@ -65,9 +66,10 @@ function PageHeader() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { customers, addCashAdvance, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),

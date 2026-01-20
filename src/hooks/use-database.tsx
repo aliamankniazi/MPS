@@ -33,7 +33,6 @@ import type {
     Supplier,
     SupplierPayment,
     Transaction,
-    DateRange,
 } from '@/lib/types';
 import { firestore } from '@/lib/firebase';
 import { 

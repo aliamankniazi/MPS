@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType } from '@/lib/types';
+import type { FuelType, DateRange } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -69,9 +69,10 @@ function PageHeader() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { addSaleReturn, customers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
   const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
