@@ -35,8 +35,7 @@ import type {
     Transaction,
     DateRange,
 } from '@/lib/types';
-import { db, firestore } from '@/lib/firebase';
-import { ref, onValue, remove, set, update } from 'firebase/database';
+import { firestore } from '@/lib/firebase';
 import { 
     collection, 
     onSnapshot, 
@@ -47,7 +46,8 @@ import {
     serverTimestamp,
     getDocs,
     getDoc,
-    setDoc
+    setDoc,
+    writeBatch
 } from 'firebase/firestore';
 import { isValid } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -76,15 +76,8 @@ const FIRESTORE_PATHS = {
     products: 'products',
     attendance: 'attendance',
     recycleBin: 'recycleBin',
+    settings: 'settings',
 };
-
-const RTDB_PATHS = {
-    fuelPrices: 'fuelPrices',
-    initialFuelStock: 'initialFuelStock',
-    colorSettings: 'colorSettings',
-}
-
-const ALL_PATHS = {...FIRESTORE_PATHS, ...RTDB_PATHS };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
   'Unleaded': 0,
@@ -116,6 +109,11 @@ const DEFAULT_COLOR_SETTINGS: Record<string, string> = {
     'Withdrawal': '#8B5CF6', // purple-500
 };
 
+interface AppSettings {
+    fuelPrices: Record<FuelType, number>;
+    initialFuelStock: Record<FuelType, number>;
+    colorSettings: Record<string, string>;
+}
 
 interface DatabaseState {
     [key: string]: any; // Allow any key
@@ -140,13 +138,15 @@ interface DatabaseState {
     products: Product[];
     attendance: AttendanceRecord[];
     recycleBin: RecycledItem[];
-    fuelPrices: Record<FuelType, number>;
-    initialFuelStock: Record<FuelType, number>;
-    colorSettings: Record<string, string>;
+    settings: AppSettings;
     isLoaded: boolean;
 }
 
-interface ProcessedDatabaseState extends Omit<DatabaseState, 'isLoaded'> {}
+interface ProcessedDatabaseState extends Omit<DatabaseState, 'isLoaded' | 'settings'> {
+    fuelPrices: Record<FuelType, number>;
+    initialFuelStock: Record<FuelType, number>;
+    colorSettings: Record<string, string>;
+}
 
 interface DatabaseActions {
     addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction>;
@@ -213,25 +213,26 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         bankAccounts: [], employees: [], customerPayments: [], supplierPayments: [],
         cashAdvances: [], machines: [], machineReadings: [], investments: [], businessPartners: [],
         stockAdjustments: [], products: [], attendance: [], recycleBin: [],
-        fuelPrices: DEFAULT_FUEL_PRICES,
-        initialFuelStock: DEFAULT_INITIAL_STOCK,
-        colorSettings: DEFAULT_COLOR_SETTINGS,
+        settings: {
+            fuelPrices: DEFAULT_FUEL_PRICES,
+            initialFuelStock: DEFAULT_INITIAL_STOCK,
+            colorSettings: DEFAULT_COLOR_SETTINGS,
+        },
         isLoaded: false,
     });
     
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
-        if (!firestore || !db) {
-            console.warn("Firebase is not fully configured. App may be in offline mode.");
+        if (!firestore) {
+            console.warn("Firestore is not configured. App may be in offline mode.");
             setState(s => ({ ...s, isLoaded: true }));
             return;
         }
 
         const subscriptions: (() => void)[] = [];
-        const firestorePaths = Object.keys(FIRESTORE_PATHS) as (keyof typeof FIRESTORE_PATHS)[];
-        const rtdbPaths = Object.keys(RTDB_PATHS) as (keyof typeof RTDB_PATHS)[];
-        const totalPaths = firestorePaths.length + rtdbPaths.length;
+        const dataCollections = Object.keys(FIRESTORE_PATHS).filter(k => k !== 'settings') as (keyof typeof FIRESTORE_PATHS)[];
+        const totalPaths = dataCollections.length + 1; // +1 for settings
         let loadedCount = 0;
 
         const handleLoad = () => {
@@ -243,7 +244,37 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             }
         };
 
-        firestorePaths.forEach(key => {
+        // Subscribe to settings document
+        const settingsDocRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        const settingsUnsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data() as AppSettings;
+                setState(prevState => ({ ...prevState, settings: data }));
+            } else {
+                 setState(prevState => ({ ...prevState, settings: {
+                    fuelPrices: DEFAULT_FUEL_PRICES,
+                    initialFuelStock: DEFAULT_INITIAL_STOCK,
+                    colorSettings: DEFAULT_COLOR_SETTINGS,
+                }}));
+                // Optionally create the document with defaults if it doesn't exist
+                setDoc(settingsDocRef, {
+                    fuelPrices: DEFAULT_FUEL_PRICES,
+                    initialFuelStock: DEFAULT_INITIAL_STOCK,
+                    colorSettings: DEFAULT_COLOR_SETTINGS,
+                }).catch(e => console.error("Could not create default settings", e));
+            }
+            handleLoad();
+        }, (error) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                operation: 'get',
+                path: settingsDocRef.path,
+            }));
+            handleLoad();
+        });
+        subscriptions.push(settingsUnsubscribe);
+
+        // Subscribe to other collections
+        dataCollections.forEach(key => {
             const path = FIRESTORE_PATHS[key];
             const q = collection(firestore, path);
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -260,21 +291,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             });
             subscriptions.push(unsubscribe);
         });
-        
-        rtdbPaths.forEach(key => {
-            const path = RTDB_PATHS[key];
-            const dbRef = ref(db, path);
-            const unsubscribe = onValue(dbRef, (snapshot) => {
-                const defaultValue = key === 'colorSettings' ? DEFAULT_COLOR_SETTINGS : key === 'fuelPrices' ? DEFAULT_FUEL_PRICES : DEFAULT_INITIAL_STOCK;
-                setState(prevState => ({ ...prevState, [key]: snapshot.val() || defaultValue }));
-                handleLoad();
-            }, (error) => {
-                console.error(`Error fetching RTDB path ${key}:`, error);
-                handleLoad();
-            });
-            subscriptions.push(unsubscribe);
-        });
-
 
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
@@ -320,9 +336,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             products: [...state.products].sort(createSorter('name', 'asc')),
             attendance: [...state.attendance].sort(createSorter('date')),
             recycleBin: [...state.recycleBin].sort(createSorter('deletedAt')),
-            fuelPrices: state.fuelPrices,
-            initialFuelStock: state.initialFuelStock,
-            colorSettings: state.colorSettings,
+            fuelPrices: state.settings.fuelPrices,
+            initialFuelStock: state.settings.initialFuelStock,
+            colorSettings: state.settings.colorSettings,
         };
     }, [state]);
     
@@ -339,7 +355,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
             let startingPoint = lastReading ? new Date(lastReading.timestamp) : new Date(0);
-            let startingStock = lastReading ? lastReading.volume : (state.initialFuelStock[ft] || 0);
+            let startingStock = lastReading ? lastReading.volume : (state.settings.initialFuelStock[ft] || 0);
 
             const purchasesSince = processedState.purchases
                 .filter(p => p.fuelType === ft && new Date(p.timestamp) > startingPoint)
@@ -366,7 +382,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         return stock;
 
-    }, [state.isLoaded, state.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
+    }, [state.isLoaded, state.settings.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
     const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'>): Promise<T> => {
@@ -537,7 +553,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const addStockAdjustment = async (adj: Omit<StockAdjustment, 'id' | 'value'>) => {
         let value = 0;
         if (adj.adjustment > 0) {
-            const salePrice = state.fuelPrices[adj.fuelType] || 0;
+            const salePrice = state.settings.fuelPrices[adj.fuelType] || 0;
             value = adj.adjustment * salePrice;
         } else {
             const lastPurchase = processedState.purchases
@@ -595,45 +611,46 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteBusinessPartner = (id: string) => deleteEntity(FIRESTORE_PATHS.businessPartners, id);
 
     const setFuelStock = useCallback((fuelType: FuelType, newStock: number) => {
-        if (!db) return;
-        update(ref(db), { [`${RTDB_PATHS.initialFuelStock}/${fuelType}`]: newStock });
-    }, [db]);
+        if (!firestore) return;
+        const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        updateDoc(settingsRef, { [`initialFuelStock.${fuelType}`]: newStock });
+    }, [firestore]);
 
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
-        if (!db || isNaN(newPrice) || newPrice < 0) return;
-        update(ref(db), { [`${RTDB_PATHS.fuelPrices}/${fuelType}`]: newPrice });
+        if (!firestore || isNaN(newPrice) || newPrice < 0) return;
+        const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        updateDoc(settingsRef, { [`fuelPrices.${fuelType}`]: newPrice });
     };
 
     const updateColorSetting = (key: string, color: string) => {
-        if (!db) return;
-        update(ref(db), { [`${RTDB_PATHS.colorSettings}/${key}`]: color });
+        if (!firestore) return;
+        const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        updateDoc(settingsRef, { [`colorSettings.${key}`]: color });
     };
     
     const clearAllData = async () => {
-        if (firestore) {
-            for (const path of Object.values(FIRESTORE_PATHS)) {
-                try {
-                    const querySnapshot = await getDocs(collection(firestore, path));
-                    const deletePromises = querySnapshot.docs.map(docSnap => deleteDoc(docSnap.ref));
-                    await Promise.all(deletePromises);
-                } catch(e: any) {
-                     errorEmitter.emit(
-                        'permission-error',
-                        new FirestorePermissionError({
-                            path: path,
-                            operation: 'list'
-                        })
-                    );
-                }
+        if (!firestore) return;
+        const batch = writeBatch(firestore);
+        for (const path of Object.values(FIRESTORE_PATHS)) {
+            if (path === 'settings') continue; // Don't delete settings
+            try {
+                const querySnapshot = await getDocs(collection(firestore, path));
+                querySnapshot.docs.forEach(doc => batch.delete(doc.ref));
+            } catch(e: any) {
+                 errorEmitter.emit(
+                    'permission-error',
+                    new FirestorePermissionError({ path: path, operation: 'list' })
+                );
             }
         }
-        if (db) {
-            Object.values(RTDB_PATHS).forEach(path => {
-                if (path) remove(ref(db, path));
-            });
-        }
+        await batch.commit().catch(e => {
+            console.error("Batch delete failed", e);
+             errorEmitter.emit(
+                'permission-error',
+                new FirestorePermissionError({ path: 'batch delete', operation: 'write' })
+            );
+        });
     };
-
 
     const value: DatabaseContextType = {
         ...processedState,
@@ -706,5 +723,3 @@ export const useDatabase = () => {
     }
     return context;
 };
-
-    

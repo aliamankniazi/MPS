@@ -12,8 +12,10 @@ const inter = Inter({
   variable: '--font-inter',
 })
 
-// Metadata can't be exported from a client component.
-// We can set the document title dynamically within components if needed.
+export const metadata: Metadata = {
+  title: 'PumpPal',
+  description: 'PumpPal - Petrol Pump Management Software',
+};
 
 export default function RootLayout({
   children,

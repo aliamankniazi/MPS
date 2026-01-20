@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -17,15 +16,16 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from 'firebase/auth';
-import { auth, db } from '@/lib/firebase';
+import { auth, firestore } from '@/lib/firebase';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
-import { ref, onValue, set, get, update, push } from 'firebase/database';
 import { AppLayout } from '@/components/app-layout';
 import { useDatabase } from './use-database';
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 
 
-const DB_ROLES_PATH = 'roles';
+const ROLES_COLLECTION = 'roles';
+const USER_ROLES_COLLECTION = 'userRoles';
 
 const DEFAULT_ROLES: Role[] = [
     {
@@ -49,9 +49,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: RoleId | null;
   roles: Role[];
-  addRole: (role: Omit<Role, 'id'>) => void;
-  updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => void;
-  deleteRole: (id: RoleId) => void;
+  addRole: (role: Omit<Role, 'id'>) => Promise<void>;
+  updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => Promise<void>;
+  deleteRole: (id: RoleId) => Promise<void>;
   hasPermission: (permission: Permission) => boolean;
 }
 
@@ -69,27 +69,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname === '/signup';
 
-  // Effect for fetching roles from DB
+  // Effect for fetching roles from Firestore
   useEffect(() => {
-    if (!db) {
+    if (!firestore) {
         setRoles(DEFAULT_ROLES);
         setRolesLoading(false);
         return;
     }
-    const rolesRef = ref(db, DB_ROLES_PATH);
-    const unsubscribe = onValue(rolesRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            const rolesList: Role[] = Object.keys(data).map(key => ({ id: key, ...data[key] }));
-            setRoles(rolesList);
-        } else {
+    const rolesCollectionRef = collection(firestore, ROLES_COLLECTION);
+    const unsubscribe = onSnapshot(rolesCollectionRef, async (snapshot) => {
+        if (snapshot.empty) {
             // If no roles in DB, set default roles
-            const updates: Record<string, Omit<Role, 'id'>> = {};
+            const batch = writeBatch(firestore);
             DEFAULT_ROLES.forEach(r => {
-                updates[`${DB_ROLES_PATH}/${r.id}`] = { name: r.name, permissions: r.permissions };
+                const roleRef = doc(firestore, ROLES_COLLECTION, r.id);
+                batch.set(roleRef, { name: r.name, permissions: r.permissions });
             });
-            update(ref(db), updates);
+            await batch.commit();
             setRoles(DEFAULT_ROLES);
+        } else {
+            const rolesList: Role[] = snapshot.docs.map(doc => ({ id: doc.id, ...(doc.data() as Omit<Role, 'id'>) }));
+            setRoles(rolesList);
         }
         setRolesLoading(false);
     });
@@ -109,12 +109,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // Effect for tracking user role from DB
+  // Effect for tracking user role from Firestore
   useEffect(() => {
-    if (user && db) {
-      const userRoleRef = ref(db, `userRoles/${user.uid}`);
-      const unsubscribe = onValue(userRoleRef, (snapshot) => {
-        setUserRole(snapshot.val() || null);
+    if (user && firestore) {
+      const userRoleDocRef = doc(firestore, USER_ROLES_COLLECTION, user.uid);
+      const unsubscribe = onSnapshot(userRoleDocRef, (docSnap) => {
+        setUserRole(docSnap.exists() ? (docSnap.data().roleId as RoleId) : null);
       });
       return () => unsubscribe();
     } else {
@@ -130,24 +130,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return role.permissions.includes(permission);
   }, [userRole, roles]);
 
-  const addRole = useCallback((role: Omit<Role, 'id'>) => {
-      if (!db) return;
-      push(ref(db, DB_ROLES_PATH), role);
-  }, []);
+  const addRole = async (role: Omit<Role, 'id'>) => {
+      if (!firestore) return;
+      const newRoleRef = doc(collection(firestore, ROLES_COLLECTION));
+      await setDoc(newRoleRef, role);
+  };
 
-  const updateRole = useCallback((id: RoleId, updatedRole: Omit<Role, 'id'>) => {
-      if (!db) return;
-      set(ref(db, `${DB_ROLES_PATH}/${id}`), updatedRole);
-  }, []);
+  const updateRole = async (id: RoleId, updatedRole: Omit<Role, 'id'>) => {
+      if (!firestore) return;
+      const roleRef = doc(firestore, ROLES_COLLECTION, id);
+      await updateDoc(roleRef, updatedRole);
+  };
 
-  const deleteRole = useCallback((id: RoleId) => {
-      if (!db || id === 'admin') return;
-      set(ref(db, `${DB_ROLES_PATH}/${id}`), null);
-  }, []);
+  const deleteRole = async (id: RoleId) => {
+      if (!firestore || id === 'admin') return;
+      const roleRef = doc(firestore, ROLES_COLLECTION, id);
+      await deleteDoc(roleRef);
+  };
 
-  const assignRoleToUser = (userId: string, roleId: RoleId) => {
-    if (!db) return;
-    set(ref(db, `userRoles/${userId}`), roleId);
+  const assignRoleToUser = async (userId: string, roleId: RoleId) => {
+    if (!firestore) return;
+    const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
+    await setDoc(userRoleRef, { roleId });
   };
 
   const signIn = (data: AuthFormValues) => {
@@ -156,19 +160,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (data: AuthFormValues) => {
-    if (!auth || !db) throw new Error("Firebase is not configured.");
+    if (!auth || !firestore) throw new Error("Firebase is not configured.");
 
-    const userRolesRef = ref(db, 'userRoles');
-    const snapshot = await get(userRolesRef);
-    const hasUsers = snapshot.exists();
+    const userRolesCollectionRef = collection(firestore, USER_ROLES_COLLECTION);
+    const snapshot = await getDocs(userRolesCollectionRef);
+    const hasUsers = !snapshot.empty;
     
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     
     // First user to sign up becomes an admin
     if (!hasUsers) {
-      assignRoleToUser(userCredential.user.uid, 'admin');
+      await assignRoleToUser(userCredential.user.uid, 'admin');
     } else {
-      assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
+      await assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
     }
     
     return userCredential;
