@@ -96,6 +96,8 @@ export default function LedgerPage() {
     products,
     colorSettings,
     isLoaded,
+    dateRange, 
+    setDateRange,
     deleteTransaction,
     deletePurchase,
     deleteExpense,
@@ -108,7 +110,6 @@ export default function LedgerPage() {
     deleteCashAdvance,
     deleteStockAdjustment,
   } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');

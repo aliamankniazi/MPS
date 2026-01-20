@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -33,6 +32,7 @@ import type {
     Supplier,
     SupplierPayment,
     Transaction,
+    DateRange,
 } from '@/lib/types';
 import { firestore, auth } from '@/lib/firebase';
 import { 
@@ -198,9 +198,14 @@ interface DatabaseActions {
     clearAllData: () => void;
     restoreFromRecycleBin: (item: RecycledItem) => void;
     deletePermanently: (id: string) => void;
+    setDateRange: (dateRange: DateRange | undefined) => void;
 }
 
-type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { fuelStock: Record<FuelType, number>, isLoaded: boolean };
+type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { 
+    fuelStock: Record<FuelType, number>, 
+    isLoaded: boolean,
+    dateRange: DateRange | undefined,
+};
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
@@ -218,6 +223,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         },
         isLoaded: false,
     });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [user, setUser] = useState<User | null>(null);
     const [isAuthLoading, setIsAuthLoading] = useState(true);
 
@@ -699,6 +705,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         ...processedState,
         isLoaded: state.isLoaded,
         fuelStock,
+        dateRange,
         addTransaction,
         deleteTransaction,
         addPurchase,
@@ -748,6 +755,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         clearAllData,
         restoreFromRecycleBin,
         deletePermanently,
+        setDateRange,
     };
 
     return (

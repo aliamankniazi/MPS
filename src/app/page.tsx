@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,8 +17,7 @@ import type { DateRange, FuelType } from '@/lib/types';
 
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
