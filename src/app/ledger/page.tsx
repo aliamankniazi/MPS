@@ -33,6 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 
 type LedgerEntry = {
@@ -453,6 +454,30 @@ export default function LedgerPage() {
     });
   });
 
+  const allFilteredEntryIds = useMemo(() =>
+    filteredEntries.map(e => e.id).filter(id => id && id.includes('-'))
+  , [filteredEntries]);
+
+  const masterCheckboxState = useMemo(() => {
+    if (allFilteredEntryIds.length === 0) return false;
+    const intersectionCount = allFilteredEntryIds.filter(id => selectedEntries.includes(id)).length;
+
+    if (intersectionCount === 0) return false;
+    if (intersectionCount === allFilteredEntryIds.length) return true;
+    return 'indeterminate';
+  }, [allFilteredEntryIds, selectedEntries]);
+  
+  const handleSelectAllGlobal = (checked: boolean | 'indeterminate') => {
+    if (checked === true) {
+        // When checking, add all currently filtered IDs to the selection
+        setSelectedEntries(prev => [...new Set([...prev, ...allFilteredEntryIds])]);
+    } else {
+        // When unchecking, remove all currently filtered IDs from the selection
+        const filteredIdSet = new Set(allFilteredEntryIds);
+        setSelectedEntries(prev => prev.filter(id => !filteredIdSet.has(id)));
+    }
+  };
+
   const handleSelectEntry = useCallback((entryId: string, isSelected: boolean) => {
     setSelectedEntries(prev => {
         if (isSelected) {
@@ -695,6 +720,17 @@ export default function LedgerPage() {
             <Button variant="outline" onClick={() => setShowJournal(!showJournal)}>{showJournal ? 'Show Business Report' : 'Show Full Journal'}</Button>
 
            {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Clear</Button>}
+
+           <div className="flex items-center space-x-2 border-l pl-4 ml-4">
+              <Checkbox
+                id="select-all-global"
+                checked={masterCheckboxState}
+                onCheckedChange={handleSelectAllGlobal}
+              />
+              <Label htmlFor="select-all-global" className="text-sm font-medium">
+                Select All ({allFilteredEntryIds.length})
+              </Label>
+            </div>
 
            {selectedEntries.length > 0 && (
               <Button 
@@ -959,3 +995,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
+    
