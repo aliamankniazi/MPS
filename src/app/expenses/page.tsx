@@ -35,7 +35,8 @@ const expenseSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
+  const { expenses, addExpense, deleteExpense } = useDatabase();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -405,4 +406,3 @@ export default function ExpensesPage() {
     </>
   );
 }
-      

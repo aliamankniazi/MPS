@@ -198,8 +198,6 @@ interface DatabaseActions {
     clearAllData: () => void;
     restoreFromRecycleBin: (item: RecycledItem) => void;
     deletePermanently: (id: string) => void;
-    dateRange: DateRange | undefined;
-    setDateRange: React.Dispatch<React.SetStateAction<DateRange | undefined>>;
 }
 
 type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { fuelStock: Record<FuelType, number>, isLoaded: boolean };
@@ -220,8 +218,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         },
         isLoaded: false,
     });
-    
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     useEffect(() => {
         if (!firestore) {
@@ -393,10 +389,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return new Promise<T>((resolve, reject) => {
             addDoc(collection(firestore, path), dataToSend)
                 .then(docRef => {
-                    const transactionDate = (entity as any).timestamp ? new Date((entity as any).timestamp) : new Date();
-                    if (isValid(transactionDate)) {
-                        setDateRange({ from: transactionDate, to: transactionDate });
-                    }
                     resolve({ ...entity, id: docRef.id, timestamp: new Date().toISOString() } as T);
                 })
                 .catch(error => {
@@ -408,7 +400,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     reject(error);
                 });
         });
-    }, [firestore, setDateRange]);
+    }, [firestore]);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
         if (!firestore) return;
@@ -705,8 +697,6 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         clearAllData,
         restoreFromRecycleBin,
         deletePermanently,
-        dateRange,
-        setDateRange,
     };
 
     return (

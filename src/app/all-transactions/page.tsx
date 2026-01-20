@@ -70,9 +70,8 @@ export default function AllTransactionsPage() {
     deleteExpense,
     deleteCashAdvance,
     isLoaded,
-    dateRange,
-    setDateRange
   } = useDatabase();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
   const { toast } = useToast();
