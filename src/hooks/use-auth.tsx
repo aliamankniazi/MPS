@@ -21,7 +21,9 @@ import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permissi
 import { usePathname, useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
 import { useDatabase } from './use-database';
-import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const ROLES_COLLECTION = 'roles';
@@ -92,6 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setRoles(rolesList);
         }
         setRolesLoading(false);
+    }, (error) => {
+        console.error("Error fetching roles:", error);
+        const contextualError = new FirestorePermissionError({
+            operation: 'list',
+            path: ROLES_COLLECTION,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setRolesLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -115,6 +125,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userRoleDocRef = doc(firestore, USER_ROLES_COLLECTION, user.uid);
       const unsubscribe = onSnapshot(userRoleDocRef, (docSnap) => {
         setUserRole(docSnap.exists() ? (docSnap.data().roleId as RoleId) : null);
+      }, (error) => {
+          console.error("Error fetching user role:", error);
+          const contextualError = new FirestorePermissionError({
+              operation: 'get',
+              path: userRoleDocRef.path,
+          });
+          errorEmitter.emit('permission-error', contextualError);
       });
       return () => unsubscribe();
     } else {

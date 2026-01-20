@@ -3,9 +3,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -23,6 +23,10 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useParams } from 'next/navigation';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import type { DateRange } from '@/lib/types';
 
 
 type LedgerEntry = {
@@ -59,6 +63,8 @@ export default function CustomerLedgerPage() {
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   const { entity, entityType } = useMemo(() => {
@@ -166,19 +172,40 @@ export default function CustomerLedgerPage() {
         });
     }
 
-
-    combined.sort((a, b) => {
-        const dateA = new Date(a.timestamp);
-        const dateB = new Date(b.timestamp);
-        if (!isValid(dateA)) return 1;
-        if (!isValid(dateB)) return -1;
-        return dateA.getTime() - dateB.getTime();
-    });
+    combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     const openingBalance = (entityType === 'Customer' && 'openingBalance' in entity && entity.openingBalance) ? entity.openingBalance : 0;
-    let runningBalance = openingBalance;
+    
+    const balanceBeforeRange = combined
+      .filter(e => dateRange?.from && isValid(new Date(e.timestamp)) && new Date(e.timestamp) < startOfDay(dateRange.from))
+      .reduce((bal, entry) => {
+        if (entityType === 'Customer') {
+            return bal + (entry.debit - entry.credit);
+        } else { // Supplier or Partner
+            return bal + (entry.credit - entry.debit);
+        }
+      }, openingBalance);
+      
+    const filteredByDate = dateRange?.from
+      ? combined.filter(entry => {
+          const entryDate = new Date(entry.timestamp);
+          if (!isValid(entryDate)) return false;
+          const from = startOfDay(dateRange.from);
+          const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+          return entryDate >= from && entryDate <= to;
+      })
+      : combined;
+  
+    const filteredEntries = searchTerm
+      ? filteredByDate.filter(entry => 
+          entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          entry.type.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : filteredByDate;
 
-    const entriesWithBalance: LedgerEntry[] = combined.map(entry => {
+    let runningBalance = dateRange?.from ? balanceBeforeRange : openingBalance;
+
+    const entriesWithBalance: LedgerEntry[] = filteredEntries.map(entry => {
       const date = new Date(entry.timestamp);
       if(!isValid(date)) {
         return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
@@ -193,7 +220,7 @@ export default function CustomerLedgerPage() {
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -324,16 +351,33 @@ export default function CustomerLedgerPage() {
 
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <BookUser /> {entityType} Ledger: {entity.name}
               </CardTitle>
               <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
             </div>
-             <Button asChild variant="outline">
-                <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back to Partner Ledger</Link>
-             </Button>
+             <div className="flex flex-col sm:flex-row items-center gap-2">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
+                </div>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button id="date" variant={"outline"} className={cn("w-full sm:w-[260px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>) : (format(dateRange.from, "LLL dd, y"))) : (<span>Pick a date range</span>)}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
+                    </PopoverContent>
+                </Popover>
+                 <Button asChild variant="outline">
+                    <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
+                 </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
