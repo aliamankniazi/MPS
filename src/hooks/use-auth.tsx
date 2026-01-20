@@ -73,6 +73,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Effect for fetching roles from Firestore
   useEffect(() => {
+    // No user, no roles to fetch.
+    if (!user) {
+        setRoles([]);
+        setRolesLoading(false);
+        return;
+    }
     if (!firestore) {
         setRoles(DEFAULT_ROLES);
         setRolesLoading(false);
@@ -104,7 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRolesLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [user]); // Now depends on user
 
   // Effect for tracking user auth state
   useEffect(() => {
