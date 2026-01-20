@@ -602,7 +602,23 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     };
     
     const updateBusinessPartner = (id: string, updatedPartner: Partial<Omit<BusinessPartner, 'id'>>) => {
-        updateEntity(FIRESTORE_PATHS.businessPartners, id, updatedPartner);
+        if (!firestore) return;
+        const partnerRef = doc(firestore, FIRESTORE_PATHS.businessPartners, id);
+        
+        // Use set with merge to handle both creation and update, preventing errors on non-existent docs.
+        const dataToSet = {
+            ...updatedPartner,
+            timestamp: serverTimestamp(), // Ensures timestamp is set on creation and updated on edit.
+        };
+
+        setDoc(partnerRef, dataToSet, { merge: true }).catch(error => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: partnerRef.path,
+                operation: 'write',
+                requestResourceData: dataToSet,
+            }));
+        });
+
         if(updatedPartner.name || updatedPartner.contact) {
             updateCustomer(id, { name: updatedPartner.name, contact: updatedPartner.contact });
         }
