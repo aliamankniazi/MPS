@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -89,14 +90,14 @@ const navGroups = [
 ]
 
 const AppLogo = () => (
-    <div className="flex items-center gap-2.5">
+    <Link href="/" className="flex items-center gap-2.5">
       <div className="bg-primary rounded-lg p-2 text-primary-foreground">
         <Fuel className="w-6 h-6" />
       </div>
       <div className="flex flex-col">
         <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali Petroleum</h2>
       </div>
-    </div>
+    </Link>
 );
 
 const topNavItems = [
