@@ -16,8 +16,7 @@ import { cn } from '@/lib/utils';
 import type { DateRange } from '@/lib/types';
 
 export default function AiSummaryPage() {
-  const { transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const { transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();

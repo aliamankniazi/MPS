@@ -25,8 +25,7 @@ interface CustomerRanking {
 }
 
 export default function TopCustomersPage() {
-    const { transactions, isLoaded } = useDatabase();
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const { transactions, isLoaded, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const customerRankings = useMemo(() => {

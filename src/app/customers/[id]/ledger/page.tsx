@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -52,18 +53,19 @@ export default function CustomerLedgerPage() {
     cashAdvances, 
     purchases, 
     supplierPayments, 
-    investments,
+    investments, 
     deleteTransaction, 
     deletePurchase, 
     deleteCustomerPayment, 
     deleteCashAdvance, 
     deleteSupplierPayment, 
     deleteInvestment,
-    isLoaded
+    isLoaded,
+    dateRange,
+    setDateRange
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 

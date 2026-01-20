@@ -42,8 +42,7 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const { transactions, purchases, isLoaded, colorSettings, dateRange, setDateRange } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -25,8 +26,7 @@ type CombinedEntry = {
 };
 
 export default function CashAndCustomerPaymentsPage() {
-  const { customerPayments, cashAdvances, isLoaded, colorSettings } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const { customerPayments, cashAdvances, isLoaded, colorSettings, dateRange, setDateRange } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
 
   const combinedEntries = useMemo(() => {
