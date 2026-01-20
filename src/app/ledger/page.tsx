@@ -147,16 +147,17 @@ export default function LedgerPage() {
     
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
-        const isSalary = cp.paymentMethod === 'Salary';
-        const description = isSalary ? `Salary Payment` : `Payment Received`;
+        if (cp.paymentMethod === 'Salary') return; // Exclude salary payments as they're handled by expenses
+
+        const description = `Payment Received`;
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
           description,
           partnerName: cp.customerName,
-          type: isSalary ? 'Salary' : 'Customer Payment',
-          debit: isSalary ? cp.amount : 0,
-          credit: isSalary ? 0 : cp.amount,
+          type: 'Customer Payment',
+          debit: 0,
+          credit: cp.amount,
           original: cp,
           notes: cp.notes,
         })
@@ -206,16 +207,18 @@ export default function LedgerPage() {
     });
     expenses.forEach(e => {
         if (!e.timestamp || !isValid(new Date(e.timestamp))) return;
+        
         const isSalaryExpense = e.category === 'Salaries';
-        if (isSalaryExpense) return; // Exclude salary expenses as they are handled by CustomerPayment 'Salary' type
+        const partnerName = isSalaryExpense 
+            ? e.description.replace('Salary for ', '').replace(/ \(.*/, '') 
+            : 'Internal';
 
-        const description = e.description;
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
-            description: description,
-            partnerName: 'Internal',
-            type: 'Expense',
+            description: e.description,
+            partnerName: partnerName,
+            type: isSalaryExpense ? 'Salary' : 'Expense',
             debit: e.amount,
             credit: 0,
             original: e,

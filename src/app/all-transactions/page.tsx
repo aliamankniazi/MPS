@@ -94,11 +94,13 @@ export default function AllTransactionsPage() {
       }
     });
 
-    const payments: CombinedEntry[] = customerPayments.map(p => ({
+    const payments: CombinedEntry[] = customerPayments
+        .filter(p => p.paymentMethod !== 'Salary')
+        .map(p => ({
         id: `payment-${p.id}`,
         originalId: p.id,
         timestamp: p.timestamp,
-        type: p.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
+        type: 'Customer Payment',
         partner: p.customerName,
         details: p.notes || `${p.paymentMethod} Payment`,
         amount: p.amount,
@@ -117,18 +119,16 @@ export default function AllTransactionsPage() {
     }));
 
     
-    const expenseEntries: CombinedEntry[] = expenses
-        .filter(e => e.category !== 'Salaries') // Exclude salary expenses to avoid duplicates
-        .map(e => ({
-            id: `exp-${e.id}`,
-            originalId: e.id,
-            timestamp: e.timestamp,
-            type: 'Expense',
-            partner: 'Internal',
-            details: e.description,
-            amount: e.amount,
-            original: { ...e },
-        }));
+    const expenseEntries: CombinedEntry[] = expenses.map(e => ({
+        id: `exp-${e.id}`,
+        originalId: e.id,
+        timestamp: e.timestamp,
+        type: e.category === 'Salaries' ? 'Salary' : 'Expense',
+        partner: e.category === 'Salaries' ? e.description.replace('Salary for ', '').replace(/ \(.*/, '') : 'Internal',
+        details: e.description,
+        amount: e.amount,
+        original: { ...e },
+    }));
 
 
     const allPurchases: CombinedEntry[] = purchases.map(p => ({
