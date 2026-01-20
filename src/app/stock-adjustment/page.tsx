@@ -244,7 +244,7 @@ export default function StockAdjustmentPage() {
                                 mode="range"
                                 defaultMonth={dateRange?.from}
                                 selected={dateRange}
-                                onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
+                                onSelect={setDateRange}
                                 numberOfMonths={2}
                             />
                         </PopoverContent>
