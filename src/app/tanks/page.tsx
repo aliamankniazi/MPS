@@ -19,7 +19,7 @@ import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React from 'react';
+import React, { useEffect } from 'react';
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
 
@@ -44,10 +44,13 @@ export default function MachineManagementPage() {
 
   const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
     resolver: zodResolver(machineReadingSchema),
-    defaultValues: {
-        date: new Date(),
-    }
   });
+
+  useEffect(() => {
+    resetReading({
+        date: new Date(),
+    });
+  }, [resetReading]);
   
   const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors } } = useForm<MachineFormValues>();
 
@@ -140,6 +143,7 @@ export default function MachineManagementPage() {
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
                         <Calendar
+                          key="tanks-calendar"
                           mode="single"
                           selected={field.value}
                           onSelect={field.onChange}

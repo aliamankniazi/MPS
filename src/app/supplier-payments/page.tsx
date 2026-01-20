@@ -72,10 +72,13 @@ export default function SupplierPaymentsPage() {
   
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
-    defaultValues: {
-      date: new Date(),
-    }
   });
+
+  useEffect(() => {
+    reset({
+      date: new Date(),
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -217,6 +220,7 @@ export default function SupplierPaymentsPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                           <Calendar
+                            key="supplier-payments-calendar"
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}

@@ -19,7 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
@@ -45,10 +45,13 @@ export default function ExpensesPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
-    defaultValues: {
-        date: new Date(),
-    }
   });
+
+  useEffect(() => {
+    reset({
+        date: new Date(),
+    });
+  }, [reset]);
 
   const filteredExpenses = useMemo(() => {
     let currentExpenses = expenses;
@@ -192,6 +195,7 @@ export default function ExpensesPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                           <Calendar
+                            key="expenses-form-calendar"
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}
@@ -267,6 +271,7 @@ export default function ExpensesPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                             <Calendar
+                                key="expenses-calendar"
                                 initialFocus
                                 mode="range"
                                 defaultMonth={dateRange?.from}

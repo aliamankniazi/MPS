@@ -20,7 +20,7 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const INCOME_CATEGORIES: OtherIncomeCategory[] = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'];
 
@@ -40,10 +40,13 @@ export default function OtherIncomesPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
-    defaultValues: {
-      date: new Date(),
-    }
   });
+
+  useEffect(() => {
+    reset({
+      date: new Date(),
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
     addOtherIncome({
@@ -134,6 +137,7 @@ export default function OtherIncomesPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
                           <Calendar
+                            key="other-incomes-calendar"
                             mode="single"
                             selected={field.value}
                             onSelect={field.onChange}

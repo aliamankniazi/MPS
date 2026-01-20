@@ -308,6 +308,7 @@ export default function AllTransactionsPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                             <Calendar
+                                key="all-transactions-calendar"
                                 initialFocus
                                 mode="range"
                                 defaultMonth={dateRange?.from}

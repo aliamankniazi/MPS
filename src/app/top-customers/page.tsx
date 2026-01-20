@@ -106,6 +106,7 @@ export default function TopCustomersPage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar
+                                    key="top-customers-calendar"
                                     initialFocus
                                     mode="range"
                                     defaultMonth={dateRange?.from}

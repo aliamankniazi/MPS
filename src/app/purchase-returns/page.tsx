@@ -77,10 +77,13 @@ export default function PurchaseReturnsPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
-    defaultValues: {
-        date: new Date(),
-    }
   });
+  
+  useEffect(() => {
+    reset({
+        date: new Date(),
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -226,6 +229,7 @@ export default function PurchaseReturnsPage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                             <Calendar
+                                key="purchase-returns-calendar"
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}

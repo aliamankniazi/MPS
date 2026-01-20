@@ -191,6 +191,7 @@ Mianwali Petroleum Service`;
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="end">
                                     <Calendar
+                                        key="credit-recovery-calendar"
                                         initialFocus
                                         mode="range"
                                         defaultMonth={dateRange?.from}

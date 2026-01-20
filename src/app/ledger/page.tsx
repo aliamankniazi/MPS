@@ -670,6 +670,7 @@ export default function LedgerPage() {
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
                   <Calendar
+                      key="ledger-calendar"
                       initialFocus
                       mode="range"
                       defaultMonth={dateRange?.from}

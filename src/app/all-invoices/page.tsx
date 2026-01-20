@@ -197,6 +197,7 @@ export default function AllInvoicesPage() {
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
                         <Calendar
+                            key="all-invoices-calendar"
                             initialFocus
                             mode="range"
                             defaultMonth={dateRange?.from}

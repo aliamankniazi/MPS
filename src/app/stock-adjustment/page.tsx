@@ -56,11 +56,14 @@ export default function StockAdjustmentPage() {
 
   const { register, handleSubmit, control, reset, watch, setValue } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
-    defaultValues: {
-      adjustment: 0,
-      date: new Date(),
-    }
   });
+
+  React.useEffect(() => {
+    reset({
+        adjustment: 0,
+        date: new Date(),
+    });
+  }, [reset]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
@@ -191,6 +194,7 @@ export default function StockAdjustmentPage() {
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
                             <Calendar
+                                key="stock-adjustment-form-calendar"
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
@@ -240,6 +244,7 @@ export default function StockAdjustmentPage() {
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="end">
                             <Calendar
+                                key="stock-adjustment-calendar"
                                 initialFocus
                                 mode="range"
                                 defaultMonth={dateRange?.from}

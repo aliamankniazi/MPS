@@ -242,7 +242,7 @@ export default function EmployeeManagementPage() {
                                 {historyDate ? format(historyDate, "PPP") : <span>Pick a date to view history</span>}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={historyDate} onSelect={setHistoryDate} /></PopoverContent>
+                            <PopoverContent className="w-auto p-0"><Calendar key="attendance-history-calendar" mode="single" selected={historyDate} onSelect={setHistoryDate} /></PopoverContent>
                         </Popover>
                     </div>
                 </CardHeader>
@@ -418,7 +418,7 @@ export default function EmployeeManagementPage() {
                                 {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                                 </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                            <PopoverContent className="w-auto p-0"><Calendar key="attendance-add-calendar" mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
                             </Popover>
                         )}
                         />
@@ -470,7 +470,7 @@ export default function EmployeeManagementPage() {
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
                             </Button>
-                        </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover>
+                        </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar key="attendance-edit-hire-date-calendar" mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover>
                     )} />
                   </div>
                   <div className="space-y-2">
@@ -481,7 +481,7 @@ export default function EmployeeManagementPage() {
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {field.value ? format(field.value, "PPP") : <span>Leave empty if active</span>}
                             </Button>
-                        </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover>
+                        </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar key="attendance-edit-term-date-calendar" mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover>
                     )} />
                   </div>
                 </div>

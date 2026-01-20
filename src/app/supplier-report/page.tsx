@@ -173,6 +173,7 @@ Mianwali Petroleum Service`;
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="end">
                                     <Calendar
+                                        key="supplier-report-calendar"
                                         initialFocus
                                         mode="range"
                                         defaultMonth={dateRange?.from}
