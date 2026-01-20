@@ -6,6 +6,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/hooks/use-auth';
 import { PrintStyles } from '@/components/print-styles';
 import { DatabaseProvider } from '@/hooks/use-database';
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,6 +31,7 @@ export default function RootLayout({
       <body className="font-body antialiased">
         <DatabaseProvider>
           <AuthProvider>
+            <FirebaseErrorListener />
             {children}
           </AuthProvider>
         </DatabaseProvider>
