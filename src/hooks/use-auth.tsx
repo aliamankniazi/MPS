@@ -51,9 +51,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   userRole: RoleId | null;
   roles: Role[];
-  addRole: (role: Omit<Role, 'id'>) => Promise<void>;
-  updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => Promise<void>;
-  deleteRole: (id: RoleId) => Promise<void>;
+  addRole: (role: Omit<Role, 'id'>) => void;
+  updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => void;
+  deleteRole: (id: RoleId) => void;
   hasPermission: (permission: Permission) => boolean;
 }
 
@@ -147,28 +147,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return role.permissions.includes(permission);
   }, [userRole, roles]);
 
-  const addRole = async (role: Omit<Role, 'id'>) => {
-      if (!firestore) return;
-      const newRoleRef = doc(collection(firestore, ROLES_COLLECTION));
-      await setDoc(newRoleRef, role);
+  const addRole = (role: Omit<Role, 'id'>) => {
+    if (!firestore) return;
+    const newRoleRef = doc(collection(firestore, ROLES_COLLECTION));
+    setDoc(newRoleRef, role).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: newRoleRef.path,
+            operation: 'create',
+            requestResourceData: role,
+        }));
+    });
   };
 
-  const updateRole = async (id: RoleId, updatedRole: Omit<Role, 'id'>) => {
-      if (!firestore) return;
-      const roleRef = doc(firestore, ROLES_COLLECTION, id);
-      await updateDoc(roleRef, updatedRole);
+  const updateRole = (id: RoleId, updatedRole: Omit<Role, 'id'>) => {
+    if (!firestore) return;
+    const roleRef = doc(firestore, ROLES_COLLECTION, id);
+    updateDoc(roleRef, updatedRole).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: roleRef.path,
+            operation: 'update',
+            requestResourceData: updatedRole,
+        }));
+    });
   };
 
-  const deleteRole = async (id: RoleId) => {
-      if (!firestore || id === 'admin') return;
-      const roleRef = doc(firestore, ROLES_COLLECTION, id);
-      await deleteDoc(roleRef);
+  const deleteRole = (id: RoleId) => {
+    if (!firestore || id === 'admin') return;
+    const roleRef = doc(firestore, ROLES_COLLECTION, id);
+    deleteDoc(roleRef).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: roleRef.path,
+            operation: 'delete',
+        }));
+    });
   };
 
-  const assignRoleToUser = async (userId: string, roleId: RoleId) => {
+  const assignRoleToUser = (userId: string, roleId: RoleId) => {
     if (!firestore) return;
     const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
-    await setDoc(userRoleRef, { roleId });
+    const roleData = { roleId };
+    setDoc(userRoleRef, roleData).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userRoleRef.path,
+            operation: 'create',
+            requestResourceData: roleData,
+        }));
+    });
   };
 
   const signIn = (data: AuthFormValues) => {
@@ -180,16 +204,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!auth || !firestore) throw new Error("Firebase is not configured.");
 
     const userRolesCollectionRef = collection(firestore, USER_ROLES_COLLECTION);
-    const snapshot = await getDocs(userRolesCollectionRef);
-    const hasUsers = !snapshot.empty;
+    
+    let hasUsers = false;
+    try {
+        const snapshot = await getDocs(userRolesCollectionRef);
+        hasUsers = !snapshot.empty;
+    } catch (error) {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userRolesCollectionRef.path,
+            operation: 'list',
+        }));
+        // Re-throw to prevent further execution and let the caller handle it.
+        throw error;
+    }
     
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
     
     // First user to sign up becomes an admin
     if (!hasUsers) {
-      await assignRoleToUser(userCredential.user.uid, 'admin');
+      assignRoleToUser(userCredential.user.uid, 'admin');
     } else {
-      await assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
+      assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
     }
     
     return userCredential;
