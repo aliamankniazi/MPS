@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -34,9 +33,9 @@ const navGroups = [
         icon: History,
         links: [
             { href: '/all-transactions', label: 'All Transactions', icon: History },
-            { href: '/all-invoices', label: 'All Invoices', icon: Receipt },
-            { href: '/ledger', label: 'General Journal', icon: BookOpen },
-            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins },
+            { href: '/all-invoices', label: 'All Invoices', icon: Receipt, target: '_blank' },
+            { href: '/ledger', label: 'General Journal', icon: BookOpen, target: '_blank' },
+            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins, target: '_blank' },
         ]
     },
     {
@@ -46,8 +45,8 @@ const navGroups = [
             { href: '/purchases', label: 'Purchases', icon: ShoppingCart },
             { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo },
             { href: '/suppliers', label: 'Suppliers', icon: Contact },
-            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen },
-            { href: '/supplier-report', label: 'Supplier Report', icon: Truck },
+            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen, target: '_blank' },
+            { href: '/supplier-report', label: 'Supplier Report', icon: Truck, target: '_blank' },
         ]
     },
     {
@@ -82,7 +81,7 @@ const navGroups = [
         icon: Cog,
         links: [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit },
-            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles },
+            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles, target: '_blank' },
             { href: '/roles', label: 'Role Management', icon: Shield },
             { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },
         ]
@@ -152,7 +151,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         {group.links.map(link => (
                         <SidebarMenuSubItem key={link.href}>
                             <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
-                                <Link href={link.href}>
+                                <Link href={link.href} target={(link as any).target || '_self'} rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}>
                                     <link.icon/>
                                     <span>{link.label}</span>
                                 </Link>

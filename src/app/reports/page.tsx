@@ -172,7 +172,7 @@ const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) =
     </CardContent>
     <CardContent>
       <Button asChild variant="link" className="p-0 h-auto">
-        <Link href={href}>
+        <Link href={href} target="_blank" rel="noopener noreferrer">
           View Report <ArrowRight className="ml-2 w-4 h-4" />
         </Link>
       </Button>
