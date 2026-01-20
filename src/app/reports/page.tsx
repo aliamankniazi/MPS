@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -148,7 +147,14 @@ const reportList: ReportCardProps[] = [
     href: '/expenses',
     icon: Receipt,
     permission: 'view_expenses',
-  }
+  },
+  {
+    title: 'Payments & Advances Report',
+    description: 'View all customer payments and cash advances.',
+    href: '/cash-customer-payments',
+    icon: Wallet,
+    permission: 'view_cash_advances',
+  },
 ];
 
 const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) => (
