@@ -73,6 +73,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Effect for fetching roles from Firestore
   useEffect(() => {
+    // Wait until auth state is confirmed before fetching roles.
+    if (authLoading) {
+        return;
+    }
     // No user, no roles to fetch.
     if (!user) {
         setRoles([]);
@@ -110,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRolesLoading(false);
     });
     return () => unsubscribe();
-  }, [user]); // Now depends on user
+  }, [user, authLoading]); // Depend on user and authLoading
 
   // Effect for tracking user auth state
   useEffect(() => {
