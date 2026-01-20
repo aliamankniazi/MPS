@@ -132,7 +132,10 @@ export default function CustomersPage() {
     setCustomerToEdit(customer);
   }
 
-  const formatPhoneNumberForWhatsApp = (phone: string | number) => {
+  const formatPhoneNumberForWhatsApp = (phone: string | number | string[]) => {
+    if (Array.isArray(phone)) {
+      phone = phone[0] || '';
+    }
     if (typeof phone !== 'string' && typeof phone !== 'number') return '';
     return String(phone).replace(/[^0-9]/g, '');
   }
@@ -149,7 +152,7 @@ export default function CustomersPage() {
   useEffect(() => {
     if (customerToEdit) {
       setEditValue('name', customerToEdit.name);
-      setEditValue('contact', customerToEdit.contact);
+      setEditValue('contact', Array.isArray(customerToEdit.contact) ? customerToEdit.contact.join(', ') : customerToEdit.contact);
       setEditValue('vehicleNumber', customerToEdit.vehicleNumber || '');
       setEditValue('area', customerToEdit.area || '');
       setEditValue('openingBalance', customerToEdit.openingBalance || 0);
@@ -213,7 +216,7 @@ export default function CustomersPage() {
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
                 <div>
                     <CardTitle className="flex items-center gap-2">
-                    <List /> Customer & Partner List
+                    <List /> Customer &amp; Partner List
                     </CardTitle>
                     <CardDescription>
                     A record of all your customers and business partners.
@@ -248,7 +251,7 @@ export default function CustomersPage() {
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
                           </div>
-                          <div className="text-sm text-muted-foreground">{c.contact}</div>
+                          <div className="text-sm text-muted-foreground">{Array.isArray(c.contact) ? c.contact.join(', ') : c.contact}</div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">{c.vehicleNumber || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">Added: {format(new Date(c.timestamp), 'PP')}</div>
