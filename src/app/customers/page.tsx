@@ -44,6 +44,13 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </svg>
 );
 
+const contactDisplay = (contact: any): string => {
+  if (!contact) return '';
+  if (Array.isArray(contact)) return contact.join(', ');
+  if (typeof contact === 'object' && contact !== null) return Object.values(contact).join(', ');
+  return String(contact);
+};
+
 export default function CustomersPage() {
   const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer } = useDatabase();
   const { toast } = useToast();
@@ -132,12 +139,19 @@ export default function CustomersPage() {
     setCustomerToEdit(customer);
   }
 
-  const formatPhoneNumberForWhatsApp = (phone: string | number | string[]) => {
+  const formatPhoneNumberForWhatsApp = (phone: any) => {
+    let primaryPhone = '';
     if (Array.isArray(phone)) {
-      phone = phone[0] || '';
+      primaryPhone = phone[0] || '';
+    } else if (typeof phone === 'object' && phone !== null) {
+      primaryPhone = Object.values(phone)[0] as string || '';
+    } else if (phone) {
+      primaryPhone = String(phone);
     }
-    if (typeof phone !== 'string' && typeof phone !== 'number') return '';
-    return String(phone).replace(/[^0-9]/g, '');
+    
+    if (!primaryPhone) return '';
+    
+    return String(primaryPhone).replace(/[^0-9]/g, '');
   }
   
   const handleRowClick = (customerId: string, e: React.MouseEvent) => {
@@ -152,7 +166,7 @@ export default function CustomersPage() {
   useEffect(() => {
     if (customerToEdit) {
       setEditValue('name', customerToEdit.name);
-      setEditValue('contact', Array.isArray(customerToEdit.contact) ? customerToEdit.contact.join(', ') : customerToEdit.contact);
+      setEditValue('contact', contactDisplay(customerToEdit.contact));
       setEditValue('vehicleNumber', customerToEdit.vehicleNumber || '');
       setEditValue('area', customerToEdit.area || '');
       setEditValue('openingBalance', customerToEdit.openingBalance || 0);
@@ -251,7 +265,7 @@ export default function CustomersPage() {
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
                           </div>
-                          <div className="text-sm text-muted-foreground">{Array.isArray(c.contact) ? c.contact.join(', ') : c.contact}</div>
+                          <div className="text-sm text-muted-foreground">{contactDisplay(c.contact)}</div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">{c.vehicleNumber || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">Added: {format(new Date(c.timestamp), 'PP')}</div>
