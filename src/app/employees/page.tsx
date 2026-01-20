@@ -21,7 +21,6 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
-import type { DateRange } from '@/lib/types';
 
 const salaryPaymentSchema = z.object({
   employeeId: z.string().min(1, 'Please select an employee.'),
@@ -72,22 +71,15 @@ export default function SalaryPaymentPage() {
   const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
     defaultValues: {
       salaryMonth: format(new Date(), 'MMMM'),
       salaryYear: new Date().getFullYear().toString(),
-      postingDate: dateRange?.from || new Date(),
+      postingDate: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('postingDate', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
@@ -139,7 +131,6 @@ export default function SalaryPaymentPage() {
       description: `Salary for ${employee.name} has been successfully recorded.`,
     });
     
-    setDateRange({ from: data.postingDate, to: data.postingDate });
     reset();
   };
 

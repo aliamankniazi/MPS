@@ -18,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import type { PaymentMethod, DateRange } from '@/lib/types';
+import type { PaymentMethod } from '@/lib/types';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
@@ -69,20 +69,13 @@ export default function SupplierPaymentsPage() {
   const { suppliers, addSupplierPayment, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SupplierPaymentFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
     defaultValues: {
-      date: dateRange?.from || new Date(),
+      date: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -100,7 +93,6 @@ export default function SupplierPaymentsPage() {
       title: 'Payment Recorded',
       description: `Payment of PKR ${data.amount} to ${supplier.name} has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
     reset();
   };
 

@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType, DateRange } from '@/lib/types';
+import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -70,20 +70,13 @@ export default function PurchasesPage() {
   const { addPurchase, suppliers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<PurchaseFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
     defaultValues: {
-      date: dateRange?.from || new Date(),
+      date: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
@@ -98,7 +91,6 @@ export default function PurchasesPage() {
       title: 'Purchase Recorded',
       description: `Delivery from ${supplier.name} has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
     reset();
   };
 

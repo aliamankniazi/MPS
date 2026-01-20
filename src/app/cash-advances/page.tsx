@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
-import type { DateRange } from '@/lib/types';
 
 
 const cashAdvanceSchema = z.object({
@@ -69,20 +68,13 @@ export default function CashAdvancesPage() {
   const { customers, addCashAdvance, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CashAdvanceFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),
     defaultValues: {
-      date: dateRange?.from || new Date(),
+      date: new Date(),
     }
   });
-  
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -100,7 +92,6 @@ export default function CashAdvancesPage() {
       title: 'Cash Advance Recorded',
       description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
     reset();
   };
 

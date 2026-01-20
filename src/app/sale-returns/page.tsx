@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType, DateRange } from '@/lib/types';
+import type { FuelType } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -72,20 +72,13 @@ export default function SaleReturnsPage() {
   const { addSaleReturn, customers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SaleReturnFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
     defaultValues: {
-        date: dateRange?.from || new Date(),
+        date: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -100,7 +93,6 @@ export default function SaleReturnsPage() {
       title: 'Sale Return Recorded',
       description: `Return from ${customer.name} has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
     reset();
   };
 

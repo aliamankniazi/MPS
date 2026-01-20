@@ -13,14 +13,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
-import type { OtherIncomeCategory, OtherIncome, DateRange } from '@/lib/types';
+import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 
 const INCOME_CATEGORIES: OtherIncomeCategory[] = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'];
 
@@ -37,20 +37,13 @@ export default function OtherIncomesPage() {
   const { otherIncomes, addOtherIncome, deleteOtherIncome } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<IncomeFormValues>({
+  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
     defaultValues: {
-      date: dateRange?.from || new Date(),
+      date: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-        setValue('date', dateRange.from);
-    }
-  }, [dateRange, setValue]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
     addOtherIncome({
@@ -61,7 +54,6 @@ export default function OtherIncomesPage() {
       title: 'Income Recorded',
       description: `Income of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    setDateRange({ from: data.date, to: data.date });
     reset();
   };
   
