@@ -274,7 +274,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             const path = FIRESTORE_PATHS[key];
             const q = collection(firestore, path);
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+                const data = querySnapshot.docs.map(doc => {
+                    const docData = doc.data();
+                    const dateFields = ['timestamp', 'date', 'hireDate', 'terminationDate', 'deletedAt', 'transactionDate', 'postingDate', 'invoiceDate'];
+                    for (const field of dateFields) {
+                        if (docData[field] && typeof docData[field].toDate === 'function') {
+                           docData[field] = docData[field].toDate().toISOString();
+                        }
+                    }
+                    return { id: doc.id, ...docData };
+                }) as any[];
                 setState(prevState => ({ ...prevState, [key]: data }));
                 handleLoad();
             }, (error) => {
