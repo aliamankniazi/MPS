@@ -50,7 +50,7 @@ export default function StockAdjustmentPage() {
     deleteStockAdjustment,
     isLoaded,
   } = useDatabase();
-  const [dateRange, setDateRange] = React.useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = React.useState<DateRange | undefined>(undefined);
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 
@@ -244,7 +244,7 @@ export default function StockAdjustmentPage() {
                                 mode="range"
                                 defaultMonth={dateRange?.from}
                                 selected={dateRange}
-                                onSelect={setDateRange}
+                                onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
                                 numberOfMonths={2}
                             />
                         </PopoverContent>

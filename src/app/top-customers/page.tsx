@@ -26,7 +26,7 @@ interface CustomerRanking {
 
 export default function TopCustomersPage() {
     const { transactions, isLoaded } = useDatabase();
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [searchTerm, setSearchTerm] = useState('');
 
     const customerRankings = useMemo(() => {
@@ -110,7 +110,7 @@ export default function TopCustomersPage() {
                                     mode="range"
                                     defaultMonth={dateRange?.from}
                                     selected={dateRange}
-                                    onSelect={setDateRange}
+                                    onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
                                     numberOfMonths={2}
                                 />
                             </PopoverContent>

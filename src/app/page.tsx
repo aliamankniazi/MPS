@@ -213,7 +213,7 @@ export default function DashboardPage() {
                         mode="range"
                         defaultMonth={dateRange?.from}
                         selected={dateRange}
-                        onSelect={setDateRange}
+                        onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
                         numberOfMonths={2}
                     />
                 </PopoverContent>
@@ -408,5 +408,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

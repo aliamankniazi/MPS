@@ -40,7 +40,7 @@ interface ReportRow {
 
 export default function SupplierReportPage() {
     const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -177,7 +177,7 @@ Mianwali Petroleum Service`;
                                         mode="range"
                                         defaultMonth={dateRange?.from}
                                         selected={dateRange}
-                                        onSelect={setDateRange}
+                                        onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
                                         numberOfMonths={2}
                                     />
                                 </PopoverContent>

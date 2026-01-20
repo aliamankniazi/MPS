@@ -107,7 +107,7 @@ export default function LedgerPage() {
     deleteCashAdvance,
     deleteStockAdjustment,
   } = useDatabase();
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
@@ -643,6 +643,42 @@ export default function LedgerPage() {
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="w-full md:w-48"
           />
+          <Popover>
+              <PopoverTrigger asChild>
+                  <Button
+                      id="date"
+                      variant={"outline"}
+                      className={cn(
+                          "w-full md:w-[260px] justify-start text-left font-normal",
+                          !dateRange && "text-muted-foreground"
+                      )}
+                      >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {dateRange?.from ? (
+                          dateRange.to ? (
+                          <>
+                              {format(dateRange.from, "LLL dd, y")} -{" "}
+                              {format(dateRange.to, "LLL dd, y")}
+                          </>
+                          ) : (
+                          format(dateRange.from, "LLL dd, y")
+                          )
+                      ) : (
+                          <span>Pick a date range</span>
+                      )}
+                  </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                      initialFocus
+                      mode="range"
+                      defaultMonth={dateRange?.from}
+                      selected={dateRange}
+                      onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
+                      numberOfMonths={2}
+                  />
+              </PopoverContent>
+          </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />

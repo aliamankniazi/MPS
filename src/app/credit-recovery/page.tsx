@@ -39,7 +39,7 @@ interface ReportRow {
 
 export default function CreditRecoveryPage() {
     const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -195,7 +195,7 @@ Mianwali Petroleum Service`;
                                         mode="range"
                                         defaultMonth={dateRange?.from}
                                         selected={dateRange}
-                                        onSelect={setDateRange}
+                                        onSelect={(range) => setDateRange(range ? { ...range } : undefined)}
                                         numberOfMonths={2}
                                     />
                                 </PopoverContent>
