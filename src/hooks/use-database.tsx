@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -638,10 +639,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         if (!firestore) return;
         const partnerRef = doc(firestore, FIRESTORE_PATHS.businessPartners, id);
         
-        // Use set with merge to handle both creation and update, preventing errors on non-existent docs.
         const dataToSet = {
             ...updatedPartner,
-            timestamp: serverTimestamp(), // Ensures timestamp is set on creation and updated on edit.
+            timestamp: serverTimestamp(),
         };
 
         setDoc(partnerRef, dataToSet, { merge: true }).catch(error => {
