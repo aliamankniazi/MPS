@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -32,6 +33,7 @@ interface ReportRow {
     sale: number;
     recovery: number;
     currentBalance: number;
+    lastTransactionDate: Date | null;
 }
 
 export default function CreditRecoveryPage() {
@@ -52,6 +54,18 @@ export default function CreditRecoveryPage() {
 
         const report: ReportRow[] = targetCustomers.map(customer => {
             const customerOpeningBalance = customer.openingBalance || 0;
+            
+            const allCustomerEntries = [
+                ...transactions.filter(tx => tx.customerId === customer.id),
+                ...cashAdvances.filter(ca => ca.customerId === customer.id),
+                ...customerPayments.filter(p => p.customerId === customer.id)
+            ];
+
+            const lastTransactionDate = allCustomerEntries.length > 0
+                ? allCustomerEntries.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                                    .map(e => new Date(e.timestamp))
+                                    .find(d => isValid(d)) || null
+                : null;
 
             const openingBalance = customerOpeningBalance +
               transactions.filter(tx => tx.customerId === customer.id && from && new Date(tx.timestamp) < from)
@@ -90,6 +104,7 @@ export default function CreditRecoveryPage() {
                 sale: totalDebit,
                 recovery: totalRecovery,
                 currentBalance,
+                lastTransactionDate,
             };
         }).filter(row => {
             if (selectedCustomerId !== 'all') return true;
@@ -114,20 +129,24 @@ export default function CreditRecoveryPage() {
     }
     
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const period = dateRange?.from ? 
-            (dateRange.to ? `${format(dateRange.from, 'dd-MMM-yyyy')} to ${format(dateRange.to, 'dd-MMM-yyyy')}` : format(dateRange.from, 'dd-MMM-yyyy'))
-            : 'all time';
-
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
+        let lastTxnDateString = '';
+        if (row.lastTransactionDate) {
+            lastTxnDateString = ` Your last transaction was on ${format(row.lastTransactionDate, 'dd-MMM-yyyy')}.`;
+        }
+
         let message = '';
 
         if (row.currentBalance > 0) {
             message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-This is a friendly reminder that your account with Mianwali Petroleum Service has an outstanding balance of PKR ${formatCurrency(row.currentBalance)}. We would appreciate your prompt payment.
+This is a friendly reminder that your account with Mianwali Petroleum Service has an outstanding balance of PKR ${formatCurrency(row.currentBalance)}.${lastTxnDateString} We would appreciate your prompt payment.
 Thank You,
 Mianwali Petroleum Service`;
         } else {
+             const period = dateRange?.from ? 
+                (dateRange.to ? `${format(dateRange.from, 'dd-MMM-yyyy')} to ${format(dateRange.to, 'dd-MMM-yyyy')}` : format(dateRange.from, 'dd-MMM-yyyy'))
+                : 'all time';
              message = `As-Salaam-Alaikum, Dear ${row.customer.name},
 Your account summary for ${period}:
 Opening Balance: ${formatCurrency(row.previousBalance)}
@@ -246,5 +265,7 @@ Mianwali Petroleum Service`;
         </div>
     );
 }
+
+    
 
     
