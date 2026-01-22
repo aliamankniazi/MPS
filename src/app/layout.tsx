@@ -26,11 +26,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
-          <PrintStyles />
       </head>
       <body className="font-body antialiased">
         <DatabaseProvider>
           <AuthProvider>
+            <PrintStyles />
             <FirebaseErrorListener />
             {children}
           </AuthProvider>
