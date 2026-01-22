@@ -424,15 +424,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state.isLoaded, state.settings.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'>): Promise<T> => {
+    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T> => {
         if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
         
-        const dataToSend = { ...entity, timestamp: serverTimestamp() };
+        const dataToSend: { [key: string]: any } = { ...entity };
+        
+        // If a timestamp is not provided on the entity, use the server's timestamp.
+        // The `entity` object might come from a form with a user-selected date.
+        if (!(entity as any).timestamp) {
+            dataToSend.timestamp = serverTimestamp();
+        }
         
         return new Promise<T>((resolve, reject) => {
             addDoc(collection(firestore, path), dataToSend)
                 .then(docRef => {
-                    resolve({ ...entity, id: docRef.id, timestamp: new Date().toISOString() } as T);
+                    // For optimistic UI updates, we construct what the object will likely look like.
+                    // The `onSnapshot` listener will provide the source-of-truth update shortly.
+                    const optimisticTimestamp = (entity as any).timestamp || new Date().toISOString();
+                    resolve({ ...entity, id: docRef.id, timestamp: optimisticTimestamp } as T);
                 })
                 .catch(error => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
