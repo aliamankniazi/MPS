@@ -6,14 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Wallet, XCircle, Search, Calendar as CalendarIcon, Download, Printer } from 'lucide-react';
+import { Wallet, XCircle, Search, Download, Printer } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { CustomerPayment, CashAdvance, DateRange } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
+import type { CustomerPayment, CashAdvance } from '@/lib/types';
 import * as XLSX from 'xlsx';
 
 type CombinedEntry = {
@@ -26,7 +24,7 @@ type CombinedEntry = {
 };
 
 export default function CashAndCustomerPaymentsPage() {
-  const { customerPayments, cashAdvances, isLoaded, colorSettings, dateRange, setDateRange } = useDatabase();
+  const { customerPayments, cashAdvances, isLoaded, colorSettings, dateRange } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
 
   const combinedEntries = useMemo(() => {
@@ -112,39 +110,6 @@ export default function CashAndCustomerPaymentsPage() {
               <CardDescription>A record of all payments received from customers and cash advances given.</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    id="date"
-                    variant={"outline"}
-                    className={cn("w-[260px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}
-                        </>
-                      ) : (
-                        format(dateRange.from, "dd-MMM-yyyy")
-                      )
-                    ) : (
-                      <span>Pick a date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                    key="payments-advances-calendar"
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                  />
-                </PopoverContent>
-              </Popover>
               <div className="relative w-full max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input

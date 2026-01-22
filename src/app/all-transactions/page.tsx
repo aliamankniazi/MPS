@@ -6,12 +6,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Calendar as CalendarIcon } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment, DateRange } from '@/lib/types';
+import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,8 +25,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 
 
 type CombinedEntry = {
@@ -71,7 +69,6 @@ export default function AllTransactionsPage() {
     deleteCashAdvance,
     isLoaded,
     dateRange,
-    setDateRange
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
@@ -282,43 +279,6 @@ export default function AllTransactionsPage() {
                     <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
                 </div>
                  <div className="flex items-center gap-2">
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                id="date"
-                                variant={"outline"}
-                                className={cn(
-                                    "w-[260px] justify-start text-left font-normal",
-                                    !dateRange && "text-muted-foreground"
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                    dateRange.to ? (
-                                    <>
-                                        {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                                        {format(dateRange.to, "dd-MMM-yyyy")}
-                                    </>
-                                    ) : (
-                                    format(dateRange.from, "dd-MMM-yyyy")
-                                    )
-                                ) : (
-                                    <span>Pick a date range</span>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                                key="all-transactions-calendar"
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange?.from}
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                            />
-                        </PopoverContent>
-                    </Popover>
                     <Input 
                         placeholder="Search..."
                         value={searchTerm}

@@ -9,16 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Package, Edit, List, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
+import { Package, Edit, List, Trash2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { FuelType, StockAdjustment, DateRange } from '@/lib/types';
+import type { FuelType, StockAdjustment } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, getDaysInMonth, getYear, getMonth, getDate } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,12 +47,11 @@ export default function StockAdjustmentPage() {
     deleteStockAdjustment,
     isLoaded,
     dateRange,
-    setDateRange
   } = useDatabase();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
 
-  const { register, handleSubmit, control, reset, watch, setValue } = useForm<AdjustmentFormValues>({
+  const { register, handleSubmit, control, reset, watch } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
   });
 
@@ -245,43 +241,6 @@ export default function StockAdjustmentPage() {
                         <CardTitle className="flex items-center gap-2"><List /> Adjustment History</CardTitle>
                         <CardDescription>A log of all manual stock adjustments.</CardDescription>
                     </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                id="date"
-                                variant={"outline"}
-                                className={cn(
-                                    "w-[260px] justify-start text-left font-normal",
-                                    !dateRange && "text-muted-foreground"
-                                )}
-                                >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateRange?.from ? (
-                                    dateRange.to ? (
-                                    <>
-                                        {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                                        {format(dateRange.to, "dd-MMM-yyyy")}
-                                    </>
-                                    ) : (
-                                    format(dateRange.from, "dd-MMM-yyyy")
-                                    )
-                                ) : (
-                                    <span>Pick a date range</span>
-                                )}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                            <Calendar
-                                key="stock-adjustment-calendar"
-                                initialFocus
-                                mode="range"
-                                defaultMonth={dateRange?.from}
-                                selected={dateRange}
-                                onSelect={setDateRange}
-                                numberOfMonths={2}
-                            />
-                        </PopoverContent>
-                    </Popover>
                 </div>
             </CardHeader>
             <CardContent>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -7,16 +6,12 @@ import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
 import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Sparkles, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { FileText, Sparkles, AlertTriangle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { format, isToday, startOfDay, endOfDay, isValid } from 'date-fns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import type { DateRange } from '@/lib/types';
+import { isToday, startOfDay, endOfDay, isValid } from 'date-fns';
 
 export default function AiSummaryPage() {
-  const { transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { transactions, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -78,46 +73,9 @@ export default function AiSummaryPage() {
                       <FileText /> Financial Activity AI Summary
                   </CardTitle>
                   <CardDescription>
-                      Use AI to generate a summary of sales, payments, and advances for a selected period. Defaults to today.
+                      Use AI to generate a summary for the date range selected on the dashboard.
                   </CardDescription>
                 </div>
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                                "w-[260px] justify-start text-left font-normal",
-                                !dateRange && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (
-                                dateRange.to ? (
-                                <>
-                                    {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                                    {format(dateRange.to, "dd-MMM-yyyy")}
-                                </>
-                                ) : (
-                                format(dateRange.from, "dd-MMM-yyyy")
-                                )
-                            ) : (
-                                <span>Pick a date range</span>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar
-                            key="ai-summary-calendar"
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange?.from}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
-                        />
-                    </PopoverContent>
-                </Popover>
               </div>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col gap-4 min-h-[200px]">

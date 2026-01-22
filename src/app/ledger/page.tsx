@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, Calendar as CalendarIcon, X, Pencil } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, X, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -30,8 +30,6 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import type { Transaction, Product, Purchase, DateRange } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -712,43 +710,6 @@ export default function LedgerPage() {
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="w-full md:w-48"
           />
-          <Popover>
-              <PopoverTrigger asChild>
-                  <Button
-                      id="date"
-                      variant={"outline"}
-                      className={cn(
-                          "w-full md:w-[260px] justify-start text-left font-normal",
-                          !dateRange && "text-muted-foreground"
-                      )}
-                      >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange?.from ? (
-                          dateRange.to ? (
-                          <>
-                              {format(dateRange.from, "LLL dd, y")} -{" "}
-                              {format(dateRange.to, "LLL dd, y")}
-                          </>
-                          ) : (
-                          format(dateRange.from, "LLL dd, y")
-                          )
-                      ) : (
-                          <span>Pick a date range</span>
-                      )}
-                  </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                  <Calendar
-                      key="ledger-calendar"
-                      initialFocus
-                      mode="range"
-                      defaultMonth={dateRange?.from}
-                      selected={dateRange}
-                      onSelect={setDateRange}
-                      numberOfMonths={2}
-                  />
-              </PopoverContent>
-          </Popover>
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
@@ -1041,5 +1002,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-    

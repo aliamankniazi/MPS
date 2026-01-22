@@ -6,19 +6,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { FileText, XCircle, Printer, Search, Download, Calendar as CalendarIcon, Pencil } from 'lucide-react';
+import { FileText, XCircle, Printer, Search, Download, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Transaction, Purchase, DateRange } from '@/lib/types';
+import type { Transaction, Purchase } from '@/lib/types';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 
 
 type CombinedInvoice = {
@@ -42,7 +40,7 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings, dateRange, setDateRange } = useDatabase();
+  const { transactions, purchases, isLoaded, colorSettings, dateRange } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
 
@@ -166,46 +164,9 @@ export default function AllInvoicesPage() {
               <CardTitle className="flex items-center gap-2">
                 <FileText /> All Invoices
               </CardTitle>
-              <CardDescription>A list of all generated sales and purchase invoices, grouped by month.</CardDescription>
+              <CardDescription>A list of all sales and purchase invoices, filtered by the global date range.</CardDescription>
             </div>
              <div className="flex items-center gap-2 flex-wrap">
-                 <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant={"outline"}
-                            className={cn(
-                                "w-[260px] justify-start text-left font-normal",
-                                !dateRange && "text-muted-foreground"
-                            )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (
-                                dateRange.to ? (
-                                <>
-                                    {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                                    {format(dateRange.to, "dd-MMM-yyyy")}
-                                </>
-                                ) : (
-                                format(dateRange.from, "dd-MMM-yyyy")
-                                )
-                            ) : (
-                                <span>Pick a date range</span>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar
-                            key="all-invoices-calendar"
-                            initialFocus
-                            mode="range"
-                            defaultMonth={dateRange?.from}
-                            selected={dateRange}
-                            onSelect={setDateRange}
-                            numberOfMonths={2}
-                        />
-                    </PopoverContent>
-                </Popover>
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Filter by type..." />
