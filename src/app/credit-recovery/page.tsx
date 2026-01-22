@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { FileText, Printer, Search, Pencil } from 'lucide-react';
+import { UserX, Printer, Search, Pencil } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import Link from 'next/link';
 
@@ -94,7 +93,7 @@ export default function CreditRecoveryPage() {
             };
         }).filter(row => {
             if (selectedCustomerId !== 'all') return true;
-            return row.currentBalance !== 0;
+            return row.currentBalance > 0;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
@@ -120,8 +119,16 @@ export default function CreditRecoveryPage() {
             : 'all time';
 
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        
+        let message = '';
 
-        const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
+        if (row.currentBalance > 0) {
+            message = `As-Salaam-Alaikum, Dear ${row.customer.name},
+This is a friendly reminder that your account with Mianwali Petroleum Service has an outstanding balance of PKR ${formatCurrency(row.currentBalance)}. We would appreciate your prompt payment.
+Thank You,
+Mianwali Petroleum Service`;
+        } else {
+             message = `As-Salaam-Alaikum, Dear ${row.customer.name},
 Your account summary for ${period}:
 Opening Balance: ${formatCurrency(row.previousBalance)}
 Total Purchases: ${formatCurrency(row.sale)}
@@ -129,6 +136,7 @@ Total Payments: ${formatCurrency(row.recovery)}
 Current Balance: ${formatCurrency(row.currentBalance)}
 Thank You,
 Mianwali Petroleum Service`;
+        }
 
         return encodeURIComponent(message);
     }
@@ -139,10 +147,10 @@ Mianwali Petroleum Service`;
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <FileText /> Customer Sale and Recovery Report
+                        <UserX /> Customer Defaulter Report
                     </CardTitle>
                     <CardDescription>
-                        View sales, recoveries, and balances for customers. Filtered by the global date range.
+                        View customers with outstanding balances and send payment reminders. Filtered by the global date range.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -238,3 +246,5 @@ Mianwali Petroleum Service`;
         </div>
     );
 }
+
+    
