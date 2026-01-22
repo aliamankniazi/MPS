@@ -116,7 +116,7 @@ export default function RecycleBinPage() {
                                     recycleBin.map(item => (
                                         <TableRow key={item.id}>
                                             <TableCell className="font-medium">
-                                                {format(new Date(item.deletedAt), 'PPp')}
+                                                {format(new Date(item.deletedAt), 'dd-MMM-yyyy, h:mm a')}
                                             </TableCell>
                                             <TableCell>{getItemType(item)}</TableCell>
                                             <TableCell>{getItemDescription(item)}</TableCell>

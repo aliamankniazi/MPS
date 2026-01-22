@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -298,7 +299,7 @@ export default function CustomersPage() {
                           <div className="text-sm text-muted-foreground">{contactDisplay(c.contact)}</div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">{c.vehicleNumber || 'N/A'}</div>
-                          <div className="text-xs text-muted-foreground">Added: {format(new Date(c.timestamp), 'PP')}</div>
+                          <div className="text-xs text-muted-foreground">Added: {format(new Date(c.timestamp), 'dd-MMM-yyyy')}</div>
                         </TableCell>
                         <TableCell>
                           <Barcode value={c.id} height={40} width={1.5} fontSize={10} margin={2} />

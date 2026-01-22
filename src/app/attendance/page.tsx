@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -186,7 +185,7 @@ export default function EmployeeManagementPage() {
         <div className="lg:col-span-2 space-y-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">Daily Attendance - {format(today, 'PPP')}</CardTitle>
+                    <CardTitle className="flex items-center gap-2">Daily Attendance - {format(today, 'dd-MMM-yyyy')}</CardTitle>
                     <CardDescription>Mark the attendance for all active employees for today.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -239,7 +238,7 @@ export default function EmployeeManagementPage() {
                                 className={cn("w-[280px] justify-start text-left font-normal", !historyDate && "text-muted-foreground")}
                                 >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {historyDate ? format(historyDate, "PPP") : <span>Pick a date to view history</span>}
+                                {historyDate ? format(historyDate, "dd-MMM-yyyy") : <span>Pick a date to view history</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0"><Calendar key="attendance-history-calendar" mode="single" selected={historyDate} onSelect={setHistoryDate} /></PopoverContent>
@@ -335,8 +334,8 @@ export default function EmployeeManagementPage() {
                                 <div className="text-sm text-muted-foreground">{emp.position}</div>
                                 <div className={`text-xs ${emp.terminationDate ? 'text-destructive' : 'text-green-600'}`}>
                                     {emp.terminationDate 
-                                    ? `Terminated on ${format(new Date(emp.terminationDate), 'PP')}` 
-                                    : `Joined: ${format(new Date(emp.hireDate), 'PP')}`}
+                                    ? `Terminated on ${format(new Date(emp.terminationDate), 'dd-MMM-yyyy')}` 
+                                    : `Joined: ${format(new Date(emp.hireDate), 'dd-MMM-yyyy')}`}
                                 </div>
                                 </TableCell>
                                 <TableCell className="text-center space-x-0">
@@ -415,7 +414,7 @@ export default function EmployeeManagementPage() {
                             <PopoverTrigger asChild>
                                 <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0"><Calendar key="attendance-add-calendar" mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
@@ -468,7 +467,7 @@ export default function EmployeeManagementPage() {
                         <Popover><PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
                             </Button>
                         </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar key="attendance-edit-hire-date-calendar" mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover>
                     )} />
@@ -479,7 +478,7 @@ export default function EmployeeManagementPage() {
                         <Popover><PopoverTrigger asChild>
                             <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Leave empty if active</span>}
+                            {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Leave empty if active</span>}
                             </Button>
                         </PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar key="attendance-edit-term-date-calendar" mode="single" selected={field.value ?? undefined} onSelect={field.onChange} /></PopoverContent></Popover>
                     )} />
@@ -512,4 +511,3 @@ export default function EmployeeManagementPage() {
     </>
   );
 }
-    

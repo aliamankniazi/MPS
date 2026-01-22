@@ -195,11 +195,11 @@ export default function DashboardPage() {
                         {dateRange?.from ? (
                             dateRange.to ? (
                             <>
-                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                {format(dateRange.to, "LLL dd, y")}
+                                {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                {format(dateRange.to, "dd-MMM-yyyy")}
                             </>
                             ) : (
-                            format(dateRange.from, "LLL dd, y")
+                            format(dateRange.from, "dd-MMM-yyyy")
                             )
                         ) : (
                             <span>Pick a date range</span>
@@ -399,7 +399,7 @@ export default function DashboardPage() {
                     <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
                 </CardHeader>
                  <CardContent>
-                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'PP') : 'N/A'}</div>
+                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'dd-MMM-yyyy') : 'N/A'}</div>
                     <p className="text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
                  </CardContent>
             </Card>

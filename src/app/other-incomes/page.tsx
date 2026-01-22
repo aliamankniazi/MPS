@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -132,7 +131,7 @@ export default function OtherIncomesPage() {
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -181,7 +180,7 @@ export default function OtherIncomesPage() {
                 <TableBody>
                   {otherIncomes.map(e => (
                       <TableRow key={e.id}>
-                        <TableCell className="font-medium">{format(new Date(e.timestamp), 'PP')}</TableCell>
+                        <TableCell className="font-medium">{format(new Date(e.timestamp), 'dd-MMM-yyyy')}</TableCell>
                         <TableCell>{e.description}</TableCell>
                         <TableCell>{e.category}</TableCell>
                         <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

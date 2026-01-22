@@ -190,7 +190,7 @@ export default function StockAdjustmentPage() {
                                 )}
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
                             </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0">
@@ -232,11 +232,11 @@ export default function StockAdjustmentPage() {
                                 {dateRange?.from ? (
                                     dateRange.to ? (
                                     <>
-                                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                                        {format(dateRange.to, "LLL dd, y")}
+                                        {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                        {format(dateRange.to, "dd-MMM-yyyy")}
                                     </>
                                     ) : (
-                                    format(dateRange.from, "LLL dd, y")
+                                    format(dateRange.from, "dd-MMM-yyyy")
                                     )
                                 ) : (
                                     <span>Pick a date range</span>
@@ -273,7 +273,7 @@ export default function StockAdjustmentPage() {
                         {isLoaded && filteredAdjustments.length > 0 ? (
                             filteredAdjustments.map(adj => (
                                 <TableRow key={adj.id}>
-                                    <TableCell className="font-medium">{format(new Date(adj.timestamp), 'PP pp')}</TableCell>
+                                    <TableCell className="font-medium">{format(new Date(adj.timestamp), 'dd-MMM-yyyy hh:mm a')}</TableCell>
                                     <TableCell>{adj.fuelType}</TableCell>
                                     <TableCell className={`text-right font-mono ${adj.adjustment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                         {adj.adjustment.toLocaleString(undefined, { signDisplay: 'always', minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
@@ -310,7 +310,7 @@ export default function StockAdjustmentPage() {
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will move the stock adjustment entry to the recycle bin: <br/>
-              <strong className="font-medium text-foreground">{adjustmentToDelete?.adjustment.toFixed(2)}L of {adjustmentToDelete?.fuelType} on {adjustmentToDelete && format(new Date(adjustmentToDelete.timestamp), 'PP')}</strong>
+              <strong className="font-medium text-foreground">{adjustmentToDelete?.adjustment.toFixed(2)}L of {adjustmentToDelete?.fuelType} on {adjustmentToDelete && format(new Date(adjustmentToDelete.timestamp), 'dd-MMM-yyyy')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

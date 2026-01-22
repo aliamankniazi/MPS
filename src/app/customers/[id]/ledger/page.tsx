@@ -369,7 +369,7 @@ export default function CustomerLedgerPage() {
                     <PopoverTrigger asChild>
                         <Button id="date" variant={"outline"} className={cn("w-full sm:w-[260px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}</>) : (format(dateRange.from, "LLL dd, y"))) : (<span>Pick a date range</span>)}
+                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}</>) : (format(dateRange.from, "dd-MMM-yyyy"))) : (<span>Pick a date range</span>)}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
@@ -425,7 +425,7 @@ export default function CustomerLedgerPage() {
                               entry.type === 'Payment' && 'text-teal-600',
                               entry.type === 'Cash Advance' && 'text-destructive'
                           )}>
-                            {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                            {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
                           </TableCell>
                           <TableCell className={cn(
                               isSale && 'text-destructive',

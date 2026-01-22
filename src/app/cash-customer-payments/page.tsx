@@ -83,7 +83,7 @@ export default function CashAndCustomerPaymentsPage() {
 
   const handleExportExcel = () => {
     const dataToExport = filteredEntries.map(entry => ({
-        'Date': isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'PP pp') : 'Invalid Date',
+        'Date': isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
         'Type': entry.type,
         'Partner': entry.partner,
         'Details': entry.details,
@@ -123,10 +123,10 @@ export default function CashAndCustomerPaymentsPage() {
                     {dateRange?.from ? (
                       dateRange.to ? (
                         <>
-                          {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                          {format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}
                         </>
                       ) : (
-                        format(dateRange.from, "LLL dd, y")
+                        format(dateRange.from, "dd-MMM-yyyy")
                       )
                     ) : (
                       <span>Pick a date range</span>
@@ -180,7 +180,7 @@ export default function CashAndCustomerPaymentsPage() {
                   return (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium whitespace-nowrap">
-                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                        {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
                       </TableCell>
                       <TableCell>
                         <Badge

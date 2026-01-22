@@ -1,3 +1,4 @@
+
 'use client';
 
 import { format } from 'date-fns';
@@ -98,8 +99,8 @@ export function Invoice({ data }: { data: InvoiceData }) {
         </div>
         <div className="text-right">
             <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
-            <p><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MM-yyyy')}</p>
-            <p><span className="font-semibold">Print Date:</span> {format(new Date(), 'dd-MM-yyyy')}</p>
+            <p><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MMM-yyyy')}</p>
+            <p><span className="font-semibold">Print Date:</span> {format(new Date(), 'dd-MMM-yyyy')}</p>
         </div>
       </section>
 

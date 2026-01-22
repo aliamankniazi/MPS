@@ -189,7 +189,7 @@ export default function ExpensesPage() {
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                            {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0">
@@ -257,11 +257,11 @@ export default function ExpensesPage() {
                                 {dateRange?.from ? (
                                     dateRange.to ? (
                                     <>
-                                        {format(dateRange.from, "LLL dd, y")} -{" "}
-                                        {format(dateRange.to, "LLL dd, y")}
+                                        {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                        {format(dateRange.to, "dd-MMM-yyyy")}
                                     </>
                                     ) : (
-                                    format(dateRange.from, "LLL dd, y")
+                                    format(dateRange.from, "dd-MMM-yyyy")
                                     )
                                 ) : (
                                     <span>Pick a date range</span>
@@ -343,7 +343,7 @@ export default function ExpensesPage() {
                                 aria-label="Select expense"
                             />
                         </TableCell>
-                        <TableCell className="font-medium">{isValid(date) ? format(date, 'PP') : 'Invalid Date'}</TableCell>
+                        <TableCell className="font-medium">{isValid(date) ? format(date, 'dd-MMM-yyyy') : 'Invalid Date'}</TableCell>
                         <TableCell>{e.description}</TableCell>
                         <TableCell>{e.category}</TableCell>
                         <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>

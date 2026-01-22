@@ -159,11 +159,11 @@ Mianwali Petroleum Service`;
                                         {dateRange?.from ? (
                                             dateRange.to ? (
                                             <>
-                                                {format(dateRange.from, "LLL dd, y")} -{" "}
-                                                {format(dateRange.to, "LLL dd, y")}
+                                                {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                                {format(dateRange.to, "dd-MMM-yyyy")}
                                             </>
                                             ) : (
-                                            format(dateRange.from, "LLL dd, y")
+                                            format(dateRange.from, "dd-MMM-yyyy")
                                             )
                                         ) : (
                                             <span>Pick a date range</span>

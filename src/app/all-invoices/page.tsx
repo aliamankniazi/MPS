@@ -136,7 +136,7 @@ export default function AllInvoicesPage() {
   const handleExportExcel = () => {
     const dataToExport = Object.values(groupedInvoices).flatMap(group => group.invoices)
         .map(invoice => ({
-            'Date': isValid(new Date(invoice.timestamp)) ? format(new Date(invoice.timestamp), 'PP pp') : 'Invalid Date',
+            'Date': isValid(new Date(invoice.timestamp)) ? format(new Date(invoice.timestamp), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
             'Type': invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type,
             'Partner': invoice.partner,
             'Details': invoice.details,
@@ -183,11 +183,11 @@ export default function AllInvoicesPage() {
                             {dateRange?.from ? (
                                 dateRange.to ? (
                                 <>
-                                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                                    {format(dateRange.to, "LLL dd, y")}
+                                    {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                    {format(dateRange.to, "dd-MMM-yyyy")}
                                 </>
                                 ) : (
-                                format(dateRange.from, "LLL dd, y")
+                                format(dateRange.from, "dd-MMM-yyyy")
                                 )
                             ) : (
                                 <span>Pick a date range</span>
@@ -268,7 +268,7 @@ export default function AllInvoicesPage() {
                                       style={{ backgroundColor: `${color}1A` }}
                                     >
                                       <TableCell className="font-medium whitespace-nowrap">
-                                        {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
+                                        {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
                                       </TableCell>
                                       <TableCell>
                                         <Badge
