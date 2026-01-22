@@ -62,7 +62,6 @@ export default function CustomerLedgerPage() {
     deleteInvestment,
     isLoaded,
     dateRange,
-    setDateRange
   } = useDatabase();
   
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
@@ -365,17 +364,10 @@ export default function CustomerLedgerPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
                 </div>
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button id="date" variant={"outline"} className={cn("w-full sm:w-[260px] justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}</>) : (format(dateRange.from, "dd-MMM-yyyy"))) : (<span>Pick a date range</span>)}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} />
-                    </PopoverContent>
-                </Popover>
+                 <div className={cn("w-full sm:w-auto justify-start text-left font-normal border border-input rounded-md px-3 py-2 flex items-center bg-muted/50 text-sm", !dateRange && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}</>) : (format(dateRange.from, "dd-MMM-yyyy"))) : (<span>All Time</span>)}
+                </div>
                  <Button asChild variant="outline">
                     <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
                  </Button>
@@ -511,3 +503,5 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+
+    
