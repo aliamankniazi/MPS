@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -18,14 +19,14 @@ import {
 
 const navItems = [
   { href: '/sales', label: 'Sale', icon: ShoppingCart },
-  { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-  { href: '/sale-returns', label: 'Sale Return', icon: Undo },
   { href: '/purchases', label: 'Purchase', icon: Truck },
+  { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
   { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
-  { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
+  { href: '/expenses', label: 'Add Expense', icon: Receipt },
   { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
   { href: '/employees', label: 'Salary Payment', icon: User },
-  { href: '/expenses', label: 'Add Expense', icon: Receipt },
+  { href: '/sale-returns', label: 'Sale Return', icon: Undo },
+  { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
 ];
 
 export function TransactionNav() {
