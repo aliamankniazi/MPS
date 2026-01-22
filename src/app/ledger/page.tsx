@@ -95,6 +95,9 @@ export default function LedgerPage() {
     stockAdjustments,
     fuelPrices,
     products,
+    customers,
+    suppliers,
+    businessPartners,
     colorSettings,
     isLoaded,
     dateRange, 
@@ -125,11 +128,12 @@ export default function LedgerPage() {
     
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
-    const sortedPurchases = [...purchases].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
-        const customerName = tx.customerName || 'Walk-in Customer';
+        
+        const customer = customers.find(c => c.id === tx.customerId);
+        const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
+
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: (tx.product || 'General Sale');
         
         const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
@@ -152,12 +156,15 @@ export default function LedgerPage() {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         if (cp.paymentMethod === 'Salary') return; // Exclude salary payments as they're handled by expenses
 
+        const customer = customers.find(c => c.id === cp.customerId);
+        const customerName = customer ? customer.name : cp.customerName;
+
         const description = `Payment Received`;
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
           description,
-          partnerName: cp.customerName,
+          partnerName: customerName,
           type: 'Customer Payment',
           debit: 0,
           credit: cp.amount,
@@ -168,11 +175,15 @@ export default function LedgerPage() {
     
      cashAdvances.forEach(ca => {
         if (!ca.timestamp || !isValid(new Date(ca.timestamp))) return;
+
+        const customer = customers.find(c => c.id === ca.customerId);
+        const customerName = customer ? customer.name : ca.customerName;
+
         combined.push({
           id: `ca-${ca.id}`,
           timestamp: ca.timestamp,
           description: 'Cash Advance',
-          partnerName: ca.customerName,
+          partnerName: customerName,
           type: 'Cash Advance',
           debit: ca.amount,
           credit: 0,
@@ -183,37 +194,49 @@ export default function LedgerPage() {
 
     purchases.forEach(p => {
         if (!p.timestamp || !isValid(new Date(p.timestamp))) return;
+        
+        const supplier = suppliers.find(s => s.id === p.supplierId);
+        const supplierName = supplier ? supplier.name : p.supplier;
+
         const description = p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase');
         combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
             description,
-            partnerName: p.supplier,
+            partnerName: supplierName,
             type: 'Purchase',
             credit: p.totalCost,
             debit: 0,
             original: p,
         })
     });
+
      supplierPayments.forEach(sp => {
         if (!sp.timestamp || !isValid(new Date(sp.timestamp))) return;
+
+        const supplier = suppliers.find(s => s.id === sp.supplierId);
+        const supplierName = supplier ? supplier.name : sp.supplierName;
+
         combined.push({
             id: `sp-${sp.id}`,
             timestamp: sp.timestamp,
             description: `Payment Made (${sp.paymentMethod})`,
-            partnerName: sp.supplierName,
+            partnerName: supplierName,
             type: 'Supplier Payment',
             debit: sp.amount, 
             credit: 0, 
             original: sp,
         })
     });
+
     expenses.forEach(e => {
         if (!e.timestamp || !isValid(new Date(e.timestamp))) return;
         
         const isSalaryExpense = e.category === 'Salaries';
+        const employeeNameFromDesc = e.description.replace('Salary for ', '').replace(/ \(.*/, '');
+        const employeeAsCustomer = customers.find(c => c.name === employeeNameFromDesc && c.area === 'Employee');
         const partnerName = isSalaryExpense 
-            ? e.description.replace('Salary for ', '').replace(/ \(.*/, '') 
+            ? (employeeAsCustomer ? employeeAsCustomer.name : employeeNameFromDesc) 
             : 'Internal';
 
         combined.push({
@@ -227,13 +250,18 @@ export default function LedgerPage() {
             original: e,
         })
     });
+    
     purchaseReturns.forEach(pr => {
         if (!pr.timestamp || !isValid(new Date(pr.timestamp))) return;
+
+        const supplier = suppliers.find(s => s.id === pr.supplierId);
+        const supplierName = supplier ? supplier.name : pr.supplier;
+
         combined.push({
             id: `pr-${pr.id}`,
             timestamp: pr.timestamp,
             description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
-            partnerName: pr.supplier,
+            partnerName: supplierName,
             type: 'Purchase Return',
             debit: 0,
             credit: pr.totalRefund,
@@ -241,13 +269,18 @@ export default function LedgerPage() {
             notes: pr.reason,
         })
     });
+    
     saleReturns.forEach(sr => {
       if (!sr.timestamp || !isValid(new Date(sr.timestamp))) return;
+
+      const customer = customers.find(c => c.id === sr.customerId);
+      const customerName = customer ? customer.name : sr.customerName;
+
       combined.push({
         id: `sr-${sr.id}`,
         timestamp: sr.timestamp,
         description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
-        partnerName: sr.customerName,
+        partnerName: customerName,
         type: 'Sale Return',
         debit: sr.totalRefund,
         credit: 0,
@@ -255,6 +288,7 @@ export default function LedgerPage() {
         notes: sr.reason,
       });
     });
+
     otherIncomes.forEach(oi => {
         if (!oi.timestamp || !isValid(new Date(oi.timestamp))) return;
         combined.push({
@@ -268,14 +302,19 @@ export default function LedgerPage() {
             original: oi,
         })
     });
+    
     investments.forEach(inv => {
         if (!inv.timestamp || !isValid(new Date(inv.timestamp))) return;
+
+        const partner = businessPartners.find(p => p.id === inv.partnerId);
+        const partnerName = partner ? partner.name : inv.partnerName;
+
         if (inv.type === 'Investment') {
             combined.push({
                 id: `inv-${inv.id}`,
                 timestamp: inv.timestamp,
                 description: 'Investment',
-                partnerName: inv.partnerName,
+                partnerName: partnerName,
                 type: 'Investment',
                 debit: 0,
                 credit: inv.amount,
@@ -287,7 +326,7 @@ export default function LedgerPage() {
                 id: `wdr-${inv.id}`,
                 timestamp: inv.timestamp,
                 description: 'Withdrawal',
-                partnerName: inv.partnerName,
+                partnerName: partnerName,
                 type: 'Withdrawal',
                 debit: inv.amount,
                 credit: 0,
@@ -334,7 +373,7 @@ export default function LedgerPage() {
 
     return finalEntries;
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, fuelPrices, products]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, products, customers, suppliers, businessPartners]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -900,7 +939,7 @@ export default function LedgerPage() {
                                                             </TableCell>
                                                             <TableCell>{currentSr}</TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
-                                                                {isValid(date) ? format(date, 'dd/MM/yy hh:mm a') : 'Invalid Date'}
+                                                                {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
                                                                 <Link href={link} className="hover:underline" target="_blank" rel="noopener noreferrer">
