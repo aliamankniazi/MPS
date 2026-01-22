@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { UserX, Printer, Search, Pencil, Calendar as CalendarIcon } from 'lucide-react';
+import { UserX, Printer, Search, Pencil, Calendar as CalendarIcon, CreditCard } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -155,31 +155,25 @@ export default function CreditRecoveryPage() {
     const generateWhatsAppMessage = (row: ReportRow) => {
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
-        let lastTxnDateString = '';
-        if (row.lastTransactionDate) {
-            lastTxnDateString = ` Your last transaction was on ${format(row.lastTransactionDate, 'dd-MMM-yyyy')}.`;
-        }
+        const period = dateRange?.from 
+            ? (dateRange.to ? `${format(dateRange.from, 'dd-MMM-yyyy')} to ${format(dateRange.to, 'dd-MMM-yyyy')}` : format(dateRange.from, 'dd-MMM-yyyy'))
+            : 'all time';
 
-        let message = '';
+        const lastTxnString = row.lastTransactionDate ? `\nYour last transaction was on ${format(row.lastTransactionDate, 'dd-MMM-yyyy')}.` : '';
 
-        if (row.currentBalance > 0) {
-            message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-This is a friendly reminder that your account with Mianwali Petroleum Service has an outstanding balance of PKR ${formatCurrency(row.currentBalance)}.${lastTxnDateString} We would appreciate your prompt payment.
+        const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
+Your account summary with Mianwali Petroleum Service for the period '${period}' is as follows:
+
+Opening Balance: PKR ${formatCurrency(row.previousBalance)}
+Total Purchases: PKR ${formatCurrency(row.sale)}
+Total Payments Received: PKR ${formatCurrency(row.recovery)}
+-----------------------------------
+Closing Balance: PKR ${formatCurrency(row.currentBalance)}
+${lastTxnString}
+We would appreciate your prompt settlement if there is an outstanding amount.
+
 Thank You,
 Mianwali Petroleum Service`;
-        } else {
-             const period = dateRange?.from ? 
-                (dateRange.to ? `${format(dateRange.from, 'dd-MMM-yyyy')} to ${format(dateRange.to, 'dd-MMM-yyyy')}` : format(dateRange.from, 'dd-MMM-yyyy'))
-                : 'all time';
-             message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-Your account summary for ${period}:
-Opening Balance: ${formatCurrency(row.previousBalance)}
-Total Purchases: ${formatCurrency(row.sale)}
-Total Payments: ${formatCurrency(row.recovery)}
-Current Balance: ${formatCurrency(row.currentBalance)}
-Thank You,
-Mianwali Petroleum Service`;
-        }
 
         return encodeURIComponent(message);
     }
@@ -190,10 +184,10 @@ Mianwali Petroleum Service`;
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <UserX /> Customer Defaulter Report
+                        <CreditCard /> Customer Sale and Recovery Report
                     </CardTitle>
                     <CardDescription>
-                        View customers with outstanding balances and send payment reminders. Filtered by the global date range.
+                        Review customer sales, recoveries, and balances for the selected period.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
