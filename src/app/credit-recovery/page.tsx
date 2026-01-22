@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -110,7 +111,28 @@ export default function CreditRecoveryPage() {
             };
         }).filter(row => {
             if (selectedCustomerId !== 'all') return true;
-            return row.currentBalance > 0;
+
+            // If no date range is selected, show customers with an outstanding balance
+            if (!from || !to) {
+                return row.currentBalance > 0;
+            }
+
+            // If a date range is selected, only show customers with a sale or recovery in that range.
+            const hasSaleInRange = transactions.some(tx =>
+                tx.customerId === row.id &&
+                isValid(new Date(tx.timestamp)) &&
+                new Date(tx.timestamp) >= from &&
+                new Date(tx.timestamp) <= to
+            );
+
+            const hasRecoveryInRange = customerPayments.some(p =>
+                p.customerId === row.id &&
+                isValid(new Date(p.timestamp)) &&
+                new Date(p.timestamp) >= from &&
+                new Date(p.timestamp) <= to
+            );
+
+            return hasSaleInRange || hasRecoveryInRange;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
