@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, Calendar as CalendarIcon, X } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, Calendar as CalendarIcon, X, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -932,6 +933,11 @@ export default function LedgerPage() {
                                                                 {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                             </TableCell>
                                                             <TableCell className="text-center">
+                                                                <Button asChild variant="ghost" size="icon" title="Edit">
+                                                                    <Link href="/customers">
+                                                                        <Pencil className="w-4 h-4" />
+                                                                    </Link>
+                                                                </Button>
                                                                 <Button 
                                                                 variant="ghost" 
                                                                 size="icon" 
