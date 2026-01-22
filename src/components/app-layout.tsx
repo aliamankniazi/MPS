@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -34,7 +35,7 @@ const navGroups = [
         links: [
             { href: '/all-transactions', label: 'All Transactions', icon: History },
             { href: '/all-invoices', label: 'All Invoices', icon: Receipt, target: '_blank' },
-            { href: '/ledger', label: 'General Journal', icon: BookOpen, target: '_blank' },
+            { href: '/ledger', label: 'General Journal', icon: BookOpen },
             { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins, target: '_blank' },
         ]
     },
