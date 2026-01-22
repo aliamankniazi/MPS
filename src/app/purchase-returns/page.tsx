@@ -70,7 +70,7 @@ function PageHeader() {
 }
 
 export default function PurchaseReturnsPage() {
-  const { addPurchaseReturn, suppliers, isLoaded } = useDatabase();
+  const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
 
@@ -80,9 +80,9 @@ export default function PurchaseReturnsPage() {
   
   useEffect(() => {
     reset({
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);

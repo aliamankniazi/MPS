@@ -66,7 +66,7 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, isLoaded } = useDatabase();
+  const { addPurchase, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
 
@@ -76,9 +76,9 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     reset({
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);

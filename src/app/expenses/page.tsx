@@ -46,9 +46,9 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     reset({
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const filteredExpenses = useMemo(() => {
     let currentExpenses = expenses;
@@ -89,7 +89,7 @@ export default function ExpensesPage() {
         description: '',
         category: undefined,
         amount: 0,
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
   };
   

@@ -67,7 +67,7 @@ function PageHeader() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
 
@@ -79,9 +79,9 @@ export default function SalaryPaymentPage() {
     reset({
       salaryMonth: format(new Date(), 'MMMM'),
       salaryYear: new Date().getFullYear().toString(),
-      postingDate: new Date(),
+      postingDate: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
     const employee = employees.find(e => e.id === data.employeeId);

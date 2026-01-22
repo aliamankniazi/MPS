@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, addSupplierPayment, isLoaded } = useDatabase();
+  const { suppliers, addSupplierPayment, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   
@@ -75,9 +75,9 @@ export default function SupplierPaymentsPage() {
 
   useEffect(() => {
     reset({
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);

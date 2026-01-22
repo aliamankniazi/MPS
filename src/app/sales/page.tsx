@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, addCustomerPayment, isLoaded, products, transactions } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, transactions, dateRange } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -101,11 +101,11 @@ export default function SalesPage() {
     reset({
         customerId: 'walkin',
         paymentMethod: 'Cash',
-        invoiceDate: new Date(),
+        invoiceDate: dateRange?.from || new Date(),
         notes: '',
         vehicleNumber: '',
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];

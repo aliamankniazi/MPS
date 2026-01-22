@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded } = useDatabase();
+  const { customers, addCustomerPayment, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
 
@@ -75,9 +75,9 @@ export default function CustomerPaymentsPage() {
 
   useEffect(() => {
     reset({
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);

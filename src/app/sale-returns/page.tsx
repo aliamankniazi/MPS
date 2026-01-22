@@ -68,7 +68,7 @@ function PageHeader() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded } = useDatabase();
+  const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
@@ -78,9 +78,9 @@ export default function SaleReturnsPage() {
   
   useEffect(() => {
     reset({
-        date: new Date(),
+        date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);

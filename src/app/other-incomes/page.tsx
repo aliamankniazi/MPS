@@ -33,7 +33,7 @@ const incomeSchema = z.object({
 type IncomeFormValues = z.infer<typeof incomeSchema>;
 
 export default function OtherIncomesPage() {
-  const { otherIncomes, addOtherIncome, deleteOtherIncome } = useDatabase();
+  const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
 
@@ -43,9 +43,9 @@ export default function OtherIncomesPage() {
 
   useEffect(() => {
     reset({
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
     addOtherIncome({

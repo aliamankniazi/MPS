@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded } = useDatabase();
+  const { customers, addCashAdvance, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
@@ -75,9 +75,9 @@ export default function CashAdvancesPage() {
 
   useEffect(() => {
     reset({
-      date: new Date(),
+      date: dateRange?.from || new Date(),
     });
-  }, [reset]);
+  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
