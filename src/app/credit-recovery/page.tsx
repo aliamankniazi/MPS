@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,11 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { FileText, Printer, Search, Calendar as CalendarIcon } from 'lucide-react';
+import { FileText, Printer, Search, Calendar as CalendarIcon, Pencil } from 'lucide-react';
 import type { Customer, DateRange } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -251,6 +251,11 @@ Mianwali Petroleum Service`;
                                             {row.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </TableCell>
                                         <TableCell className="text-center">
+                                            <Button asChild variant="ghost" size="icon" title="Edit Customer">
+                                                <Link href="/customers">
+                                                    <Pencil className="w-4 h-4" />
+                                                </Link>
+                                            </Button>
                                             {row.customer.contact && (
                                                 <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${row.customer.name} on WhatsApp`}>
                                                     <a 
