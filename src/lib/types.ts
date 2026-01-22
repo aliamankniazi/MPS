@@ -8,9 +8,9 @@ export interface Transaction {
   fuelType: FuelType | string;
   volume: number;
   pricePerLitre: number;
+  product?: string;
   totalAmount: number;
   paymentMethod: PaymentMethod;
-  product?: string;
   customerId?: string;
   customerName?: string;
   bankAccountId?: string;
@@ -92,6 +92,7 @@ export interface Supplier {
   helperName?: string;
   helperContact?: string;
   timestamp: string;
+  openingBalance?: number;
 }
 
 export interface BankAccount {

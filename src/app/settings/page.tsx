@@ -50,6 +50,7 @@ const supplierSchema = z.object({
   driverContact: z.string().optional(),
   helperName: z.string().optional(),
   helperContact: z.string().optional(),
+  openingBalance: z.coerce.number().optional(),
 });
 type SupplierFormValues = z.infer<typeof supplierSchema>;
 
@@ -147,6 +148,7 @@ export default function SettingsPage() {
         setEditSupplierValue('driverContact', supplierToEdit.driverContact || '');
         setEditSupplierValue('helperName', supplierToEdit.helperName || '');
         setEditSupplierValue('helperContact', supplierToEdit.helperContact || '');
+        setEditSupplierValue('openingBalance', supplierToEdit.openingBalance || 0);
     }
   }, [supplierToEdit, setEditSupplierValue]);
 
@@ -176,7 +178,7 @@ export default function SettingsPage() {
       title: 'Supplier Added',
       description: `${data.name} has been added to your supplier list.`,
     });
-    resetSupplier();
+    resetSupplier({ name: '', contact: '', vehicleNumber: '', driverName: '', driverContact: '', helperName: '', helperContact: '', openingBalance: 0});
   };
 
   const onEditSupplierSubmit: SubmitHandler<SupplierFormValues> = (data) => {
@@ -288,6 +290,10 @@ export default function SettingsPage() {
                              <div className="space-y-2">
                                 <Label htmlFor="helperContact">Helper's Contact (Optional)</Label>
                                 <Input id="helperContact" {...registerSupplier('helperContact')} placeholder="e.g., 0302-1122334" />
+                            </div>
+                             <div className="space-y-2">
+                                <Label htmlFor="openingBalance">Opening Balance (PKR)</Label>
+                                <Input id="openingBalance" type="number" {...registerSupplier('openingBalance')} placeholder="e.g., 0" />
                             </div>
                         </div>
                         <Button type="submit">Add Supplier</Button>
@@ -591,6 +597,10 @@ export default function SettingsPage() {
                         <div className="space-y-2">
                             <Label htmlFor="edit-helperContact">Helper's Contact</Label>
                             <Input id="edit-helperContact" {...registerEditSupplier('helperContact')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-openingBalance">Opening Balance</Label>
+                            <Input id="edit-openingBalance" type="number" {...registerEditSupplier('openingBalance')} />
                         </div>
                     </div>
                 </div>
