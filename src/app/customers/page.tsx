@@ -23,6 +23,7 @@ import type { Customer } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const customerSchema = z.object({
@@ -232,8 +233,8 @@ export default function CustomersPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma-separated for multiple)</Label>
-                <Input id="vehicleNumber" {...register('vehicleNumber')} placeholder="e.g., ABC-123, RIL-456" />
+                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma/new-line separated)</Label>
+                <Textarea id="vehicleNumber" {...register('vehicleNumber')} placeholder="e.g., ABC-123, RIL-456" />
                 {errors.vehicleNumber && <p className="text-sm text-destructive">{errors.vehicleNumber.message}</p>}
               </div>
               
@@ -365,8 +366,8 @@ export default function CustomersPage() {
                         {editErrors.contact && <p className="text-sm text-destructive">{editErrors.contact.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="edit-vehicleNumber">Vehicle Number (comma-separated for multiple)</Label>
-                        <Input id="edit-vehicleNumber" {...registerEdit('vehicleNumber')} />
+                        <Label htmlFor="edit-vehicleNumber">Vehicle Number (comma/new-line separated)</Label>
+                        <Textarea id="edit-vehicleNumber" {...registerEdit('vehicleNumber')} />
                         {editErrors.vehicleNumber && <p className="text-sm text-destructive">{editErrors.vehicleNumber.message}</p>}
                     </div>
                     <div className="space-y-2">

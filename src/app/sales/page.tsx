@@ -156,7 +156,7 @@ export default function SalesPage() {
       setValue('paymentMethod', 'Credit');
     }
     const selectedCustomer = customers.find(c => c.id === customerId);
-    setValue('vehicleNumber', selectedCustomer?.vehicleNumber?.split(',')[0].trim() || '');
+    setValue('vehicleNumber', selectedCustomer?.vehicleNumber?.split(/[,\\n]/)[0].trim() || '');
   }, [customerId, setValue, customers]);
 
   const selectedCustomer = useMemo(() => {
@@ -474,7 +474,7 @@ export default function SalesPage() {
                                             <SelectValue placeholder="Select vehicle..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {selectedCustomer.vehicleNumber.split(',').map(v => v.trim()).filter(Boolean).map(v => (
+                                            {selectedCustomer.vehicleNumber.split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
                                                 <SelectItem key={v} value={v}>{v}</SelectItem>
                                             ))}
                                         </SelectContent>

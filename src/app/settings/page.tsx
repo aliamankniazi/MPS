@@ -31,6 +31,7 @@ import { z } from 'zod';
 import { Dialog, DialogHeader, DialogFooter, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
@@ -272,8 +273,8 @@ export default function SettingsPage() {
                                 <Input id="supplierContact" {...registerSupplier('contact')} placeholder="e.g., 0300-1234567" />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma-separated)</Label>
-                                <Input id="vehicleNumber" {...registerSupplier('vehicleNumber')} placeholder="e.g., TKA-123, TKB-456" />
+                                <Label htmlFor="vehicleNumber">Vehicle Number (Optional, comma/new-line separated)</Label>
+                                <Textarea id="vehicleNumber" {...registerSupplier('vehicleNumber')} placeholder="e.g., TKA-123, TKB-456" />
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="driverName">Driver's Name (Optional)</Label>
@@ -578,9 +579,9 @@ export default function SettingsPage() {
                             <Label htmlFor="edit-supplierContact">Contact</Label>
                             <Input id="edit-supplierContact" {...registerEditSupplier('contact')} />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="edit-vehicleNumber">Vehicle Number</Label>
-                            <Input id="edit-vehicleNumber" {...registerEditSupplier('vehicleNumber')} />
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="edit-vehicleNumber">Vehicle Number (comma/new-line separated)</Label>
+                            <Textarea id="edit-vehicleNumber" {...registerEditSupplier('vehicleNumber')} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="edit-driverName">Driver's Name</Label>
