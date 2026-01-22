@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -9,9 +8,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { UserX, Printer, Search, Pencil } from 'lucide-react';
+import { UserX, Printer, Search, Pencil, Calendar as CalendarIcon } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import Link from 'next/link';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -37,7 +39,7 @@ interface ReportRow {
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
+    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -186,6 +188,45 @@ Mianwali Petroleum Service`;
                                 </SelectContent>
                             </Select>
                         </div>
+                        <div className="w-full md:w-auto flex-1">
+                             <label className="text-sm font-medium">Date Range</label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dateRange && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                    dateRange.to ? (
+                                        <>
+                                        {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
+                                        {format(dateRange.to, "dd-MMM-yyyy")}
+                                        </>
+                                    ) : (
+                                        format(dateRange.from, "dd-MMM-yyyy")
+                                    )
+                                    ) : (
+                                    <span>Pick a date range</span>
+                                    )}
+                                </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    initialFocus
+                                    mode="range"
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
+                                />
+                                </PopoverContent>
+                            </Popover>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -265,7 +306,3 @@ Mianwali Petroleum Service`;
         </div>
     );
 }
-
-    
-
-    
