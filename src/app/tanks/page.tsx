@@ -38,7 +38,7 @@ const machineReadingSchema = z.object({
 type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, setFuelStock } = useDatabase();
+  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading } = useDatabase();
   const { toast } = useToast();
 
   const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
@@ -62,10 +62,9 @@ export default function MachineManagementPage() {
         machineName: machine.name,
         fuelType: machine.fuelType,
         volume: data.volume,
+        timestamp: data.date.toISOString(),
     });
-    // This assumes one machine reading overrides the stock for that fuel type.
-    // For multiple machines of the same fuel, this logic would need to be more complex.
-    setFuelStock(machine.fuelType, data.volume);
+
     toast({
       title: 'Machine Reading Logged',
       description: `New volume for ${machine.name} has been recorded as ${data.volume}L.`,
