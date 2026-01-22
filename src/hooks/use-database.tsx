@@ -429,9 +429,11 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         
         const dataToSend: { [key: string]: any } = { ...entity };
         
-        // If a timestamp is not provided on the entity, use the server's timestamp.
-        // The `entity` object might come from a form with a user-selected date.
-        if (!(entity as any).timestamp) {
+        // If a timestamp is provided as a string, convert it to a Date object so Firestore saves it as a Timestamp.
+        // Otherwise, use the server's timestamp.
+        if (typeof (entity as any).timestamp === 'string' && isValid(new Date((entity as any).timestamp))) {
+            dataToSend.timestamp = new Date((entity as any).timestamp);
+        } else {
             dataToSend.timestamp = serverTimestamp();
         }
         
@@ -784,3 +786,5 @@ export const useDatabase = () => {
     }
     return context;
 };
+
+    
