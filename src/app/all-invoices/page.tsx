@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { FileText, XCircle, Printer, Search, Download, Calendar as CalendarIcon } from 'lucide-react';
+import { FileText, XCircle, Printer, Search, Download, Calendar as CalendarIcon, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -286,6 +285,11 @@ export default function AllInvoicesPage() {
                                         {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </TableCell>
                                       <TableCell className="text-center">
+                                        <Button asChild variant="ghost" size="icon" title="Edit">
+                                            <Link href="/customers">
+                                                <Pencil className="w-4 h-4" />
+                                            </Link>
+                                        </Button>
                                         <Button asChild variant="ghost" size="icon" title="Print Invoice">
                                           <Link href={`/invoice/${invoice.type.toLowerCase().replace(' ', '')}/${invoice.originalId}`} target="_blank">
                                             <Printer className="w-4 h-4" />
@@ -321,3 +325,4 @@ export default function AllInvoicesPage() {
     </div>
   );
 }
+    
