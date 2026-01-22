@@ -112,27 +112,17 @@ export default function CreditRecoveryPage() {
         }).filter(row => {
             if (selectedCustomerId !== 'all') return true;
 
-            // If no date range is selected, show customers with an outstanding balance
-            if (!from || !to) {
-                return row.currentBalance > 0;
+            // If a date range is selected, only show customers with a sale or recovery in that range.
+            if (from && to) {
+                 const hasActivityInRange = 
+                    transactions.some(tx => tx.customerId === row.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) >= from && new Date(tx.timestamp) <= to) ||
+                    customerPayments.some(p => p.customerId === row.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) >= from && new Date(p.timestamp) <= to) ||
+                    cashAdvances.some(ca => ca.customerId === row.id && isValid(new Date(ca.timestamp)) && new Date(ca.timestamp) >= from && new Date(ca.timestamp) <= to);
+                return hasActivityInRange;
             }
 
-            // If a date range is selected, only show customers with a sale or recovery in that range.
-            const hasSaleInRange = transactions.some(tx =>
-                tx.customerId === row.id &&
-                isValid(new Date(tx.timestamp)) &&
-                new Date(tx.timestamp) >= from &&
-                new Date(tx.timestamp) <= to
-            );
-
-            const hasRecoveryInRange = customerPayments.some(p =>
-                p.customerId === row.id &&
-                isValid(new Date(p.timestamp)) &&
-                new Date(p.timestamp) >= from &&
-                new Date(p.timestamp) <= to
-            );
-
-            return hasSaleInRange || hasRecoveryInRange;
+            // If no date range, show customers with an outstanding balance
+            return row.currentBalance > 0;
         });
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
@@ -156,22 +146,15 @@ export default function CreditRecoveryPage() {
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
         const period = dateRange?.from 
-            ? (dateRange.to ? `${format(dateRange.from, 'dd-MMM-yyyy')} to ${format(dateRange.to, 'dd-MMM-yyyy')}` : format(dateRange.from, 'dd-MMM-yyyy'))
+            ? (dateRange.to ? `${format(dateRange.from, 'MMM dd, yyyy')} to ${format(dateRange.to, 'MMM dd, yyyy')}` : format(dateRange.from, 'MMM dd, yyyy'))
             : 'all time';
 
-        const lastTxnString = row.lastTransactionDate ? `\nYour last transaction was on ${format(row.lastTransactionDate, 'dd-MMM-yyyy')}.` : '';
-
         const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-Your account summary with Mianwali Petroleum Service for the period '${period}' is as follows:
-
-Opening Balance: PKR ${formatCurrency(row.previousBalance)}
-Total Purchases: PKR ${formatCurrency(row.sale)}
-Total Payments Received: PKR ${formatCurrency(row.recovery)}
------------------------------------
-Closing Balance: PKR ${formatCurrency(row.currentBalance)}
-${lastTxnString}
-We would appreciate your prompt settlement if there is an outstanding amount.
-
+For Period: ${period}
+Your Previous Amount: ${formatCurrency(row.previousBalance)}
+New Sale Amount: ${formatCurrency(row.sale)}
+Paid Amount: ${formatCurrency(row.recovery)}
+Now your balance is: ${formatCurrency(row.currentBalance)}
 Thank You,
 Mianwali Petroleum Service`;
 
