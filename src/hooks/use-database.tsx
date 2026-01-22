@@ -166,6 +166,7 @@ interface DatabaseActions {
     updateCustomer: (id: string, updates: Partial<Customer>) => void;
     deleteCustomer: (id: string) => void;
     addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<Supplier>;
+    updateSupplier: (id: string, updates: Partial<Supplier>) => void;
     deleteSupplier: (id: string) => void;
     addBankAccount: (account: Omit<BankAccount, 'id'>) => Promise<BankAccount>;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
@@ -557,6 +558,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteCustomer = (id: string) => deleteEntity(FIRESTORE_PATHS.customers, id);
     
     const addSupplier = (s: Omit<Supplier, 'id'>) => addEntity<Supplier>(FIRESTORE_PATHS.suppliers, s);
+    const updateSupplier = (id: string, u: Partial<Supplier>) => updateEntity(FIRESTORE_PATHS.suppliers, id, u);
     const deleteSupplier = (id: string) => deleteEntity(FIRESTORE_PATHS.suppliers, id);
 
     const addBankAccount = (a: Omit<BankAccount, 'id'>) => addEntity<BankAccount>(FIRESTORE_PATHS.bankAccounts, a);
@@ -722,6 +724,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateCustomer,
         deleteCustomer,
         addSupplier,
+        updateSupplier,
         deleteSupplier,
         addBankAccount,
         updateBankAccount,

@@ -30,6 +30,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Dialog, DialogHeader, DialogFooter, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Pencil } from 'lucide-react';
 
 
 const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
@@ -70,6 +71,7 @@ export default function SettingsPage() {
     updateColorSetting,
     suppliers, 
     addSupplier, 
+    updateSupplier,
     deleteSupplier,
     products,
     addProduct,
@@ -79,6 +81,7 @@ export default function SettingsPage() {
     purchases
   } = useDatabase();
   const { toast } = useToast();
+  const [supplierToEdit, setSupplierToEdit] = React.useState<Supplier | null>(null);
   const [supplierToDelete, setSupplierToDelete] = React.useState<Supplier | null>(null);
   const [productToEdit, setProductToEdit] = React.useState<Product | null>(null);
   const [productToDelete, setProductToDelete] = React.useState<Product | null>(null);
@@ -89,6 +92,16 @@ export default function SettingsPage() {
     handleSubmit: handleSubmitSupplier, 
     reset: resetSupplier, 
     formState: { errors: supplierErrors } 
+  } = useForm<SupplierFormValues>({
+    resolver: zodResolver(supplierSchema),
+  });
+
+  const { 
+    register: registerEditSupplier, 
+    handleSubmit: handleSubmitEditSupplier, 
+    reset: resetEditSupplier,
+    setValue: setEditSupplierValue,
+    formState: { errors: editSupplierErrors } 
   } = useForm<SupplierFormValues>({
     resolver: zodResolver(supplierSchema),
   });
@@ -125,6 +138,18 @@ export default function SettingsPage() {
       }
   }, [productToEdit, setProductValue]);
 
+  React.useEffect(() => {
+    if (supplierToEdit) {
+        setEditSupplierValue('name', supplierToEdit.name);
+        setEditSupplierValue('contact', supplierToEdit.contact || '');
+        setEditSupplierValue('vehicleNumber', supplierToEdit.vehicleNumber || '');
+        setEditSupplierValue('driverName', supplierToEdit.driverName || '');
+        setEditSupplierValue('driverContact', supplierToEdit.driverContact || '');
+        setEditSupplierValue('helperName', supplierToEdit.helperName || '');
+        setEditSupplierValue('helperContact', supplierToEdit.helperContact || '');
+    }
+  }, [supplierToEdit, setEditSupplierValue]);
+
 
   const handleClearData = () => {
     clearAllData();
@@ -152,6 +177,16 @@ export default function SettingsPage() {
       description: `${data.name} has been added to your supplier list.`,
     });
     resetSupplier();
+  };
+
+  const onEditSupplierSubmit: SubmitHandler<SupplierFormValues> = (data) => {
+    if (!supplierToEdit) return;
+    updateSupplier(supplierToEdit.id, data);
+    toast({
+        title: "Supplier Updated",
+        description: "The supplier's details have been saved.",
+    });
+    setSupplierToEdit(null);
   };
   
   const onProductSubmit: SubmitHandler<ProductFormValues> = (data) => {
@@ -285,6 +320,9 @@ export default function SettingsPage() {
                                                <Link href={`/customers/${s.id}/ledger`} target="_blank" rel="noopener noreferrer">
                                                  <BookText className="w-5 h-5" />
                                                </Link>
+                                            </Button>
+                                            <Button variant="ghost" size="icon" title="Edit Supplier" onClick={() => setSupplierToEdit(s)}>
+                                                <Pencil className="w-5 h-5" />
                                             </Button>
                                             <Button variant="ghost" size="icon" title="Delete Supplier" onClick={() => setSupplierToDelete(s)}>
                                                 <Trash2 className="w-5 h-5 text-destructive" />
@@ -515,6 +553,54 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!supplierToEdit} onOpenChange={(isOpen) => !isOpen && setSupplierToEdit(null)}>
+        <DialogContent>
+            <form onSubmit={handleSubmitEditSupplier(onEditSupplierSubmit)}>
+                <DialogHeader>
+                    <DialogTitle>Edit Supplier</DialogTitle>
+                    <DialogDescription>Update the details for this supplier.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-supplierName">Supplier Name</Label>
+                            <Input id="edit-supplierName" {...registerEditSupplier('name')} />
+                            {editSupplierErrors.name && <p className="text-sm text-destructive">{editSupplierErrors.name.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-supplierContact">Contact</Label>
+                            <Input id="edit-supplierContact" {...registerEditSupplier('contact')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-vehicleNumber">Vehicle Number</Label>
+                            <Input id="edit-vehicleNumber" {...registerEditSupplier('vehicleNumber')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-driverName">Driver's Name</Label>
+                            <Input id="edit-driverName" {...registerEditSupplier('driverName')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-driverContact">Driver's Contact</Label>
+                            <Input id="edit-driverContact" {...registerEditSupplier('driverContact')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-helperName">Helper's Name</Label>
+                            <Input id="edit-helperName" {...registerEditSupplier('helperName')} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-helperContact">Helper's Contact</Label>
+                            <Input id="edit-helperContact" {...registerEditSupplier('helperContact')} />
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setSupplierToEdit(null)}>Cancel</Button>
+                    <Button type="submit">Save Changes</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+      </Dialog>
       
       <Dialog open={!!productToEdit} onOpenChange={(isOpen) => {if(!isOpen) setProductToEdit(null)}}>
         <DialogContent>
