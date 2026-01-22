@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone, ArrowUp, ArrowDown, Banknote, TrendingUp, TrendingDown, Clock, Download, Upload, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -53,7 +53,8 @@ export default function InvestmentsPage() {
     addBusinessPartner, 
     updateBusinessPartner, 
     deleteBusinessPartner, 
-    isLoaded 
+    isLoaded,
+    dateRange
   } = useDatabase();
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
@@ -124,7 +125,17 @@ export default function InvestmentsPage() {
   const partnerSummary = useMemo(() => {
     if (!isLoaded) return [];
     
-    const summary = investments.reduce((acc, curr) => {
+    let filteredInvestments = investments;
+    if (dateRange?.from) {
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+        filteredInvestments = investments.filter(inv => {
+            const invDate = new Date(inv.timestamp);
+            return isValid(invDate) && invDate >= from && invDate <= to;
+        });
+    }
+
+    const summary = filteredInvestments.reduce((acc, curr) => {
         if (!acc[curr.partnerId]) {
             acc[curr.partnerId] = { investment: 0, withdrawal: 0 };
         }
@@ -145,7 +156,7 @@ export default function InvestmentsPage() {
         }
     }).sort((a,b) => b.sharePercentage - a.sharePercentage);
 
-  }, [investments, businessPartners, isLoaded]);
+  }, [investments, businessPartners, isLoaded, dateRange]);
 
   const totalSharePercentage = useMemo(() => businessPartners.reduce((sum, p) => sum + p.sharePercentage, 0), [businessPartners]);
 

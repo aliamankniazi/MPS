@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -9,7 +8,7 @@ import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2, Package, Printer, Download } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { isToday } from 'date-fns';
+import { startOfDay, endOfDay, isValid } from 'date-fns';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -34,14 +33,41 @@ const chartConfig = {
 
 
 export default function SummaryPage() {
-  const { transactions, purchases, expenses, otherIncomes, products, isLoaded } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, products, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
 
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
 
+  const filteredData = useMemo(() => {
+    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], customerPayments: [], cashAdvances: [] };
+
+    if (!dateRange || !dateRange.from) {
+      return { transactions, purchases, expenses, otherIncomes, customerPayments, cashAdvances };
+    }
+
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+
+    const filterByDate = (items: any[]) => items.filter(item => {
+      const itemDate = new Date(item.timestamp);
+      return isValid(itemDate) && itemDate >= from && itemDate <= to;
+    });
+
+    return {
+      transactions: filterByDate(transactions),
+      purchases: filterByDate(purchases),
+      expenses: filterByDate(expenses),
+      otherIncomes: filterByDate(otherIncomes),
+      customerPayments: filterByDate(customerPayments),
+      cashAdvances: filterByDate(cashAdvances),
+    };
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes, customerPayments, cashAdvances, dateRange]);
+
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
+
+    const { transactions, purchases, expenses, otherIncomes } = filteredData;
 
     const totalFuelRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
     const totalOtherRevenue = otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
@@ -60,7 +86,7 @@ export default function SummaryPage() {
       grossProfit,
       netProfit,
     };
-  }, [transactions, purchases, expenses, otherIncomes, isLoaded]);
+  }, [isLoaded, filteredData]);
   
   const chartData = useMemo(() => {
       if (!financialSummary) return [];
@@ -77,7 +103,9 @@ export default function SummaryPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
-    const salesByProduct = transactions.reduce((acc, tx) => {
+    const { transactions: filteredTransactions } = filteredData;
+
+    const salesByProduct = filteredTransactions.reduce((acc, tx) => {
         const productName = tx.product || tx.fuelType;
         if (!productName || productName === 'undefined') return acc;
         
@@ -101,7 +129,7 @@ export default function SummaryPage() {
         ...item,
         key: item.product, 
     }));
-  }, [isLoaded, transactions, products]);
+  }, [isLoaded, filteredData, products]);
   
   const handleExportExcel = () => {
     const dataToExport = productWiseSales.map(item => ({
@@ -117,20 +145,33 @@ export default function SummaryPage() {
     XLSX.writeFile(workbook, 'ProductWiseSalesReport.xlsx');
   };
 
+  const dataForSummary = useMemo(() => {
+    if (!isLoaded) return [];
+
+    const { transactions, customerPayments, cashAdvances } = filteredData;
+
+    const combinedData = [
+      ...transactions.map(t => ({...t, type: 'Sale'})),
+      ...customerPayments.map(p => ({...p, type: 'Customer Payment'})),
+      ...cashAdvances.map(ca => ({...ca, type: 'Cash Advance'}))
+    ];
+
+    return combinedData;
+  }, [isLoaded, filteredData]);
+
 
   const handleGenerateSummary = () => {
     setError('');
     setSummary('');
     startTransition(async () => {
       try {
-        const todayTransactions = transactions.filter(tx => isToday(new Date(tx.timestamp)));
-        if (todayTransactions.length === 0) {
-          setError("No sales recorded today to generate a summary.");
+        if (dataForSummary.length === 0) {
+          setError("No activity recorded for the selected period to generate a summary.");
           return;
         }
 
         const result = await generateSalesSummary({
-          dailySalesData: JSON.stringify(todayTransactions),
+          activityData: JSON.stringify(dataForSummary),
         });
         setSummary(result.summary);
       } catch (e) {
@@ -140,7 +181,7 @@ export default function SummaryPage() {
     });
   };
   
-  const hasTodayTransactions = isLoaded && transactions.some(tx => isToday(new Date(tx.timestamp)));
+  const hasData = isLoaded && dataForSummary.length > 0;
 
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -151,7 +192,7 @@ export default function SummaryPage() {
                 <CardTitle className="flex items-center gap-2">
                     <Package /> Product Wise Sale Report
                 </CardTitle>
-                <CardDescription>A summary of sales for each product across all time.</CardDescription>
+                <CardDescription>A summary of sales for each product for the selected date range.</CardDescription>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
@@ -181,7 +222,7 @@ export default function SummaryPage() {
                         ) : (
                              <TableRow>
                                 <TableCell colSpan={4} className="h-24 text-center">
-                                    {isLoaded ? 'No product sales data available.' : 'Loading report...'}
+                                    {isLoaded ? 'No product sales data available for this period.' : 'Loading report...'}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -193,10 +234,10 @@ export default function SummaryPage() {
         <Card className="flex flex-col">
             <CardHeader>
             <CardTitle className="flex items-center gap-2">
-                <FileText /> Daily Sales AI Summary
+                <FileText /> Financial Activity AI Summary
             </CardTitle>
             <CardDescription>
-                Use AI to generate a summary of today's sales transactions.
+                Use AI to generate a summary of financial activity for the selected period.
             </CardDescription>
             </CardHeader>
             <CardContent className="flex-grow flex flex-col gap-4 min-h-[200px]">
@@ -223,16 +264,16 @@ export default function SummaryPage() {
                 <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground flex-grow p-8 border-2 border-dashed rounded-lg">
                 <Sparkles className="w-16 h-16" />
                 <h3 className="text-xl font-semibold">Ready to Analyze</h3>
-                <p>Click the button below to generate a summary of today's sales.</p>
+                <p>Click the button below to generate a summary of financial activity for the selected period.</p>
                 </div>
             )}
             </CardContent>
             <CardFooter>
-            <Button onClick={handleGenerateSummary} disabled={isPending || !hasTodayTransactions}>
-                {isPending ? 'Generating...' : 'Generate Daily Summary'}
+            <Button onClick={handleGenerateSummary} disabled={isPending || !hasData}>
+                {isPending ? 'Generating...' : 'Generate Summary'}
             </Button>
             {!isLoaded && <p className="text-sm text-muted-foreground ml-4">Loading transactions...</p>}
-            {isLoaded && !hasTodayTransactions && <p className="text-sm text-muted-foreground ml-4">No sales data for today.</p>}
+            {isLoaded && !hasData && <p className="text-sm text-muted-foreground ml-4">No data for selected period.</p>}
             </CardFooter>
         </Card>
       </div>
