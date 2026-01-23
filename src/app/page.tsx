@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -42,6 +41,12 @@ export default function DashboardPage() {
             year: 'numeric'
         }).format(now);
 
+        const punjabiDate = new Intl.DateTimeFormat('pa-IN-u-ca-indian', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(now);
+
         const time = now.toLocaleString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
@@ -49,7 +54,7 @@ export default function DashboardPage() {
             hour12: true,
         });
 
-        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', '')} | ${time}`);
+        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', '')} | ${punjabiDate} | ${time}`);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -255,8 +260,8 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <div className="flex items-baseline gap-4">
-              <h1 className="text-3xl font-bold tracking-tight text-blue-600">Dashboard</h1>
-              <p className="text-xl font-bold text-blue-600">{currentTime}</p>
+              <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
+              <p className="text-xl font-bold text-primary">{currentTime}</p>
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
@@ -313,7 +318,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Total Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -323,7 +328,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Total Purchases</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -333,7 +338,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Total Expenses</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -343,7 +348,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Stock Surplus</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Stock Surplus</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -353,7 +358,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Stock Shortage</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Stock Shortage</CardTitle>
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -363,7 +368,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-blue-600">Net Profit</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -372,9 +377,9 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          <Card>
+           <Card>
             <CardHeader>
-              <CardTitle className="text-blue-600">Sales Chart</CardTitle>
+              <CardTitle className="text-primary">Sales Chart</CardTitle>
               <CardDescription>A look at your sales revenue over the last 30 days.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -408,7 +413,7 @@ export default function DashboardPage() {
             {productStats.map(stat => (
                 <Card key={stat.name}>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-medium flex items-center gap-2 text-blue-600"><Fuel size={16} />{stat.name}</CardTitle>
+                        <CardTitle className="text-base font-medium flex items-center gap-2 text-primary"><Fuel size={16} />{stat.name}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -449,7 +454,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-600"><BarChart2 /> Daily Product Sales</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-primary"><BarChart2 /> Daily Product Sales</CardTitle>
                     <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -490,7 +495,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-600"><ListOrdered /> Top 5 Customers</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-primary"><ListOrdered /> Top 5 Customers</CardTitle>
                     <CardDescription>Based on total sales in the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -518,7 +523,7 @@ export default function DashboardPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-600"><Users/>Active Customers</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
                     <CardDescription>Total number of unique customers with transactions.</CardDescription>
                 </CardHeader>
                  <CardContent>
@@ -527,7 +532,7 @@ export default function DashboardPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-600"><TrendingUp/>Best Sale Day</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-primary"><TrendingUp/>Best Sale Day</CardTitle>
                     <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
                 </CardHeader>
                  <CardContent>
