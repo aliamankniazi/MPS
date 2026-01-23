@@ -9,12 +9,14 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
-import { UserX, Printer, Search, Pencil, Calendar as CalendarIcon, CreditCard } from 'lucide-react';
+import { UserX, Printer, Search, Pencil, Calendar as CalendarIcon, CreditCard, Download } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -142,6 +144,23 @@ export default function CreditRecoveryPage() {
         return phone.replace(/[^0-9]/g, '');
     }
     
+    const handleExportExcel = () => {
+        const dataToExport = filteredReportData.map(row => ({
+            'Customer Name': row.customer.name,
+            'Area': row.customer.area || 'N/A',
+            'Mobile': row.customer.contact,
+            'Opening Balance (PKR)': row.previousBalance.toFixed(2),
+            'Total Sale (PKR)': row.sale.toFixed(2),
+            'Total Recovery (PKR)': row.recovery.toFixed(2),
+            'Current Balance (PKR)': row.currentBalance.toFixed(2),
+        }));
+        
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'CreditRecoveryReport');
+        XLSX.writeFile(workbook, 'CreditRecoveryReport.xlsx');
+    };
+
     const generateWhatsAppMessage = (row: ReportRow) => {
         const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
@@ -243,6 +262,7 @@ Mianwali Petroleum Service`;
                         </div>
                         <div className="flex gap-2">
                             <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+                            <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
                         </div>
                     </div>
                 </CardHeader>

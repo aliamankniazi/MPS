@@ -278,7 +278,7 @@ export default function AllInvoicesPage() {
                                             </Link>
                                         </Button>
                                         <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                                          <Link href={`/invoice/${invoice.type.toLowerCase().replace(' ', '')}/${invoice.originalId}`} target="_blank">
+                                          <Link href={`/invoice/${invoice.type.toLowerCase().replace(' ', '')}/${invoice.originalId}`}>
                                             <Printer className="w-4 h-4" />
                                           </Link>
                                         </Button>

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 
 
 type CombinedEntry = {
@@ -74,6 +76,26 @@ export default function AllTransactionsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
   const { toast } = useToast();
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredEntries.map(entry => {
+        const date = new Date(entry.timestamp);
+        const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        return {
+            'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
+            'Type': typeLabel,
+            'Partner': entry.partner,
+            'Details': entry.details,
+            'Amount (PKR)': entry.amount.toFixed(2),
+            'Profit (PKR)': entry.type === 'Sale' && entry.profit ? entry.profit.toFixed(2) : '-'
+        };
+    });
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+    XLSX.writeFile(workbook, 'AllTransactions.xlsx');
+  };
 
   const combinedEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -301,6 +323,8 @@ export default function AllTransactionsPage() {
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="max-w-sm"
                     />
+                    <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+                    <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
                 </div>
             </div>
             </CardHeader>
@@ -359,7 +383,7 @@ export default function AllTransactionsPage() {
                             </Button>
                             {isPrintable && (
                             <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                                <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`} target="_blank">
+                                <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`}>
                                 <Printer className="w-4 h-4" />
                                 </Link>
                             </Button>
@@ -427,7 +451,7 @@ export default function AllTransactionsPage() {
                                 </TableCell>
                                 <TableCell className="p-2 text-right">
                                     <Button variant="ghost" size="icon" asChild>
-                                        <Link href={`/customers/${customer.id}/ledger`} title="View Ledger" target="_blank" rel="noopener noreferrer">
+                                        <Link href={`/customers/${customer.id}/ledger`} title="View Ledger">
                                             <BookText className="w-4 h-4" />
                                         </Link>
                                     </Button>

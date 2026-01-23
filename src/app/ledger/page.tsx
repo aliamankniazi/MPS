@@ -506,6 +506,28 @@ export default function LedgerPage() {
     return 'indeterminate';
   }, [allFilteredEntryIds, selectedEntries]);
   
+  const handleExportExcel = () => {
+    const dataToExport = filteredEntries.slice().reverse().map(entry => { // reverse to get chronological order for export
+        const date = new Date(entry.timestamp);
+        const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        return {
+            'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
+            'Partner': entry.partnerName,
+            'Notes': entry.notes || '',
+            'Particulars': entry.description,
+            'Type': typeLabel,
+            'Debit (PKR)': entry.debit > 0 ? entry.debit.toFixed(2) : '',
+            'Credit (PKR)': entry.credit > 0 ? entry.credit.toFixed(2) : '',
+            'Balance (PKR)': entry.balance.toFixed(2),
+        };
+    });
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ledger');
+    XLSX.writeFile(workbook, 'GeneralLedger.xlsx');
+  };
+
   const handleSelectAllGlobal = (checked: boolean | 'indeterminate') => {
     if (checked === true) {
         // When checking, add all currently filtered IDs to the selection
@@ -720,6 +742,8 @@ export default function LedgerPage() {
                 </SelectContent>
             </Select>
             <Button variant="outline" onClick={() => setShowJournal(!showJournal)}>{showJournal ? 'Show Business Report' : 'Show Full Journal'}</Button>
+            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+            <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
 
            {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Clear</Button>}
 
@@ -903,7 +927,7 @@ export default function LedgerPage() {
                                                                 {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
                                                             </TableCell>
                                                             <TableCell className="font-medium" style={{ color }}>
-                                                                <Link href={link} className="hover:underline" target="_blank" rel="noopener noreferrer">
+                                                                <Link href={link} className="hover:underline" rel="noopener noreferrer">
                                                                     {entry.partnerName}
                                                                 </Link>
                                                             </TableCell>
