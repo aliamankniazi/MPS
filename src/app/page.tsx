@@ -412,31 +412,31 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Stock Available</span>
+                            <span className="text-chart-1">Stock Available</span>
                             <span className="font-mono font-semibold">{stat.stock.toLocaleString(undefined, { maximumFractionDigits: 2 })} Ltr</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Sale Rate</span>
+                            <span className="text-chart-2">Last Sale Rate</span>
                             <span className="font-mono font-semibold">PKR {stat.lastSaleRate.toFixed(2)}</span>
                         </div>
                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Purchase Rate</span>
+                            <span className="text-chart-3">Last Purchase Rate</span>
                             <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Profit / Unit</span>
+                            <span className="text-chart-4">Profit / Unit</span>
                             <span className="font-mono font-semibold">PKR {stat.profitPerUnit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between font-bold">
-                            <span className="text-muted-foreground">Total Profit</span>
+                            <span className="text-chart-5">Total Profit</span>
                             <span className="font-mono">PKR {stat.totalProfit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Sale</span>
+                            <span className="text-chart-1">Last Sale</span>
                             <span className="font-mono">{stat.lastSaleDate ? format(stat.lastSaleDate, 'dd MMM, yy') : 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Last Purchase</span>
+                            <span className="text-chart-2">Last Purchase</span>
                             <span className="font-mono">{stat.lastPurchaseDate ? format(stat.lastPurchaseDate, 'dd MMM, yy') : 'N/A'}</span>
                         </div>
                     </CardContent>
