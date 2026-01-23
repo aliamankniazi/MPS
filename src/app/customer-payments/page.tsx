@@ -71,11 +71,15 @@ export default function CustomerPaymentsPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),
+    defaultValues: {
+        paymentMethod: 'Cash',
+    }
   });
 
   useEffect(() => {
     reset({
       date: dateRange?.from || new Date(),
+      paymentMethod: 'Cash',
     });
   }, [reset, dateRange]);
 
