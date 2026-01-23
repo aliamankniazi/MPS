@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -41,7 +42,7 @@ export default function DashboardPage() {
             year: 'numeric'
         }).format(now);
 
-        const punjabiDate = new Intl.DateTimeFormat('pa-IN-u-ca-indian', {
+        const punjabiDate = new Intl.DateTimeFormat('pa-Guru-IN-u-ca-indian', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
