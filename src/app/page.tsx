@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
@@ -26,6 +26,58 @@ import {
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
+
+  const getPunjabiDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0-11
+    const day = date.getDate();
+
+    // Nanakshahi calendar month start dates in Gregorian calendar
+    const monthStarts = [
+        { name: "Chet", month: 2, day: 14 },
+        { name: "Vaisakh", month: 3, day: 14 },
+        { name: "Jeth", month: 4, day: 15 },
+        { name: "Harh", month: 5, day: 15 },
+        { name: "Sawan", month: 6, day: 16 },
+        { name: "Bhadon", month: 7, day: 16 },
+        { name: "Assu", month: 8, day: 16 },
+        { name: "Katak", month: 9, day: 17 },
+        { name: "Maghar", month: 10, day: 16 },
+        { name: "Poh", month: 11, day: 16 },
+        { name: "Magh", month: 0, day: 13 },
+        { name: "Phagun", month: 1, day: 12 },
+    ];
+
+    let desiMonthName = '';
+    let desiDay = 0;
+    let nanakshahiYear = 0;
+    let gregorianYearOfDesiYearStart = year;
+
+    // Determine the start of the current Nanakshahi year
+    if (month < 2 || (month === 2 && day < 14)) {
+        gregorianYearOfDesiYearStart = year - 1;
+    }
+
+    nanakshahiYear = gregorianYearOfDesiYearStart - 1468;
+    
+    // Create date objects for all month starts within the current desi year cycle
+    const desiYearMonthStarts = monthStarts.map(m => {
+        const y = (m.month < 2) ? gregorianYearOfDesiYearStart + 1 : gregorianYearOfDesiYearStart;
+        return { ...m, date: new Date(y, m.month, m.day) };
+    }).sort((a,b) => a.date.getTime() - b.date.getTime());
+
+
+    // Find the current desi month by checking which start date the current date is on or after
+    for (let i = desiYearMonthStarts.length - 1; i >= 0; i--) {
+        if (date >= desiYearMonthStarts[i].date) {
+            desiMonthName = desiYearMonthStarts[i].name;
+            desiDay = differenceInDays(date, desiYearMonthStarts[i].date) + 1;
+            break;
+        }
+    }
+    
+    return `${desiDay} ${desiMonthName} ${nanakshahiYear}`;
+  };
     
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,12 +93,8 @@ export default function DashboardPage() {
             month: 'long',
             year: 'numeric'
         }).format(now);
-
-        const punjabiDate = new Intl.DateTimeFormat('pa-Arab-PK-u-ca-indian', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        }).format(now);
+        
+        const punjabiDate = getPunjabiDate(now);
 
         const time = now.toLocaleString('en-US', {
             hour: '2-digit',
