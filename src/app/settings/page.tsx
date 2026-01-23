@@ -34,8 +34,6 @@ import { Pencil } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 
 
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
 const TRANSACTION_TYPES_FOR_COLOR = [
     'Sale', 'Credit Sale', 'Customer Payment', 'Purchase', 'Purchase Return', 'Sale Return',
     'Expense', 'Cash Advance', 'Salary', 'Supplier Payment', 'Other Income',
@@ -128,6 +126,10 @@ export default function SettingsPage() {
         const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
         return originalCasing || lowerUnit;
     }).filter(Boolean);
+  }, [products]);
+
+  const mainProducts = React.useMemo(() => {
+    return products.filter(p => p.category === 'Main Product');
   }, [products]);
 
 
@@ -355,19 +357,19 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Fuel Prices</h3>
             <div className="space-y-4">
-              {isLoaded && FUEL_TYPES.map(fuel => (
-                <div key={fuel} className="flex items-center justify-between rounded-lg border p-4">
+              {isLoaded && mainProducts.map(product => (
+                <div key={product.id} className="flex items-center justify-between rounded-lg border p-4">
                   <div>
-                    <Label htmlFor={`${fuel}-price`} className="flex items-center gap-2"><Droplets className="w-4 h-4" /> {fuel} Price (PKR/L)</Label>
+                    <Label htmlFor={`${product.name}-price`} className="flex items-center gap-2"><Droplets className="w-4 h-4" /> {product.name} Price (PKR/{product.unit})</Label>
                     <p className="text-sm text-muted-foreground">
-                      Set the price per litre for {fuel}.
+                      Set the price per unit for {product.name}.
                     </p>
                   </div>
                   <Input 
-                    id={`${fuel}-price`} 
+                    id={`${product.name}-price`} 
                     type="number" 
-                    value={fuelPrices[fuel] || ''} 
-                    onChange={(e) => handlePriceChange(fuel, e.target.value)}
+                    value={fuelPrices[product.name as FuelType] || ''} 
+                    onChange={(e) => handlePriceChange(product.name as FuelType, e.target.value)}
                     className="w-28" 
                     step="0.01"
                   />

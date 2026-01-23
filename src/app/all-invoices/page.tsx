@@ -292,7 +292,7 @@ export default function AllInvoicesPage() {
                                        </TableCell>
                                       <TableCell className="text-center">
                                         <Button asChild variant="ghost" size="icon" title="Edit">
-                                            <Link href="/customers">
+                                            <Link href={invoice.type === 'Purchase' ? '/settings' : '/customers'}>
                                                 <Pencil className="w-4 h-4" />
                                             </Link>
                                         </Button>

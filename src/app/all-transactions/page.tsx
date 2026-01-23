@@ -393,7 +393,7 @@ export default function AllTransactionsPage() {
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
                              <Button asChild variant="ghost" size="icon" title="Edit">
-                                <Link href={'/customers'}>
+                                <Link href={entry.type === 'Purchase' ? '/settings' : '/customers'}>
                                     <Pencil className="w-4 h-4" />
                                 </Link>
                             </Button>
