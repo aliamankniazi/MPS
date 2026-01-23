@@ -66,7 +66,7 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, isLoaded, dateRange } = useDatabase();
+  const { addPurchase, suppliers, purchases, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const lastUserEditedField = useRef<'volume' | 'price' | 'total' | null>(null);
@@ -75,7 +75,7 @@ export default function PurchasesPage() {
     resolver: zodResolver(purchaseSchema),
   });
 
-  const { volume, pricePerLitre, totalCost } = watch();
+  const { volume, pricePerLitre, totalCost, fuelType } = watch();
 
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
@@ -107,6 +107,25 @@ export default function PurchasesPage() {
       date: dateRange?.from || new Date(),
     });
   }, [reset, dateRange]);
+
+  // Effect to auto-fill price based on last purchase of the same fuel type
+  useEffect(() => {
+      if (fuelType && purchases.length > 0) {
+          const lastPurchaseOfSameType = purchases
+              .filter(p => p.fuelType === fuelType)
+              .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+          
+          if (lastPurchaseOfSameType && lastPurchaseOfSameType.volume > 0) {
+              const lastPrice = lastPurchaseOfSameType.totalCost / lastPurchaseOfSameType.volume;
+              setValue('pricePerLitre', lastPrice);
+              lastUserEditedField.current = 'price';
+              if (volume) {
+                  setValue('totalCost', volume * lastPrice, { shouldValidate: true });
+              }
+          }
+      }
+  }, [fuelType, purchases, setValue, volume]);
+
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
