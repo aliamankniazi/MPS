@@ -414,52 +414,51 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
-          <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Product Sales</CardTitle>
-                <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                {sortedDailySalesKeys.length > 0 ? (
-                    <Accordion type="single" collapsible className="w-full">
-                        {sortedDailySalesKeys.map(date => (
-                            <AccordionItem value={date} key={date}>
-                                <AccordionTrigger>{format(new Date(date), 'EEEE, dd MMMM yyyy')}</AccordionTrigger>
-                                <AccordionContent>
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>Product</TableHead>
-                                                <TableHead className="text-right">Volume Sold</TableHead>
-                                                <TableHead className="text-right">Total Revenue</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {Object.entries(dailyProductSales[date]).map(([productName, data]) => (
-                                                <TableRow key={productName}>
-                                                    <TableCell>{productName}</TableCell>
-                                                    <TableCell className="text-right">{data.totalVolume.toFixed(2)} {data.unit}</TableCell>
-                                                    <TableCell className="text-right font-mono">PKR {data.totalAmount.toFixed(2)}</TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
-                    </Accordion>
-                ) : (
-                    <div className="text-center text-muted-foreground p-8">
-                        No sales data available for the selected period.
-                    </div>
-                )}
-            </CardContent>
-        </Card>
 
         </div>
 
         <div className="lg:col-span-2 space-y-6">
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Product Sales</CardTitle>
+                    <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {sortedDailySalesKeys.length > 0 ? (
+                        <Accordion type="single" collapsible className="w-full">
+                            {sortedDailySalesKeys.map(date => (
+                                <AccordionItem value={date} key={date}>
+                                    <AccordionTrigger>{format(new Date(date), 'EEEE, dd MMMM yyyy')}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Product</TableHead>
+                                                    <TableHead className="text-right">Volume Sold</TableHead>
+                                                    <TableHead className="text-right">Total Revenue</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {Object.entries(dailyProductSales[date]).map(([productName, data]) => (
+                                                    <TableRow key={productName}>
+                                                        <TableCell>{productName}</TableCell>
+                                                        <TableCell className="text-right">{data.totalVolume.toFixed(2)} {data.unit}</TableCell>
+                                                        <TableCell className="text-right font-mono">PKR {data.totalAmount.toFixed(2)}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </AccordionContent>
+                                </AccordionItem>
+                            ))}
+                        </Accordion>
+                    ) : (
+                        <div className="text-center text-muted-foreground p-8">
+                            No sales data available for the selected period.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
