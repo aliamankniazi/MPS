@@ -313,7 +313,7 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Total Revenue</CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -323,7 +323,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Total Purchases</CardTitle>
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -333,7 +333,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Total Expenses</CardTitle>
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -343,7 +343,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Stock Surplus</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Stock Surplus</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -353,7 +353,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Stock Shortage</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Stock Shortage</CardTitle>
                 <TrendingDown className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -363,7 +363,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
+                <CardTitle className="text-sm font-medium text-blue-600">Net Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -374,7 +374,7 @@ export default function DashboardPage() {
           </div>
           <Card>
             <CardHeader>
-              <CardTitle>Sales Chart</CardTitle>
+              <CardTitle className="text-blue-600">Sales Chart</CardTitle>
               <CardDescription>A look at your sales revenue over the last 30 days.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -408,7 +408,7 @@ export default function DashboardPage() {
             {productStats.map(stat => (
                 <Card key={stat.name}>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-medium flex items-center gap-2"><Fuel size={16} />{stat.name}</CardTitle>
+                        <CardTitle className="text-base font-medium flex items-center gap-2 text-blue-600"><Fuel size={16} />{stat.name}</CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">
@@ -449,7 +449,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Product Sales</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-blue-600"><BarChart2 /> Daily Product Sales</CardTitle>
                     <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -490,7 +490,7 @@ export default function DashboardPage() {
             </Card>
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><ListOrdered /> Top 5 Customers</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-blue-600"><ListOrdered /> Top 5 Customers</CardTitle>
                     <CardDescription>Based on total sales in the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -518,7 +518,7 @@ export default function DashboardPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><Users/>Active Customers</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-blue-600"><Users/>Active Customers</CardTitle>
                     <CardDescription>Total number of unique customers with transactions.</CardDescription>
                 </CardHeader>
                  <CardContent>
@@ -527,7 +527,7 @@ export default function DashboardPage() {
             </Card>
              <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2"><TrendingUp/>Best Sale Day</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-blue-600"><TrendingUp/>Best Sale Day</CardTitle>
                     <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
                 </CardHeader>
                  <CardContent>
