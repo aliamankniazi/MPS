@@ -24,7 +24,7 @@ export interface Purchase {
   id: string;
   supplierId: string;
   supplier: string;
-  fuelType: FuelType;
+  fuelType: string;
   volume: number;
   totalCost: number;
   timestamp: string;

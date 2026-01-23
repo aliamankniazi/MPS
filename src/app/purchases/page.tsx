@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType, Purchase } from '@/lib/types';
+import type { Purchase } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -20,11 +20,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
 const purchaseSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
-  fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
+  fuelType: z.string({ required_error: 'Please select a product.' }).min(1, 'Please select a product.'),
   volume: z.coerce.number().min(0.01, 'Volume must be greater than 0'),
   pricePerLitre: z.coerce.number().min(0.01, 'Price must be greater than 0'),
   totalCost: z.coerce.number().min(0.01, 'Total cost must be greater than 0'),
@@ -66,7 +64,7 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, purchases, isLoaded, dateRange } = useDatabase();
+  const { addPurchase, suppliers, purchases, products, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const lastUserEditedField = useRef<'volume' | 'price' | 'total' | null>(null);
@@ -218,18 +216,18 @@ export default function PurchasesPage() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Fuel Type</Label>
+                    <Label>Product</Label>
                     <Controller
                     name="fuelType"
                     control={control}
                     render={({ field }) => (
                         <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                         <SelectTrigger>
-                            <SelectValue placeholder="Select a fuel type" />
+                            <SelectValue placeholder="Select a product" />
                         </SelectTrigger>
                         <SelectContent>
-                            {FUEL_TYPES.map(fuel => (
-                            <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                            {products.map(product => (
+                            <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
                             ))}
                         </SelectContent>
                         </Select>
