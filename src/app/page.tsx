@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -29,15 +28,27 @@ export default function DashboardPage() {
     
   useEffect(() => {
     const timer = setInterval(() => {
-        setCurrentTime(new Date().toLocaleString('en-US', {
+        const now = new Date();
+        const gregorianDate = now.toLocaleString('en-US', {
+            weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric',
+        });
+        const islamicDate = new Intl.DateTimeFormat('en-US-u-ca-islamic', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(now);
+
+        const time = now.toLocaleString('en-US', {
             hour: '2-digit',
             minute: '2-digit',
             second: '2-digit',
-            hour12: true
-        }));
+            hour12: true,
+        });
+
+        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', '')} | ${time}`);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
