@@ -105,7 +105,7 @@ export default function DashboardPage() {
     const mainProducts = products.filter(p => p.category === 'Main Product');
 
     const sortedProducts = mainProducts.map(product => {
-      const totalVolumeSold = transactions
+      const totalVolumeSold = filteredData.transactions
         .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
         .reduce((sum, t) => sum + t.volume, 0);
       return { ...product, totalVolumeSold };
@@ -142,7 +142,7 @@ export default function DashboardPage() {
         };
     });
 
-  }, [isLoaded, products, transactions, purchases, fuelStock, filteredData.transactions]);
+  }, [isLoaded, products, transactions, purchases, fuelStock, filteredData]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -342,6 +342,39 @@ export default function DashboardPage() {
             </Card>
           </div>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Sales Chart</CardTitle>
+              <CardDescription>A look at your sales revenue over the last 30 days.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={salesChartData}>
+                  <defs>
+                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                      </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+                  <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
+                  <Tooltip 
+                      contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))', 
+                          borderColor: 'hsl(var(--border))',
+                          borderRadius: 'var(--radius)',
+                          fontSize: '12px'
+                      }} 
+                      labelStyle={{ fontWeight: 'bold' }}
+                      formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
+                  />
+                  <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+          
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {productStats.map(stat => (
                 <Card key={stat.name}>
@@ -381,39 +414,6 @@ export default function DashboardPage() {
                 </Card>
             ))}
         </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Sales Chart</CardTitle>
-              <CardDescription>A look at your sales revenue over the last 30 days.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={salesChartData}>
-                  <defs>
-                      <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                      </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
-                  <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                      contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))', 
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          fontSize: '12px'
-                      }} 
-                      labelStyle={{ fontWeight: 'bold' }}
-                      formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
-                  />
-                  <Area type="monotone" dataKey="sales" stroke="hsl(var(--primary))" fillOpacity={1} fill="url(#colorSales)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
 
         </div>
 
@@ -511,5 +511,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
