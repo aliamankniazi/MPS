@@ -100,6 +100,35 @@
         "value"
       ]
     },
+    "DictionaryEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DictionaryEntry",
+      "type": "object",
+      "description": "Represents a single key-value pair in the application dictionary.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DictionaryEntry."
+        },
+        "key": {
+          "type": "string",
+          "description": "The key for the dictionary entry."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value for the dictionary entry."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description for the dictionary entry."
+        }
+      },
+      "required": [
+        "id",
+        "key",
+        "value"
+      ]
+    },
     "Machine": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Machine",
@@ -245,6 +274,22 @@
         }
       },
       {
+        "path": "/dictionary/{dictionaryId}",
+        "definition": {
+          "entityName": "DictionaryEntry",
+          "schema": {
+            "$ref": "#/backend/entities/DictionaryEntry"
+          },
+          "description": "Stores key-value pairs for the application dictionary. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "dictionaryId",
+              "description": "Unique identifier for the dictionary entry."
+            }
+          ]
+        }
+      },
+      {
         "path": "/machines/{machineId}",
         "definition": {
           "entityName": "Machine",
@@ -296,5 +341,3 @@
     "reasoning": "The Firestore structure is designed to securely store and manage data for the PumpPal application. It prioritizes clarity, security, and scalability.  Authorization Independence is achieved by avoiding `get()` calls in security rules, ensuring atomic operations.  We ensure data is structured with the same security requirements in each collection, and all authorization relies solely on `request.auth.uid`.\n\nAuthorization Independence (Denormalization): There is no explicit collaborative data or user roles, so no denormalization is required in this specific structure. If in the future collaborative features are added (e.g., multiple users managing the same settings), the membership map pattern should be used and the members map denormalized to each relevant document.\n\nStructural Segregation: The separation of FuelType, Transaction, Setting, Machine, and Product into dedicated collections ensures that each type of data can have its own specific security rules without impacting the others.\n\nQAPs (Rules are not Filters): The simple collection structure ensures that list operations can be secured without the need for complex filtering in rules. Since access to each collection is based on authentication, listing is inherently secured.\n\nAccess Modeling: Currently, all data is considered globally accessible within the context of a logged-in user (or anonymous user). If user-specific settings or transactions become necessary, a hierarchical path-based ownership model (`/users/{userId}/settings/{settingId}`) should be adopted.\n\nExplicit State Modeling:  Future consideration for entities with a lifecycle (e.g., Transactions) would involve adding a `status` field to represent their state (e.g., `PENDING`, `COMPLETED`, `REFUNDED`)."
   }
 }
-
-    

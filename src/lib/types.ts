@@ -1,4 +1,5 @@
 
+
 export type FuelType = 'Unleaded' | 'Premium' | 'Diesel';
 
 export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary' | 'Credit';
@@ -214,6 +215,14 @@ export interface RecycledItem {
     originalPath: string;
     deletedAt: string;
     data: any;
+}
+
+export interface DictionaryEntry {
+  id: string;
+  key: string;
+  value: string;
+  description?: string;
+  timestamp: string;
 }
 
 export type DateRange = {

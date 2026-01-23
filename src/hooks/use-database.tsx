@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { 
@@ -17,6 +18,7 @@ import type {
     CashAdvance,
     Customer,
     CustomerPayment,
+    DictionaryEntry,
     Employee,
     Expense,
     FuelType,
@@ -76,6 +78,7 @@ const FIRESTORE_PATHS = {
     stockAdjustments: 'stockAdjustments',
     products: 'products',
     attendance: 'attendance',
+    dictionary: 'dictionary',
     recycleBin: 'recycleBin',
     settings: 'settings',
 };
@@ -138,6 +141,7 @@ interface DatabaseState {
     stockAdjustments: StockAdjustment[];
     products: Product[];
     attendance: AttendanceRecord[];
+    dictionary: DictionaryEntry[];
     recycleBin: RecycledItem[];
     settings: AppSettings;
     isLoaded: boolean;
@@ -197,6 +201,9 @@ interface DatabaseActions {
     addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
+    addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => Promise<DictionaryEntry>;
+    updateDictionaryEntry: (id: string, updates: Partial<DictionaryEntry>) => void;
+    deleteDictionaryEntry: (id: string) => void;
     clearAllData: () => void;
     restoreFromRecycleBin: (item: RecycledItem) => void;
     deletePermanently: (id: string) => void;
@@ -217,7 +224,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: [], otherIncomes: [], customers: [], suppliers: [],
         bankAccounts: [], employees: [], customerPayments: [], supplierPayments: [],
         cashAdvances: [], machines: [], machineReadings: [], investments: [], businessPartners: [],
-        stockAdjustments: [], products: [], attendance: [], recycleBin: [],
+        stockAdjustments: [], products: [], attendance: [], dictionary: [], recycleBin: [],
         settings: {
             fuelPrices: DEFAULT_FUEL_PRICES,
             initialFuelStock: DEFAULT_INITIAL_STOCK,
@@ -374,6 +381,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             stockAdjustments: [...state.stockAdjustments].sort(createSorter('timestamp')),
             products: [...state.products].sort(createSorter('name', 'asc')),
             attendance: [...state.attendance].sort(createSorter('date')),
+            dictionary: [...state.dictionary].sort(createSorter('key', 'asc')),
             recycleBin: [...state.recycleBin].sort(createSorter('deletedAt')),
             fuelPrices: state.settings.fuelPrices,
             initialFuelStock: state.settings.initialFuelStock,
@@ -714,6 +722,10 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         });
     };
 
+    const addDictionaryEntry = (d: Omit<DictionaryEntry, 'id'>) => addEntity<DictionaryEntry>(FIRESTORE_PATHS.dictionary, d);
+    const updateDictionaryEntry = (id: string, u: Partial<DictionaryEntry>) => updateEntity(FIRESTORE_PATHS.dictionary, id, u);
+    const deleteDictionaryEntry = (id: string) => deleteEntity(FIRESTORE_PATHS.dictionary, id);
+
     const value: DatabaseContextType = {
         ...processedState,
         isLoaded: state.isLoaded,
@@ -766,6 +778,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addProduct,
         updateProduct,
         deleteProduct,
+        addDictionaryEntry,
+        updateDictionaryEntry,
+        deleteDictionaryEntry,
         clearAllData,
         restoreFromRecycleBin,
         deletePermanently,
@@ -786,5 +801,3 @@ export const useDatabase = () => {
     }
     return context;
 };
-
-    
