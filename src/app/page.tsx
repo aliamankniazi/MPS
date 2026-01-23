@@ -6,7 +6,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -512,3 +512,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
