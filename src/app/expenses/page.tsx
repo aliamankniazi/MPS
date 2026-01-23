@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -11,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X } from 'lucide-react';
+import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X, Sun } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
 import { format, isValid, startOfDay, endOfDay, getDaysInMonth, getYear, getMonth, getDate } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -19,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState, useMemo, useEffect } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { TransactionNav } from '@/components/transaction-nav';
 
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
@@ -31,6 +31,39 @@ const expenseSchema = z.object({
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
+
+
+function PageHeader() {
+    const [currentTime, setCurrentTime] = useState('');
+    
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date().toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            }));
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    return (
+      <header className="bg-background shadow-sm sticky top-0 z-20">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+            <p className="text-sm font-medium">{currentTime}</p>
+            <div className="flex items-center gap-4">
+                <span className="text-sm">ziakniazi@gmail.com</span>
+                <Button variant="ghost" size="icon">
+                    <Sun className="h-5 w-5" />
+                </Button>
+            </div>
+        </div>
+      </header>
+    );
+}
 
 export default function ExpensesPage() {
   const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
@@ -127,274 +160,279 @@ export default function ExpensesPage() {
 
   return (
     <>
-    <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1 space-y-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <WalletCards /> New Expense
-            </CardTitle>
-            <CardDescription>Record a new business expense.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Input id="description" {...register('description')} placeholder="e.g., Office electricity bill" />
-                {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Controller
-                  name="category"
-                  control={control}
-                  render={({ field }) => (
-                     <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {EXPENSE_CATEGORIES.map(cat => (
-                            <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                  )}
-                />
-                {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="amount">Amount (PKR)</Label>
-                <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 5000" step="0.01" />
-                {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
-              </div>
-
-               <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Controller
-                    name="date"
-                    control={control}
-                    render={({ field }) => {
-                        const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
-                            const currentDate = field.value || new Date();
-                            let newDate = new Date(currentDate);
-            
-                            if (part === 'year') newDate.setFullYear(parseInt(value, 10));
-                            if (part === 'month') newDate.setMonth(parseInt(value, 10));
-                            if (part === 'day') newDate.setDate(parseInt(value, 10));
-                            
-                            const daysInNewMonth = getDaysInMonth(newDate);
-                            if (newDate.getDate() > daysInNewMonth) {
-                                newDate.setDate(daysInNewMonth);
-                            }
-            
-                            if (isValid(newDate)) {
-                                field.onChange(newDate);
-                            }
-                        };
-                        
-                        const selectedDate = field.value || new Date();
-                        const currentDay = getDate(selectedDate).toString();
-                        const currentMonth = getMonth(selectedDate).toString();
-                        const currentYear = getYear(selectedDate).toString();
-            
-                        const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - 10 + i).toString());
-                        const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
-                        const daysInMonth = getDaysInMonth(selectedDate);
-                        const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-            
-                        return (
-                            <div className="flex gap-2">
-                                <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
-                                    <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                                    <SelectContent>
-                                        {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
-                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-                                    <SelectContent>
-                                        {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
-                                    <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                                    <SelectContent>
-                                        {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        );
-                    }}
-                  />
-                  {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-                </div>
-
-
-              <Button type="submit" className="w-full">Record Expense</Button>
-            </form>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              PKR {totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Sum of all recorded expenses.
-            </p>
-          </CardContent>
-        </Card>
-
-      </div>
-
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                <div>
-                    <CardTitle className="flex items-center gap-2">
-                    <Receipt /> Expense History
-                    </CardTitle>
-                    <CardDescription>
-                    A record of all business expenses.
-                    </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                     <div className="relative w-full max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search by description or category..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10"
-                        />
+      <div className="bg-muted/30 min-h-screen">
+        <PageHeader />
+        <TransactionNav />
+        <main className="container mx-auto p-4 md:p-8">
+          <div className="grid gap-8 lg:grid-cols-3">
+            <div className="lg:col-span-1 space-y-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <WalletCards /> New Expense
+                  </CardTitle>
+                  <CardDescription>Record a new business expense.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="description">Description</Label>
+                      <Input id="description" {...register('description')} placeholder="e.g., Office electricity bill" />
+                      {errors.description && <p className="text-sm text-destructive">{errors.description.message}</p>}
                     </div>
-                    {hasActiveFilters && (
-                        <Button variant="ghost" onClick={clearFilters}>
-                            <X className="mr-2 h-4 w-4" /> Clear
-                        </Button>
-                    )}
-                    {selectedExpenses.length > 0 && (
-                        <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>
-                            Delete ({selectedExpenses.length})
-                        </Button>
-                    )}
-                 </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {filteredExpenses.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12 px-4">
-                        <Checkbox
-                            checked={
-                                selectedExpenses.length === filteredExpenses.length && filteredExpenses.length > 0
-                                ? true
-                                : selectedExpenses.length > 0
-                                ? 'indeterminate'
-                                : false
-                            }
-                            onCheckedChange={handleSelectAll}
-                            aria-label="Select all expenses"
+
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Controller
+                        name="category"
+                        control={control}
+                        render={({ field }) => (
+                           <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                              <SelectTrigger>
+                                  <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                  {EXPENSE_CATEGORIES.map(cat => (
+                                  <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                                  ))}
+                              </SelectContent>
+                          </Select>
+                        )}
+                      />
+                      {errors.category && <p className="text-sm text-destructive">{errors.category.message}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="amount">Amount (PKR)</Label>
+                      <Input id="amount" type="number" {...register('amount')} placeholder="e.g., 5000" step="0.01" />
+                      {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
+                    </div>
+
+                     <div className="space-y-2">
+                        <Label>Date</Label>
+                        <Controller
+                          name="date"
+                          control={control}
+                          render={({ field }) => {
+                              const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
+                                  const currentDate = field.value || new Date();
+                                  let newDate = new Date(currentDate);
+                  
+                                  if (part === 'year') newDate.setFullYear(parseInt(value, 10));
+                                  if (part === 'month') newDate.setMonth(parseInt(value, 10));
+                                  if (part === 'day') newDate.setDate(parseInt(value, 10));
+                                  
+                                  const daysInNewMonth = getDaysInMonth(newDate);
+                                  if (newDate.getDate() > daysInNewMonth) {
+                                      newDate.setDate(daysInNewMonth);
+                                  }
+                  
+                                  if (isValid(newDate)) {
+                                      field.onChange(newDate);
+                                  }
+                              };
+                              
+                              const selectedDate = field.value || new Date();
+                              const currentDay = getDate(selectedDate).toString();
+                              const currentMonth = getMonth(selectedDate).toString();
+                              const currentYear = getYear(selectedDate).toString();
+                  
+                              const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - 10 + i).toString());
+                              const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
+                              const daysInMonth = getDaysInMonth(selectedDate);
+                              const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
+                  
+                              return (
+                                  <div className="flex gap-2">
+                                      <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
+                                          <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
+                                          <SelectContent>
+                                              {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                      <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
+                                          <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
+                                          <SelectContent>
+                                              {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                      <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
+                                          <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
+                                          <SelectContent>
+                                              {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
+                                          </SelectContent>
+                                      </Select>
+                                  </div>
+                              );
+                          }}
                         />
-                    </TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredExpenses.map(e => {
-                    const date = new Date(e.timestamp);
-                    return (
-                      <TableRow key={e.id}>
-                        <TableCell className="px-4">
-                            <Checkbox
-                                checked={selectedExpenses.includes(e.id)}
-                                onCheckedChange={(checked) => {
-                                    setSelectedExpenses(prev => 
-                                        checked ? [...prev, e.id] : prev.filter(id => id !== e.id)
-                                    );
-                                }}
-                                aria-label="Select expense"
-                            />
-                        </TableCell>
-                        <TableCell className="font-medium">{isValid(date) ? format(date, 'dd-MMM-yyyy') : 'Invalid Date'}</TableCell>
-                        <TableCell>{e.description}</TableCell>
-                        <TableCell>{e.category}</TableCell>
-                        <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-center">
-                            <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setExpenseToDelete(e)}>
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                <ListChecks className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">
-                    {searchTerm ? 'No Matching Expenses' : 'No Expenses Recorded'}
-                </h3>
-                <p>
-                    {searchTerm ? 'Try a different search term.' : 'Use the form to log your first business expense.'}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                        {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                      </div>
+
+
+                    <Button type="submit" className="w-full">Record Expense</Button>
+                  </form>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    PKR {totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Sum of all recorded expenses.
+                  </p>
+                </CardContent>
+              </Card>
+
+            </div>
+
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                      <div>
+                          <CardTitle className="flex items-center gap-2">
+                          <Receipt /> Expense History
+                          </CardTitle>
+                          <CardDescription>
+                          A record of all business expenses.
+                          </CardDescription>
+                      </div>
+                      <div className="flex items-center gap-2">
+                           <div className="relative w-full max-w-sm">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                              <Input
+                                  placeholder="Search by description or category..."
+                                  value={searchTerm}
+                                  onChange={(e) => setSearchTerm(e.target.value)}
+                                  className="pl-10"
+                              />
+                          </div>
+                          {hasActiveFilters && (
+                              <Button variant="ghost" onClick={clearFilters}>
+                                  <X className="mr-2 h-4 w-4" /> Clear
+                              </Button>
+                          )}
+                          {selectedExpenses.length > 0 && (
+                              <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>
+                                  Delete ({selectedExpenses.length})
+                              </Button>
+                          )}
+                       </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {filteredExpenses.length > 0 ? (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12 px-4">
+                              <Checkbox
+                                  checked={
+                                      selectedExpenses.length === filteredExpenses.length && filteredExpenses.length > 0
+                                      ? true
+                                      : selectedExpenses.length > 0
+                                      ? 'indeterminate'
+                                      : false
+                                  }
+                                  onCheckedChange={handleSelectAll}
+                                  aria-label="Select all expenses"
+                              />
+                          </TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Category</TableHead>
+                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead className="text-center">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredExpenses.map(e => {
+                          const date = new Date(e.timestamp);
+                          return (
+                            <TableRow key={e.id}>
+                              <TableCell className="px-4">
+                                  <Checkbox
+                                      checked={selectedExpenses.includes(e.id)}
+                                      onCheckedChange={(checked) => {
+                                          setSelectedExpenses(prev => 
+                                              checked ? [...prev, e.id] : prev.filter(id => id !== e.id)
+                                          );
+                                      }}
+                                      aria-label="Select expense"
+                                  />
+                              </TableCell>
+                              <TableCell className="font-medium">{isValid(date) ? format(date, 'dd-MMM-yyyy') : 'Invalid Date'}</TableCell>
+                              <TableCell>{e.description}</TableCell>
+                              <TableCell>{e.category}</TableCell>
+                              <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-center">
+                                  <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setExpenseToDelete(e)}>
+                                      <Trash2 className="w-4 h-4" />
+                                  </Button>
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
+                      </TableBody>
+                    </Table>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
+                      <ListChecks className="w-16 h-16" />
+                      <h3 className="text-xl font-semibold">
+                          {searchTerm ? 'No Matching Expenses' : 'No Expenses Recorded'}
+                      </h3>
+                      <p>
+                          {searchTerm ? 'Try a different search term.' : 'Use the form to log your first business expense.'}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </main>
       </div>
-    </div>
-    <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => !isOpen && setExpenseToDelete(null)}>
+      <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => !isOpen && setExpenseToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will move the expense entry to the recycle bin: <br />
+                <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete entry
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will move the expense entry to the recycle bin: <br />
-              <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
+              This will move {selectedExpenses.length} expense entries to the recycle bin.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, delete entry
+            <AlertDialogAction onClick={handleDeleteSelectedExpenses} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Yes, delete selected
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-    </AlertDialog>
-
-    <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will move {selectedExpenses.length} expense entries to the recycle bin.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={handleDeleteSelectedExpenses} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            Yes, delete selected
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-
+      </AlertDialog>
     </>
   );
 }
