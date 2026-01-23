@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,6 +25,22 @@ import {
 
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
+  const [currentTime, setCurrentTime] = useState('');
+    
+  useEffect(() => {
+    const timer = setInterval(() => {
+        setCurrentTime(new Date().toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
@@ -226,7 +242,10 @@ export default function DashboardPage() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <div className="flex items-baseline gap-4">
+              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-xl font-bold">{currentTime}</p>
+            </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
         <div className="flex items-center gap-2">
