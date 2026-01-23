@@ -20,10 +20,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { RecycledItem } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function RecycleBinPage() {
     const { recycleBin, restoreFromRecycleBin, deletePermanently, isLoaded } = useDatabase();
     const [itemToDelete, setItemToDelete] = useState<RecycledItem | null>(null);
+    const [selectedItems, setSelectedItems] = useState<string[]>([]);
+    const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
     const { toast } = useToast();
 
     const handleRestore = async (item: RecycledItem) => {
@@ -61,6 +64,36 @@ export default function RecycleBinPage() {
         }
     };
 
+    const handlePermanentDeleteSelected = async () => {
+        if (selectedItems.length === 0) return;
+        try {
+            for (const id of selectedItems) {
+                await deletePermanently(id);
+            }
+            toast({
+                title: `${selectedItems.length} Item(s) Deleted Permanently`,
+                description: 'The selected items have been removed forever.',
+            });
+            setSelectedItems([]);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error Deleting',
+                description: 'Could not permanently delete all selected items. Please try again.',
+            });
+        } finally {
+            setShowDeleteSelectedDialog(false);
+        }
+    };
+
+    const handleSelectAll = (checked: boolean | 'indeterminate') => {
+        if (checked === true) {
+            setSelectedItems(recycleBin.map(item => item.id));
+        } else {
+            setSelectedItems([]);
+        }
+    };
+
     const getItemDescription = (item: RecycledItem): string => {
         const data = item.data;
         if (!data) return 'No details';
@@ -93,18 +126,40 @@ export default function RecycleBinPage() {
         <div className="p-4 md:p-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Trash2 /> Recycle Bin
-                    </CardTitle>
-                    <CardDescription>
-                        Deleted items are stored here. You can restore them or delete them permanently.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Trash2 /> Recycle Bin
+                            </CardTitle>
+                            <CardDescription>
+                                Deleted items are stored here. You can restore them or delete them permanently.
+                            </CardDescription>
+                        </div>
+                        {selectedItems.length > 0 && (
+                            <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>
+                                Delete Selected ({selectedItems.length})
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-12 px-4">
+                                        <Checkbox
+                                            checked={
+                                                selectedItems.length === recycleBin.length && recycleBin.length > 0
+                                                ? true
+                                                : selectedItems.length > 0
+                                                ? 'indeterminate'
+                                                : false
+                                            }
+                                            onCheckedChange={handleSelectAll}
+                                            aria-label="Select all items"
+                                        />
+                                    </TableHead>
                                     <TableHead>Deleted On</TableHead>
                                     <TableHead>Type</TableHead>
                                     <TableHead>Description</TableHead>
@@ -115,6 +170,17 @@ export default function RecycleBinPage() {
                                 {isLoaded && recycleBin && recycleBin.length > 0 ? (
                                     recycleBin.map(item => (
                                         <TableRow key={item.id}>
+                                            <TableCell className="px-4">
+                                                <Checkbox
+                                                    checked={selectedItems.includes(item.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        setSelectedItems(prev => 
+                                                            checked ? [...prev, item.id] : prev.filter(id => id !== item.id)
+                                                        );
+                                                    }}
+                                                    aria-label="Select item"
+                                                />
+                                            </TableCell>
                                             <TableCell className="font-medium">
                                                 {format(new Date(item.deletedAt), 'dd-MMM-yyyy, h:mm a')}
                                             </TableCell>
@@ -132,7 +198,7 @@ export default function RecycleBinPage() {
                                     ))
                                 ) : (
                                     <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                                             {isLoaded ? 'The recycle bin is empty.' : 'Loading...'}
                                         </TableCell>
                                     </TableRow>
@@ -158,6 +224,25 @@ export default function RecycleBinPage() {
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handlePermanentDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                         Yes, delete permanently
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle className="flex items-center gap-2">
+                        <AlertTriangle /> Are you sure?
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will permanently delete the selected {selectedItems.length} items. This action cannot be undone.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handlePermanentDeleteSelected} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Yes, delete selected
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
