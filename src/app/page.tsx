@@ -198,11 +198,8 @@ export default function DashboardPage() {
         
         const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
         
-        salesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        allPurchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-        const lastSale = salesForProduct[0];
-        const lastPurchase = allPurchasesForProduct[0];
+        const lastSale = [...salesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
         const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
         const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
@@ -210,11 +207,12 @@ export default function DashboardPage() {
         const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
 
         const totalProfit = salesForProduct
-            .filter(t => t.volume > 0)
+            .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
             .reduce((sum, t) => {
+                const saleTime = new Date(t.timestamp).getTime();
                 const purchaseBeforeSale = allPurchasesForProduct
-                    .filter(p => isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= new Date(t.timestamp))
-                    [0];
+                    .filter(p => p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
                 let transactionProfit = 0;
                 if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {

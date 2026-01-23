@@ -50,7 +50,7 @@ export default function AllInvoicesPage() {
     if (!isLoaded) return [];
 
     let allTransactions = transactions;
-    let allPurchases = purchases;
+    let filteredPurchases = purchases;
 
     if (dateRange?.from) {
         const from = startOfDay(dateRange.from);
@@ -62,20 +62,26 @@ export default function AllInvoicesPage() {
         });
 
         allTransactions = filterByDate(transactions);
-        allPurchases = filterByDate(purchases);
+        filteredPurchases = filterByDate(purchases);
     }
 
 
     const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => {
-        const lastPurchase = purchases
-            .filter(p => p.fuelType === tx.fuelType && new Date(p.timestamp) <= new Date(tx.timestamp))
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
         let profit = 0;
-        if (lastPurchase && lastPurchase.volume > 0 && tx.volume > 0) {
-            const costPerLitre = lastPurchase.totalCost / lastPurchase.volume;
-            const salePricePerLitre = tx.totalAmount / tx.volume;
-            profit = (salePricePerLitre - costPerLitre) * tx.volume;
+        if (tx.fuelType && tx.volume > 0 && tx.timestamp && isValid(new Date(tx.timestamp))) {
+            const saleTime = new Date(tx.timestamp).getTime();
+            const purchaseBeforeSale = purchases
+                .filter(p => 
+                    p.fuelType && tx.fuelType && p.fuelType.toLowerCase() === tx.fuelType.toLowerCase() &&
+                    p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime
+                )
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            
+            if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
+                const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
+                const salePricePerLitre = tx.totalAmount / tx.volume;
+                profit = (salePricePerLitre - costPerLitre) * tx.volume;
+            }
         }
         
         return {
@@ -92,7 +98,7 @@ export default function AllInvoicesPage() {
         };
     });
 
-    const purchaseInvoices: CombinedInvoice[] = allPurchases.map(p => ({
+    const purchaseInvoices: CombinedInvoice[] = filteredPurchases.map(p => ({
       id: `purchase-${p.id}`,
       originalId: p.id,
       timestamp: p.timestamp,

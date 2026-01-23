@@ -103,15 +103,21 @@ export default function AllTransactionsPage() {
     const sales: CombinedEntry[] = transactions.map(tx => {
       const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
       
-      const lastPurchase = purchases
-          .filter(p => p.fuelType === tx.fuelType && new Date(p.timestamp) <= new Date(tx.timestamp))
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
       let profit = 0;
-      if (lastPurchase && lastPurchase.volume > 0 && tx.volume > 0) {
-          const costPerLitre = lastPurchase.totalCost / lastPurchase.volume;
-          const salePricePerLitre = tx.totalAmount / tx.volume;
-          profit = (salePricePerLitre - costPerLitre) * tx.volume;
+      if (tx.fuelType && tx.volume > 0 && tx.timestamp && isValid(new Date(tx.timestamp))) {
+          const saleTime = new Date(tx.timestamp).getTime();
+          const purchaseBeforeSale = purchases
+              .filter(p => 
+                  p.fuelType && tx.fuelType && p.fuelType.toLowerCase() === tx.fuelType.toLowerCase() &&
+                  p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime
+              )
+              .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+          
+          if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
+              const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
+              const salePricePerLitre = tx.totalAmount / tx.volume;
+              profit = (salePricePerLitre - costPerLitre) * tx.volume;
+          }
       }
 
       return {
