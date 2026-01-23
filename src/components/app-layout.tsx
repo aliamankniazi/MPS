@@ -96,7 +96,7 @@ const AppLogo = () => (
         <Fuel className="w-6 h-6" />
       </div>
       <div className="flex flex-col">
-        <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali Petroleum</h2>
+        <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali Petroleum Service</h2>
       </div>
     </Link>
 );
