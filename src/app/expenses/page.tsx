@@ -75,10 +75,14 @@ export default function ExpensesPage() {
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
+    defaultValues: {
+        category: 'Utilities',
+    }
   });
 
   useEffect(() => {
     reset({
+        category: 'Utilities',
         date: dateRange?.from || new Date(),
     });
   }, [reset, dateRange]);
@@ -120,7 +124,7 @@ export default function ExpensesPage() {
     });
     reset({
         description: '',
-        category: undefined,
+        category: 'Utilities',
         amount: 0,
         date: dateRange?.from || new Date(),
     });
@@ -187,7 +191,7 @@ export default function ExpensesPage() {
                         name="category"
                         control={control}
                         render={({ field }) => (
-                           <Select onValueChange={field.onChange} value={field.value} defaultValue="">
+                           <Select onValueChange={field.onChange} value={field.value}>
                               <SelectTrigger>
                                   <SelectValue placeholder="Select a category" />
                               </SelectTrigger>
