@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Landmark } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,7 +25,7 @@ import { TransactionNav } from '@/components/transaction-nav';
 const supplierPaymentSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
-  paymentMethod: z.enum(['Cash', 'Card', 'Mobile'], { required_error: 'Please select a payment method.' }),
+  paymentMethod: z.enum(['Cash', 'Card', 'Mobile', 'Bank Transfer'], { required_error: 'Please select a payment method.' }),
   notes: z.string().optional(),
   date: z.date({ required_error: "A date is required."}),
 });
@@ -71,11 +71,15 @@ export default function SupplierPaymentsPage() {
   
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
+    defaultValues: {
+        paymentMethod: 'Bank Transfer'
+    }
   });
 
   useEffect(() => {
     reset({
       date: dateRange?.from || new Date(),
+      paymentMethod: 'Bank Transfer',
     });
   }, [reset, dateRange]);
 
@@ -185,6 +189,7 @@ export default function SupplierPaymentsPage() {
                             <SelectItem value="Cash"><div className="flex items-center gap-2"><Wallet/>Cash</div></SelectItem>
                             <SelectItem value="Card"><div className="flex items-center gap-2"><CreditCard/>Card</div></SelectItem>
                             <SelectItem value="Mobile"><div className="flex items-center gap-2"><Smartphone/>Mobile</div></SelectItem>
+                            <SelectItem value="Bank Transfer"><div className="flex items-center gap-2"><Landmark/>Bank Transfer</div></SelectItem>
                           </SelectContent>
                         </Select>
                       )}
