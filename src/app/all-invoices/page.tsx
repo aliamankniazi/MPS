@@ -79,7 +79,7 @@ export default function AllInvoicesPage() {
             
             if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
                 const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
-                const salePricePerLitre = tx.totalAmount / tx.volume;
+                const salePricePerLitre = tx.pricePerLitre;
                 profit = (salePricePerLitre - costPerLitre) * tx.volume;
             }
         }

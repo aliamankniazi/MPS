@@ -104,67 +104,63 @@ export default function SummaryPage() {
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
-
-    const { transactions: filteredTransactions, purchases: filteredPurchases } = filteredData;
-
+  
+    const { transactions: filteredTransactions } = filteredData;
+  
     const salesByProduct = filteredTransactions.reduce((acc, tx) => {
-        const productName = tx.product || tx.fuelType;
-        if (!productName || productName === 'undefined') return acc;
-        
-        if (!acc[productName]) {
-            const productInfo = products.find(p => p.name === productName);
-            acc[productName] = {
-                product: productName,
-                unit: productInfo?.unit || 'Ltr',
-                totalSold: 0,
-                totalRevenue: 0,
-            };
-        }
-        
-        acc[productName].totalSold += tx.volume || 0;
-        acc[productName].totalRevenue += tx.totalAmount;
-        
-        return acc;
-    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
-    
-    const purchasesByProduct = filteredPurchases.reduce((acc, p) => {
-      const productName = p.fuelType;
-      if(!productName) return acc;
-      if(!acc[productName]) {
+      const productName = tx.product || tx.fuelType;
+      if (!productName || productName === 'undefined') return acc;
+  
+      if (!acc[productName]) {
+        const productInfo = products.find(p => p.name === productName);
         acc[productName] = {
-          totalPurchasedVolume: 0,
-          totalPurchaseCost: 0,
+          product: productName,
+          unit: productInfo?.unit || 'Ltr',
+          totalSold: 0,
+          totalRevenue: 0,
+          totalProfit: 0,
+        };
+      }
+  
+      acc[productName].totalSold += tx.volume || 0;
+      acc[productName].totalRevenue += tx.totalAmount;
+  
+      let profit = 0;
+      if (tx.fuelType && tx.volume > 0 && tx.timestamp && isValid(new Date(tx.timestamp))) {
+        const saleTime = new Date(tx.timestamp).getTime();
+        const purchaseBeforeSale = purchases
+          .filter(p => 
+            p.fuelType && tx.fuelType && p.fuelType.toLowerCase() === tx.fuelType.toLowerCase() &&
+            p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime
+          )
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        
+        if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
+          const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
+          profit = (tx.pricePerLitre - costPerLitre) * tx.volume;
         }
       }
-      acc[productName].totalPurchasedVolume += p.volume;
-      acc[productName].totalPurchaseCost += p.totalCost;
+      acc[productName].totalProfit += profit;
+  
       return acc;
-    }, {} as Record<string, { totalPurchasedVolume: number, totalPurchaseCost: number}>);
-
-
+    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number; totalProfit: number }>);
+  
     return Object.values(salesByProduct).map(item => {
-        const purchaseInfo = purchasesByProduct[item.product];
-        const avgPurchasePrice = purchaseInfo && purchaseInfo.totalPurchasedVolume > 0
-            ? purchaseInfo.totalPurchaseCost / purchaseInfo.totalPurchasedVolume
-            : 0;
-        
-        const avgSalePrice = item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0;
-        
-        const productDetails = products.find(p => p.name === item.product);
-        const isMainProduct = productDetails?.category === 'Main Product';
-
-        const profitPerUnit = isMainProduct && avgPurchasePrice > 0 ? avgSalePrice - avgPurchasePrice : 0;
-        const totalProfit = profitPerUnit * item.totalSold;
-
-        return {
-          ...item,
-          key: item.product,
-          avgPurchasePrice: isMainProduct ? avgPurchasePrice : 'N/A',
-          profitPerUnit: isMainProduct ? profitPerUnit : 'N/A',
-          totalProfit: isMainProduct ? totalProfit : 'N/A',
-        }
+      const avgSalePrice = item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0;
+      const profitPerUnit = item.totalSold > 0 ? item.totalProfit / item.totalSold : 0;
+      const avgPurchasePrice = avgSalePrice - profitPerUnit;
+  
+      const productDetails = products.find(p => p.name === item.product);
+      const isMainProduct = productDetails?.category === 'Main Product';
+  
+      return {
+        ...item,
+        key: item.product,
+        avgPurchasePrice: isMainProduct ? avgPurchasePrice : 'N/A',
+        profitPerUnit: isMainProduct ? profitPerUnit : 'N/A',
+      };
     });
-  }, [isLoaded, filteredData, products]);
+  }, [isLoaded, filteredData, products, purchases]);
   
   const handleExportExcel = () => {
     const dataToExport = productWiseSales.map(item => ({

@@ -56,7 +56,7 @@ export default function DashboardPage() {
       gregorianYearOfDesiYearStart = year - 1;
     }
   
-    nanakshahiYear = gregorianYearOfDesiYearStart - 1468;
+    nanakshahiYear = gregorianYearOfDesiYearStart + 57;
   
     // Create date objects for all month starts within the current desi year cycle
     const desiYearMonthStarts = monthStarts
@@ -182,60 +182,56 @@ export default function DashboardPage() {
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
-
+  
     const mainProducts = products.filter(p => p.category === 'Main Product');
-
+  
     const sortedProducts = mainProducts.map(product => {
       const totalVolumeSold = filteredData.transactions
         .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
         .reduce((sum, t) => sum + t.volume, 0);
       return { ...product, totalVolumeSold };
     }).sort((a, b) => b.totalVolumeSold - a.totalVolumeSold);
-
-
+  
     return sortedProducts.map(product => {
-        const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
-        
-        const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
-        
-        const lastSale = [...salesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-        const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-        const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-        const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
-        
-        const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
-
-        const totalProfit = salesForProduct
-            .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
-            .reduce((sum, t) => {
-                const saleTime = new Date(t.timestamp).getTime();
-                const purchaseBeforeSale = allPurchasesForProduct
-                    .filter(p => p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
-                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-                let transactionProfit = 0;
-                if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
-                    const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
-                    const salePricePerLitre = t.totalAmount / t.volume;
-                    transactionProfit = (salePricePerLitre - costPerLitre) * t.volume;
-                }
-                return sum + transactionProfit;
-            }, 0);
-
-
-        return {
-            name: product.name,
-            stock: fuelStock[product.name as FuelType] || 0,
-            lastSaleRate: lastSaleRate,
-            lastPurchaseRate: lastPurchaseRate,
-            profitPerUnit: profitPerUnit,
-            totalProfit: totalProfit,
-            lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
-            lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
-        };
+      const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+      const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
+  
+      const lastSale = [...salesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  
+      const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
+      const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
+  
+      const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
+  
+      const totalProfit = salesForProduct
+        .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
+        .reduce((sum, t) => {
+          const saleTime = new Date(t.timestamp).getTime();
+          const purchaseBeforeSale = allPurchasesForProduct
+            .filter(p => p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  
+          let transactionProfit = 0;
+          if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
+            const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
+            const salePricePerLitre = t.pricePerLitre;
+            transactionProfit = (salePricePerLitre - costPerLitre) * t.volume;
+          }
+          return sum + transactionProfit;
+        }, 0);
+  
+      return {
+        name: product.name,
+        stock: fuelStock[product.name as FuelType] || 0,
+        lastSaleRate: lastSaleRate,
+        lastPurchaseRate: lastPurchaseRate,
+        profitPerUnit: profitPerUnit,
+        totalProfit: totalProfit,
+        lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
+        lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
+      };
     });
-
   }, [isLoaded, products, fuelStock, filteredData, purchases]);
 
   const salesChartData = useMemo(() => {
