@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -255,7 +256,7 @@ export default function DashboardPage() {
         <div>
             <div className="flex items-baseline gap-4">
               <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-xl font-bold">{currentTime}</p>
+              <p className="text-xl font-bold text-blue-600">{currentTime}</p>
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
@@ -336,7 +337,7 @@ export default function DashboardPage() {
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFraction Digits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">For selected period</p>
               </CardContent>
             </Card>
@@ -541,3 +542,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
