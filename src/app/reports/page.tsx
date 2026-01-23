@@ -23,15 +23,11 @@ import {
   Wallet,
   Users,
   Receipt,
-  Calendar as CalendarIcon,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Permission } from '@/hooks/use-roles';
 import { useDatabase } from '@/hooks/use-database';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 interface ReportCardProps {
   title: string;
@@ -200,42 +196,7 @@ export default function ReportsPage() {
           <p className="text-muted-foreground">Select a report to view detailed analytics about your business operations.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                id="date"
-                variant={"outline"}
-                className={cn(
-                  "w-[300px] justify-start text-left font-normal",
-                  !dateRange && "text-muted-foreground"
-                )}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dateRange?.from ? (
-                  dateRange.to ? (
-                    <>
-                      {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                      {format(dateRange.to, "dd-MMM-yyyy")}
-                    </>
-                  ) : (
-                    format(dateRange.from, "dd-MMM-yyyy")
-                  )
-                ) : (
-                  <span>Pick a date range</span>
-                )}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                initialFocus
-                mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange}
-                onSelect={setDateRange}
-                numberOfMonths={2}
-              />
-            </PopoverContent>
-          </Popover>
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button asChild variant="outline">
             <Link href="/"><LayoutDashboard className="mr-2" />Go to Dashboard</Link>
           </Button>

@@ -11,9 +11,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
+import { DateRangePicker } from '@/components/date-range-picker';
 import type { DateRange, FuelType } from '@/lib/types';
 import {
   Accordion,
@@ -31,51 +29,52 @@ export default function DashboardPage() {
     const year = date.getFullYear();
     const month = date.getMonth(); // 0-11
     const day = date.getDate();
-
+  
     // Nanakshahi calendar month start dates in Gregorian calendar
     const monthStarts = [
-        { name: "Chet", month: 2, day: 14 },
-        { name: "Vaisakh", month: 3, day: 14 },
-        { name: "Jeth", month: 4, day: 15 },
-        { name: "Harh", month: 5, day: 15 },
-        { name: "Sawan", month: 6, day: 16 },
-        { name: "Bhadon", month: 7, day: 16 },
-        { name: "Assu", month: 8, day: 16 },
-        { name: "Katak", month: 9, day: 17 },
-        { name: "Maghar", month: 10, day: 16 },
-        { name: "Poh", month: 11, day: 16 },
-        { name: "Magh", month: 0, day: 13 },
-        { name: "Phagun", month: 1, day: 12 },
+      { name: 'Chet', month: 2, day: 14 },
+      { name: 'Vaisakh', month: 3, day: 14 },
+      { name: 'Jeth', month: 4, day: 15 },
+      { name: 'Harh', month: 5, day: 15 },
+      { name: 'Sawan', month: 6, day: 16 },
+      { name: 'Bhadon', month: 7, day: 16 },
+      { name: 'Assu', month: 8, day: 16 },
+      { name: 'Katak', month: 9, day: 17 },
+      { name: 'Maghar', month: 10, day: 16 },
+      { name: 'Poh', month: 11, day: 16 },
+      { name: 'Magh', month: 0, day: 13 },
+      { name: 'Phagun', month: 1, day: 12 },
     ];
-
+  
     let desiMonthName = '';
     let desiDay = 0;
     let nanakshahiYear = 0;
     let gregorianYearOfDesiYearStart = year;
-
+  
     // Determine the start of the current Nanakshahi year
     if (month < 2 || (month === 2 && day < 14)) {
-        gregorianYearOfDesiYearStart = year - 1;
+      gregorianYearOfDesiYearStart = year - 1;
     }
-
+  
     nanakshahiYear = gregorianYearOfDesiYearStart - 1468;
-    
+  
     // Create date objects for all month starts within the current desi year cycle
-    const desiYearMonthStarts = monthStarts.map(m => {
-        const y = (m.month < 2) ? gregorianYearOfDesiYearStart + 1 : gregorianYearOfDesiYearStart;
+    const desiYearMonthStarts = monthStarts
+      .map((m) => {
+        const y = m.month < 2 ? gregorianYearOfDesiYearStart + 1 : gregorianYearOfDesiYearStart;
         return { ...m, date: new Date(y, m.month, m.day) };
-    }).sort((a,b) => a.date.getTime() - b.date.getTime());
-
-
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+  
     // Find the current desi month by checking which start date the current date is on or after
     for (let i = desiYearMonthStarts.length - 1; i >= 0; i--) {
-        if (date >= desiYearMonthStarts[i].date) {
-            desiMonthName = desiYearMonthStarts[i].name;
-            desiDay = differenceInDays(date, desiYearMonthStarts[i].date) + 1;
-            break;
-        }
+      if (date >= desiYearMonthStarts[i].date) {
+        desiMonthName = desiYearMonthStarts[i].name;
+        desiDay = differenceInDays(date, desiYearMonthStarts[i].date) + 1;
+        break;
+      }
     }
-    
+  
     return `${desiDay} ${desiMonthName} ${nanakshahiYear}`;
   };
     
@@ -196,7 +195,7 @@ export default function DashboardPage() {
 
     return sortedProducts.map(product => {
         const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
-        const purchasesForProduct = filteredData.purchases.filter(p => p.fuelType === product.name);
+        const purchasesForProduct = purchases.filter(p => p.fuelType === product.name);
 
         salesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         purchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -224,7 +223,7 @@ export default function DashboardPage() {
         };
     });
 
-  }, [isLoaded, products, fuelStock, filteredData]);
+  }, [isLoaded, products, fuelStock, filteredData, purchases]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -315,43 +314,7 @@ export default function DashboardPage() {
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
         <div className="flex items-center gap-2">
-             <Popover>
-                <PopoverTrigger asChild>
-                    <Button
-                        id="date"
-                        variant={"outline"}
-                        className={cn(
-                            "w-[300px] justify-start text-left font-normal",
-                            !dateRange && "text-muted-foreground"
-                        )}
-                        >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateRange?.from ? (
-                            dateRange.to ? (
-                            <>
-                                {format(dateRange.from, "dd-MMM-yyyy")} -{" "}
-                                {format(dateRange.to, "dd-MMM-yyyy")}
-                            </>
-                            ) : (
-                            format(dateRange.from, "dd-MMM-yyyy")
-                            )
-                        ) : (
-                            <span>Pick a date range</span>
-                        )}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                    <Calendar
-                        key="dashboard-calendar"
-                        initialFocus
-                        mode="range"
-                        defaultMonth={dateRange?.from}
-                        selected={dateRange}
-                        onSelect={setDateRange}
-                        numberOfMonths={2}
-                    />
-                </PopoverContent>
-            </Popover>
+             <DateRangePicker date={dateRange} onDateChange={setDateRange} />
             <Button asChild variant="outline">
                 <Link href="/reports">View All Reports</Link>
             </Button>
