@@ -337,7 +337,7 @@ export default function DashboardPage() {
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFraction Digits: 0 }) || '...'}</div>
+                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">For selected period</p>
               </CardContent>
             </Card>
@@ -372,7 +372,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-
           <Card>
             <CardHeader>
               <CardTitle>Sales Chart</CardTitle>
@@ -390,13 +389,13 @@ export default function DashboardPage() {
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
                   <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
-                  <Tooltip 
-                      contentStyle={{ 
-                          backgroundColor: 'hsl(var(--background))', 
+                  <Tooltip
+                      contentStyle={{
+                          backgroundColor: 'hsl(var(--background))',
                           borderColor: 'hsl(var(--border))',
                           borderRadius: 'var(--radius)',
                           fontSize: '12px'
-                      }} 
+                      }}
                       labelStyle={{ fontWeight: 'bold' }}
                       formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
                   />
@@ -405,7 +404,6 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {productStats.map(stat => (
                 <Card key={stat.name}>
@@ -449,7 +447,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-            <Card>
+             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Product Sales</CardTitle>
                     <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
@@ -542,5 +540,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
