@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -14,6 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import { cn } from '@/lib/utils';
 
 
 const chartConfig = {
@@ -103,7 +105,7 @@ export default function SummaryPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
-    const { transactions: filteredTransactions } = filteredData;
+    const { transactions: filteredTransactions, purchases: filteredPurchases } = filteredData;
 
     const salesByProduct = filteredTransactions.reduce((acc, tx) => {
         const productName = tx.product || tx.fuelType;
@@ -124,25 +126,61 @@ export default function SummaryPage() {
         
         return acc;
     }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
+    
+    const purchasesByProduct = filteredPurchases.reduce((acc, p) => {
+      const productName = p.fuelType;
+      if(!productName) return acc;
+      if(!acc[productName]) {
+        acc[productName] = {
+          totalPurchasedVolume: 0,
+          totalPurchaseCost: 0,
+        }
+      }
+      acc[productName].totalPurchasedVolume += p.volume;
+      acc[productName].totalPurchaseCost += p.totalCost;
+      return acc;
+    }, {} as Record<string, { totalPurchasedVolume: number, totalPurchaseCost: number}>);
 
-    return Object.values(salesByProduct).map(item => ({
-        ...item,
-        key: item.product, 
-    }));
+
+    return Object.values(salesByProduct).map(item => {
+        const purchaseInfo = purchasesByProduct[item.product];
+        const avgPurchasePrice = purchaseInfo && purchaseInfo.totalPurchasedVolume > 0
+            ? purchaseInfo.totalPurchaseCost / purchaseInfo.totalPurchasedVolume
+            : 0;
+        
+        const avgSalePrice = item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0;
+        
+        const productDetails = products.find(p => p.name === item.product);
+        const isMainProduct = productDetails?.category === 'Main Product';
+
+        const profitPerUnit = isMainProduct && avgPurchasePrice > 0 ? avgSalePrice - avgPurchasePrice : 0;
+        const totalProfit = profitPerUnit * item.totalSold;
+
+        return {
+          ...item,
+          key: item.product,
+          avgPurchasePrice: isMainProduct ? avgPurchasePrice : 'N/A',
+          profitPerUnit: isMainProduct ? profitPerUnit : 'N/A',
+          totalProfit: isMainProduct ? totalProfit : 'N/A',
+        }
+    });
   }, [isLoaded, filteredData, products]);
   
   const handleExportExcel = () => {
     const dataToExport = productWiseSales.map(item => ({
       'Product': item.product,
       'Total Sold': `${item.totalSold.toFixed(2)} ${item.unit}`,
-      'Avg Price/Unit': (item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2),
+      'Avg Sale Price/Unit': (item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2),
+      'Avg Purchase Price/Unit': typeof item.avgPurchasePrice === 'number' ? item.avgPurchasePrice.toFixed(2) : 'N/A',
+      'Profit/Unit': typeof item.profitPerUnit === 'number' ? item.profitPerUnit.toFixed(2) : 'N/A',
       'Total Revenue': item.totalRevenue.toFixed(2),
+      'Total Profit': typeof item.totalProfit === 'number' ? item.totalProfit.toFixed(2) : 'N/A',
     }));
     
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Product Sales');
-    XLSX.writeFile(workbook, 'ProductWiseSalesReport.xlsx');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Product Sales Profit');
+    XLSX.writeFile(workbook, 'ProductWiseSaleProfitReport.xlsx');
   };
 
   const dataForSummary = useMemo(() => {
@@ -205,8 +243,11 @@ export default function SummaryPage() {
                         <TableRow>
                             <TableHead>Product</TableHead>
                             <TableHead className="text-right">Total Sold</TableHead>
-                            <TableHead className="text-right">Avg Price/Unit</TableHead>
+                            <TableHead className="text-right">Avg Sale Price</TableHead>
+                            <TableHead className="text-right">Avg Purchase Price</TableHead>
+                            <TableHead className="text-right">Profit/Unit</TableHead>
                             <TableHead className="text-right">Total Revenue</TableHead>
+                            <TableHead className="text-right">Total Profit</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -216,12 +257,15 @@ export default function SummaryPage() {
                                     <TableCell className="font-medium">{item.product}</TableCell>
                                     <TableCell className="text-right">{item.totalSold.toFixed(2)} {item.unit}</TableCell>
                                     <TableCell className="text-right">{(item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2)}</TableCell>
+                                    <TableCell className="text-right">{typeof item.avgPurchasePrice === 'number' ? item.avgPurchasePrice.toFixed(2) : item.avgPurchasePrice}</TableCell>
+                                    <TableCell className="text-right">{typeof item.profitPerUnit === 'number' ? item.profitPerUnit.toFixed(2) : item.profitPerUnit}</TableCell>
                                     <TableCell className="text-right font-semibold">{item.totalRevenue.toFixed(2)}</TableCell>
+                                    <TableCell className={cn("text-right font-semibold", typeof item.totalProfit === 'number' && item.totalProfit < 0 ? 'text-destructive' : 'text-green-600')}>{typeof item.totalProfit === 'number' ? item.totalProfit.toFixed(2) : item.totalProfit}</TableCell>
                                 </TableRow>
                             ))
                         ) : (
                              <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
+                                <TableCell colSpan={7} className="h-24 text-center">
                                     {isLoaded ? 'No product sales data available for this period.' : 'Loading report...'}
                                 </TableCell>
                             </TableRow>
