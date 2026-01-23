@@ -269,7 +269,7 @@ export default function AllInvoicesPage() {
                                         {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </TableCell>
                                        <TableCell className="text-right font-mono text-blue-600">
-                                        {invoice.type === 'Sale' && invoice.profit ? invoice.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                        {invoice.type === 'Sale' && typeof invoice.profit === 'number' ? invoice.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                                        </TableCell>
                                       <TableCell className="text-center">
                                         <Button asChild variant="ghost" size="icon" title="Edit">

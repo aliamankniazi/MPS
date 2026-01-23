@@ -373,7 +373,7 @@ export default function AllTransactionsPage() {
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right font-mono text-blue-600">
-                          {entry.type === 'Sale' && entry.profit ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                          {entry.type === 'Sale' && typeof entry.profit === 'number' ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
                              <Button asChild variant="ghost" size="icon" title="Edit">
