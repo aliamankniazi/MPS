@@ -195,8 +195,8 @@ export default function DashboardPage() {
 
 
     return sortedProducts.map(product => {
-        const salesForProduct = transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
-        const purchasesForProduct = purchases.filter(p => p.fuelType === product.name);
+        const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+        const purchasesForProduct = filteredData.purchases.filter(p => p.fuelType === product.name);
 
         salesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         purchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -224,7 +224,7 @@ export default function DashboardPage() {
         };
     });
 
-  }, [isLoaded, products, transactions, purchases, fuelStock, filteredData]);
+  }, [isLoaded, products, fuelStock, filteredData]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
