@@ -34,9 +34,9 @@ const navGroups = [
         icon: History,
         links: [
             { href: '/all-transactions', label: 'All Transactions', icon: History },
-            { href: '/all-invoices', label: 'All Invoices', icon: Receipt, target: '_blank' },
+            { href: '/all-invoices', label: 'All Invoices', icon: Receipt },
             { href: '/ledger', label: 'General Journal', icon: BookOpen },
-            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins, target: '_blank' },
+            { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins },
         ]
     },
     {
@@ -46,8 +46,8 @@ const navGroups = [
             { href: '/purchases', label: 'Purchases', icon: ShoppingCart },
             { href: '/purchase-returns', label: 'Purchase Returns', icon: Redo },
             { href: '/suppliers', label: 'Suppliers', icon: Contact },
-            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen, target: '_blank' },
-            { href: '/supplier-report', label: 'Supplier Report', icon: Truck, target: '_blank' },
+            { href: '/partner-ledger', label: 'Unified Ledger', icon: BookOpen },
+            { href: '/supplier-report', label: 'Supplier Report', icon: Truck },
         ]
     },
     {
@@ -82,7 +82,7 @@ const navGroups = [
         icon: Cog,
         links: [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit },
-            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles, target: '_blank' },
+            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles },
             { href: '/roles', label: 'Role Management', icon: Shield },
             { href: '/dictionary', label: 'Dictionary', icon: BookKey },
             { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },

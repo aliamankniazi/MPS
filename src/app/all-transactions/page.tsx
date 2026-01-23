@@ -37,6 +37,7 @@ type CombinedEntry = {
   amount: number;
   original: any;
   isCreditSale?: boolean;
+  profit?: number;
 };
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -79,6 +80,20 @@ export default function AllTransactionsPage() {
 
     const sales: CombinedEntry[] = transactions.map(tx => {
       const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+      
+      let profit = 0;
+      if (tx.fuelType) {
+        const lastPurchase = purchases
+            .filter(p => p.fuelType === tx.fuelType && new Date(p.timestamp) <= new Date(tx.timestamp))
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+        if (lastPurchase && lastPurchase.volume > 0 && tx.volume > 0) {
+            const costPerLitre = lastPurchase.totalCost / lastPurchase.volume;
+            const salePricePerLitre = tx.totalAmount / tx.volume;
+            profit = (salePricePerLitre - costPerLitre) * tx.volume;
+        }
+      }
+
       return {
         id: `sale-${tx.id}`,
         originalId: tx.id,
@@ -89,6 +104,7 @@ export default function AllTransactionsPage() {
         amount: tx.totalAmount,
         original: { ...tx },
         isCreditSale: isCredit,
+        profit,
       }
     });
 
@@ -298,6 +314,7 @@ export default function AllTransactionsPage() {
                     <TableHead>Partner</TableHead>
                     <TableHead>Details</TableHead>
                     <TableHead className="text-right">Amount (PKR)</TableHead>
+                    <TableHead className="text-right">Profit (PKR)</TableHead>
                     <TableHead className="text-center">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -330,6 +347,9 @@ export default function AllTransactionsPage() {
                         <TableCell>{entry.details}</TableCell>
                         <TableCell className="text-right font-semibold font-mono" style={{ color }}>
                             {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono text-blue-600">
+                          {entry.type === 'Sale' && entry.profit ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                         </TableCell>
                         <TableCell className="text-center space-x-0.5">
                              <Button asChild variant="ghost" size="icon" title="Edit">
