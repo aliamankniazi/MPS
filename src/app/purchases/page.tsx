@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -11,13 +10,13 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType } from '@/lib/types';
+import type { FuelType, Purchase } from '@/lib/types';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 
@@ -27,6 +26,7 @@ const purchaseSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
   fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
   volume: z.coerce.number().min(0.01, 'Volume must be greater than 0'),
+  pricePerLitre: z.coerce.number().min(0.01, 'Price must be greater than 0'),
   totalCost: z.coerce.number().min(0.01, 'Total cost must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
 });
@@ -69,10 +69,38 @@ export default function PurchasesPage() {
   const { addPurchase, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+  const lastUserEditedField = useRef<'volume' | 'price' | 'total' | null>(null);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseFormValues>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PurchaseFormValues>({
     resolver: zodResolver(purchaseSchema),
   });
+
+  const { volume, pricePerLitre, totalCost } = watch();
+
+  useEffect(() => {
+    if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
+      const newTotal = (volume || 0) * (pricePerLitre || 0);
+      if (newTotal > 0) {
+        setValue('totalCost', newTotal, { shouldValidate: true });
+      }
+    }
+  }, [volume, pricePerLitre, setValue]);
+
+  useEffect(() => {
+    if (lastUserEditedField.current === 'total') {
+      if (pricePerLitre && pricePerLitre > 0) {
+        const newVolume = (totalCost || 0) / pricePerLitre;
+        if (newVolume > 0) {
+            setValue('volume', newVolume, { shouldValidate: true });
+        }
+      } else if (volume && volume > 0) {
+        const newPrice = (totalCost || 0) / volume;
+        if (newPrice > 0) {
+            setValue('pricePerLitre', newPrice, { shouldValidate: true });
+        }
+      }
+    }
+  }, [totalCost, volume, pricePerLitre, setValue]);
 
   useEffect(() => {
     reset({
@@ -84,10 +112,17 @@ export default function PurchasesPage() {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
+    const purchaseData: Omit<Purchase, 'id' | 'supplier'> = {
+        supplierId: data.supplierId,
+        fuelType: data.fuelType,
+        volume: data.volume,
+        totalCost: data.totalCost,
+        timestamp: data.date.toISOString(),
+    };
+
     addPurchase({
-      ...data,
+      ...purchaseData,
       supplier: supplier.name, // Pass the name for display purposes
-      timestamp: data.date.toISOString(),
     });
     toast({
       title: 'Purchase Recorded',
@@ -184,15 +219,20 @@ export default function PurchasesPage() {
                     {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
                     <Label htmlFor="volume">Volume (Litres)</Label>
-                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="any" />
+                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="any" onChangeCapture={() => lastUserEditedField.current = 'volume'} />
                     {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
                     </div>
                     <div className="space-y-2">
+                    <Label htmlFor="pricePerLitre">Price / Litre</Label>
+                    <Input id="pricePerLitre" type="number" {...register('pricePerLitre')} placeholder="e.g., 200" step="any" onChangeCapture={() => lastUserEditedField.current = 'price'} />
+                    {errors.pricePerLitre && <p className="text-sm text-destructive">{errors.pricePerLitre.message}</p>}
+                    </div>
+                    <div className="space-y-2">
                     <Label htmlFor="totalCost">Total Cost (PKR)</Label>
-                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="any" />
+                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="any" onChangeCapture={() => lastUserEditedField.current = 'total'} />
                     {errors.totalCost && <p className="text-sm text-destructive">{errors.totalCost.message}</p>}
                     </div>
                 </div>
