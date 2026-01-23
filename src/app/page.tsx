@@ -255,7 +255,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
             <div className="flex items-baseline gap-4">
-              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <h1 className="text-3xl font-bold tracking-tight text-blue-600">Dashboard</h1>
               <p className="text-xl font-bold text-blue-600">{currentTime}</p>
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
