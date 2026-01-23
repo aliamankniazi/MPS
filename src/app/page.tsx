@@ -118,14 +118,14 @@ export default function DashboardPage() {
         const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
         
         const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
-        const profitMargin = lastSaleRate > 0 && lastPurchaseRate > 0 ? ((lastSaleRate - lastPurchaseRate) / lastSaleRate) * 100 : 0;
+        const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
 
         return {
             name: product.name,
             stock: fuelStock[product.name as FuelType] || 0,
             lastSaleRate: lastSaleRate,
             lastPurchaseRate: lastPurchaseRate,
-            profitMargin: profitMargin,
+            profitPerUnit: profitPerUnit,
             lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
             lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
         };
@@ -319,8 +319,8 @@ export default function DashboardPage() {
                             <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-muted-foreground">Profit Margin</span>
-                            <span className="font-mono font-semibold">{stat.profitMargin.toFixed(2)}%</span>
+                            <span className="text-muted-foreground">Profit / Unit</span>
+                            <span className="font-mono font-semibold">PKR {stat.profitPerUnit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Last Sale</span>
