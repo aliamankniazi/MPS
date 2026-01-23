@@ -87,7 +87,7 @@ export default function DashboardPage() {
             month: 'long',
             day: 'numeric',
         });
-        const islamicDate = new Intl.DateTimeFormat('en-US-u-ca-islamic', {
+        const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
             day: 'numeric',
             month: 'long',
             year: 'numeric'
@@ -195,21 +195,36 @@ export default function DashboardPage() {
 
     return sortedProducts.map(product => {
         const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
-        const purchasesForProduct = purchases.filter(p => p.fuelType === product.name);
-
+        
+        const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
+        
         salesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        purchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        allPurchasesForProduct.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
         const lastSale = salesForProduct[0];
-        const lastPurchase = purchasesForProduct[0];
+        const lastPurchase = allPurchasesForProduct[0];
+
         const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-        
         const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
-        const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
         
-        const totalProfit = filteredData.transactions
-            .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
-            .reduce((sum, t) => sum + (profitPerUnit * t.volume), 0);
+        const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
+
+        const totalProfit = salesForProduct
+            .filter(t => t.volume > 0)
+            .reduce((sum, t) => {
+                const purchaseBeforeSale = allPurchasesForProduct
+                    .filter(p => isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= new Date(t.timestamp))
+                    [0];
+
+                let transactionProfit = 0;
+                if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
+                    const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
+                    const salePricePerLitre = t.totalAmount / t.volume;
+                    transactionProfit = (salePricePerLitre - costPerLitre) * t.volume;
+                }
+                return sum + transactionProfit;
+            }, 0);
+
 
         return {
             name: product.name,
