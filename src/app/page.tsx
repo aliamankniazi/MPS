@@ -6,15 +6,21 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { format, subDays, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { DateRange, FuelType } from '@/lib/types';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 
 export default function DashboardPage() {
@@ -119,6 +125,10 @@ export default function DashboardPage() {
         
         const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
         const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
+        
+        const totalProfit = filteredData.transactions
+            .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
+            .reduce((sum, t) => sum + (profitPerUnit * t.volume), 0);
 
         return {
             name: product.name,
@@ -126,12 +136,13 @@ export default function DashboardPage() {
             lastSaleRate: lastSaleRate,
             lastPurchaseRate: lastPurchaseRate,
             profitPerUnit: profitPerUnit,
+            totalProfit: totalProfit,
             lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
             lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
         };
     });
 
-  }, [isLoaded, products, transactions, purchases, fuelStock]);
+  }, [isLoaded, products, transactions, purchases, fuelStock, filteredData.transactions]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded) return [];
@@ -178,6 +189,38 @@ export default function DashboardPage() {
         .slice(0, 5);
 
   }, [isLoaded, filteredData.transactions]);
+
+  const dailyProductSales = useMemo(() => {
+    if (!isLoaded) return {};
+    
+    const salesByDayAndProduct = filteredData.transactions.reduce((acc, tx) => {
+        if (tx.timestamp && isValid(new Date(tx.timestamp))) {
+            const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
+            if (!acc[date]) {
+                acc[date] = {};
+            }
+            const productName = tx.product || tx.fuelType;
+            if (!productName) return acc;
+            if (!acc[date][productName]) {
+                const productInfo = products.find(p => p.name === productName);
+                acc[date][productName] = {
+                    totalVolume: 0,
+                    totalAmount: 0,
+                    unit: productInfo?.unit || 'Ltr',
+                };
+            }
+            acc[date][productName].totalVolume += tx.volume || 0;
+            acc[date][productName].totalAmount += tx.totalAmount;
+        }
+        return acc;
+    }, {} as Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>>);
+
+    return salesByDayAndProduct;
+    }, [isLoaded, filteredData.transactions, products]);
+
+    const sortedDailySalesKeys = useMemo(() => {
+        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
+    }, [dailyProductSales]);
   
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -322,6 +365,10 @@ export default function DashboardPage() {
                             <span className="text-muted-foreground">Profit / Unit</span>
                             <span className="font-mono font-semibold">PKR {stat.profitPerUnit.toFixed(2)}</span>
                         </div>
+                        <div className="flex justify-between font-bold">
+                            <span className="text-muted-foreground">Total Profit</span>
+                            <span className="font-mono">PKR {stat.totalProfit.toFixed(2)}</span>
+                        </div>
                         <div className="flex justify-between">
                             <span className="text-muted-foreground">Last Sale</span>
                             <span className="font-mono">{stat.lastSaleDate ? format(stat.lastSaleDate, 'dd MMM, yy') : 'N/A'}</span>
@@ -367,6 +414,49 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
+          
+          <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><BarChart2 /> Daily Product Sales</CardTitle>
+                <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {sortedDailySalesKeys.length > 0 ? (
+                    <Accordion type="single" collapsible className="w-full">
+                        {sortedDailySalesKeys.map(date => (
+                            <AccordionItem value={date} key={date}>
+                                <AccordionTrigger>{format(new Date(date), 'EEEE, dd MMMM yyyy')}</AccordionTrigger>
+                                <AccordionContent>
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Product</TableHead>
+                                                <TableHead className="text-right">Volume Sold</TableHead>
+                                                <TableHead className="text-right">Total Revenue</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {Object.entries(dailyProductSales[date]).map(([productName, data]) => (
+                                                <TableRow key={productName}>
+                                                    <TableCell>{productName}</TableCell>
+                                                    <TableCell className="text-right">{data.totalVolume.toFixed(2)} {data.unit}</TableCell>
+                                                    <TableCell className="text-right font-mono">PKR {data.totalAmount.toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                ) : (
+                    <div className="text-center text-muted-foreground p-8">
+                        No sales data available for the selected period.
+                    </div>
+                )}
+            </CardContent>
+        </Card>
+
         </div>
 
         <div className="lg:col-span-2 space-y-6">
