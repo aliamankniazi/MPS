@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { isToday, startOfDay, endOfDay, isValid } from 'date-fns';
 
 export default function AiSummaryPage() {
-  const { transactions, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
+  const { transactions, purchases, expenses, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -21,6 +21,8 @@ export default function AiSummaryPage() {
 
     const combinedData = [
       ...transactions.map(t => ({...t, type: 'Sale'})),
+      ...purchases.map(p => ({...p, type: 'Purchase'})),
+      ...expenses.map(e => ({...e, type: 'Expense'})),
       ...customerPayments.map(p => ({...p, type: 'Customer Payment'})),
       ...cashAdvances.map(ca => ({...ca, type: 'Cash Advance'}))
     ];
@@ -37,7 +39,7 @@ export default function AiSummaryPage() {
     // Default to today if no range is selected
     return combinedData.filter(item => isValid(new Date(item.timestamp)) && isToday(new Date(item.timestamp)));
 
-  }, [isLoaded, transactions, customerPayments, cashAdvances, dateRange]);
+  }, [isLoaded, transactions, purchases, expenses, customerPayments, cashAdvances, dateRange]);
 
 
   const handleGenerateSummary = () => {

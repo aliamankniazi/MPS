@@ -12,7 +12,7 @@ import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const GenerateSalesSummaryInputSchema = z.object({
-  activityData: z.string().describe('The financial activity data in JSON format. This includes sales, customer payments, and cash advances.'),
+  activityData: z.string().describe('The financial activity data in JSON format. This includes sales, purchases, expenses, customer payments, and cash advances.'),
 });
 export type GenerateSalesSummaryInput = z.infer<typeof GenerateSalesSummaryInputSchema>;
 
@@ -29,7 +29,7 @@ const prompt = ai.definePrompt({
   name: 'generateSalesSummaryPrompt',
   input: {schema: GenerateSalesSummaryInputSchema},
   output: {schema: GenerateSalesSummaryOutputSchema},
-  prompt: `You are an expert financial analyst. Generate a concise summary of the financial activity provided in JSON format. This data can include sales, customer payments, and cash advances.\n\nActivity Data: {{{activityData}}}`,
+  prompt: `You are an expert financial analyst. Generate a concise summary of the financial activity provided in JSON format. This data can include sales, purchases, expenses, customer payments, and cash advances.\n\nActivity Data: {{{activityData}}}`,
 });
 
 const generateSalesSummaryFlow = ai.defineFlow(
