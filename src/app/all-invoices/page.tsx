@@ -29,6 +29,7 @@ type CombinedInvoice = {
   amount: number;
   paymentMethod?: string;
   isCreditSale?: boolean;
+  profit?: number;
 };
 
 type GroupedInvoices = {
@@ -36,6 +37,7 @@ type GroupedInvoices = {
     invoices: CombinedInvoice[];
     totalSales: number;
     totalPurchases: number;
+    totalProfit: number;
   };
 };
 
@@ -64,17 +66,31 @@ export default function AllInvoicesPage() {
     }
 
 
-    const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => ({
-      id: `sale-${tx.id}`,
-      originalId: tx.id,
-      timestamp: tx.timestamp,
-      type: 'Sale',
-      partner: tx.customerName || 'Walk-in Customer',
-      details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-      amount: tx.totalAmount,
-      paymentMethod: tx.paymentMethod,
-      isCreditSale: tx.paymentMethod === 'Credit',
-    }));
+    const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => {
+        const lastPurchase = purchases
+            .filter(p => p.fuelType === tx.fuelType && new Date(p.timestamp) <= new Date(tx.timestamp))
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+        let profit = 0;
+        if (lastPurchase && lastPurchase.volume > 0 && tx.volume > 0) {
+            const costPerLitre = lastPurchase.totalCost / lastPurchase.volume;
+            const salePricePerLitre = tx.totalAmount / tx.volume;
+            profit = (salePricePerLitre - costPerLitre) * tx.volume;
+        }
+        
+        return {
+            id: `sale-${tx.id}`,
+            originalId: tx.id,
+            timestamp: tx.timestamp,
+            type: 'Sale',
+            partner: tx.customerName || 'Walk-in Customer',
+            details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
+            amount: tx.totalAmount,
+            paymentMethod: tx.paymentMethod,
+            isCreditSale: tx.paymentMethod === 'Credit',
+            profit: profit,
+        };
+    });
 
     const purchaseInvoices: CombinedInvoice[] = allPurchases.map(p => ({
       id: `purchase-${p.id}`,
@@ -119,11 +135,14 @@ export default function AllInvoicesPage() {
         const monthKey = format(date, 'MMMM yyyy');
         
         if (!acc[monthKey]) {
-            acc[monthKey] = { invoices: [], totalSales: 0, totalPurchases: 0 };
+            acc[monthKey] = { invoices: [], totalSales: 0, totalPurchases: 0, totalProfit: 0 };
         }
         
         acc[monthKey].invoices.push(invoice);
-        if(invoice.type === 'Sale') acc[monthKey].totalSales += invoice.amount;
+        if(invoice.type === 'Sale') {
+            acc[monthKey].totalSales += invoice.amount;
+            acc[monthKey].totalProfit += invoice.profit || 0;
+        }
         if(invoice.type === 'Purchase') acc[monthKey].totalPurchases += invoice.amount;
 
         return acc;
@@ -139,6 +158,7 @@ export default function AllInvoicesPage() {
             'Partner': invoice.partner,
             'Details': invoice.details,
             'Amount (PKR)': invoice.amount.toFixed(2),
+            'Profit (PKR)': invoice.type === 'Sale' ? (invoice.profit || 0).toFixed(2) : 'N/A'
         }));
     
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -203,6 +223,7 @@ export default function AllInvoicesPage() {
                                 <div className="flex gap-4 text-sm">
                                     <span>Sales: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalSales.toLocaleString()}</span></span>
                                     <span>Purchases: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalPurchases.toLocaleString()}</span></span>
+                                    <span>Profit: <span className="font-mono text-blue-600">PKR {groupedInvoices[monthKey].totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2})}</span></span>
                                 </div>
                             </div>
                         </AccordionTrigger>
@@ -215,6 +236,7 @@ export default function AllInvoicesPage() {
                                   <TableHead>Partner</TableHead>
                                   <TableHead>Details</TableHead>
                                   <TableHead className="text-right">Amount (PKR)</TableHead>
+                                  <TableHead className="text-right">Profit (PKR)</TableHead>
                                   <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
                               </TableHeader>
@@ -246,6 +268,9 @@ export default function AllInvoicesPage() {
                                       <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice))}>
                                         {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </TableCell>
+                                       <TableCell className="text-right font-mono text-blue-600">
+                                        {invoice.type === 'Sale' && invoice.profit ? invoice.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                       </TableCell>
                                       <TableCell className="text-center">
                                         <Button asChild variant="ghost" size="icon" title="Edit">
                                             <Link href="/customers">
