@@ -1,8 +1,10 @@
 
+
 'use client';
 
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import numWords from 'num-words';
+import { useState, useEffect } from 'react';
 
 interface InvoiceItem {
   name: string;
@@ -67,6 +69,81 @@ export function Invoice({ data }: { data: InvoiceData }) {
     
   const totalQuantity = data.items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmountInWords = numWords(Math.floor(data.totalAmount));
+  const [currentTime, setCurrentTime] = useState('');
+
+  const getDesiDate = (date: Date): { day: number; month: string; year: number } => {
+    const year = date.getFullYear();
+    const month = date.getMonth(); // 0-11
+    const day = date.getDate();
+  
+    // Based on Bikrami calendar for Punjab
+    const monthData = [
+        { name: 'چیت', length: 31, start: { m: 2, d: 14 } },
+        { name: 'وساکھ', length: 31, start: { m: 3, d: 14 } },
+        { name: 'جیٹھ', length: 31, start: { m: 4, d: 15 } },
+        { name: 'ہاੜ', length: 31, start: { m: 5, d: 15 } },
+        { name: 'ساوڻ', length: 31, start: { m: 6, d: 16 } },
+        { name: 'بھادوں', length: 30, start: { m: 7, d: 16 } },
+        { name: 'اسو', length: 30, start: { m: 8, d: 15 } },
+        { name: 'کاتک', length: 30, start: { m: 9, d: 15 } },
+        { name: 'مگھر', length: 30, start: { m: 10, d: 14 } },
+        { name: 'پوہ', length: 30, start: { m: 11, d: 14 } },
+        { name: 'ماگھ', length: 30, start: { m: 0, d: 13 } },
+        { name: 'پھگਣ', length: 30, start: { m: 1, d: 12 } }
+    ];
+
+    let bikramiYear = year + 57;
+    let desiDay = 0;
+    let desiMonth = '';
+
+    let gregorianYearForBikramiStart = year;
+    if (month < 2 || (month === 2 && day < 14)) {
+        gregorianYearForBikramiStart--;
+        bikramiYear--; 
+    }
+
+    const monthStarts = monthData.map(m => ({
+        ...m,
+        startDate: new Date(m.start.m >= 2 ? gregorianYearForBikramiStart : gregorianYearForBikramiStart + 1, m.start.m, m.start.d)
+    })).sort((a,b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    for (let i = monthStarts.length - 1; i >= 0; i--) {
+        if (date >= monthStarts[i].startDate) {
+            desiMonth = monthStarts[i].name;
+            desiDay = differenceInDays(date, monthStarts[i].startDate) + 1;
+            break;
+        }
+    }
+    
+    return { day: desiDay, month: desiMonth, year: bikramiYear };
+  };
+
+  useEffect(() => {
+    const now = new Date();
+    const gregorianDate = now.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    });
+    const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    }).format(now);
+    
+    const desiDate = getDesiDate(now);
+    const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
+
+    const time = now.toLocaleString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+    });
+
+    setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate} | ${time}`);
+  }, []);
 
   return (
     <div className="font-sans text-xs text-gray-800">
@@ -100,7 +177,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
         <div className="text-right">
             <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
             <p><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MMM-yyyy')}</p>
-            <p><span className="font-semibold">Print Date:</span> {format(new Date(), 'dd-MMM-yyyy')}</p>
+            <p className="font-semibold">{currentTime}</p>
         </div>
       </section>
 
