@@ -211,7 +211,7 @@ interface DatabaseActions {
 }
 
 type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & { 
-    fuelStock: Record<FuelType, number>, 
+    fuelStock: Record<string, number>, 
     isLoaded: boolean,
     dateRange: DateRange | undefined,
 };
@@ -390,38 +390,39 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state]);
     
     const fuelStock = useMemo(() => {
-        const stock = { ...DEFAULT_INITIAL_STOCK };
-        
-        if (!state.isLoaded) return stock;
+        if (!state.isLoaded) return {};
 
-        for (const fuelType in stock) {
-            const ft = fuelType as FuelType;
+        const stock: Record<string, number> = {};
+        const mainProducts = processedState.products.filter(p => p.category === 'Main Product');
+
+        for (const product of mainProducts) {
+            const ft = product.name;
             
             const lastReading = processedState.machineReadings
                 .filter(r => r.fuelType === ft)
                 .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
             let startingPoint = lastReading ? new Date(lastReading.timestamp) : new Date(0);
-            let startingStock = lastReading ? lastReading.volume : (state.settings.initialFuelStock[ft] || 0);
+            let startingStock = lastReading ? lastReading.volume : (state.settings.initialFuelStock[ft as FuelType] || 0);
 
             const purchasesSince = processedState.purchases
-                .filter(p => p.fuelType === ft && new Date(p.timestamp) > startingPoint)
+                .filter(p => p.fuelType === ft && isValid(new Date(p.timestamp)) && new Date(p.timestamp) > startingPoint)
                 .reduce((sum, p) => sum + p.volume, 0);
 
             const salesSince = processedState.transactions
-                .filter(t => t.fuelType === ft && t.volume && new Date(t.timestamp) > startingPoint)
+                .filter(t => (t.fuelType === ft || t.product === ft) && t.volume && isValid(new Date(t.timestamp)) && new Date(t.timestamp) > startingPoint)
                 .reduce((sum, t) => sum + t.volume, 0);
 
             const purchaseReturnsSince = processedState.purchaseReturns
-                .filter(pr => pr.fuelType === ft && new Date(pr.timestamp) > startingPoint)
+                .filter(pr => pr.fuelType === ft && isValid(new Date(pr.timestamp)) && new Date(pr.timestamp) > startingPoint)
                 .reduce((sum, pr) => sum + pr.volume, 0);
             
             const saleReturnsSince = processedState.saleReturns
-                .filter(sr => sr.fuelType === ft && new Date(sr.timestamp) > startingPoint)
+                .filter(sr => sr.fuelType === ft && isValid(new Date(sr.timestamp)) && new Date(sr.timestamp) > startingPoint)
                 .reduce((sum, sr) => sum + sr.volume, 0);
             
             const adjustmentsSince = processedState.stockAdjustments
-                .filter(adj => adj.fuelType === ft && new Date(adj.timestamp) > startingPoint)
+                .filter(adj => adj.fuelType === ft && isValid(new Date(adj.timestamp)) && new Date(adj.timestamp) > startingPoint)
                 .reduce((sum, adj) => sum + adj.adjustment, 0);
 
             stock[ft] = startingStock + purchasesSince - salesSince - purchaseReturnsSince + saleReturnsSince + adjustmentsSince;
@@ -429,7 +430,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         return stock;
 
-    }, [state.isLoaded, state.settings.initialFuelStock, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
+    }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
     const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T> => {

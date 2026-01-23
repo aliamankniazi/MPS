@@ -210,7 +210,7 @@ export default function SalesPage() {
 
     cart.forEach(item => {
         const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
-          fuelType: 'Unleaded', 
+          fuelType: item.productName,
           volume: item.quantity,
           pricePerLitre: item.price,
           product: item.productName,
