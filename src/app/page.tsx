@@ -12,7 +12,7 @@ import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart,
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType } from '@/lib/types';
+import type { DateRange, FuelType, Transaction, Purchase } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -135,7 +135,7 @@ export default function DashboardPage() {
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
 
-    const { transactions, purchases, expenses, otherIncomes, stockAdjustments } = filteredData;
+    const { transactions, purchases, expenses, otherIncomes } = filteredData;
 
     const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
     const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
@@ -208,15 +208,24 @@ export default function DashboardPage() {
         .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
         .reduce((sum, t) => {
           const saleTime = new Date(t.timestamp).getTime();
-          const purchaseBeforeSale = allPurchasesForProduct
-            .filter(p => p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-  
+          
+          let latestPurchase: Purchase | null = null;
+          let latestPurchaseTime = 0;
+      
+          for (const p of allPurchasesForProduct) {
+              if (p.timestamp && isValid(new Date(p.timestamp))) {
+                  const purchaseTime = new Date(p.timestamp).getTime();
+                  if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
+                      latestPurchaseTime = purchaseTime;
+                      latestPurchase = p;
+                  }
+              }
+          }
+          
           let transactionProfit = 0;
-          if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
-            const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
-            const salePricePerLitre = t.pricePerLitre;
-            transactionProfit = (salePricePerLitre - costPerLitre) * t.volume;
+          if (latestPurchase && latestPurchase.volume > 0 && typeof t.pricePerLitre === 'number') {
+              const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+              transactionProfit = (t.pricePerLitre - costPerLitre) * t.volume;
           }
           return sum + transactionProfit;
         }, 0);

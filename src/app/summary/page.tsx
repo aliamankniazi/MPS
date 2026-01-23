@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
+import type { Transaction, Purchase } from '@/lib/types';
 
 
 const chartConfig = {
@@ -128,16 +129,23 @@ export default function SummaryPage() {
       let profit = 0;
       if (tx.fuelType && tx.volume > 0 && tx.timestamp && isValid(new Date(tx.timestamp))) {
         const saleTime = new Date(tx.timestamp).getTime();
-        const purchaseBeforeSale = purchases
-          .filter(p => 
-            p.fuelType && tx.fuelType && p.fuelType.toLowerCase() === tx.fuelType.toLowerCase() &&
-            p.timestamp && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime
-          )
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
         
-        if (purchaseBeforeSale && purchaseBeforeSale.volume > 0) {
-          const costPerLitre = purchaseBeforeSale.totalCost / purchaseBeforeSale.volume;
-          profit = (tx.pricePerLitre - costPerLitre) * tx.volume;
+        let latestPurchase: Purchase | null = null;
+        let latestPurchaseTime = 0;
+    
+        for (const p of purchases) {
+            if (p.fuelType && p.fuelType.toLowerCase() === tx.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
+                const purchaseTime = new Date(p.timestamp).getTime();
+                if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
+                    latestPurchaseTime = purchaseTime;
+                    latestPurchase = p;
+                }
+            }
+        }
+        
+        if (latestPurchase && latestPurchase.volume > 0 && typeof tx.pricePerLitre === 'number') {
+            const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+            profit = (tx.pricePerLitre - costPerLitre) * tx.volume;
         }
       }
       acc[productName].totalProfit += profit;
