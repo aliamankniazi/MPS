@@ -181,6 +181,24 @@
       },
       "required": ["id", "name", "price", "unit", "category"]
     },
+     "Customer": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Customer",
+      "type": "object",
+      "description": "Represents a customer of the petrol pump.",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the Customer." },
+        "name": { "type": "string", "description": "Name of the customer." },
+        "contact": { "type": "string", "description": "Contact information for the customer." },
+        "vehicleNumber": { "type": "string", "description": "Vehicle number of the customer." },
+        "area": { "type": "string", "description": "Area of the customer." },
+        "openingBalance": { "type": "number", "description": "Opening balance for the customer." },
+        "isPartner": { "type": "boolean", "description": "Indicates if the customer is also a business partner." },
+        "isBlacklisted": { "type": "boolean", "description": "Indicates if the customer is blacklisted." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of when the customer was added." }
+      },
+      "required": ["id", "name", "contact", "timestamp"]
+    },
      "AttendanceRecord": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "AttendanceRecord",
@@ -317,6 +335,22 @@
             {
               "name": "productId",
               "description": "Unique identifier for the product."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/customers/{customerId}",
+        "definition": {
+          "entityName": "Customer",
+          "schema": {
+            "$ref": "#/backend/entities/Customer"
+          },
+          "description": "Stores all customer data. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "customerId",
+              "description": "Unique identifier for the customer."
             }
           ]
         }

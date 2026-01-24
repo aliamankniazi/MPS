@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search } from 'lucide-react';
+import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
@@ -34,6 +34,7 @@ const customerSchema = z.object({
   openingBalance: z.coerce.number().optional(),
   isPartner: z.boolean().optional(),
   sharePercentage: z.coerce.number().optional(),
+  isBlacklisted: z.boolean().optional(),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -74,6 +75,7 @@ export default function CustomersPage() {
   });
   
   const isPartnerWatch = watchEdit('isPartner');
+  const isBlacklistedWatch = watchEdit('isBlacklisted');
 
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, Customer>();
@@ -129,6 +131,7 @@ export default function CustomersPage() {
         vehicleNumber: data.vehicleNumber,
         area: data.area,
         openingBalance: data.openingBalance,
+        isBlacklisted: data.isBlacklisted,
     });
     
     const isAlreadyPartner = businessPartners.some(p => p.id === customerToEdit.id);
@@ -191,6 +194,14 @@ export default function CustomersPage() {
     router.push(`/customers/${customerId}/ledger`);
   };
 
+  const handleToggleBlacklist = (customer: Customer) => {
+    updateCustomer(customer.id, { isBlacklisted: !customer.isBlacklisted });
+    toast({
+        title: customer.isBlacklisted ? 'Customer Unblacklisted' : 'Customer Blacklisted',
+        description: `${customer.name} has been ${customer.isBlacklisted ? 'removed from' : 'added to'} the blacklist.`,
+    });
+  };
+
   useEffect(() => {
     if (customerToEdit) {
       const isPartner = businessPartners.some(p => p.id === customerToEdit.id);
@@ -202,6 +213,7 @@ export default function CustomersPage() {
       setEditValue('openingBalance', customerToEdit.openingBalance || 0);
       setEditValue('isPartner', isPartner);
       setEditValue('sharePercentage', partnerData?.sharePercentage || 0);
+      setEditValue('isBlacklisted', !!customerToEdit.isBlacklisted);
     } else {
       resetEdit();
     }
@@ -296,6 +308,7 @@ export default function CustomersPage() {
                           <div className="font-medium flex items-center gap-2">
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
+                            {c.isBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
                           </div>
                           <div className="text-sm text-muted-foreground">{contactDisplay(c.contact)}</div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
@@ -311,7 +324,7 @@ export default function CustomersPage() {
                                 <BookText className="w-5 h-5" />
                               </Link>
                            </Button>
-                           <Button variant="ghost" size="icon" title="Edit Customer" onClick={() => openEditDialog(c)}>
+                           <Button variant="ghost" size="icon" title="Edit Customer" onClick={(e) => { e.stopPropagation(); openEditDialog(c); }}>
                                 <Pencil className="w-4 h-4" />
                            </Button>
                            {c.contact && (
@@ -325,7 +338,10 @@ export default function CustomersPage() {
                               </a>
                             </Button>
                            )}
-                           <Button variant="ghost" size="icon" title="Delete Customer" className="text-destructive hover:text-destructive" onClick={() => setCustomerToDelete(c)}>
+                           <Button variant="ghost" size="icon" title={c.isBlacklisted ? 'Remove from Blacklist' : 'Add to Blacklist'} onClick={(e) => { e.stopPropagation(); handleToggleBlacklist(c); }}>
+                                <UserX className={c.isBlacklisted ? 'text-destructive' : ''} />
+                           </Button>
+                           <Button variant="ghost" size="icon" title="Delete Customer" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setCustomerToDelete(c); }}>
                                 <Trash2 className="w-4 h-4" />
                            </Button>
                         </TableCell>
@@ -379,6 +395,11 @@ export default function CustomersPage() {
                         <Label htmlFor="edit-openingBalance">Opening Balance (PKR)</Label>
                         <Input id="edit-openingBalance" type="number" {...registerEdit('openingBalance')} step="any" />
                         {editErrors.openingBalance && <p className="text-sm text-destructive">{editErrors.openingBalance.message}</p>}
+                    </div>
+                     <Separator className="my-4"/>
+                    <div className="flex items-center space-x-2">
+                        <Switch id="isBlacklisted" checked={isBlacklistedWatch} onCheckedChange={(checked) => setEditValue('isBlacklisted', checked)} />
+                        <Label htmlFor="isBlacklisted">Blacklist Customer</Label>
                     </div>
                      <Separator className="my-4"/>
                     <div className="space-y-4">

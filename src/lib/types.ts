@@ -81,6 +81,7 @@ export interface Customer {
   isPartner?: boolean;
   timestamp: string;
   openingBalance?: number;
+  isBlacklisted?: boolean;
 }
 
 export interface Supplier {
