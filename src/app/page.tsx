@@ -8,11 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2 } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2, UserX, BookText } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType, Transaction, Purchase } from '@/lib/types';
+import type { DateRange, FuelType, Transaction, Purchase, Customer } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -22,7 +22,7 @@ import {
 
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
 
   const getPunjabiDate = (date: Date): string => {
@@ -289,6 +289,11 @@ export default function DashboardPage() {
 
   }, [isLoaded, filteredData.transactions]);
 
+  const blacklistedCustomers = useMemo(() => {
+    if (!isLoaded || !customers) return [];
+    return customers.filter(c => c.isBlacklisted);
+  }, [isLoaded, customers]);
+
   const dailyProductSales = useMemo(() => {
     if (!isLoaded) return {};
     
@@ -551,6 +556,37 @@ export default function DashboardPage() {
                     </Table>
                 </CardContent>
             </Card>
+             <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted Customers</CardTitle>
+                    <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {blacklistedCustomers.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {blacklistedCustomers.map((customer) => (
+                                    <TableRow key={customer.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{customer.name}</div>
+                                            <div className="text-sm text-muted-foreground">{customer.contact}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button asChild variant="ghost" size="icon" title="View Ledger">
+                                                <Link href={`/customers/${customer.id}/ledger`}>
+                                                    <BookText className="w-4 h-4" />
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers.</p>
+                    )}
+                </CardContent>
+            </Card>
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
@@ -575,3 +611,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
