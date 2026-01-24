@@ -179,15 +179,8 @@ export default function SalesPage() {
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
-    // Reset form for next item, but keep the unit selected
-    resetItem({
-        unit: data.unit,
-        productId: undefined,
-        productName: undefined,
-        quantity: undefined,
-        price: undefined,
-        totalAmount: undefined,
-    });
+    // Reset form for next item
+    resetItem();
   };
 
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
