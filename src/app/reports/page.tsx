@@ -56,8 +56,8 @@ const reportList: ReportCardProps[] = [
   },
   {
     title: 'Customer Defaulter Report',
-    description: 'View customers with outstanding balances.',
-    href: '/credit-recovery',
+    description: 'View customers with outstanding balances and last transaction time.',
+    href: '/defaulter-report',
     icon: UserX,
     permission: 'view_credit_recovery',
   },
