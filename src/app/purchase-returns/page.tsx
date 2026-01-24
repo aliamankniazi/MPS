@@ -73,6 +73,7 @@ export default function PurchaseReturnsPage() {
   const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+  const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
@@ -213,7 +214,7 @@ export default function PurchaseReturnsPage() {
                         name="date"
                         control={control}
                         render={({ field }) => (
-                        <Popover>
+                        <Popover open={returnDateCalendarOpen} onOpenChange={setReturnDateCalendarOpen}>
                             <PopoverTrigger asChild>
                             <Button
                                 variant={"outline"}
@@ -231,7 +232,10 @@ export default function PurchaseReturnsPage() {
                                 key="purchase-returns-calendar"
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(date) => {
+                                    field.onChange(date);
+                                    setReturnDateCalendarOpen(false);
+                                }}
                                 initialFocus
                             />
                             </PopoverContent>

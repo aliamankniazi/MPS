@@ -68,6 +68,7 @@ export default function SupplierPaymentsPage() {
   const { suppliers, addSupplierPayment, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+  const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
   
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
@@ -209,7 +210,7 @@ export default function SupplierPaymentsPage() {
                     name="date"
                     control={control}
                     render={({ field }) => (
-                      <Popover>
+                      <Popover open={paymentDateCalendarOpen} onOpenChange={setPaymentDateCalendarOpen}>
                         <PopoverTrigger asChild>
                           <Button
                             variant={"outline"}
@@ -227,7 +228,10 @@ export default function SupplierPaymentsPage() {
                             key="supplier-payments-calendar"
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                                field.onChange(date);
+                                setPaymentDateCalendarOpen(false);
+                            }}
                             initialFocus
                           />
                         </PopoverContent>

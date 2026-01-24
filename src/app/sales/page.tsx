@@ -88,6 +88,7 @@ export default function SalesPage() {
 
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -180,7 +181,7 @@ export default function SalesPage() {
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
     // Reset form for next item
-    resetItem();
+    resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
   };
 
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
@@ -503,7 +504,7 @@ export default function SalesPage() {
                             name="invoiceDate"
                             control={control}
                             render={({ field }) => (
-                                <Popover>
+                                <Popover open={invoiceDateCalendarOpen} onOpenChange={setInvoiceDateCalendarOpen}>
                                 <PopoverTrigger asChild>
                                     <Button
                                     variant={"outline"}
@@ -521,7 +522,10 @@ export default function SalesPage() {
                                         key="sales-calendar"
                                         mode="single"
                                         selected={field.value}
-                                        onSelect={field.onChange}
+                                        onSelect={(date) => {
+                                            field.onChange(date);
+                                            setInvoiceDateCalendarOpen(false);
+                                        }}
                                         initialFocus
                                     />
                                 </PopoverContent>

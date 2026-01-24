@@ -71,6 +71,7 @@ export default function SaleReturnsPage() {
   const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
   
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
@@ -211,7 +212,7 @@ export default function SaleReturnsPage() {
                         name="date"
                         control={control}
                         render={({ field }) => (
-                        <Popover>
+                        <Popover open={returnDateCalendarOpen} onOpenChange={setReturnDateCalendarOpen}>
                             <PopoverTrigger asChild>
                             <Button
                                 variant={"outline"}
@@ -229,7 +230,10 @@ export default function SaleReturnsPage() {
                                 key="sale-returns-calendar"
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(date) => {
+                                    field.onChange(date);
+                                    setReturnDateCalendarOpen(false);
+                                }}
                                 initialFocus
                             />
                             </PopoverContent>

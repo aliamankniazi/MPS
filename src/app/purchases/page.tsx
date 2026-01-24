@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -67,6 +68,7 @@ export default function PurchasesPage() {
   const { addPurchase, suppliers, purchases, products, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
+  const [purchaseDateCalendarOpen, setPurchaseDateCalendarOpen] = useState(false);
   const lastUserEditedField = useRef<'volume' | 'price' | 'total' | null>(null);
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PurchaseFormValues>({
@@ -260,7 +262,7 @@ export default function PurchasesPage() {
                         name="date"
                         control={control}
                         render={({ field }) => (
-                        <Popover>
+                        <Popover open={purchaseDateCalendarOpen} onOpenChange={setPurchaseDateCalendarOpen}>
                             <PopoverTrigger asChild>
                             <Button
                                 variant={"outline"}
@@ -278,7 +280,10 @@ export default function PurchasesPage() {
                                 key="purchases-calendar"
                                 mode="single"
                                 selected={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(date) => {
+                                    field.onChange(date);
+                                    setPurchaseDateCalendarOpen(false);
+                                }}
                                 initialFocus
                             />
                             </PopoverContent>
