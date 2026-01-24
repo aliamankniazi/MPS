@@ -51,6 +51,15 @@ const navGroups = [
         ]
     },
     {
+        title: 'Financials',
+        icon: DollarSign,
+        links: [
+            { href: '/expenses', label: 'Expenses', icon: Receipt },
+            { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign },
+            { href: '/bank-management', label: 'Bank Management', icon: Landmark },
+        ]
+    },
+    {
         title: 'People & Partners',
         icon: Users,
         links: [
@@ -66,15 +75,6 @@ const navGroups = [
             { href: '/inventory', label: 'Stock Levels', icon: Box },
             { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench },
             { href: '/machines', label: 'Machine Reading', icon: Fuel },
-        ]
-    },
-    {
-        title: 'Financials',
-        icon: DollarSign,
-        links: [
-            { href: '/expenses', label: 'Expenses', icon: Receipt },
-            { href: '/other-incomes', label: 'Other Incomes', icon: DollarSign },
-            { href: '/bank-management', label: 'Bank Management', icon: Landmark },
         ]
     },
     {

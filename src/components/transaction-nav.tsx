@@ -1,3 +1,4 @@
+
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -22,9 +23,9 @@ const navItems = [
   { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
   { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
   { href: '/expenses', label: 'Expenses', icon: DollarSign },
+  { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
   { href: '/sale-returns', label: 'Sale Return', icon: Undo },
   { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
-  { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
   { href: '/employees', label: 'Salary Payment', icon: User },
 ];
 

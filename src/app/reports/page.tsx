@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -38,13 +39,7 @@ interface ReportCardProps {
 }
 
 const reportList: ReportCardProps[] = [
-  {
-    title: 'Top Customers Report',
-    description: 'Identify and rank top customers based on sales.',
-    href: '/top-customers',
-    icon: Users,
-    permission: 'view_dashboard',
-  },
+  // Sales & Customer Reports
   {
     title: 'Date Wise Sale And Recovery Report',
     description: 'Track customer payments and balances.',
@@ -53,18 +48,33 @@ const reportList: ReportCardProps[] = [
     permission: 'view_credit_recovery',
   },
   {
+    title: 'Top Customers Report',
+    description: 'Identify and rank top customers based on sales.',
+    href: '/top-customers',
+    icon: Users,
+    permission: 'view_dashboard',
+  },
+  {
     title: 'Customer Defaulter Report',
     description: 'View customers with outstanding balances.',
     href: '/credit-recovery',
     icon: UserX,
     permission: 'view_credit_recovery',
   },
-    {
-    title: 'Supplier Report',
-    description: 'View purchases, payments, and balances for suppliers.',
-    href: '/supplier-report',
-    icon: Truck,
-    permission: 'view_purchases',
+  {
+    title: 'Customer Recovery & Sale',
+    description: 'Individual customer transaction history.',
+    href: '/partner-ledger',
+    icon: HandCoins,
+    permission: 'view_partner_ledger',
+  },
+  // Financial & General Reports
+  {
+    title: 'General Journal / Ledger',
+    description: 'View all financial transactions chronologically.',
+    href: '/ledger',
+    icon: BookOpen,
+    permission: 'view_ledger',
   },
   {
     title: 'Date Wise Business Report',
@@ -73,6 +83,28 @@ const reportList: ReportCardProps[] = [
     icon: Briefcase,
     permission: 'view_ledger',
   },
+   {
+    title: 'Cash Flow Report',
+    description: 'Track cash in, cash out, and balance over time.',
+    href: '/ledger',
+    icon: Wallet,
+    permission: 'view_ledger',
+  },
+  {
+    title: 'Expense Report',
+    description: 'View a detailed breakdown of all business expenses.',
+    href: '/expenses',
+    icon: Receipt,
+    permission: 'view_expenses',
+  },
+  {
+    title: 'Payments & Advances Report',
+    description: 'View all customer payments and cash advances.',
+    href: '/cash-customer-payments',
+    icon: Wallet,
+    permission: 'view_cash_advances',
+  },
+  // Product & Profitability Reports
   {
     title: 'Product Wise Sale Report',
     description: 'Show Product Wise Sale Reports',
@@ -94,25 +126,12 @@ const reportList: ReportCardProps[] = [
     icon: TrendingUp,
     permission: 'view_ledger',
   },
-  {
-    title: 'Total Investment Report',
-    description: 'Summary of total capital invested by partners.',
-    href: '/investments',
-    icon: PiggyBank,
-    permission: 'view_investments',
-  },
+  // Inventory & Supplier Reports
   {
     title: 'Stock Sale & Purchase Report',
     description: 'Detailed report of stock ins and outs.',
     href: '/all-transactions',
     icon: History,
-    permission: 'view_all_transactions',
-  },
-  {
-    title: 'Sale & Return Report',
-    description: 'Unified view of all sales and returns.',
-    href: '/all-transactions',
-    icon: ShoppingCart,
     permission: 'view_all_transactions',
   },
   {
@@ -122,42 +141,31 @@ const reportList: ReportCardProps[] = [
     icon: Boxes,
     permission: 'view_inventory',
   },
-  {
-    title: 'Customer Recovery & Sale',
-    description: 'Individual customer transaction history.',
-    href: '/partner-ledger',
-    icon: HandCoins,
-    permission: 'view_partner_ledger',
+    {
+    title: 'Supplier Report',
+    description: 'View purchases, payments, and balances for suppliers.',
+    href: '/supplier-report',
+    icon: Truck,
+    permission: 'view_purchases',
   },
-   {
-    title: 'General Journal / Ledger',
-    description: 'View all financial transactions chronologically.',
-    href: '/ledger',
-    icon: BookOpen,
-    permission: 'view_ledger',
-  },
+  // Returns
   {
-    title: 'Cash Flow Report',
-    description: 'Track cash in, cash out, and balance over time.',
-    href: '/ledger',
-    icon: Wallet,
-    permission: 'view_ledger',
+    title: 'Sale & Return Report',
+    description: 'Unified view of all sales and returns.',
+    href: '/all-transactions',
+    icon: ShoppingCart,
+    permission: 'view_all_transactions',
   },
+  // Investments
   {
-    title: 'Expense Report',
-    description: 'View a detailed breakdown of all business expenses.',
-    href: '/expenses',
-    icon: Receipt,
-    permission: 'view_expenses',
-  },
-  {
-    title: 'Payments & Advances Report',
-    description: 'View all customer payments and cash advances.',
-    href: '/cash-customer-payments',
-    icon: Wallet,
-    permission: 'view_cash_advances',
+    title: 'Total Investment Report',
+    description: 'Summary of total capital invested by partners.',
+    href: '/investments',
+    icon: PiggyBank,
+    permission: 'view_investments',
   },
 ];
+
 
 const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) => (
   <Card className="flex flex-col hover:shadow-lg transition-shadow rounded-2xl">
