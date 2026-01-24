@@ -19,6 +19,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { cn } from '@/lib/utils';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -35,6 +36,19 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
+
+  const getRankColor = (index: number) => {
+    switch (index) {
+      case 0:
+        return 'text-yellow-500';
+      case 1:
+        return 'text-gray-500';
+      case 2:
+        return 'text-orange-500';
+      default:
+        return 'text-foreground';
+    }
+  };
 
   const getPunjabiDate = (date: Date): string => {
     const year = date.getFullYear();
@@ -189,7 +203,7 @@ export default function DashboardPage() {
       totalSurplus,
       totalShortage,
     };
-  }, [isLoaded, filteredData]);
+  }, [isLoaded, filteredData, stockAdjustments]);
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
@@ -516,7 +530,7 @@ export default function DashboardPage() {
                 </Card>
             ))}
             </div>
-            <Card>
+             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
                     <CardDescription>Total number of unique customers with transactions.</CardDescription>
@@ -640,11 +654,15 @@ export default function DashboardPage() {
                                     <TableCell className="p-2">
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8">
-                                                <AvatarFallback>{index + 1}</AvatarFallback>
+                                                <AvatarFallback className={cn(
+                                                    index === 0 && 'bg-yellow-400 text-yellow-900',
+                                                    index === 1 && 'bg-gray-300 text-gray-800',
+                                                    index === 2 && 'bg-orange-400 text-orange-900',
+                                                )}>{index + 1}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <div className="font-medium">{customer.name}</div>
-                                                <div className="text-sm text-muted-foreground">Total: PKR {customer.total.toLocaleString()}</div>
+                                                <div className={cn("font-medium", getRankColor(index))}>{customer.name}</div>
+                                                <div className={cn("text-sm", getRankColor(index))}>Total: PKR {customer.total.toLocaleString()}</div>
                                             </div>
                                         </div>
                                     </TableCell>
@@ -659,4 +677,5 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-}
+
+    
