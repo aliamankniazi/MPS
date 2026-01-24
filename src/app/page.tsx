@@ -363,11 +363,11 @@ export default function DashboardPage() {
     const getMedal = (index: number) => {
         switch (index) {
         case 0:
-            return { name: 'Gold', color: 'text-yellow-400' };
+            return { name: 'Gold', color: 'text-[hsl(var(--chart-3))]' };
         case 1:
-            return { name: 'Silver', color: 'text-gray-400' };
+            return { name: 'Silver', color: 'text-muted-foreground' };
         case 2:
-            return { name: 'Bronze', color: 'text-orange-400' };
+            return { name: 'Bronze', color: 'text-[hsl(var(--chart-4))]' };
         default:
             return null;
         }
