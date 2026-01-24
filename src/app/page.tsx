@@ -349,7 +349,7 @@ export default function DashboardPage() {
         return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
     }, [dailyProductSales]);
   
-    const formatPhoneNumberForWhatsApp = (phone: string | undefined) => {
+    const formatPhoneNumberForWhatsApp = (phone: string | number | undefined) => {
         if (!phone) return '';
         return String(phone).replace(/[^0-9]/g, '');
     }
@@ -381,7 +381,7 @@ export default function DashboardPage() {
       </div>
 
        <div className="grid gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3 space-y-6">
+         <div className="lg:col-span-3 space-y-6">
           {/* Stat Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
@@ -522,7 +522,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6">
             <Card className="border-destructive">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted Customers</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted And Defaulter Customers</CardTitle>
                     <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -564,7 +564,7 @@ export default function DashboardPage() {
                             </TableBody>
                         </Table>
                     ) : (
-                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers.</p>
+                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers with a balance.</p>
                     )}
                 </CardContent>
             </Card>
