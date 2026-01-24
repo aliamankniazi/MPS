@@ -155,9 +155,8 @@ export default function SalesPage() {
     } else {
       setValue('paymentMethod', 'Credit');
     }
-    const selectedCustomer = customers.find(c => c.id === customerId);
-    setValue('vehicleNumber', selectedCustomer?.vehicleNumber?.split(/[,\\n]/)[0].trim() || '');
-  }, [customerId, setValue, customers]);
+    setValue('vehicleNumber', ''); // Clear vehicle selection when customer changes
+  }, [customerId, setValue]);
 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
@@ -462,14 +461,14 @@ export default function SalesPage() {
                               <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
                           </div>
                       </div>
-                      {selectedCustomer?.vehicleNumber && (
-                        <div className="space-y-2">
-                            <Label>Vehicle Number</Label>
+                      <div className="space-y-2">
+                          <Label>Vehicle Number</Label>
+                          {selectedCustomer && selectedCustomer.vehicleNumber ? (
                             <Controller
                                 name="vehicleNumber"
                                 control={control}
                                 render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value || ''}>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select vehicle..." />
                                         </SelectTrigger>
@@ -481,8 +480,10 @@ export default function SalesPage() {
                                     </Select>
                                 )}
                             />
-                        </div>
-                      )}
+                          ) : (
+                            <Input {...register('vehicleNumber')} placeholder="Enter vehicle number... (optional)" />
+                          )}
+                      </div>
                        <div className="space-y-2">
                           <Label>Payment Method</Label>
                           <Controller
