@@ -515,8 +515,26 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
             ))}
-        </div>
-
+            </div>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
+                    <CardDescription>Total number of unique customers with transactions.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <div className="text-4xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
+                 </CardContent>
+            </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-primary"><TrendingUp/>Best Sale Day</CardTitle>
+                    <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
+                </CardHeader>
+                 <CardContent>
+                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'dd-MMM-yyyy') : 'N/A'}</div>
+                    <p className="text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
+                 </CardContent>
+            </Card>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
@@ -636,25 +654,6 @@ export default function DashboardPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
-                    <CardDescription>Total number of unique customers with transactions.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <div className="text-4xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
-                 </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><TrendingUp/>Best Sale Day</CardTitle>
-                    <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'dd-MMM-yyyy') : 'N/A'}</div>
-                    <p className="text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
-                 </CardContent>
             </Card>
         </div>
       </div>
