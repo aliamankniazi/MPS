@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2, UserX, BookText } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2, UserX, BookText, Medal } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -359,6 +359,19 @@ export default function DashboardPage() {
         const message = `Dear ${customer.name}, this is a friendly reminder that your outstanding balance is PKR ${customer.balance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}. Please clear it at your earliest convenience. Thank you, Mianwali Petroleum Service.`;
         return encodeURIComponent(message);
     }
+    
+    const getMedal = (index: number) => {
+        switch (index) {
+        case 0:
+            return { name: 'Gold', color: 'text-yellow-400' };
+        case 1:
+            return { name: 'Silver', color: 'text-gray-400' };
+        case 2:
+            return { name: 'Bronze', color: 'text-orange-400' };
+        default:
+            return null;
+        }
+    };
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -636,7 +649,9 @@ export default function DashboardPage() {
                 <CardContent>
                     <Table>
                         <TableBody>
-                            {topCustomers.map((customer, index) => (
+                            {topCustomers.map((customer, index) => {
+                                const medal = getMedal(index);
+                                return (
                                 <TableRow key={customer.id}>
                                     <TableCell className="p-2">
                                         <div className="flex items-center gap-3">
@@ -661,8 +676,16 @@ export default function DashboardPage() {
                                             </div>
                                         </div>
                                     </TableCell>
+                                    <TableCell className="p-2 text-right">
+                                        {medal && (
+                                            <div className={cn("flex items-center justify-end gap-2 font-semibold", medal.color)}>
+                                                <Medal className="h-5 w-5" />
+                                                <span>{medal.name}</span>
+                                            </div>
+                                        )}
+                                    </TableCell>
                                 </TableRow>
-                            ))}
+                            )})}
                             {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
                         </TableBody>
                     </Table>
@@ -674,3 +697,5 @@ export default function DashboardPage() {
   );
 
     
+
+}
