@@ -37,19 +37,6 @@ export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
 
-  const getRankColor = (index: number) => {
-    switch (index) {
-      case 0:
-        return 'text-yellow-500';
-      case 1:
-        return 'text-gray-500';
-      case 2:
-        return 'text-orange-500';
-      default:
-        return 'text-foreground';
-    }
-  };
-
   const getPunjabiDate = (date: Date): string => {
     const year = date.getFullYear();
     const month = date.getMonth(); // 0-11
@@ -404,7 +391,7 @@ export default function DashboardPage() {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">For selected period</p>
               </CardContent>
             </Card>
@@ -414,7 +401,7 @@ export default function DashboardPage() {
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-pink-600">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">Total cost of goods</p>
               </CardContent>
             </Card>
@@ -434,7 +421,7 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">PKR {financialSummary?.totalSurplus.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalSurplus.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">Value of surplus stock</p>
               </CardContent>
             </Card>
@@ -454,7 +441,7 @@ export default function DashboardPage() {
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-green-600'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">After all costs & expenses</p>
               </CardContent>
             </Card>
@@ -499,31 +486,31 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">
-                            <span className="text-chart-1">Stock Available</span>
+                            <span className="text-[hsl(var(--chart-1))]">Stock Available</span>
                             <span className="font-mono font-semibold">{stat.stock.toLocaleString(undefined, { maximumFractionDigits: 2 })} Ltr</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-chart-2">Last Sale Rate</span>
+                            <span className="text-[hsl(var(--chart-2))]">Last Sale Rate</span>
                             <span className="font-mono font-semibold">PKR {stat.lastSaleRate.toFixed(2)}</span>
                         </div>
                          <div className="flex justify-between">
-                            <span className="text-chart-3">Last Purchase Rate</span>
+                            <span className="text-[hsl(var(--chart-3))]">Last Purchase Rate</span>
                             <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-chart-4">Profit / Unit</span>
+                            <span className="text-[hsl(var(--chart-4))]">Profit / Unit</span>
                             <span className="font-mono font-semibold">PKR {stat.profitPerUnit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between font-bold">
-                            <span className="text-chart-5">Total Profit</span>
+                            <span className="text-[hsl(var(--chart-5))]">Total Profit</span>
                             <span className="font-mono">PKR {stat.totalProfit.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-chart-1">Last Sale</span>
+                            <span className="text-[hsl(var(--chart-1))]">Last Sale</span>
                             <span className="font-mono">{stat.lastSaleDate ? format(stat.lastSaleDate, 'dd MMM, yy') : 'N/A'}</span>
                         </div>
                         <div className="flex justify-between">
-                            <span className="text-chart-2">Last Purchase</span>
+                            <span className="text-[hsl(var(--chart-2))]">Last Purchase</span>
                             <span className="font-mono">{stat.lastPurchaseDate ? format(stat.lastPurchaseDate, 'dd MMM, yy') : 'N/A'}</span>
                         </div>
                     </CardContent>
@@ -552,7 +539,7 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-            <Card className="border-destructive">
+             <Card className="border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted And Defaulter Customers</CardTitle>
                     <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
@@ -655,14 +642,22 @@ export default function DashboardPage() {
                                         <div className="flex items-center gap-3">
                                             <Avatar className="h-8 w-8">
                                                 <AvatarFallback className={cn(
-                                                    index === 0 && 'bg-yellow-400 text-yellow-900',
-                                                    index === 1 && 'bg-gray-300 text-gray-800',
-                                                    index === 2 && 'bg-orange-400 text-orange-900',
+                                                    index === 0 && 'bg-[hsl(var(--chart-3))] text-yellow-950',
+                                                    index === 1 && 'bg-muted text-muted-foreground',
+                                                    index === 2 && 'bg-[hsl(var(--chart-4))] text-orange-950',
                                                 )}>{index + 1}</AvatarFallback>
                                             </Avatar>
                                             <div>
-                                                <div className={cn("font-medium", getRankColor(index))}>{customer.name}</div>
-                                                <div className={cn("text-sm", getRankColor(index))}>Total: PKR {customer.total.toLocaleString()}</div>
+                                                <div className={cn("font-medium", 
+                                                    index === 0 && 'text-[hsl(var(--chart-3))]',
+                                                    index === 1 && 'text-muted-foreground',
+                                                    index === 2 && 'text-[hsl(var(--chart-4))]',
+                                                )}>{customer.name}</div>
+                                                <div className={cn("text-sm", 
+                                                    index === 0 && 'text-[hsl(var(--chart-3))]',
+                                                    index === 1 && 'text-muted-foreground',
+                                                    index === 2 && 'text-[hsl(var(--chart-4))]',
+                                                )}>Total: PKR {customer.total.toLocaleString()}</div>
                                             </div>
                                         </div>
                                     </TableCell>
