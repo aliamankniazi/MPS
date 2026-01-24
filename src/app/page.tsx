@@ -487,6 +487,37 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
+            <Card className="border-destructive">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted Customers</CardTitle>
+                    <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {blacklistedCustomers.length > 0 ? (
+                        <Table>
+                            <TableBody>
+                                {blacklistedCustomers.map((customer) => (
+                                    <TableRow key={customer.id}>
+                                        <TableCell>
+                                            <div className="font-medium">{customer.name}</div>
+                                            <div className="text-sm text-muted-foreground">{customer.contact}</div>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button asChild variant="ghost" size="icon" title="View Ledger">
+                                                <Link href={`/customers/${customer.id}/ledger`}>
+                                                    <BookText className="w-4 h-4" />
+                                                </Link>
+                                            </Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    ) : (
+                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers.</p>
+                    )}
+                </CardContent>
+            </Card>
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-primary"><BarChart2 /> Daily Product Sales</CardTitle>
@@ -556,37 +587,6 @@ export default function DashboardPage() {
                     </Table>
                 </CardContent>
             </Card>
-             <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted Customers</CardTitle>
-                    <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {blacklistedCustomers.length > 0 ? (
-                        <Table>
-                            <TableBody>
-                                {blacklistedCustomers.map((customer) => (
-                                    <TableRow key={customer.id}>
-                                        <TableCell>
-                                            <div className="font-medium">{customer.name}</div>
-                                            <div className="text-sm text-muted-foreground">{customer.contact}</div>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                                <Link href={`/customers/${customer.id}/ledger`}>
-                                                    <BookText className="w-4 h-4" />
-                                                </Link>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    ) : (
-                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers.</p>
-                    )}
-                </CardContent>
-            </Card>
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
@@ -611,5 +611,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
