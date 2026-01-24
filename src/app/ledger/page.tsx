@@ -412,7 +412,13 @@ export default function LedgerPage() {
     let entries = allEntries;
 
     if (searchTerm) {
-        entries = entries.filter(e => e.description.toLowerCase().includes(searchTerm.toLowerCase()));
+        const lowercasedTerm = searchTerm.toLowerCase();
+        entries = entries.filter(e => 
+            (e.description?.toLowerCase().includes(lowercasedTerm)) ||
+            (e.partnerName?.toLowerCase().includes(lowercasedTerm)) ||
+            (e.notes?.toLowerCase().includes(lowercasedTerm)) ||
+            (e.type?.toLowerCase().includes(lowercasedTerm))
+        );
     }
     if (selectedType && selectedType !== 'all') {
         entries = entries.filter(e => e.type === selectedType);
@@ -727,7 +733,7 @@ export default function LedgerPage() {
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-2">
            <Input 
-            placeholder="Search descriptions..." 
+            placeholder="Search journal..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="w-full md:w-48"
@@ -1026,3 +1032,4 @@ export default function LedgerPage() {
     </>
   );
 }
+
