@@ -16,38 +16,50 @@ import {
     User,
     Wrench
 } from 'lucide-react';
+import { useDatabase } from '@/hooks/use-database';
 
 const navItems = [
-  { href: '/sales', label: 'Sale', icon: ShoppingCart },
-  { href: '/purchases', label: 'Purchase', icon: Truck },
-  { href: '/customer-payments', label: 'Customer Payment', icon: Wallet },
-  { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo },
-  { href: '/expenses', label: 'Expenses', icon: DollarSign },
-  { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign },
-  { href: '/sale-returns', label: 'Sale Return', icon: Undo },
-  { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
-  { href: '/employees', label: 'Salary Payment', icon: User },
-  { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench },
+  { href: '/sales', label: 'Sale', icon: ShoppingCart, colorKey: 'Sale' },
+  { href: '/purchases', label: 'Purchase', icon: Truck, colorKey: 'Purchase' },
+  { href: '/customer-payments', label: 'Customer Payment', icon: Wallet, colorKey: 'Customer Payment' },
+  { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo, colorKey: 'Supplier Payment' },
+  { href: '/expenses', label: 'Expenses', icon: DollarSign, colorKey: 'Expense' },
+  { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign, colorKey: 'Cash Advance' },
+  { href: '/sale-returns', label: 'Sale Return', icon: Undo, colorKey: 'Sale Return' },
+  { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2, colorKey: 'Purchase Return' },
+  { href: '/employees', label: 'Salary Payment', icon: User, colorKey: 'Salary' },
+  { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench, colorKey: 'Investment' },
 ];
 
 export function TransactionNav() {
     const pathname = usePathname();
+    const { colorSettings } = useDatabase();
+
     return (
         <nav className="bg-background shadow-sm">
             <div className="container mx-auto px-4 flex flex-wrap">
-                {navItems.map(item => (
-                    <Button
-                        asChild
-                        key={item.href}
-                        variant="ghost"
-                        className={cn(
-                            "border-b-2 rounded-none flex-shrink-0",
-                            pathname === item.href ? "border-primary text-primary" : "border-transparent"
-                        )}
-                    >
-                        <Link href={item.href}><item.icon className="mr-2"/> {item.label}</Link>
-                    </Button>
-                ))}
+                {navItems.map(item => {
+                    const color = colorSettings[item.colorKey || item.label] || '#6b7280';
+                    const isActive = pathname === item.href;
+                    return (
+                        <Button
+                            asChild
+                            key={item.href}
+                            variant="ghost"
+                            className={cn(
+                                "border-b-2 rounded-none flex-shrink-0 hover:bg-transparent",
+                                isActive ? "font-semibold" : ""
+                            )}
+                            style={{
+                                borderColor: isActive ? color : 'transparent'
+                            }}
+                        >
+                            <Link href={item.href} style={{ color: isActive ? color : '#6b7280' }} className="hover:opacity-80 transition-opacity">
+                                <item.icon className="mr-2"/> {item.label}
+                            </Link>
+                        </Button>
+                    );
+                })}
             </div>
         </nav>
     );
