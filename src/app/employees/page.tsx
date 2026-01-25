@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
 import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,6 +20,17 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
 
 const salaryPaymentSchema = z.object({
   employeeId: z.string().min(1, 'Please select an employee.'),
@@ -70,6 +81,7 @@ export default function SalaryPaymentPage() {
   const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
+  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number } | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
@@ -85,33 +97,51 @@ export default function SalaryPaymentPage() {
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
     const employee = employees.find(e => e.id === data.employeeId);
-    if (!employee) return;
+    if (!employee) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Employee not found.' });
+        return;
+    }
+     if (!employee.salary || employee.salary <= 0) {
+        toast({ variant: 'destructive', title: 'Salary Not Set', description: `Salary for ${employee.name} is not set or is zero. Please update their salary in the attendance page.` });
+        return;
+    }
+
+    setPaymentToConfirm({
+        ...data,
+        employeeName: employee.name,
+        salaryAmount: employee.salary,
+    });
+  };
+
+  const handleProcessSalaryPayment = async () => {
+    if (!paymentToConfirm) return;
+
+    const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName, salaryAmount } = paymentToConfirm;
     
-    const salaryDescription = `Salary for ${employee.name} (${data.salaryMonth} ${data.salaryYear})`;
-    const paymentNotes = data.notes ? `${salaryDescription} - ${data.notes}` : salaryDescription;
+    const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
+    const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
 
     // 1. Log the salary as an expense
     await addExpense({
       description: salaryDescription,
       category: 'Salaries',
-      amount: employee.salary,
-      timestamp: data.postingDate.toISOString(),
+      amount: salaryAmount,
+      timestamp: postingDate.toISOString(),
     });
 
     // 2. Find or create a customer record for the employee to track payments in their ledger
-    let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employee.name.toLowerCase() && c.area === 'Employee');
+    let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employeeName.toLowerCase() && c.area === 'Employee');
     
     let customerId = employeeAsCustomer?.id;
     if (!employeeAsCustomer) {
         const newCustomer = await addCustomer({
-            name: employee.name,
-            contact: employee.mobileNumber || '',
+            name: employeeName,
+            contact: employees.find(e => e.id === employeeId)?.mobileNumber || '',
             area: 'Employee',
             isPartner: false,
             timestamp: new Date().toISOString(),
         });
         customerId = newCustomer.id;
-        employeeAsCustomer = newCustomer;
     }
 
 
@@ -119,10 +149,10 @@ export default function SalaryPaymentPage() {
     if (customerId) {
         await addCustomerPayment({
             customerId: customerId,
-            customerName: employee.name,
-            amount: employee.salary,
+            customerName: employeeName,
+            amount: salaryAmount,
             paymentMethod: 'Salary',
-            timestamp: data.postingDate.toISOString(),
+            timestamp: postingDate.toISOString(),
             notes: paymentNotes,
         });
     }
@@ -130,13 +160,15 @@ export default function SalaryPaymentPage() {
 
     toast({
       title: 'Salary Paid',
-      description: `Salary for ${employee.name} has been successfully recorded.`,
+      description: `Salary for ${employeeName} has been successfully recorded.`,
     });
     
+    setPaymentToConfirm(null);
     reset();
   };
 
   return (
+    <>
     <div className="bg-muted/30 min-h-screen">
       <PageHeader />
       <TransactionNav />
@@ -304,12 +336,47 @@ export default function SalaryPaymentPage() {
                         <Textarea id="notes" {...register('notes')} placeholder="e.g., Including overtime payment" />
                     </div>
 
-                    <Button type="submit" className="w-full">Confirm Payment</Button>
+                    <Button type="submit" className="w-full">Calculate & Confirm Salary</Button>
                 </form>
             </CardContent>
             </Card>
         </div>
       </main>
     </div>
+
+    <AlertDialog open={!!paymentToConfirm} onOpenChange={(isOpen) => !isOpen && setPaymentToConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/> Confirm Salary Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Please review and confirm the salary payment details before posting to the ledger.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {paymentToConfirm && (
+            <div className="text-sm space-y-2 my-4 p-4 bg-muted rounded-md">
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Employee:</span>
+                    <span className="font-semibold">{paymentToConfirm.employeeName}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Salary for:</span>
+                    <span className="font-semibold">{paymentToConfirm.salaryMonth} {paymentToConfirm.salaryYear}</span>
+                </div>
+                <div className="flex justify-between text-lg">
+                    <span className="text-muted-foreground">Amount:</span>
+                    <span className="font-bold text-primary">PKR {paymentToConfirm.salaryAmount.toLocaleString()}</span>
+                </div>
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleProcessSalaryPayment}>
+              Confirm & Post Payment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
+
