@@ -66,13 +66,13 @@ export default function SignupPage() {
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-pink-600">Email</Label>
               <Input id="email" type="email" {...register('email')} placeholder="you@example.com" />
               {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-pink-600">Password</Label>
               <Input id="password" type="password" {...register('password')} placeholder="••••••••" />
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
