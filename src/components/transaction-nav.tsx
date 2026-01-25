@@ -14,7 +14,7 @@ import {
     Undo2, 
     DollarSign, 
     User,
-    Receipt
+    Wrench
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +27,7 @@ const navItems = [
   { href: '/sale-returns', label: 'Sale Return', icon: Undo },
   { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2 },
   { href: '/employees', label: 'Salary Payment', icon: User },
+  { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench },
 ];
 
 export function TransactionNav() {
