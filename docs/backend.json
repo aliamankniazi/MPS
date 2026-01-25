@@ -233,6 +233,75 @@
         }
       },
       "required": ["id", "employeeId", "employeeName", "date", "status"]
+    },
+    "SalaryHistoryEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SalaryHistoryEntry",
+      "type": "object",
+      "description": "Represents a single entry in an employee's salary history.",
+      "properties": {
+        "amount": {
+          "type": "number",
+          "description": "The salary amount."
+        },
+        "effectiveDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date from which this salary is effective."
+        }
+      },
+      "required": ["amount", "effectiveDate"]
+    },
+    "Employee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Employee",
+      "type": "object",
+      "description": "Represents an employee at the petrol pump.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Employee."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the employee."
+        },
+        "mobileNumber": {
+          "type": "string",
+          "description": "Mobile number of the employee."
+        },
+        "position": {
+          "type": "string",
+          "description": "Position/role of the employee."
+        },
+        "salary": {
+          "type": "number",
+          "description": "Current salary of the employee."
+        },
+        "hireDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date when the employee was hired."
+        },
+        "terminationDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Date when the employee was terminated."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of when the employee record was created."
+        },
+        "salaryHistory": {
+          "type": "array",
+          "description": "A history of salary changes for the employee.",
+          "items": {
+            "$ref": "#/backend/entities/SalaryHistoryEntry"
+          }
+        }
+      },
+      "required": ["id", "name", "position", "salary", "hireDate", "timestamp"]
     }
   },
   "auth": {
@@ -369,6 +438,22 @@
                     "description": "Unique identifier for the attendance record."
                 }
             ]
+        }
+      },
+      {
+        "path": "/employees/{employeeId}",
+        "definition": {
+          "entityName": "Employee",
+          "schema": {
+            "$ref": "#/backend/entities/Employee"
+          },
+          "description": "Stores employee data. Accessible to all authenticated users.",
+          "params": [
+            {
+              "name": "employeeId",
+              "description": "Unique identifier for the employee."
+            }
+          ]
         }
       }
     ],

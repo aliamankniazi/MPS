@@ -16,13 +16,14 @@ import { format, isToday, getDaysInMonth, getYear, getMonth, getDate, isValid } 
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Employee, AttendanceRecord } from '@/lib/types';
+import type { Employee, AttendanceRecord, SalaryHistoryEntry } from '@/lib/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
 
 const employeeSchema = z.object({
@@ -30,11 +31,19 @@ const employeeSchema = z.object({
   mobileNumber: z.string().optional(),
   position: z.string().min(1, 'Position is required'),
   salary: z.coerce.number().min(0, 'Salary must be a positive number'),
+  salaryEffectiveDate: z.date().optional(),
   hireDate: z.date({ required_error: "Hire date is required."}),
   terminationDate: z.date().optional().nullable(),
 });
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
+
+const salaryIncreaseSchema = z.object({
+    newSalary: z.coerce.number().min(0, 'New salary must be a positive number'),
+    effectiveDate: z.date({ required_error: 'Effective date is required' }),
+});
+
+type SalaryIncreaseFormValues = z.infer<typeof salaryIncreaseSchema>;
 
 export default function EmployeeManagementPage() {
   const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded } = useDatabase();
@@ -58,6 +67,11 @@ export default function EmployeeManagementPage() {
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, control: controlEdit, formState: { errors: editErrors } } = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeSchema),
   });
+  
+  const { register: registerIncrease, handleSubmit: handleSubmitIncrease, reset: resetIncrease, control: controlIncrease, formState: { errors: increaseErrors } } = useForm<SalaryIncreaseFormValues>({
+    resolver: zodResolver(salaryIncreaseSchema),
+    defaultValues: { effectiveDate: new Date() }
+  });
 
   const onAddSubmit: SubmitHandler<EmployeeFormValues> = async (data) => {
     const newEmployee = await addEmployee({ ...data, hireDate: data.hireDate.toISOString(), timestamp: new Date().toISOString() });
@@ -80,17 +94,58 @@ export default function EmployeeManagementPage() {
   
   const onEditSubmit: SubmitHandler<EmployeeFormValues> = (data) => {
     if (!employeeToEdit) return;
-    updateEmployee(employeeToEdit.id, {
-      ...data,
-      hireDate: data.hireDate.toISOString(),
-      terminationDate: data.terminationDate ? data.terminationDate.toISOString() : null,
-    });
+
+    const updates: Partial<Employee> & { salaryEffectiveDate?: Date } = {
+        ...data,
+        hireDate: data.hireDate.toISOString(),
+        terminationDate: data.terminationDate ? data.terminationDate.toISOString() : null,
+      };
+      
+      if (data.salary !== employeeToEdit.salary) {
+          const effectiveDate = data.salaryEffectiveDate || new Date();
+          const newHistoryEntry: SalaryHistoryEntry = {
+            amount: data.salary,
+            effectiveDate: effectiveDate.toISOString(),
+          };
+          updates.salaryHistory = employeeToEdit.salaryHistory
+            ? [...employeeToEdit.salaryHistory, newHistoryEntry]
+            : [newHistoryEntry];
+      }
+    
+      delete updates.salaryEffectiveDate;
+
+    updateEmployee(employeeToEdit.id, updates);
     toast({
         title: 'Employee Updated',
         description: "The employee's details have been saved."
     });
     setEmployeeToEdit(null);
   };
+  
+  const onSalaryIncreaseSubmit: SubmitHandler<SalaryIncreaseFormValues> = (data) => {
+    if (!employeeToEdit) return;
+  
+    const newHistoryEntry: SalaryHistoryEntry = {
+      amount: data.newSalary,
+      effectiveDate: data.effectiveDate.toISOString(),
+    };
+  
+    const updatedHistory = employeeToEdit.salaryHistory ? [...employeeToEdit.salaryHistory, newHistoryEntry] : [newHistoryEntry];
+    
+    updateEmployee(employeeToEdit.id, {
+      salary: data.newSalary,
+      salaryHistory: updatedHistory,
+    });
+  
+    toast({
+      title: "Salary Updated",
+      description: `${employeeToEdit.name}'s salary has been updated to PKR ${data.newSalary.toLocaleString()}.`,
+    });
+  
+    setEmployeeToEdit(null);
+    resetIncrease();
+  };
+
 
   const handleDeleteEmployee = () => {
     if (!employeeToDelete) return;
@@ -174,6 +229,7 @@ export default function EmployeeManagementPage() {
       setEditValue('salary', employeeToEdit.salary);
       setEditValue('hireDate', new Date(employeeToEdit.hireDate));
       setEditValue('terminationDate', employeeToEdit.terminationDate ? new Date(employeeToEdit.terminationDate) : null);
+      setEditValue('salaryEffectiveDate', new Date()); // Default to today for new changes
     } else {
       resetEdit();
     }
@@ -390,7 +446,7 @@ export default function EmployeeManagementPage() {
                                         <UserCheck className="w-4 h-4" />
                                     </Button>
                                 ) : (
-                                    <Button variant="ghost" size="icon" title="Terminate Employee" className="text-destructive hover:text-destructive" onClick={() => setEmployeeToEdit(emp)}>
+                                    <Button variant="ghost" size="icon" title="Terminate Employee" onClick={() => setEmployeeToEdit(emp)}>
                                         <UserX className="w-4 h-4" />
                                     </Button>
                                 )}
@@ -468,14 +524,14 @@ export default function EmployeeManagementPage() {
     </div>
     
     <Dialog open={!!employeeToEdit} onOpenChange={(isOpen) => !isOpen && setEmployeeToEdit(null)}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Edit Employee</DialogTitle>
+                <DialogDescription>
+                    Update the details for this employee.
+                </DialogDescription>
+            </DialogHeader>
             <form onSubmit={handleSubmitEdit(onEditSubmit)}>
-                <DialogHeader>
-                    <DialogTitle>Edit Employee</DialogTitle>
-                    <DialogDescription>
-                        Update the details for this employee.
-                    </DialogDescription>
-                </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Employee Name</Label>
@@ -490,11 +546,6 @@ export default function EmployeeManagementPage() {
                     <Label htmlFor="edit-position">Position</Label>
                     <Input id="edit-position" {...registerEdit('position')} />
                      {editErrors.position && <p className="text-sm text-destructive">{editErrors.position.message}</p>}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-salary">Salary</Label>
-                    <Input id="edit-salary" type="number" {...registerEdit('salary')} />
-                    {editErrors.salary && <p className="text-sm text-destructive">{editErrors.salary.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Date of Joining</Label>
@@ -512,6 +563,40 @@ export default function EmployeeManagementPage() {
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setEmployeeToEdit(null)}>Cancel</Button>
                     <Button type="submit">Save Changes</Button>
+                </DialogFooter>
+            </form>
+            <Separator className="my-4"/>
+            <form onSubmit={handleSubmitIncrease(onSalaryIncreaseSubmit)}>
+                <DialogHeader>
+                    <DialogTitle>Record Pay Increase</DialogTitle>
+                    <DialogDescription>
+                        This will update the employee's current salary and record this change in their history.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="current-salary">Current Salary</Label>
+                        <Input id="current-salary" value={`PKR ${employeeToEdit?.salary.toLocaleString()}`} readOnly disabled />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="newSalary">New Salary (PKR)</Label>
+                        <Input id="newSalary" type="number" {...registerIncrease('newSalary')} />
+                        {increaseErrors.newSalary && <p className="text-sm text-destructive">{increaseErrors.newSalary.message}</p>}
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                        <Label>Effective Date</Label>
+                        <Controller
+                            name="effectiveDate"
+                            control={controlIncrease}
+                            render={({ field }) => (
+                                <DateDropdowns value={field.value} onChange={field.onChange} />
+                            )}
+                        />
+                        {increaseErrors.effectiveDate && <p className="text-sm text-destructive">{increaseErrors.effectiveDate.message}</p>}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="submit">Apply Pay Increase</Button>
                 </DialogFooter>
             </form>
         </DialogContent>

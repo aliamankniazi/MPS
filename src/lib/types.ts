@@ -105,12 +105,18 @@ export interface BankAccount {
   timestamp: string;
 }
 
+export interface SalaryHistoryEntry {
+  amount: number;
+  effectiveDate: string;
+}
+
 export interface Employee {
   id: string;
   name: string;
   mobileNumber?: string;
   position: string;
   salary: number;
+  salaryHistory?: SalaryHistoryEntry[];
   hireDate: string;
   terminationDate?: string | null;
   timestamp: string;
