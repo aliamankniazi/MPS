@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -9,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Fuel } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -55,8 +54,12 @@ export default function SignupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-2xl">
+        <CardHeader className="text-center">
+            <div className="flex justify-center items-center gap-2 mb-4">
+                <Fuel className="h-8 w-8 text-primary" />
+                <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
+            </div>
+          <CardTitle className="flex items-center justify-center gap-2 text-2xl">
             <UserPlus /> Sign Up
           </CardTitle>
           <CardDescription>Create a new account to get started.</CardDescription>
