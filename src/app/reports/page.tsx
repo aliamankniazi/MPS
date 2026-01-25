@@ -29,6 +29,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { Permission } from '@/hooks/use-roles';
 import { useDatabase } from '@/hooks/use-database';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 
 interface ReportCardProps {
   title: string;
@@ -36,6 +38,7 @@ interface ReportCardProps {
   href: string;
   icon: LucideIcon;
   permission: Permission;
+  isFrequentlyUsed?: boolean;
 }
 
 const reportList: ReportCardProps[] = [
@@ -46,6 +49,7 @@ const reportList: ReportCardProps[] = [
     href: '/credit-recovery',
     icon: CreditCard,
     permission: 'view_credit_recovery',
+    isFrequentlyUsed: true,
   },
   {
     title: 'Top Customers Report',
@@ -60,6 +64,7 @@ const reportList: ReportCardProps[] = [
     href: '/defaulter-report',
     icon: UserX,
     permission: 'view_credit_recovery',
+    isFrequentlyUsed: true,
   },
   {
     title: 'Customer Recovery & Sale',
@@ -75,6 +80,7 @@ const reportList: ReportCardProps[] = [
     href: '/ledger',
     icon: BookOpen,
     permission: 'view_ledger',
+    isFrequentlyUsed: true,
   },
   {
     title: 'Date Wise Business Report',
@@ -111,6 +117,7 @@ const reportList: ReportCardProps[] = [
     href: '/ledger',
     icon: Package,
     permission: 'view_ledger',
+    isFrequentlyUsed: true,
   },
   {
     title: 'Product Profit Margin Report',
@@ -167,21 +174,21 @@ const reportList: ReportCardProps[] = [
 ];
 
 
-const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) => (
-  <Card className="flex flex-col hover:shadow-lg transition-shadow rounded-2xl">
+const ReportCard = ({ title, description, href, icon: Icon, isFrequentlyUsed }: ReportCardProps) => (
+  <Card className={cn("flex flex-col hover:shadow-lg transition-shadow rounded-2xl", isFrequentlyUsed ? "border-red-500" : "border-blue-500")}>
     <CardHeader className="flex-row items-center gap-4 space-y-0">
       <div className="p-3 bg-muted rounded-full">
-        <Icon className="w-6 h-6 text-primary" />
+        <Icon className={cn("w-6 h-6", isFrequentlyUsed ? "text-red-500" : "text-blue-500")} />
       </div>
       <div>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle className={cn(isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>{title}</CardTitle>
       </div>
     </CardHeader>
     <CardContent className="flex-grow">
       <p className="text-sm text-muted-foreground">{description}</p>
     </CardContent>
     <CardContent>
-      <Button asChild variant="link" className="p-0 h-auto">
+      <Button asChild variant="link" className={cn("p-0 h-auto", isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>
         <Link href={href}>
           View Report <ArrowRight className="ml-2 w-4 h-4" />
         </Link>
@@ -192,7 +199,9 @@ const ReportCard = ({ title, description, href, icon: Icon }: ReportCardProps) =
 
 export default function ReportsPage() {
   const { dateRange, setDateRange } = useDatabase();
-  const availableReports = reportList;
+  const { hasPermission } = useAuth();
+  
+  const availableReports = reportList.filter(report => hasPermission(report.permission));
 
   return (
     <div className="p-4 md:p-8 space-y-6">
