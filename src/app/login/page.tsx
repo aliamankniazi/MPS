@@ -60,7 +60,6 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
             </div>
             <p className="text-sm text-muted-foreground">Ballo Khel Road Opposite Assistant Commissioner House Mianwali</p>
-          <CardDescription className="pt-4">Enter your credentials to access your account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
