@@ -206,7 +206,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </SidebarMenuItem>
             ))}
             <SidebarMenuItem>
-              <Button variant="ghost" className="w-full justify-start gap-2" onClick={signOut}>
+              <Button variant="ghost" className="w-full justify-start gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={signOut}>
                 <LogOut />
                 Sign Out
               </Button>
