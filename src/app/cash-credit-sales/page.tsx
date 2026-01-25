@@ -3,31 +3,39 @@
 
 import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { startOfDay, endOfDay, isValid } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format } from 'date-fns';
 import { Fuel, Droplets, XCircle } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 interface SalesSummary {
     cashSales: number; // volume in liters
     creditSales: number; // volume in liters
 }
 
-type Report = {
-    rows: {
-        fuelType: string;
-        cashSales: number;
-        creditSales: number;
-    }[];
-    totals: SalesSummary;
+type GroupedReport = {
+    [dateKey: string]: {
+        rows: {
+            fuelType: string;
+            cashSales: number;
+            creditSales: number;
+        }[];
+        totals: SalesSummary;
+    }
 };
 
 export default function CashCreditSalesReportPage() {
     const { transactions, products, isLoaded, dateRange } = useDatabase();
 
-    const reportData: Report = useMemo(() => {
-        if (!isLoaded || !products.length) return { rows: [], totals: { cashSales: 0, creditSales: 0 } };
+    const groupedReportData: GroupedReport = useMemo(() => {
+        if (!isLoaded || !products.length) return {};
 
         const mainProducts = products.filter(p => p.category === 'Main Product').map(p => p.name);
 
@@ -41,40 +49,59 @@ export default function CashCreditSalesReportPage() {
             });
         }
         
-        const summaryByFuel = filteredTransactions.reduce((acc, tx) => {
+        const summaryByDateAndFuel = filteredTransactions.reduce((acc, tx) => {
+            const date = new Date(tx.timestamp);
+            if (!isValid(date)) return acc;
+
+            const dateKey = format(date, 'yyyy-MM-dd');
             const fuelType = tx.fuelType as FuelType;
+
             if (!tx.volume || !mainProducts.includes(fuelType)) {
                 return acc;
             }
-    
-            if (!acc[fuelType]) {
-                acc[fuelType] = { cashSales: 0, creditSales: 0 };
-            }
-    
-            if (tx.paymentMethod === 'Credit') {
-                acc[fuelType].creditSales += tx.volume;
-            } else {
-                acc[fuelType].cashSales += tx.volume;
-            }
-    
-            return acc;
-        }, {} as Record<string, SalesSummary>);
-    
-        const rows = Object.keys(summaryByFuel).map(fuelType => ({
-            fuelType,
-            cashSales: summaryByFuel[fuelType].cashSales,
-            creditSales: summaryByFuel[fuelType].creditSales,
-        })).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
-        
-        const totals = rows.reduce((acc, row) => {
-            acc.cashSales += row.cashSales;
-            acc.creditSales += row.creditSales;
-            return acc;
-        }, { cashSales: 0, creditSales: 0 });
 
-        return { rows, totals };
-    
+            if (!acc[dateKey]) {
+                acc[dateKey] = {};
+            }
+            if (!acc[dateKey][fuelType]) {
+                acc[dateKey][fuelType] = { cashSales: 0, creditSales: 0 };
+            }
+
+            if (tx.paymentMethod === 'Credit') {
+                acc[dateKey][fuelType].creditSales += tx.volume;
+            } else {
+                acc[dateKey][fuelType].cashSales += tx.volume;
+            }
+
+            return acc;
+        }, {} as Record<string, Record<string, SalesSummary>>);
+
+        const result: GroupedReport = {};
+
+        for (const dateKey in summaryByDateAndFuel) {
+            const dailyFuelSummary = summaryByDateAndFuel[dateKey];
+            const rows = Object.keys(dailyFuelSummary).map(fuelType => ({
+                fuelType,
+                cashSales: dailyFuelSummary[fuelType].cashSales,
+                creditSales: dailyFuelSummary[fuelType].creditSales,
+            })).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+
+            const totals = rows.reduce((acc, row) => {
+                acc.cashSales += row.cashSales;
+                acc.creditSales += row.creditSales;
+                return acc;
+            }, { cashSales: 0, creditSales: 0 });
+
+            result[dateKey] = { rows, totals };
+        }
+
+        return result;
+
     }, [isLoaded, transactions, products, dateRange]);
+    
+    const sortedDateKeys = useMemo(() => {
+        return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    }, [groupedReportData]);
     
     return (
         <div className="p-4 md:p-8">
@@ -84,39 +111,56 @@ export default function CashCreditSalesReportPage() {
                         <Droplets /> Cash & Credit Sales Report (Volume in Liters)
                     </CardTitle>
                     <CardDescription>
-                        A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period.
+                        A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period, grouped by date.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {isLoaded && reportData.rows.length > 0 ? (
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Fuel Type</TableHead>
-                                    <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
-                                    <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
-                                    <TableHead className="text-right">Total Sales (Liters)</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {reportData.rows.map(row => (
-                                    <TableRow key={row.fuelType}>
-                                        <TableCell className="font-medium flex items-center gap-2"><Fuel size={16}/> {row.fuelType}</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600">{row.cashSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-blue-600">{row.creditSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono font-bold">{(row.cashSales + row.creditSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                             <TableFooter>
-                                <TableRow className="font-bold">
-                                    <TableCell>Total</TableCell>
-                                    <TableCell className="text-right font-mono text-green-600">{reportData.totals.cashSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                    <TableCell className="text-right font-mono text-blue-600">{reportData.totals.creditSales.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                    <TableCell className="text-right font-mono">{(reportData.totals.cashSales + reportData.totals.creditSales).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                </TableRow>
-                            </TableFooter>
-                        </Table>
+                    {isLoaded && sortedDateKeys.length > 0 ? (
+                        <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedDateKeys}>
+                           {sortedDateKeys.map(dateKey => {
+                                const dayData = groupedReportData[dateKey];
+                                if (!dayData) return null;
+
+                                return (
+                                <AccordionItem value={dateKey} key={dateKey} className="border-b-0">
+                                    <Card>
+                                        <AccordionTrigger className="p-4 hover:no-underline text-lg">
+                                            <div className="flex justify-between w-full pr-4 items-center">
+                                                <span className="font-semibold">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
+                                                <div className="flex gap-4 text-sm font-normal">
+                                                    <span className="text-green-600">Cash: {dayData.totals.cashSales.toFixed(2)} L</span>
+                                                    <span className="text-blue-600">Credit: {dayData.totals.creditSales.toFixed(2)} L</span>
+                                                    <span className="font-bold">Total: {(dayData.totals.cashSales + dayData.totals.creditSales).toFixed(2)} L</span>
+                                                </div>
+                                            </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="px-4 pb-4">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Fuel Type</TableHead>
+                                                        <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
+                                                        <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
+                                                        <TableHead className="text-right">Total Sales (Liters)</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {dayData.rows.map(row => (
+                                                        <TableRow key={row.fuelType}>
+                                                            <TableCell className="font-medium flex items-center gap-2"><Fuel size={16}/> {row.fuelType}</TableCell>
+                                                            <TableCell className="text-right font-mono text-green-600">{row.cashSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono text-blue-600">{row.creditSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono font-bold">{(row.cashSales + row.creditSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        </AccordionContent>
+                                    </Card>
+                                </AccordionItem>
+                                );
+                           })}
+                        </Accordion>
                     ) : (
                         <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                             <XCircle className="w-16 h-16" />
