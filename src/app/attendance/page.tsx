@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock } from 'lucide-react';
-import { format, isToday, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -54,9 +54,8 @@ export default function EmployeeManagementPage() {
   const [showTerminated, setShowTerminated] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
+  const [attendanceDate, setAttendanceDate] = useState(new Date());
   const [historyDate, setHistoryDate] = useState<Date | undefined>();
-
-  const today = useMemo(() => new Date(), []);
 
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EmployeeFormValues>({
@@ -76,17 +75,17 @@ export default function EmployeeManagementPage() {
   const onAddSubmit: SubmitHandler<EmployeeFormValues> = async (data) => {
     const newEmployee = await addEmployee({ ...data, hireDate: data.hireDate.toISOString(), timestamp: new Date().toISOString() });
     
-    // Automatically mark the new employee as present for today
+    // Automatically mark the new employee as present for the selected attendance date
     await addAttendance({
       employeeId: newEmployee.id,
       employeeName: newEmployee.name,
-      date: today.toISOString(),
+      date: attendanceDate.toISOString(),
       status: 'Present',
     });
 
     toast({
       title: 'Employee Added & Attendance Marked',
-      description: `${data.name} has been added and marked as Present for today.`,
+      description: `${data.name} has been added and marked as Present for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
     });
     
     reset({ name: '', mobileNumber: '', position: '', salary: 0, hireDate: new Date() });
@@ -173,23 +172,22 @@ export default function EmployeeManagementPage() {
     return employees.filter(emp => !emp.terminationDate);
   }, [employees]);
   
-  const todayAttendance = useMemo(() => {
-    return attendance.filter(a => isToday(new Date(a.date)));
-  }, [attendance]);
+  const selectedDayAttendance = useMemo(() => {
+    const selectedDateStr = format(attendanceDate, 'yyyy-MM-dd');
+    return attendance.filter(a => a.date.startsWith(selectedDateStr));
+  }, [attendance, attendanceDate]);
   
   const handleAttendanceChange = (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
-    const existingRecord = todayAttendance.find(a => a.employeeId === employee.id);
-
     addAttendance({
       employeeId: employee.id,
       employeeName: employee.name,
-      date: today.toISOString(),
+      date: attendanceDate.toISOString(),
       status: status,
     });
 
     toast({
       title: 'Attendance Marked',
-      description: `${employee.name} marked as ${status}.`,
+      description: `${employee.name} marked as ${status} for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
     });
   };
   
@@ -295,19 +293,24 @@ export default function EmployeeManagementPage() {
         <div className="lg:col-span-2 space-y-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">Daily Attendance - {format(today, 'dd-MMM-yyyy')}</CardTitle>
-                    <CardDescription>Mark the attendance for all active employees for today.</CardDescription>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Attendance Sheet</CardTitle>
+                            <CardDescription>Mark attendance for the selected date.</CardDescription>
+                        </div>
+                        <DateDropdowns value={attendanceDate} onChange={setAttendanceDate} />
+                    </div>
                 </CardHeader>
                 <CardContent>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {activeEmployees.map(emp => {
-                             const currentStatus = todayAttendance.find(a => a.employeeId === emp.id)?.status;
+                             const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
                              return (
                                 <Card key={emp.id} className="p-4">
                                     <div className="font-medium text-center">{emp.name}</div>
                                     <div className="text-sm text-muted-foreground text-center mb-4">{emp.position}</div>
                                     <RadioGroup 
-                                        defaultValue={currentStatus} 
+                                        value={currentStatus || ''} 
                                         className="grid grid-cols-3 gap-2"
                                         onValueChange={(value) => handleAttendanceChange(emp, value as 'Present' | 'Absent' | 'Leave')}
                                     >
