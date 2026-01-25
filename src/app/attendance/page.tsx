@@ -22,7 +22,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 
 
@@ -190,6 +189,38 @@ export default function EmployeeManagementPage() {
       description: `${employee.name} marked as ${status} for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
     });
   };
+
+  const handleDateSelectForStatus = (employee: Employee, status: 'Absent' | 'Leave', date: Date | undefined) => {
+    if (!date) return;
+    addAttendance({
+        employeeId: employee.id,
+        employeeName: employee.name,
+        date: date.toISOString(),
+        status: status,
+    });
+    toast({
+        title: 'Attendance Marked',
+        description: `${employee.name} marked as ${status} for ${format(date, 'dd-MMM-yyyy')}.`,
+    });
+  };
+
+  const handleMarkAllPresent = () => {
+    activeEmployees.forEach(emp => {
+        const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
+        if (!currentStatus || currentStatus !== 'Present') {
+             addAttendance({
+                employeeId: emp.id,
+                employeeName: emp.name,
+                date: attendanceDate.toISOString(),
+                status: 'Present',
+            });
+        }
+    });
+    toast({
+      title: 'Attendance Marked',
+      description: `All employees marked as Present for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
+    });
+  }
   
   const filteredHistory = useMemo(() => {
     if (!historyDate) return [];
@@ -298,7 +329,10 @@ export default function EmployeeManagementPage() {
                             <CardTitle>Attendance Sheet</CardTitle>
                             <CardDescription>Mark attendance for the selected date.</CardDescription>
                         </div>
-                        <DateDropdowns value={attendanceDate} onChange={setAttendanceDate} />
+                         <div className="flex items-center gap-2">
+                            <Button onClick={handleMarkAllPresent}><UserCheck className="mr-2 h-4 w-4"/> Mark All Present</Button>
+                            <DateDropdowns value={attendanceDate} onChange={setAttendanceDate} />
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -309,27 +343,52 @@ export default function EmployeeManagementPage() {
                                 <Card key={emp.id} className="p-4">
                                     <div className="font-medium text-center">{emp.name}</div>
                                     <div className="text-sm text-muted-foreground text-center mb-4">{emp.position}</div>
-                                    <RadioGroup 
-                                        value={currentStatus || ''} 
-                                        className="grid grid-cols-3 gap-2"
-                                        onValueChange={(value) => handleAttendanceChange(emp, value as 'Present' | 'Absent' | 'Leave')}
-                                    >
-                                        <Label htmlFor={`present-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Present' && 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300')}>
-                                            <RadioGroupItem value="Present" id={`present-${emp.id}`} className="sr-only" />
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Present' && 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300')}
+                                            onClick={() => handleAttendanceChange(emp, 'Present')}
+                                        >
                                             <UserCheck className="w-5 h-5"/>
                                             <span className="text-xs font-semibold">Present</span>
-                                        </Label>
-                                         <Label htmlFor={`absent-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}>
-                                            <RadioGroupItem value="Absent" id={`absent-${emp.id}`} className="sr-only" />
-                                            <UserX className="w-5 h-5"/>
-                                            <span className="text-xs font-semibold">Absent</span>
-                                        </Label>
-                                         <Label htmlFor={`leave-${emp.id}`} className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}>
-                                            <RadioGroupItem value="Leave" id={`leave-${emp.id}`} className="sr-only" />
-                                            <Clock className="w-5 h-5"/>
-                                            <span className="text-xs font-semibold">Leave</span>
-                                        </Label>
-                                    </RadioGroup>
+                                        </Button>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}
+                                                >
+                                                    <UserX className="w-5 h-5"/>
+                                                    <span className="text-xs font-semibold">Absent</span>
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    onSelect={(date) => handleDateSelectForStatus(emp, 'Absent', date)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                 <Button
+                                                    variant="outline"
+                                                    className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}
+                                                >
+                                                    <Clock className="w-5 h-5"/>
+                                                    <span className="text-xs font-semibold">Leave</span>
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    onSelect={(date) => handleDateSelectForStatus(emp, 'Leave', date)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
                                 </Card>
                              )
                         })}
