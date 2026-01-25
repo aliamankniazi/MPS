@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -119,6 +120,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     if (href === '/') return pathname === '/';
     return pathname.startsWith(href) && href !== '/';
   }
+
+  React.useEffect(() => {
+    let activityTimer: ReturnType<typeof setTimeout>;
+
+    const resetTimer = () => {
+      clearTimeout(activityTimer);
+      activityTimer = setTimeout(() => {
+        // signOut user after 10 minutes of inactivity
+        signOut();
+      }, 10 * 60 * 1000); // 10 minutes
+    };
+
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll'];
+    
+    events.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    resetTimer(); // Initialize timer
+
+    return () => {
+      clearTimeout(activityTimer);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [signOut]);
 
   return (
     <SidebarProvider>
