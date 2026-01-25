@@ -60,6 +60,8 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
             </div>
             <p className="text-sm text-pink-600">Ballo Khel Road Opposite Assistant Commissioner House Mianwali</p>
+            <p className="text-sm text-muted-foreground">Proprietor: Muhammad Ali Aman Khan Niazi</p>
+            <p className="text-sm text-muted-foreground">Mobile: 0333-5425401, 0322-5824444</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
