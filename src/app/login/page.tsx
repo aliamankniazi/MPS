@@ -81,7 +81,7 @@ export default function LoginPage() {
               {loading ? 'Logging in...' : 'Login'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 text-center text-sm text-pink-600">
             Don't have an account?{' '}
             <Link href="/signup" className="underline">
               Sign up

@@ -81,7 +81,7 @@ export default function SignupPage() {
               {loading ? 'Creating account...' : 'Sign Up'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+          <div className="mt-4 text-center text-sm text-pink-600">
             Already have an account?{' '}
             <Link href="/login" className="underline">
               Login
