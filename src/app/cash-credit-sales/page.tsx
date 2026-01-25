@@ -16,16 +16,18 @@ import {
 } from "@/components/ui/accordion";
 
 interface SalesSummary {
-    cashSales: number; // volume in liters
-    creditSales: number; // volume in liters
+    cashSalesVolume: number;
+    creditSalesVolume: number;
+    cashSalesAmount: number;
+    creditSalesAmount: number;
 }
 
 type GroupedReport = {
     [dateKey: string]: {
         rows: {
             fuelType: string;
-            cashSales: number;
-            creditSales: number;
+            cashSalesVolume: number;
+            creditSalesVolume: number;
         }[];
         totals: SalesSummary;
     }
@@ -64,13 +66,15 @@ export default function CashCreditSalesReportPage() {
                 acc[dateKey] = {};
             }
             if (!acc[dateKey][fuelType]) {
-                acc[dateKey][fuelType] = { cashSales: 0, creditSales: 0 };
+                acc[dateKey][fuelType] = { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 };
             }
 
             if (tx.paymentMethod === 'Credit') {
-                acc[dateKey][fuelType].creditSales += tx.volume;
+                acc[dateKey][fuelType].creditSalesVolume += tx.volume;
+                acc[dateKey][fuelType].creditSalesAmount += tx.totalAmount;
             } else {
-                acc[dateKey][fuelType].cashSales += tx.volume;
+                acc[dateKey][fuelType].cashSalesVolume += tx.volume;
+                acc[dateKey][fuelType].cashSalesAmount += tx.totalAmount;
             }
 
             return acc;
@@ -82,15 +86,17 @@ export default function CashCreditSalesReportPage() {
             const dailyFuelSummary = summaryByDateAndFuel[dateKey];
             const rows = Object.keys(dailyFuelSummary).map(fuelType => ({
                 fuelType,
-                cashSales: dailyFuelSummary[fuelType].cashSales,
-                creditSales: dailyFuelSummary[fuelType].creditSales,
+                cashSalesVolume: dailyFuelSummary[fuelType].cashSalesVolume,
+                creditSalesVolume: dailyFuelSummary[fuelType].creditSalesVolume,
             })).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
 
-            const totals = rows.reduce((acc, row) => {
-                acc.cashSales += row.cashSales;
-                acc.creditSales += row.creditSales;
+            const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
+                acc.cashSalesVolume += summary.cashSalesVolume;
+                acc.creditSalesVolume += summary.creditSalesVolume;
+                acc.cashSalesAmount += summary.cashSalesAmount;
+                acc.creditSalesAmount += summary.creditSalesAmount;
                 return acc;
-            }, { cashSales: 0, creditSales: 0 });
+            }, { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 });
 
             result[dateKey] = { rows, totals };
         }
@@ -128,9 +134,9 @@ export default function CashCreditSalesReportPage() {
                                             <div className="flex justify-between w-full pr-4 items-center">
                                                 <span className="font-semibold">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
                                                 <div className="flex gap-4 text-sm font-normal">
-                                                    <span className="text-green-600">Cash: {dayData.totals.cashSales.toFixed(2)} L</span>
-                                                    <span className="text-blue-600">Credit: {dayData.totals.creditSales.toFixed(2)} L</span>
-                                                    <span className="font-bold">Total: {(dayData.totals.cashSales + dayData.totals.creditSales).toFixed(2)} L</span>
+                                                    <span className="text-green-600">Cash: PKR {dayData.totals.cashSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
+                                                    <span className="text-blue-600">Credit: PKR {dayData.totals.creditSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
+                                                    <span className="font-bold">Total: PKR {(dayData.totals.cashSalesAmount + dayData.totals.creditSalesAmount).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
                                                 </div>
                                             </div>
                                         </AccordionTrigger>
@@ -148,9 +154,9 @@ export default function CashCreditSalesReportPage() {
                                                     {dayData.rows.map(row => (
                                                         <TableRow key={row.fuelType}>
                                                             <TableCell className="font-medium flex items-center gap-2"><Fuel size={16}/> {row.fuelType}</TableCell>
-                                                            <TableCell className="text-right font-mono text-green-600">{row.cashSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                            <TableCell className="text-right font-mono text-blue-600">{row.creditSales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                            <TableCell className="text-right font-mono font-bold">{(row.cashSales + row.creditSales).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono text-green-600">{row.cashSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono text-blue-600">{row.creditSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono font-bold">{(row.cashSalesVolume + row.creditSalesVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -175,4 +181,3 @@ export default function CashCreditSalesReportPage() {
         </div>
     );
 }
-
