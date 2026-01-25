@@ -45,7 +45,7 @@ const salaryIncreaseSchema = z.object({
 type SalaryIncreaseFormValues = z.infer<typeof salaryIncreaseSchema>;
 
 export default function EmployeeManagementPage() {
-  const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded, customers, addCashAdvance } = useDatabase();
+  const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded, customers, addCashAdvance, cashAdvances, deleteCashAdvance } = useDatabase();
   const { toast } = useToast();
   
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
@@ -214,21 +214,41 @@ export default function EmployeeManagementPage() {
         });
     };
 
-    const handleAttendanceChange = (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
-        addAttendance({
-        employeeId: employee.id,
-        employeeName: employee.name,
-        date: attendanceDate.toISOString(),
-        status: status,
+    const handleAttendanceChange = async (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
+        const existingRecord = selectedDayAttendance.find(a => a.employeeId === employee.id);
+        const wasAbsent = existingRecord?.status === 'Absent';
+        
+        await addAttendance({
+            employeeId: employee.id,
+            employeeName: employee.name,
+            date: attendanceDate.toISOString(),
+            status: status,
         });
 
         toast({
-        title: 'Attendance Marked',
-        description: `${employee.name} marked as ${status} for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
+            title: 'Attendance Marked',
+            description: `${employee.name} marked as ${status} for ${format(attendanceDate, 'dd-MMM-yyyy')}.`,
         });
+        
+        // If status changed from Absent to something else, reverse deduction
+        if (wasAbsent && status !== 'Absent') {
+            const deductionNote = `Salary deduction for absence on ${format(attendanceDate, 'dd-MMM-yyyy')}`;
+            // Find the deduction entry for that employee with the specific note
+            const deductionEntry = cashAdvances.find(ca => 
+                ca.customerName === employee.name && ca.notes === deductionNote
+            );
+            if (deductionEntry) {
+                deleteCashAdvance(deductionEntry.id);
+                toast({
+                    title: 'Deduction Reversed',
+                    description: `Salary deduction for ${employee.name} has been reversed.`,
+                });
+            }
+        }
 
-        if (status === 'Absent') {
-        handleAbsenceDeduction(employee, attendanceDate);
+        // If status changes to Absent, apply deduction
+        if (status === 'Absent' && !wasAbsent) {
+            await handleAbsenceDeduction(employee, attendanceDate);
         }
     };
 
