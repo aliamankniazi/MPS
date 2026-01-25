@@ -54,7 +54,7 @@ export function TransactionNav() {
                                 borderColor: isActive ? color : 'transparent'
                             }}
                         >
-                            <Link href={item.href} style={{ color: isActive ? color : '#6b7280' }} className="hover:opacity-80 transition-opacity">
+                            <Link href={item.href} style={{ color: color }} className="hover:opacity-80 transition-opacity">
                                 <item.icon className="mr-2"/> {item.label}
                             </Link>
                         </Button>
