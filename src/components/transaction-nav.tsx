@@ -34,7 +34,7 @@ export function TransactionNav() {
     const pathname = usePathname();
     return (
         <nav className="bg-background shadow-sm">
-            <div className="container mx-auto px-4 flex items-center space-x-1 overflow-x-auto">
+            <div className="container mx-auto px-4 flex flex-wrap">
                 {navItems.map(item => (
                     <Button
                         asChild
