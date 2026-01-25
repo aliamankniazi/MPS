@@ -55,11 +55,12 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-            <div className="flex justify-center items-center gap-2 mb-4">
+            <div className="flex justify-center items-center gap-2 mb-2">
                 <Fuel className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
             </div>
-          <CardTitle className="flex items-center justify-center gap-2 text-2xl">
+            <p className="text-sm text-muted-foreground">Ballo Khel Road Opposite Assistant Comissioner House Mianwali</p>
+          <CardTitle className="flex items-center justify-center gap-2 text-2xl pt-4">
             <LogIn /> Login
           </CardTitle>
           <CardDescription>Enter your credentials to access your account.</CardDescription>
