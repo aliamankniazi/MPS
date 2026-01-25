@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -59,7 +60,7 @@ export default function SignupPage() {
                 <Fuel className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
             </div>
-            <p className="text-sm text-muted-foreground">Ballo Khel Road Opposite Assistant Comissioner House Mianwali</p>
+            <p className="text-sm text-muted-foreground">Ballo Khel Road Opposite Assistant Commissioner House Mianwali</p>
           <CardTitle className="flex items-center justify-center gap-2 text-2xl pt-4">
             <UserPlus /> Sign Up
           </CardTitle>
