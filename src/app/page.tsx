@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -147,7 +146,7 @@ export default function DashboardPage() {
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
 
-    const { transactions, purchases, expenses, otherIncomes } = filteredData;
+    const { transactions, purchases, expenses, otherIncomes, stockAdjustments: filteredStockAdjustments } = filteredData;
 
     const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
     const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
@@ -171,13 +170,15 @@ export default function DashboardPage() {
         }
     }
     
-    const totalSurplus = stockAdjustments
+    const totalSurplus = filteredStockAdjustments
       .filter(adj => adj.adjustment > 0)
       .reduce((sum, adj) => sum + adj.value, 0);
 
-    const totalShortage = stockAdjustments
+    const totalShortage = filteredStockAdjustments
       .filter(adj => adj.adjustment < 0)
       .reduce((sum, adj) => sum + adj.value, 0);
+      
+    const netStockAdjustment = totalSurplus - totalShortage;
 
 
     return {
@@ -187,10 +188,9 @@ export default function DashboardPage() {
       netProfit,
       activeCustomers,
       bestSaleDay,
-      totalSurplus,
-      totalShortage,
+      netStockAdjustment,
     };
-  }, [isLoaded, filteredData, stockAdjustments]);
+  }, [isLoaded, filteredData]);
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
@@ -430,22 +430,23 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Stock Surplus</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-primary">
+                    {financialSummary && financialSummary.netStockAdjustment >= 0 ? 'Stock Surplus' : 'Stock Loss'}
+                </CardTitle>
+                {financialSummary && financialSummary.netStockAdjustment >= 0 ? (
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                    <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                )}
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalSurplus.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Value of surplus stock</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Stock Shortage</CardTitle>
-                <TrendingDown className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalShortage.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Value of stock shortage</p>
+                <div className={cn(
+                    "text-2xl font-bold",
+                    financialSummary && financialSummary.netStockAdjustment >= 0 ? 'text-[hsl(var(--chart-2))]' : 'text-destructive'
+                )}>
+                    PKR {financialSummary ? Math.abs(financialSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '...'}
+                </div>
+                <p className="text-xs text-muted-foreground">Net value of stock adjustments</p>
               </CardContent>
             </Card>
             <Card>
