@@ -158,7 +158,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <SidebarMenu>
             {topNavItems.map(item => (
               <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
+                  <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label} className={cn(item.href === '/' && 'text-green-600 hover:text-green-700 data-[active=true]:text-green-700')}>
                       <Link href={item.href} legacyBehavior={false}>
                           <item.icon />
                           <span>{item.label}</span>
