@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -21,7 +20,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -37,6 +36,7 @@ const navGroups = [
             { href: '/all-invoices', label: 'All Invoices', icon: Receipt },
             { href: '/ledger', label: 'General Journal', icon: BookOpen },
             { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins },
+            { href: '/cash-credit-sales', label: 'Sales By Type', icon: Droplets },
         ]
     },
     {

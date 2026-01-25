@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +23,7 @@ import {
   Wallet,
   Users,
   Receipt,
+  Droplets,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Permission } from '@/hooks/use-roles';
@@ -42,6 +42,15 @@ interface ReportCardProps {
 }
 
 const reportList: ReportCardProps[] = [
+  // New Report
+  {
+    title: 'Cash & Credit Sales Report',
+    description: 'Breaks down fuel sales by volume (in liters) for cash and credit transactions.',
+    href: '/cash-credit-sales',
+    icon: Droplets,
+    permission: 'view_sales_by_type_report',
+    isFrequentlyUsed: true,
+  },
   // Sales & Customer Reports
   {
     title: 'Date Wise Sale And Recovery Report',
