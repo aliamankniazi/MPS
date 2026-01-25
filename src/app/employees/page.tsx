@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -78,10 +78,10 @@ function PageHeader() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, attendance } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
-  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number } | null>(null);
+  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number; baseSalary: number; absentDays: number; daysInMonth: number; } | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
@@ -105,11 +105,29 @@ export default function SalaryPaymentPage() {
         toast({ variant: 'destructive', title: 'Salary Not Set', description: `Salary for ${employee.name} is not set or is zero. Please update their salary in the attendance page.` });
         return;
     }
+    
+    const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
+    const daysInMonth = getDaysInMonth(salaryMonthDate);
+    
+    const employeeAttendance = attendance.filter(a => 
+        a.employeeId === data.employeeId &&
+        new Date(a.date).getFullYear() === salaryMonthDate.getFullYear() &&
+        new Date(a.date).getMonth() === salaryMonthDate.getMonth()
+    );
+
+    const absentDays = employeeAttendance.filter(a => a.status === 'Absent').length;
+    
+    const dailySalary = employee.salary / daysInMonth;
+    const calculatedSalary = Math.round(Math.max(0, employee.salary - (absentDays * dailySalary)));
+
 
     setPaymentToConfirm({
         ...data,
         employeeName: employee.name,
-        salaryAmount: employee.salary,
+        salaryAmount: calculatedSalary,
+        baseSalary: employee.salary,
+        absentDays,
+        daysInMonth
     });
   };
 
@@ -362,8 +380,20 @@ export default function SalaryPaymentPage() {
                     <span className="text-muted-foreground">Salary for:</span>
                     <span className="font-semibold">{paymentToConfirm.salaryMonth} {paymentToConfirm.salaryYear}</span>
                 </div>
+                <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="text-muted-foreground">Base Salary:</span>
+                    <span className="font-semibold">PKR {paymentToConfirm.baseSalary.toLocaleString()}</span>
+                </div>
+                 <div className="flex justify-between">
+                    <span className="text-muted-foreground">Days in Month:</span>
+                    <span className="font-semibold">{paymentToConfirm.daysInMonth}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-muted-foreground">Days Absent:</span>
+                    <span className="font-semibold text-destructive">{paymentToConfirm.absentDays}</span>
+                </div>
                 <div className="flex justify-between text-lg">
-                    <span className="text-muted-foreground">Amount:</span>
+                    <span className="text-muted-foreground">Calculated Salary:</span>
                     <span className="font-bold text-primary">PKR {paymentToConfirm.salaryAmount.toLocaleString()}</span>
                 </div>
             </div>
