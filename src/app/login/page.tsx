@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -61,10 +60,7 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold text-primary">Mianwali Petroleum Service</h1>
             </div>
             <p className="text-sm text-muted-foreground">Ballo Khel Road Opposite Assistant Commissioner House Mianwali</p>
-          <CardTitle className="flex items-center justify-center gap-2 text-2xl pt-4">
-            <LogIn /> Login
-          </CardTitle>
-          <CardDescription>Enter your credentials to access your account.</CardDescription>
+          <CardDescription className="pt-4">Enter your credentials to access your account.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
