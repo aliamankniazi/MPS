@@ -379,7 +379,7 @@ export default function DashboardPage() {
         <div>
             <div className="flex items-baseline gap-4">
               <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
-              <p className="text-xl font-bold text-primary">{currentTime}</p>
+              <p className="text-xl font-bold text-destructive">{currentTime}</p>
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
