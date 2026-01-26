@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, addSupplierPayment, isLoaded, dateRange } = useDatabase();
+  const { suppliers, addSupplierPayment, isLoaded, dateRange, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
@@ -111,7 +111,7 @@ export default function SupplierPaymentsPage() {
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle>New Supplier Payment</CardTitle>
+              <CardTitle style={{ color: colorSettings['Supplier Payment'] || '#EC4899' }}>New Supplier Payment</CardTitle>
               <CardDescription>Record a payment made to a supplier.</CardDescription>
             </CardHeader>
             <CardContent>
