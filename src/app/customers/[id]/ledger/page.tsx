@@ -34,7 +34,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Salary Expense' | 'Stock Surplus' | 'Stock Shortage';
+  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal';
   debit: number;
   credit: number;
   balance: number;
@@ -54,14 +54,12 @@ export default function CustomerLedgerPage() {
     purchases, 
     supplierPayments, 
     investments, 
-    stockAdjustments,
     deleteTransaction, 
     deletePurchase, 
     deleteCustomerPayment, 
     deleteCashAdvance, 
     deleteSupplierPayment, 
     deleteInvestment,
-    deleteStockAdjustment,
     isLoaded,
     dateRange,
   } = useDatabase();
@@ -127,7 +125,6 @@ export default function CustomerLedgerPage() {
     } else if (entityType === 'Supplier') {
         const supplierPurchases = purchases.filter(p => p.supplierId === entityId);
         const supplierPaymentsMade = supplierPayments.filter(sp => sp.supplierId === entityId);
-        const supplierStockAdjustments = stockAdjustments.filter(adj => adj.supplierId === entityId);
 
         supplierPurchases.forEach(p => combined.push({
             id: `pur-${p.id}`,
@@ -148,30 +145,6 @@ export default function CustomerLedgerPage() {
             credit: 0,
             original: sp
         }));
-
-        supplierStockAdjustments.forEach(adj => {
-            if (adj.adjustment > 0) { // Surplus is a credit to the supplier
-                combined.push({
-                    id: `adj-${adj.id}`,
-                    timestamp: adj.timestamp,
-                    description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
-                    type: 'Stock Surplus',
-                    credit: adj.value,
-                    debit: 0,
-                    original: adj
-                });
-            } else { // Shortage is a debit from the supplier
-                combined.push({
-                    id: `adj-${adj.id}`,
-                    timestamp: adj.timestamp,
-                    description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
-                    type: 'Stock Shortage',
-                    debit: adj.value,
-                    credit: 0,
-                    original: adj
-                });
-            }
-        });
     } else if (entityType === 'Partner') {
         const partnerInvestments = investments.filter(inv => inv.partnerId === entityId);
         
@@ -248,7 +221,7 @@ export default function CustomerLedgerPage() {
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, stockAdjustments, entityId, dateRange, searchTerm]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -264,7 +237,6 @@ export default function CustomerLedgerPage() {
             case 'spay': deleteSupplierPayment(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
-            case 'adj': deleteStockAdjustment(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -426,7 +398,7 @@ export default function CustomerLedgerPage() {
                     lastDate = formattedDate;
 
                     const isSale = entry.type === 'Sale';
-                    const isSalary = entry.type === 'Salary' || entry.type === 'Salary Expense';
+                    const isSalary = entry.type === 'Salary';
 
                     return (
                       <React.Fragment key={entry.id}>
@@ -459,14 +431,13 @@ export default function CustomerLedgerPage() {
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                 className={cn('text-xs', 
                                     isSale && 'bg-red-100 text-red-800 border-red-200',
-                                    (entry.type === 'Payment') && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
+                                    entry.type === 'Payment' && 'bg-teal-100 text-teal-800 border-teal-200 dark:text-teal-300 dark:bg-teal-900/50 dark:border-teal-700',
                                     entry.type === 'Supplier Payment' && 'bg-pink-100 text-pink-800 border-pink-200',
                                     isSalary && 'bg-pink-100 text-pink-800 border-pink-200',
                                     entry.type === 'Purchase' && 'bg-green-100 text-green-800 border-green-200',
                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
-                                    (entry.type === 'Stock Surplus' || entry.type === 'Stock Shortage') && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                 )}
                             >
                               {entry.type === 'Payment' ? 'Amount' : entry.type}

@@ -41,7 +41,7 @@ type LedgerEntry = {
   timestamp: string;
   description: string;
   partnerName: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Stock Surplus' | 'Stock Shortage' | 'Daily Closing Stock' | 'Salary Expense';
+  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Daily Closing Stock' | 'Salary Expense';
   debit: number;
   credit: number;
   balance: number;
@@ -61,11 +61,9 @@ type GroupedEntries = {
         cashSale: number;
         recovery: number;
         otherIncome: number;
-        stockSurplus: number;
         creditSale: number;
         cashAdvance: number;
         expenses: number;
-        stockShortage: number;
         purchases: number;
         supplierPayment: number;
     }
@@ -74,8 +72,7 @@ type GroupedEntries = {
 
 const TRANSACTION_TYPES = [
     'Sale', 'Purchase', 'Expense', 'Purchase Return', 'Sale Return', 'Other Income', 
-    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary', 'Salary Expense',
-    'Stock Surplus', 'Stock Shortage', 'Daily Closing Stock'
+    'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary', 'Salary Expense', 'Daily Closing Stock'
 ];
 
 
@@ -91,7 +88,6 @@ export default function LedgerPage() {
     investments, 
     customerPayments,
     cashAdvances,
-    stockAdjustments,
     fuelPrices,
     products,
     customers,
@@ -111,7 +107,6 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
-    deleteStockAdjustment,
   } = useDatabase();
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -334,34 +329,6 @@ export default function LedgerPage() {
             });
         }
     });
-
-    stockAdjustments.forEach(adj => {
-        if (!adj.timestamp || !isValid(new Date(adj.timestamp))) return;
-        const partnerName = adj.supplierName || 'Inventory';
-        if (adj.adjustment > 0) { // Surplus
-            combined.push({
-                id: `adj-${adj.id}`,
-                timestamp: adj.timestamp,
-                description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
-                partnerName: partnerName,
-                type: 'Stock Surplus',
-                debit: 0,
-                credit: adj.value,
-                original: adj,
-            });
-        } else { // Shortage
-            combined.push({
-                id: `adj-${adj.id}`,
-                timestamp: adj.timestamp,
-                description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
-                partnerName: partnerName,
-                type: 'Stock Shortage',
-                debit: adj.value,
-                credit: 0,
-                original: adj,
-            });
-        }
-    });
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -373,7 +340,7 @@ export default function LedgerPage() {
 
     return finalEntries;
 
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, stockAdjustments, products, customers, suppliers, businessPartners]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -475,14 +442,12 @@ export default function LedgerPage() {
           if (entry.type === 'Sale' && entry.isCreditSale) summary.creditSale += entry.debit;
           if (entry.type === 'Customer Payment' || entry.type === 'Salary') summary.recovery += entry.credit;
           if (entry.type === 'Other Income') summary.otherIncome += entry.credit;
-          if (entry.type === 'Stock Surplus') summary.stockSurplus += entry.credit;
           if (entry.type === 'Cash Advance') summary.cashAdvance += entry.debit;
           if (entry.type === 'Expense' || entry.type === 'Salary Expense') summary.expenses += entry.debit;
-          if (entry.type === 'Stock Shortage') summary.stockShortage += entry.debit;
           if (entry.type === 'Purchase') summary.purchases += entry.credit;
           if (entry.type === 'Supplier Payment') summary.supplierPayment += entry.debit;
           return summary;
-        }, { cashSale: 0, recovery: 0, otherIncome: 0, stockSurplus: 0, creditSale: 0, cashAdvance: 0, expenses: 0, stockShortage: 0, purchases: 0, supplierPayment: 0 })
+        }, { cashSale: 0, recovery: 0, otherIncome: 0, creditSale: 0, cashAdvance: 0, expenses: 0, purchases: 0, supplierPayment: 0 })
       };
     }
     
@@ -615,7 +580,6 @@ export default function LedgerPage() {
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
             case 'ca': deleteCashAdvance(id); break;
-            case 'adj': deleteStockAdjustment(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -666,7 +630,6 @@ export default function LedgerPage() {
                 case 'inv': deleteInvestment(id); break;
                 case 'wdr': deleteInvestment(id); break;
                 case 'ca': deleteCashAdvance(id); break;
-                case 'adj': deleteStockAdjustment(id); break;
                 default:
                     throw new Error('Unknown entry type for deletion.');
             }
@@ -868,14 +831,12 @@ export default function LedgerPage() {
                                             <div className="flex justify-between"><span>Cash Sale:</span> <span className="font-mono">{dayData.dailySummary.cashSale.toLocaleString()}</span></div>
                                             <div className="flex justify-between"><span>Recovery:</span> <span className="font-mono">{dayData.dailySummary.recovery.toLocaleString()}</span></div>
                                             <div className="flex justify-between"><span>Other:</span> <span className="font-mono">{dayData.dailySummary.otherIncome.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Stock Surplus:</span> <span className="font-mono">{dayData.dailySummary.stockSurplus.toLocaleString()}</span></div>
                                         </div>
                                         <div>
                                             <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenses</h4>
                                             <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
                                             <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
                                             <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Stock Shortage:</span> <span className="font-mono">{dayData.dailySummary.stockShortage.toLocaleString()}</span></div>
                                         </div>
                                         <div className="col-span-2 md:col-span-1">
                                             <h4 className="font-semibold border-b pb-1 mb-1 text-blue-600">Purchases</h4>
