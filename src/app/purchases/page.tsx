@@ -77,30 +77,25 @@ export default function PurchasesPage() {
 
   const { volume, pricePerLitre, totalCost, fuelType } = watch();
 
+  // Effect 1: Calculate totalCost when volume or price changes
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
-      const newTotal = (volume || 0) * (pricePerLitre || 0);
-      if (newTotal > 0) {
-        setValue('totalCost', newTotal, { shouldValidate: true });
-      }
+      const newTotal = (Number(volume) || 0) * (Number(pricePerLitre) || 0);
+      setValue('totalCost', newTotal, { shouldValidate: true });
     }
   }, [volume, pricePerLitre, setValue]);
 
+  // Effect 2: Calculate volume when totalCost or pricePerLitre changes, prioritizing volume calculation
   useEffect(() => {
     if (lastUserEditedField.current === 'total') {
-      if (pricePerLitre && pricePerLitre > 0) {
-        const newVolume = (totalCost || 0) / pricePerLitre;
-        if (newVolume > 0) {
-            setValue('volume', newVolume, { shouldValidate: true });
-        }
-      } else if (volume && volume > 0) {
-        const newPrice = (totalCost || 0) / volume;
-        if (newPrice > 0) {
-            setValue('pricePerLitre', newPrice, { shouldValidate: true });
-        }
+      const numPrice = Number(pricePerLitre) || 0;
+      if (numPrice > 0) {
+        const newVolume = (Number(totalCost) || 0) / numPrice;
+        setValue('volume', newVolume, { shouldValidate: true });
       }
     }
-  }, [totalCost, volume, pricePerLitre, setValue]);
+  }, [totalCost, pricePerLitre, setValue]);
+
 
   useEffect(() => {
     reset({
@@ -158,7 +153,7 @@ export default function PurchasesPage() {
         <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle style={{ color: colorSettings['Purchase'] }}>New Purchase</CardTitle>
+                <CardTitle style={{ color: colorSettings['Purchase'] || '#14B8A6' }}>New Purchase</CardTitle>
                 <CardDescription>Record a new fuel delivery from a supplier.</CardDescription>
             </CardHeader>
             <CardContent>
