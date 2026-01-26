@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -81,6 +80,7 @@ export default function SettingsPage() {
     isLoaded,
     purchases,
     machineReadings,
+    initialFuelStock,
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToEdit, setSupplierToEdit] = React.useState<Supplier | null>(null);
@@ -146,13 +146,16 @@ export default function SettingsPage() {
     const lastReading = machineReadings
         .filter(r => r.fuelType === productToEdit.name)
         .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    
+    const openingStock = initialFuelStock[productToEdit.name as FuelType] || 0;
 
     return {
         purchasePrice: purchaseRate,
         previousStock: lastReading ? lastReading.volume : null,
-        previousStockDate: lastReading ? new Date(lastReading.timestamp) : null
+        previousStockDate: lastReading ? new Date(lastReading.timestamp) : null,
+        openingStock: openingStock,
     };
-  }, [productToEdit, purchases, machineReadings]);
+  }, [productToEdit, purchases, machineReadings, initialFuelStock]);
 
 
   React.useEffect(() => {
@@ -647,7 +650,11 @@ export default function SettingsPage() {
                 <div className="grid gap-4 py-4">
                     {productExtraInfo && (
                       <>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="flex flex-col space-y-1.5 rounded-lg border p-3">
+                                <Label className="text-sm font-medium text-muted-foreground">Opening Stock</Label>
+                                <span className="font-semibold">{productExtraInfo.openingStock.toFixed(2)} Ltr</span>
+                            </div>
                             <div className="flex flex-col space-y-1.5 rounded-lg border p-3">
                               <Label className="text-sm font-medium text-muted-foreground">Last Purchase Price</Label>
                               <span className="font-semibold">{productExtraInfo.purchasePrice > 0 ? `PKR ${productExtraInfo.purchasePrice.toFixed(2)}` : 'N/A'}</span>
@@ -741,5 +748,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
