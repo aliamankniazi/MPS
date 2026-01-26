@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -81,7 +80,7 @@ export default function SalaryPaymentPage() {
   const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, attendance } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
-  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number; baseSalary: number; absentDays: number; daysInMonth: number; } | null>(null);
+  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number; baseSalary: number; presentDays: number; daysInMonth: number; } | null>(null);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
@@ -115,18 +114,17 @@ export default function SalaryPaymentPage() {
         new Date(a.date).getMonth() === salaryMonthDate.getMonth()
     );
 
-    const absentDays = employeeAttendance.filter(a => a.status === 'Absent').length;
+    const presentDays = employeeAttendance.filter(a => a.status === 'Present').length;
     
     const dailySalary = employee.salary / daysInMonth;
-    const calculatedSalary = Math.round(Math.max(0, employee.salary - (absentDays * dailySalary)));
-
+    const calculatedSalary = Math.round(dailySalary * presentDays);
 
     setPaymentToConfirm({
         ...data,
         employeeName: employee.name,
         salaryAmount: calculatedSalary,
         baseSalary: employee.salary,
-        absentDays,
+        presentDays,
         daysInMonth
     });
   };
@@ -389,8 +387,8 @@ export default function SalaryPaymentPage() {
                     <span className="font-semibold">{paymentToConfirm.daysInMonth}</span>
                 </div>
                 <div className="flex justify-between">
-                    <span className="text-muted-foreground">Days Absent:</span>
-                    <span className="font-semibold text-destructive">{paymentToConfirm.absentDays}</span>
+                    <span className="text-muted-foreground">Days Present:</span>
+                    <span className="font-semibold text-green-600">{paymentToConfirm.presentDays}</span>
                 </div>
                 <div className="flex justify-between text-lg">
                     <span className="text-muted-foreground">Calculated Salary:</span>
@@ -409,4 +407,3 @@ export default function SalaryPaymentPage() {
     </>
   );
 }
-
