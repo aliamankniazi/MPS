@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format } from 'date-fns';
-import { Fuel, Droplets, XCircle } from 'lucide-react';
+import { Fuel, Droplets, XCircle, Printer, Download } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import {
   Accordion,
@@ -14,6 +13,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { DateRangePicker } from '@/components/date-range-picker';
+import { Button } from '@/components/ui/button';
+import * as XLSX from 'xlsx';
+
 
 interface SalesSummary {
     cashSalesVolume: number;
@@ -34,7 +37,7 @@ type GroupedReport = {
 };
 
 export default function CashCreditSalesReportPage() {
-    const { transactions, products, isLoaded, dateRange } = useDatabase();
+    const { transactions, products, isLoaded, dateRange, setDateRange } = useDatabase();
 
     const groupedReportData: GroupedReport = useMemo(() => {
         if (!isLoaded || !products.length) return {};
@@ -109,16 +112,44 @@ export default function CashCreditSalesReportPage() {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     }, [groupedReportData]);
     
+    const handleExportExcel = () => {
+        const dataToExport = sortedDateKeys.flatMap(dateKey => {
+            const dayData = groupedReportData[dateKey];
+            if (!dayData) return [];
+            return dayData.rows.map(row => ({
+                'Date': format(new Date(dateKey), 'dd-MMM-yyyy'),
+                'Fuel Type': row.fuelType,
+                'Cash Sales (Liters)': row.cashSalesVolume.toFixed(2),
+                'Credit Sales (Liters)': row.creditSalesVolume.toFixed(2),
+                'Total Sales (Liters)': (row.cashSalesVolume + row.creditSalesVolume).toFixed(2),
+            }));
+        });
+        
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'CashCreditSalesReport');
+        XLSX.writeFile(workbook, 'CashCreditSalesReport.xlsx');
+    };
+
     return (
         <div className="p-4 md:p-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Droplets /> Cash & Credit Sales Report (Volume in Liters)
-                    </CardTitle>
-                    <CardDescription>
-                        A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period, grouped by date.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Droplets /> Cash &amp; Credit Sales Report (Volume in Liters)
+                            </CardTitle>
+                            <CardDescription>
+                                A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period, grouped by date.
+                            </CardDescription>
+                        </div>
+                         <div className="flex items-center gap-2 flex-wrap">
+                           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+                           <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {isLoaded && sortedDateKeys.length > 0 ? (
