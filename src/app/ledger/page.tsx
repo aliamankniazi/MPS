@@ -337,12 +337,13 @@ export default function LedgerPage() {
 
     stockAdjustments.forEach(adj => {
         if (!adj.timestamp || !isValid(new Date(adj.timestamp))) return;
+        const partnerName = adj.supplierName || 'Inventory';
         if (adj.adjustment > 0) { // Surplus
             combined.push({
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
-                partnerName: 'Inventory',
+                partnerName: partnerName,
                 type: 'Stock Surplus',
                 debit: 0,
                 credit: adj.value,
@@ -353,7 +354,7 @@ export default function LedgerPage() {
                 id: `adj-${adj.id}`,
                 timestamp: adj.timestamp,
                 description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
-                partnerName: 'Inventory',
+                partnerName: partnerName,
                 type: 'Stock Shortage',
                 debit: adj.value,
                 credit: 0,

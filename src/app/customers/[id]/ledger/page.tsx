@@ -34,7 +34,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Salary Expense';
+  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Salary Expense' | 'Stock Surplus' | 'Stock Shortage';
   debit: number;
   credit: number;
   balance: number;
@@ -54,12 +54,14 @@ export default function CustomerLedgerPage() {
     purchases, 
     supplierPayments, 
     investments, 
+    stockAdjustments,
     deleteTransaction, 
     deletePurchase, 
     deleteCustomerPayment, 
     deleteCashAdvance, 
     deleteSupplierPayment, 
     deleteInvestment,
+    deleteStockAdjustment,
     isLoaded,
     dateRange,
   } = useDatabase();
@@ -125,6 +127,7 @@ export default function CustomerLedgerPage() {
     } else if (entityType === 'Supplier') {
         const supplierPurchases = purchases.filter(p => p.supplierId === entityId);
         const supplierPaymentsMade = supplierPayments.filter(sp => sp.supplierId === entityId);
+        const supplierStockAdjustments = stockAdjustments.filter(adj => adj.supplierId === entityId);
 
         supplierPurchases.forEach(p => combined.push({
             id: `pur-${p.id}`,
@@ -145,6 +148,30 @@ export default function CustomerLedgerPage() {
             credit: 0,
             original: sp
         }));
+
+        supplierStockAdjustments.forEach(adj => {
+            if (adj.adjustment > 0) { // Surplus is a credit to the supplier
+                combined.push({
+                    id: `adj-${adj.id}`,
+                    timestamp: adj.timestamp,
+                    description: `Stock Surplus: ${adj.adjustment.toFixed(2)}L of ${adj.fuelType}`,
+                    type: 'Stock Surplus',
+                    credit: adj.value,
+                    debit: 0,
+                    original: adj
+                });
+            } else { // Shortage is a debit from the supplier
+                combined.push({
+                    id: `adj-${adj.id}`,
+                    timestamp: adj.timestamp,
+                    description: `Stock Shortage: ${Math.abs(adj.adjustment).toFixed(2)}L of ${adj.fuelType}`,
+                    type: 'Stock Shortage',
+                    debit: adj.value,
+                    credit: 0,
+                    original: adj
+                });
+            }
+        });
     } else if (entityType === 'Partner') {
         const partnerInvestments = investments.filter(inv => inv.partnerId === entityId);
         
@@ -175,7 +202,7 @@ export default function CustomerLedgerPage() {
 
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const openingBalance = (entityType === 'Customer' && 'openingBalance' in entity && entity.openingBalance) ? entity.openingBalance : 0;
+    const openingBalance = ('openingBalance' in entity && entity.openingBalance) ? entity.openingBalance : 0;
     
     const balanceBeforeRange = combined
       .filter(e => dateRange?.from && isValid(new Date(e.timestamp)) && new Date(e.timestamp) < startOfDay(dateRange.from))
@@ -221,7 +248,7 @@ export default function CustomerLedgerPage() {
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, stockAdjustments, entityId, dateRange, searchTerm]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -237,6 +264,7 @@ export default function CustomerLedgerPage() {
             case 'spay': deleteSupplierPayment(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
+            case 'adj': deleteStockAdjustment(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -438,6 +466,7 @@ export default function CustomerLedgerPage() {
                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
+                                    (entry.type === 'Stock Surplus' || entry.type === 'Stock Shortage') && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                 )}
                             >
                               {entry.type === 'Payment' ? 'Amount' : entry.type}
