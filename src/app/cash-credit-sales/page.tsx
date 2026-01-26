@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format } from 'date-fns';
-import { Fuel, Droplets, XCircle, Printer, Download } from 'lucide-react';
+import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import {
   Accordion,
@@ -17,6 +17,7 @@ import {
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
+import { Input } from '@/components/ui/input';
 
 
 interface SalesSummary {
@@ -39,6 +40,7 @@ type GroupedReport = {
 
 export default function CashCreditSalesReportPage() {
     const { transactions, products, isLoaded, dateRange, setDateRange } = useDatabase();
+    const [searchTerm, setSearchTerm] = useState('');
 
     const groupedReportData: GroupedReport = useMemo(() => {
         if (!isLoaded || !products.length) return {};
@@ -88,11 +90,17 @@ export default function CashCreditSalesReportPage() {
 
         for (const dateKey in summaryByDateAndFuel) {
             const dailyFuelSummary = summaryByDateAndFuel[dateKey];
-            const rows = Object.keys(dailyFuelSummary).map(fuelType => ({
+            let rows = Object.keys(dailyFuelSummary).map(fuelType => ({
                 fuelType,
                 cashSalesVolume: dailyFuelSummary[fuelType].cashSalesVolume,
                 creditSalesVolume: dailyFuelSummary[fuelType].creditSalesVolume,
             })).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+
+            if (searchTerm) {
+                rows = rows.filter(row => row.fuelType.toLowerCase().includes(searchTerm.toLowerCase()));
+            }
+
+            if (rows.length === 0) continue;
 
             const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
                 acc.cashSalesVolume += summary.cashSalesVolume;
@@ -107,7 +115,7 @@ export default function CashCreditSalesReportPage() {
 
         return result;
 
-    }, [isLoaded, transactions, products, dateRange]);
+    }, [isLoaded, transactions, products, dateRange, searchTerm]);
     
     const sortedDateKeys = useMemo(() => {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -146,6 +154,15 @@ export default function CashCreditSalesReportPage() {
                             </CardDescription>
                         </div>
                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search fuel type..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10 w-full sm:w-auto"
+                                />
+                            </div>
                            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
                            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
                            <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
