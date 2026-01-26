@@ -172,7 +172,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             {navGroups.map((group) => (
                 <SidebarGroup key={group.title}>
-                    <SidebarGroupLabel className={cn("flex items-center", group.title === 'Inventory' && 'text-red-500')}>
+                    <SidebarGroupLabel className="flex items-center text-red-500">
                         <group.icon className="mr-2"/>
                         {group.title}
                     </SidebarGroupLabel>
