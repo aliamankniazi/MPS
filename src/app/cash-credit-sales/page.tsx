@@ -139,7 +139,7 @@ export default function CashCreditSalesReportPage() {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                         <div>
                             <CardTitle className="flex items-center gap-2">
-                                <Droplets /> Cash &amp; Credit Sales Report (Volume in Liters)
+                                <Droplets /> Cash & Credit Sales Report (Volume in Liters)
                             </CardTitle>
                             <CardDescription>
                                 A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period, grouped by date.
@@ -160,7 +160,7 @@ export default function CashCreditSalesReportPage() {
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey} className="border-b-0 border-l-4 border-primary rounded-lg overflow-hidden bg-background shadow-sm">
+                                <AccordionItem value={dateKey} key={dateKey} className="border-b-0 border-l-4 border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
                                     <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
                                             <span className="font-semibold text-red-500">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
