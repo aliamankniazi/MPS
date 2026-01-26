@@ -1,4 +1,5 @@
-export type FuelType = 'Unleaded' | 'Premium' | 'Diesel';
+
+export type FuelType = string;
 
 export type PaymentMethod = 'Cash' | 'Card' | 'Mobile' | 'Salary' | 'Credit' | 'Bank Transfer';
 

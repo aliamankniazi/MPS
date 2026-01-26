@@ -197,6 +197,7 @@ interface DatabaseActions {
     addAttendance: (record: Omit<AttendanceRecord, 'id'>) => Promise<void>;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
+    updateInitialStock: (fuelType: FuelType, newStock: number) => void;
     updateColorSetting: (key: string, color: string) => void;
     addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
     updateProduct: (id: string, updates: Partial<Product>) => void;
@@ -691,6 +692,18 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateDoc(settingsRef, { [`fuelPrices.${fuelType}`]: newPrice });
     };
 
+    const updateInitialStock = useCallback((fuelType: FuelType, newStock: number) => {
+        if (!firestore || isNaN(newStock) || newStock < 0) return;
+        const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        updateDoc(settingsRef, { [`initialFuelStock.${fuelType}`]: newStock }).catch(error => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'update',
+                requestResourceData: { [`initialFuelStock.${fuelType}`]: newStock },
+            }));
+        });
+    }, []);
+
     const updateColorSetting = (key: string, color: string) => {
         if (!firestore) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
@@ -773,6 +786,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addAttendance,
         setFuelStock,
         updateFuelPrice,
+        updateInitialStock,
         updateColorSetting,
         addProduct,
         updateProduct,

@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -58,6 +59,7 @@ const productSchema = z.object({
   price: z.coerce.number().min(0, 'Price must be non-negative'),
   unit: z.string().min(1, 'Unit is required'),
   category: z.enum(['Main Product', 'Supplementary Product'], { required_error: 'Category is required' }),
+  openingStock: z.coerce.number().optional(),
 });
 type ProductFormValues = z.infer<typeof productSchema>;
 
@@ -81,6 +83,7 @@ export default function SettingsPage() {
     purchases,
     machineReadings,
     initialFuelStock,
+    updateInitialStock,
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToEdit, setSupplierToEdit] = React.useState<Supplier | null>(null);
@@ -164,8 +167,9 @@ export default function SettingsPage() {
           setProductValue('price', productToEdit.price);
           setProductValue('unit', productToEdit.unit);
           setProductValue('category', productToEdit.category);
+          setProductValue('openingStock', initialFuelStock[productToEdit.name as FuelType] || 0);
       }
-  }, [productToEdit, setProductValue]);
+  }, [productToEdit, setProductValue, initialFuelStock]);
 
   React.useEffect(() => {
     if (supplierToEdit) {
@@ -220,15 +224,22 @@ export default function SettingsPage() {
   };
   
   const onProductSubmit: SubmitHandler<ProductFormValues> = (data) => {
+    const { openingStock, ...productData } = data;
     if (productToEdit) {
-        updateProduct(productToEdit.id, data);
+        updateProduct(productToEdit.id, productData);
+        if(data.category === 'Main Product' && typeof openingStock === 'number') {
+            updateInitialStock(data.name, openingStock);
+        }
         toast({ title: "Product Updated", description: "The product has been saved."});
     } else {
-        addProduct(data);
+        addProduct(productData);
+        if(data.category === 'Main Product' && typeof openingStock === 'number') {
+            updateInitialStock(data.name, openingStock);
+        }
         toast({ title: "Product Added", description: `${data.name} has been added.`});
     }
     setProductToEdit(null);
-    resetProduct({name: '', price: 0, unit: '', category: undefined});
+    resetProduct({name: '', price: 0, unit: '', category: undefined, openingStock: undefined});
   };
 
   const handleDeleteSupplier = () => {
@@ -467,6 +478,10 @@ export default function SettingsPage() {
                                 />
                                 {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
                             </div>
+                         </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="openingStock">Opening Stock (Ltr)</Label>
+                            <Input id="openingStock" type="number" {...registerProduct('openingStock')} placeholder="Only for Main Products" />
                          </div>
                          <Button type="submit">Add Product</Button>
                      </form>
@@ -717,6 +732,10 @@ export default function SettingsPage() {
                         />
                          {productErrors.category && <p className="text-sm text-destructive">{productErrors.category.message}</p>}
                     </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="editOpeningStock">Opening Stock</Label>
+                        <Input id="editOpeningStock" type="number" {...registerProduct('openingStock')} />
+                     </div>
                 </div>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setProductToEdit(null)}>Cancel</Button>
