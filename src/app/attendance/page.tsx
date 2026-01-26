@@ -17,8 +17,6 @@ import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Employee, AttendanceRecord, SalaryHistoryEntry } from '@/lib/types';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -252,24 +250,6 @@ export default function EmployeeManagementPage() {
         }
     };
 
-    const handleDateSelectForStatus = (employee: Employee, status: 'Absent' | 'Leave', date: Date | undefined) => {
-        if (!date) return;
-        addAttendance({
-            employeeId: employee.id,
-            employeeName: employee.name,
-            date: date.toISOString(),
-            status: status,
-        });
-        toast({
-            title: 'Attendance Marked',
-            description: `${employee.name} marked as ${status} for ${format(date, 'dd-MMM-yyyy')}.`,
-        });
-
-        if (status === 'Absent') {
-            handleAbsenceDeduction(employee, date);
-        }
-    };
-
   const handleMarkAllPresent = () => {
     activeEmployees.forEach(emp => {
         const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
@@ -437,42 +417,22 @@ export default function EmployeeManagementPage() {
                                             <UserCheck className="w-5 h-5"/>
                                             <span className="text-xs font-semibold">Present</span>
                                         </Button>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button
-                                                    variant="outline"
-                                                    className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}
-                                                >
-                                                    <UserX className="w-5 h-5"/>
-                                                    <span className="text-xs font-semibold">Absent</span>
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    onSelect={(date) => handleDateSelectForStatus(emp, 'Absent', date)}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                 <Button
-                                                    variant="outline"
-                                                    className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}
-                                                >
-                                                    <Clock className="w-5 h-5"/>
-                                                    <span className="text-xs font-semibold">Leave</span>
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0">
-                                                <Calendar
-                                                    mode="single"
-                                                    onSelect={(date) => handleDateSelectForStatus(emp, 'Leave', date)}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                        <Button
+                                            variant="outline"
+                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}
+                                            onClick={() => handleAttendanceChange(emp, 'Absent')}
+                                        >
+                                            <UserX className="w-5 h-5"/>
+                                            <span className="text-xs font-semibold">Absent</span>
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}
+                                            onClick={() => handleAttendanceChange(emp, 'Leave')}
+                                        >
+                                            <Clock className="w-5 h-5"/>
+                                            <span className="text-xs font-semibold">Leave</span>
+                                        </Button>
                                     </div>
                                 </Card>
                              )
