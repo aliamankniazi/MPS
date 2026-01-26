@@ -29,10 +29,8 @@ import {
 import { TransactionNav } from '@/components/transaction-nav';
 
 
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
 const adjustmentSchema = z.object({
-  fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
+  fuelType: z.string().min(1, 'Please select a fuel type.'),
   adjustment: z.coerce.number(),
   date: z.date({ required_error: "A date is required."}),
 });
@@ -80,9 +78,15 @@ export default function StockAdjustmentPage() {
     deleteStockAdjustment,
     isLoaded,
     dateRange,
+    products,
   } = useDatabase();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
+
+  const mainProducts = React.useMemo(() => {
+    if (!products) return [];
+    return products.filter(p => p.category === 'Main Product');
+  }, [products]);
 
   const { register, handleSubmit, control, reset, watch } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
@@ -128,7 +132,7 @@ export default function StockAdjustmentPage() {
     }
 
     addStockAdjustment({
-        fuelType: data.fuelType,
+        fuelType: data.fuelType as FuelType,
         adjustment: data.adjustment,
         newStock: newStock,
         timestamp: data.date.toISOString(),
@@ -186,8 +190,8 @@ export default function StockAdjustmentPage() {
                                     <SelectValue placeholder="Select a fuel type" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {FUEL_TYPES.map(fuel => (
-                                    <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                                    {mainProducts.map(fuel => (
+                                    <SelectItem key={fuel.id} value={fuel.name}>{fuel.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                                 </Select>
