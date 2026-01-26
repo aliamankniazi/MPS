@@ -154,13 +154,13 @@ export default function CashCreditSalesReportPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoaded && sortedDateKeys.length > 0 ? (
-                        <Accordion type="multiple" className="w-full space-y-2" defaultValue={sortedDateKeys}>
+                        <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedDateKeys}>
                            {sortedDateKeys.map(dateKey => {
                                 const dayData = groupedReportData[dateKey];
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey} className="border border-red-500 border-l-4 rounded-lg overflow-hidden bg-background shadow-sm">
+                                <AccordionItem value={dateKey} key={dateKey} className="border border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
                                     <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
                                             <span className="font-semibold text-red-500">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
