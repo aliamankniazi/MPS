@@ -32,6 +32,7 @@ import { Dialog, DialogHeader, DialogFooter, DialogContent, DialogTitle, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Pencil } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
+import { format } from 'date-fns';
 
 
 const TRANSACTION_TYPES_FOR_COLOR = [
@@ -78,7 +79,8 @@ export default function SettingsPage() {
     updateProduct,
     deleteProduct,
     isLoaded,
-    purchases
+    purchases,
+    machineReadings,
   } = useDatabase();
   const { toast } = useToast();
   const [supplierToEdit, setSupplierToEdit] = React.useState<Supplier | null>(null);
@@ -131,6 +133,26 @@ export default function SettingsPage() {
   const mainProducts = React.useMemo(() => {
     return products.filter(p => p.category === 'Main Product');
   }, [products]);
+
+
+  const productExtraInfo = React.useMemo(() => {
+    if (!productToEdit) return null;
+
+    const lastPurchase = purchases
+        .filter(purchase => purchase.fuelType === productToEdit.name)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    const purchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
+
+    const lastReading = machineReadings
+        .filter(r => r.fuelType === productToEdit.name)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+    return {
+        purchasePrice: purchaseRate,
+        previousStock: lastReading ? lastReading.volume : null,
+        previousStockDate: lastReading ? new Date(lastReading.timestamp) : null
+    };
+  }, [productToEdit, purchases, machineReadings]);
 
 
   React.useEffect(() => {
@@ -623,6 +645,28 @@ export default function SettingsPage() {
                     <DialogDescription>Update the details for this product.</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
+                    {productExtraInfo && (
+                      <>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex flex-col space-y-1.5 rounded-lg border p-3">
+                              <Label className="text-sm font-medium text-muted-foreground">Last Purchase Price</Label>
+                              <span className="font-semibold">{productExtraInfo.purchasePrice > 0 ? `PKR ${productExtraInfo.purchasePrice.toFixed(2)}` : 'N/A'}</span>
+                            </div>
+                            <div className="flex flex-col space-y-1.5 rounded-lg border p-3">
+                              <Label className="text-sm font-medium text-muted-foreground">Previous Stock</Label>
+                              <span className="font-semibold">
+                                {productExtraInfo.previousStock !== null
+                                  ? `${productExtraInfo.previousStock.toFixed(2)} Ltr`
+                                  : 'N/A'}
+                              </span>
+                               {productExtraInfo.previousStockDate && (
+                                 <span className="text-xs text-muted-foreground">on {format(productExtraInfo.previousStockDate, 'dd-MMM-yy')}</span>
+                               )}
+                            </div>
+                        </div>
+                        <Separator className="my-2"/>
+                      </>
+                    )}
                      <div className="space-y-2">
                         <Label htmlFor="editProductName">Product Name</Label>
                         <Input id="editProductName" {...registerProduct('name')} />
@@ -639,7 +683,7 @@ export default function SettingsPage() {
                             name="unit"
                             control={controlProduct}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <SelectTrigger><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                       {allUnits.map(unit => <SelectItem key={unit} value={unit}>{unit}</SelectItem>)}
@@ -697,3 +741,5 @@ export default function SettingsPage() {
     </>
   );
 }
+
+    
