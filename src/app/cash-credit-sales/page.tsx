@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -153,25 +154,25 @@ export default function CashCreditSalesReportPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoaded && sortedDateKeys.length > 0 ? (
-                        <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedDateKeys}>
+                        <Accordion type="multiple" className="w-full" defaultValue={sortedDateKeys}>
                            {sortedDateKeys.map(dateKey => {
                                 const dayData = groupedReportData[dateKey];
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey} className="border-b-0">
-                                    <Card>
-                                        <AccordionTrigger className="p-4 hover:no-underline text-lg">
-                                            <div className="flex justify-between w-full pr-4 items-center">
-                                                <span className="font-semibold">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
-                                                <div className="flex gap-4 text-sm font-normal">
-                                                    <span className="text-green-600">Cash: PKR {dayData.totals.cashSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
-                                                    <span className="text-blue-600">Credit: PKR {dayData.totals.creditSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
-                                                    <span className="font-bold">Total: PKR {(dayData.totals.cashSalesAmount + dayData.totals.creditSalesAmount).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
-                                                </div>
+                                <AccordionItem value={dateKey} key={dateKey}>
+                                    <AccordionTrigger className="p-4 text-lg hover:bg-muted/50 rounded-md">
+                                        <div className="flex justify-between w-full pr-4 items-center">
+                                            <span className="font-semibold">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
+                                            <div className="flex gap-4 text-sm font-normal">
+                                                <span className="text-green-600">Cash: PKR {dayData.totals.cashSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
+                                                <span className="text-blue-600">Credit: PKR {dayData.totals.creditSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
+                                                <span className="font-bold">Total: PKR {(dayData.totals.cashSalesAmount + dayData.totals.creditSalesAmount).toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
                                             </div>
-                                        </AccordionTrigger>
-                                        <AccordionContent className="px-4 pb-4">
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="px-4 pb-4">
+                                        <div className="border rounded-md">
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
@@ -192,8 +193,8 @@ export default function CashCreditSalesReportPage() {
                                                     ))}
                                                 </TableBody>
                                             </Table>
-                                        </AccordionContent>
-                                    </Card>
+                                        </div>
+                                    </AccordionContent>
                                 </AccordionItem>
                                 );
                            })}
