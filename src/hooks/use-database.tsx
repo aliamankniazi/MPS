@@ -199,7 +199,7 @@ interface DatabaseActions {
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     updateInitialStock: (fuelType: FuelType, newStock: number) => void;
     updateColorSetting: (key: string, color: string) => void;
-    addProduct: (product: Omit<Product, 'id'>) => Promise<Product>;
+    addProduct: (product: Omit<Product, 'id' | 'currentStock' | 'createdAt'>) => Promise<Product>;
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
     addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => Promise<DictionaryEntry>;
@@ -318,7 +318,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             const unsubscribe = onSnapshot(q, (querySnapshot) => {
                 const data = querySnapshot.docs.map(doc => {
                     const docData = doc.data();
-                    const dateFields = ['timestamp', 'date', 'hireDate', 'terminationDate', 'deletedAt', 'transactionDate', 'postingDate', 'invoiceDate'];
+                    const dateFields = ['timestamp', 'date', 'hireDate', 'terminationDate', 'deletedAt', 'transactionDate', 'postingDate', 'invoiceDate', 'createdAt'];
                     for (const field of dateFields) {
                         if (docData[field] && typeof docData[field].toDate === 'function') {
                            docData[field] = docData[field].toDate().toISOString();
@@ -622,7 +622,38 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     };
     const deleteStockAdjustment = (id: string) => deleteEntity(FIRESTORE_PATHS.stockAdjustments, id);
 
-    const addProduct = (p: Omit<Product, 'id'>) => addEntity<Product>(FIRESTORE_PATHS.products, p);
+    const addProduct = async (productData: Partial<Omit<Product, 'id' | 'currentStock' | 'createdAt'>>) => {
+        if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
+        
+        const dataToSend = {
+          name: productData.name,
+          salePrice: Number(productData.salePrice),
+          purchasePrice: Number(productData.purchasePrice),
+          unit: productData.unit,
+          category: productData.category,
+          openingStock: Number(productData.openingStock || 0),
+          currentStock: Number(productData.openingStock || 0), // As per user instruction
+          createdAt: serverTimestamp()
+        };
+    
+        try {
+            const docRef = await addDoc(collection(firestore, FIRESTORE_PATHS.products), dataToSend);
+            // Optimistic response
+            return {
+                ...productData,
+                id: docRef.id,
+                currentStock: dataToSend.currentStock,
+                createdAt: new Date().toISOString()
+            } as Product;
+        } catch (error) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: FIRESTORE_PATHS.products,
+                operation: 'create',
+                requestResourceData: dataToSend,
+            }));
+            throw error;
+        }
+    };
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(FIRESTORE_PATHS.products, id, u);
     const deleteProduct = (id: string) => deleteEntity(FIRESTORE_PATHS.products, id);
     

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -77,7 +78,7 @@ export default function DashboardPage() {
 
         return {
             name: product.name,
-            lastSaleRate: lastSale ? lastSale.pricePerLitre : product.price,
+            lastSaleRate: lastSale ? lastSale.pricePerLitre : product.salePrice,
             lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
             lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
         };

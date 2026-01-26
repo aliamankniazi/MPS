@@ -212,10 +212,13 @@ export interface StockAdjustment {
 export interface Product {
     id: string;
     name: string;
-    price: number;
+    salePrice: number;
+    purchasePrice: number;
     unit: string;
     category: 'Main Product' | 'Supplementary Product';
-    timestamp: string;
+    openingStock: number;
+    currentStock: number;
+    createdAt: string;
 }
 
 export interface RecycledItem {

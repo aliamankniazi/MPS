@@ -152,7 +152,7 @@ export default function SalesPage() {
         .filter(t => t.product === product.name)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
-    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.price;
+    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
 
     setItemValue('price', priceToSet);
     setItemValue('unit', product.unit);

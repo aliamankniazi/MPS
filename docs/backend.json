@@ -157,29 +157,17 @@
       "type": "object",
       "description": "Represents a product for sale, either main or supplementary.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Product entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "Name of the product."
-        },
-        "price": {
-          "type": "number",
-          "description": "Selling price of the product."
-        },
-        "unit": {
-          "type": "string",
-          "description": "Unit of measurement (e.g., Pcs, Ltr, Kg)."
-        },
-        "category": {
-          "type": "string",
-          "description": "Category of the product.",
-          "enum": ["Main Product", "Supplementary Product"]
-        }
+        "id": { "type": "string", "description": "Unique identifier for the Product entity." },
+        "name": { "type": "string", "description": "Name of the product." },
+        "salePrice": { "type": "number", "description": "Selling price of the product." },
+        "purchasePrice": { "type": "number", "description": "Cost price of the product." },
+        "unit": { "type": "string", "description": "Unit of measurement (e.g., Pcs, Ltr, Kg)." },
+        "category": { "type": "string", "description": "Category of the product.", "enum": ["Main Product", "Supplementary Product"] },
+        "openingStock": { "type": "number", "description": "The initial stock quantity when the product is created." },
+        "currentStock": { "type": "number", "description": "The current stock quantity, updated by sales and purchases." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of when the product was created." }
       },
-      "required": ["id", "name", "price", "unit", "category"]
+      "required": ["id", "name", "salePrice", "purchasePrice", "unit", "category", "openingStock", "currentStock", "createdAt"]
     },
      "Customer": {
       "$schema": "http://json-schema.org/draft-07/schema#",
