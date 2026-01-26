@@ -154,14 +154,14 @@ export default function CashCreditSalesReportPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoaded && sortedDateKeys.length > 0 ? (
-                        <Accordion type="multiple" className="w-full" defaultValue={sortedDateKeys}>
+                        <Accordion type="multiple" className="w-full space-y-2" defaultValue={sortedDateKeys}>
                            {sortedDateKeys.map(dateKey => {
                                 const dayData = groupedReportData[dateKey];
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey}>
-                                    <AccordionTrigger className="p-4 text-lg hover:bg-muted/50 rounded-md">
+                                <AccordionItem value={dateKey} key={dateKey} className="border-b-0 border-l-4 border-primary rounded-lg overflow-hidden bg-background shadow-sm">
+                                    <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
                                             <span className="font-semibold">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
                                             <div className="flex gap-4 text-sm font-normal">
@@ -171,7 +171,7 @@ export default function CashCreditSalesReportPage() {
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="px-4 pb-4">
+                                    <AccordionContent className="px-4 pb-4 bg-background">
                                         <div className="border rounded-md">
                                             <Table>
                                                 <TableHeader>
