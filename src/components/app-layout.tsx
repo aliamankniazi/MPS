@@ -26,6 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { SheetTitle } from './ui/sheet';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 const navGroups = [
@@ -172,24 +173,30 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenuItem>
 
             {navGroups.map((group) => (
-                <SidebarGroup key={group.title}>
-                    <SidebarGroupLabel className="flex items-center text-red-500 font-bold">
-                        <group.icon className="mr-2"/>
-                        {group.title}
-                    </SidebarGroupLabel>
-                    <SidebarMenuSub>
-                        {group.links.map(link => (
-                        <SidebarMenuSubItem key={link.href}>
-                            <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
-                                <Link href={link.href} target={(link as any).target || '_self'} rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}>
-                                    <link.icon/>
-                                    <span>{link.label}</span>
-                                </Link>
-                            </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        ))}
-                    </SidebarMenuSub>
+              <Collapsible asChild key={group.title} defaultOpen>
+                <SidebarGroup>
+                    <CollapsibleTrigger asChild>
+                         <SidebarGroupLabel className="flex items-center text-red-500 font-bold w-full cursor-pointer hover:bg-sidebar-accent/50">
+                            <group.icon className="mr-2"/>
+                            {group.title}
+                        </SidebarGroupLabel>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                        <SidebarMenuSub>
+                            {group.links.map(link => (
+                            <SidebarMenuSubItem key={link.href}>
+                                <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
+                                    <Link href={link.href} target={(link as any).target || '_self'} rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}>
+                                        <link.icon/>
+                                        <span>{link.label}</span>
+                                    </Link>
+                                </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                            ))}
+                        </SidebarMenuSub>
+                    </CollapsibleContent>
                 </SidebarGroup>
+              </Collapsible>
             ))}
           </SidebarMenu>
         </SidebarContent>
