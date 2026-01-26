@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded, dateRange } = useDatabase();
+  const { customers, addCustomerPayment, isLoaded, dateRange, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
 
@@ -110,7 +110,7 @@ export default function CustomerPaymentsPage() {
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle>New Customer Payment</CardTitle>
+            <CardTitle style={{ color: colorSettings['Customer Payment'] || '#14B8A6' }}>New Customer Payment</CardTitle>
             <CardDescription>Record a payment received from a customer.</CardDescription>
           </CardHeader>
           <CardContent>
