@@ -607,17 +607,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteInvestment = (id: string) => deleteEntity(FIRESTORE_PATHS.investments, id);
 
     const addStockAdjustment = async (adj: Omit<StockAdjustment, 'id' | 'value'>) => {
-        let value = 0;
-        if (adj.adjustment > 0) {
-            const salePrice = state.settings.fuelPrices[adj.fuelType] || 0;
-            value = adj.adjustment * salePrice;
-        } else {
-            const lastPurchase = processedState.purchases
-                .filter(p => p.fuelType === adj.fuelType)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            const purchasePrice = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
-            value = Math.abs(adj.adjustment) * purchasePrice;
-        }
+        const lastPurchase = processedState.purchases
+            .filter(p => p.fuelType === adj.fuelType)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        
+        const costPerLitre = lastPurchase 
+            ? lastPurchase.totalCost / lastPurchase.volume 
+            : (state.settings.fuelPrices[adj.fuelType as FuelType] || 0);
+        
+        const value = Math.abs(adj.adjustment) * costPerLitre;
 
         await addEntity(FIRESTORE_PATHS.stockAdjustments, { ...adj, value });
     };

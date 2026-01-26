@@ -200,6 +200,8 @@ export interface BusinessPartner {
 export interface StockAdjustment {
   id: string;
   fuelType: FuelType;
+  supplierId?: string;
+  supplierName?: string;
   adjustment: number;
   newStock: number;
   value: number;

@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Package, Edit, List, Trash2, AlertTriangle, Sun } from 'lucide-react';
+import { Package, Edit, List, Trash2, AlertTriangle, Sun, Check, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { FuelType, StockAdjustment } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,10 +27,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { TransactionNav } from '@/components/transaction-nav';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 
 
 const adjustmentSchema = z.object({
   fuelType: z.string().min(1, 'Please select a fuel type.'),
+  supplierId: z.string().optional(),
   adjustment: z.coerce.number(),
   date: z.date({ required_error: "A date is required."}),
 });
@@ -79,9 +83,12 @@ export default function StockAdjustmentPage() {
     isLoaded,
     dateRange,
     products,
+    suppliers,
   } = useDatabase();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
+  const [supplierComboboxOpen, setSupplierComboboxOpen] = React.useState(false);
+
 
   const mainProducts = React.useMemo(() => {
     if (!products) return [];
@@ -131,8 +138,12 @@ export default function StockAdjustmentPage() {
       return;
     }
 
+    const supplier = data.supplierId ? suppliers.find(s => s.id === data.supplierId) : null;
+
     addStockAdjustment({
         fuelType: data.fuelType as FuelType,
+        supplierId: data.supplierId,
+        supplierName: supplier?.name,
         adjustment: data.adjustment,
         newStock: newStock,
         timestamp: data.date.toISOString(),
@@ -144,6 +155,7 @@ export default function StockAdjustmentPage() {
     });
     reset({
         fuelType: undefined,
+        supplierId: undefined,
         adjustment: 0,
         date: dateRange?.from || new Date()
     });
@@ -178,7 +190,7 @@ export default function StockAdjustmentPage() {
                 </CardHeader>
                 <CardContent>
                 <form onSubmit={handleSubmit(onAdjustmentSubmit)} className="space-y-4">
-                    <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                    <div className="grid sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
                         <div className="space-y-2 md:col-span-1">
                             <Label>Fuel Type</Label>
                             <Controller
@@ -196,6 +208,58 @@ export default function StockAdjustmentPage() {
                                 </SelectContent>
                                 </Select>
                             )}
+                            />
+                        </div>
+                        <div className="space-y-2 md:col-span-1">
+                            <Label>Supplier (Optional)</Label>
+                            <Controller
+                                name="supplierId"
+                                control={control}
+                                render={({ field }) => (
+                                <Popover open={supplierComboboxOpen} onOpenChange={setSupplierComboboxOpen}>
+                                    <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={supplierComboboxOpen}
+                                        className="w-full justify-between"
+                                    >
+                                        {field.value
+                                        ? suppliers.find((s) => s.id === field.value)?.name
+                                        : "Select a supplier..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search supplier..." />
+                                        <CommandList>
+                                        <CommandEmpty>No supplier found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {isLoaded ? suppliers.map(s => (
+                                            <CommandItem
+                                                key={s.id}
+                                                value={s.name}
+                                                onSelect={() => {
+                                                field.onChange(s.id);
+                                                setSupplierComboboxOpen(false);
+                                                }}
+                                            >
+                                                <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    field.value === s.id ? "opacity-100" : "opacity-0"
+                                                )}
+                                                />
+                                                {s.name}
+                                            </CommandItem>
+                                            )) : <CommandItem disabled>Loading...</CommandItem>}
+                                        </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                )}
                             />
                         </div>
                         <div className="space-y-2 md:col-span-1">
@@ -290,6 +354,7 @@ export default function StockAdjustmentPage() {
                             <TableRow>
                                 <TableHead>Date</TableHead>
                                 <TableHead>Fuel Type</TableHead>
+                                <TableHead>Supplier</TableHead>
                                 <TableHead className="text-right">Adjustment (Ltr)</TableHead>
                                 <TableHead className="text-right">Adjustment (Value)</TableHead>
                                 <TableHead className="text-right">New Stock Level</TableHead>
@@ -302,6 +367,7 @@ export default function StockAdjustmentPage() {
                                     <TableRow key={adj.id}>
                                         <TableCell className="font-medium">{format(new Date(adj.timestamp), 'dd-MMM-yyyy hh:mm a')}</TableCell>
                                         <TableCell>{adj.fuelType}</TableCell>
+                                        <TableCell>{adj.supplierName || 'N/A'}</TableCell>
                                         <TableCell className={`text-right font-mono ${adj.adjustment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                             {adj.adjustment.toLocaleString(undefined, { signDisplay: 'always', minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
                                         </TableCell>
@@ -320,7 +386,7 @@ export default function StockAdjustmentPage() {
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                         {isLoaded ? 'No adjustments recorded.' : 'Loading adjustments...'}
                                     </TableCell>
                                 </TableRow>
