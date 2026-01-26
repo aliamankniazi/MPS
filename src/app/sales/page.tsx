@@ -84,7 +84,7 @@ export default function SalesPage() {
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
-  const lastUserEditedField = useRef<'quantity' | 'totalAmount' | null>(null);
+  const lastUserEditedField = useRef<'quantity' | 'price' | 'totalAmount' | null>(null);
 
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
@@ -123,22 +123,29 @@ export default function SalesPage() {
   const { quantity, price, totalAmount } = watchItem();
 
   useEffect(() => {
-    if (lastUserEditedField.current === 'quantity') {
-      if (typeof quantity === 'number' && !isNaN(quantity) && typeof price === 'number' && !isNaN(price)) {
-        const total = quantity * price;
-        setItemValue('totalAmount', total, { shouldValidate: true });
-      }
-    }
-  }, [quantity, price, setItemValue]);
+    const qty = Number(quantity) || 0;
+    const prc = Number(price) || 0;
+    const total = Number(totalAmount) || 0;
 
-  useEffect(() => {
-    if (lastUserEditedField.current === 'totalAmount') {
-      if (typeof totalAmount === 'number' && !isNaN(totalAmount) && typeof price === 'number' && !isNaN(price) && price > 0) {
-        const newQuantity = totalAmount / price;
-        setItemValue('quantity', newQuantity, { shouldValidate: true });
+    if (lastUserEditedField.current === 'quantity' || lastUserEditedField.current === 'price') {
+      const newTotal = qty * prc;
+      if (total !== newTotal) {
+        setItemValue('totalAmount', newTotal, { shouldValidate: true });
+      }
+    } else if (lastUserEditedField.current === 'totalAmount') {
+      if (prc > 0) {
+        const newQuantity = total / prc;
+        if (quantity !== newQuantity) {
+          setItemValue('quantity', newQuantity, { shouldValidate: true });
+        }
+      } else if (qty > 0) {
+        const newPrice = total / qty;
+        if (price !== newPrice) {
+          setItemValue('price', newPrice, { shouldValidate: true });
+        }
       }
     }
-  }, [totalAmount, price, setItemValue]);
+  }, [quantity, price, totalAmount, setItemValue]);
 
   const handleProductSelect = useCallback((product: Product) => {
     const lastTransactionForProduct = transactions
@@ -318,19 +325,19 @@ export default function SalesPage() {
                               </div>
                                <div className="space-y-2">
                                   <Label htmlFor="quantity">Quantity</Label>
-                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="any" onChangeCapture={() => lastUserEditedField.current = 'quantity'} />
+                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="any" onFocus={() => lastUserEditedField.current = 'quantity'} />
                                   {itemErrors.quantity && <p className="text-sm text-destructive">{itemErrors.quantity.message}</p>}
                               </div>
                                <div className="space-y-2">
                                   <Label htmlFor="price">Price</Label>
-                                  <Input id="price" type="number" {...registerItem('price')} step="any" />
+                                  <Input id="price" type="number" {...registerItem('price')} step="any" onFocus={() => lastUserEditedField.current = 'price'} />
                                    {itemErrors.price && <p className="text-sm text-destructive">{itemErrors.price.message}</p>}
                               </div>
                           </div>
                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="totalAmount">Total Amount</Label>
-                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} step="any" className="bg-muted/50 font-bold" onChangeCapture={() => lastUserEditedField.current = 'totalAmount'} />
+                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} step="any" className="bg-muted/50 font-bold" onFocus={() => lastUserEditedField.current = 'totalAmount'} />
                               </div>
                                <div className="md:col-span-1 flex items-end">
                                   <Button type="submit" className="w-full">Add to Cart</Button>
