@@ -124,15 +124,17 @@ export default function SalesPage() {
 
   useEffect(() => {
     if (lastUserEditedField.current === 'quantity') {
-      const total = (quantity || 0) * (price || 0);
-      setItemValue('totalAmount', total, { shouldValidate: true });
+      if (typeof quantity === 'number' && !isNaN(quantity) && typeof price === 'number' && !isNaN(price)) {
+        const total = quantity * price;
+        setItemValue('totalAmount', total, { shouldValidate: true });
+      }
     }
   }, [quantity, price, setItemValue]);
 
   useEffect(() => {
     if (lastUserEditedField.current === 'totalAmount') {
-      if (price && price > 0) {
-        const newQuantity = (totalAmount || 0) / price;
+      if (typeof totalAmount === 'number' && !isNaN(totalAmount) && typeof price === 'number' && !isNaN(price) && price > 0) {
+        const newQuantity = totalAmount / price;
         setItemValue('quantity', newQuantity, { shouldValidate: true });
       }
     }
