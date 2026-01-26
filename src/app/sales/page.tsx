@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, transactions, dateRange } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, transactions, dateRange, colorSettings } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -235,7 +235,7 @@ export default function SalesPage() {
           <div className="lg:col-span-2 space-y-6">
               <Card>
                   <CardHeader>
-                      <CardTitle>Add Items to Sale</CardTitle>
+                      <CardTitle style={{ color: colorSettings['Sale'] }}>Add Items to Sale</CardTitle>
                   </CardHeader>
                   <CardContent>
                       <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
