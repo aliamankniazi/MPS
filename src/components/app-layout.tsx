@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -172,7 +173,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
 
             {navGroups.map((group) => (
                 <SidebarGroup key={group.title}>
-                    <SidebarGroupLabel className="flex items-center text-red-500">
+                    <SidebarGroupLabel className="flex items-center text-red-500 font-bold">
                         <group.icon className="mr-2"/>
                         {group.title}
                     </SidebarGroupLabel>
