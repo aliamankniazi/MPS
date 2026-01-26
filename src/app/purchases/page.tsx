@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, purchases, products, isLoaded, dateRange } = useDatabase();
+  const { addPurchase, suppliers, purchases, products, isLoaded, dateRange, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [purchaseDateCalendarOpen, setPurchaseDateCalendarOpen] = useState(false);
@@ -158,7 +158,7 @@ export default function PurchasesPage() {
         <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle>New Purchase</CardTitle>
+                <CardTitle style={{ color: colorSettings['Purchase'] }}>New Purchase</CardTitle>
                 <CardDescription>Record a new fuel delivery from a supplier.</CardDescription>
             </CardHeader>
             <CardContent>
