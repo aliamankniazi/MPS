@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -208,9 +209,7 @@ const ReportCard = ({ title, description, href, icon: Icon, isFrequentlyUsed }: 
 
 export default function ReportsPage() {
   const { dateRange, setDateRange } = useDatabase();
-  const { hasPermission } = useAuth();
-  
-  const availableReports = reportList.filter(report => hasPermission(report.permission));
+  const availableReports = reportList;
 
   return (
     <div className="p-4 md:p-8 space-y-6">
