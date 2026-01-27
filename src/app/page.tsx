@@ -42,52 +42,46 @@ export default function DashboardPage() {
     const month = date.getMonth(); // 0-11
     const day = date.getDate();
   
-    // Nanakshahi calendar month start dates in Gregorian calendar
-    const monthStarts = [
-      { name: 'Chet', month: 2, day: 14 },
-      { name: 'Vaisakh', month: 3, day: 14 },
-      { name: 'Jeth', month: 4, day: 15 },
-      { name: 'Harh', month: 5, day: 15 },
-      { name: 'Sawan', month: 6, day: 16 },
-      { name: 'Bhadon', month: 7, day: 16 },
-      { name: 'Assu', month: 8, day: 16 },
-      { name: 'Katak', month: 9, day: 17 },
-      { name: 'Maghar', month: 10, day: 16 },
-      { name: 'Poh', month: 11, day: 16 },
-      { name: 'Magh', month: 0, day: 13 },
-      { name: 'Phagun', month: 1, day: 12 },
+    // Based on Bikrami calendar for Punjab
+    const monthData = [
+        { name: 'چیت', length: 31, start: { m: 2, d: 14 } },
+        { name: 'وساکھ', length: 31, start: { m: 3, d: 14 } },
+        { name: 'جیٹھ', length: 31, start: { m: 4, d: 15 } },
+        { name: 'ہاੜ', length: 31, start: { m: 5, d: 15 } },
+        { name: 'ساوڻ', length: 31, start: { m: 6, d: 16 } },
+        { name: 'بھادوں', length: 30, start: { m: 7, d: 16 } },
+        { name: 'اسو', length: 30, start: { m: 8, d: 15 } },
+        { name: 'کاتک', length: 30, start: { m: 9, d: 15 } },
+        { name: 'مگھر', length: 30, start: { m: 10, d: 14 } },
+        { name: 'پوہ', length: 30, start: { m: 11, d: 14 } },
+        { name: 'ماگھ', length: 30, start: { m: 0, d: 13 } },
+        { name: 'پھگਣ', length: 30, start: { m: 1, d: 12 } }
     ];
-  
-    let desiMonthName = '';
+
+    let bikramiYear = year + 57;
     let desiDay = 0;
-    let nanakshahiYear = 0;
-    let gregorianYearOfDesiYearStart = year;
-  
-    // Determine the start of the current Nanakshahi year
+    let desiMonth = '';
+
+    let gregorianYearForBikramiStart = year;
     if (month < 2 || (month === 2 && day < 14)) {
-      gregorianYearOfDesiYearStart = year - 1;
+        gregorianYearForBikramiStart--;
+        bikramiYear--; 
     }
-  
-    nanakshahiYear = gregorianYearOfDesiYearStart + 57;
-  
-    // Create date objects for all month starts within the current desi year cycle
-    const desiYearMonthStarts = monthStarts
-      .map((m) => {
-        const y = m.month < 2 ? gregorianYearOfDesiYearStart + 1 : gregorianYearOfDesiYearStart;
-        return { ...m, date: new Date(y, m.month, m.day) };
-      })
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-  
-    // Find the current desi month by checking which start date the current date is on or after
-    for (let i = desiYearMonthStarts.length - 1; i >= 0; i--) {
-      if (date >= desiYearMonthStarts[i].date) {
-        desiMonthName = desiYearMonthStarts[i].name;
-        desiDay = differenceInDays(date, desiYearMonthStarts[i].date) + 1;
-        break;
-      }
+
+    const monthStarts = monthData.map(m => ({
+        ...m,
+        startDate: new Date(m.start.m >= 2 ? gregorianYearForBikramiStart : gregorianYearForBikramiStart + 1, m.start.m, m.start.d)
+    })).sort((a,b) => a.startDate.getTime() - b.startDate.getTime());
+    
+    for (let i = monthStarts.length - 1; i >= 0; i--) {
+        if (date >= monthStarts[i].startDate) {
+            desiMonth = monthStarts[i].name;
+            desiDay = differenceInDays(date, monthStarts[i].startDate) + 1;
+            break;
+        }
     }
-  
-    return { day: desiDay, month: desiMonthName, year: nanakshahiYear };
+    
+    return { day: desiDay, month: desiMonth, year: bikramiYear };
   };
     
   useEffect(() => {
