@@ -3,7 +3,7 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
@@ -37,7 +37,7 @@ export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
 
-  const getPunjabiDate = (date: Date): string => {
+  const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
     const year = date.getFullYear();
     const month = date.getMonth(); // 0-11
     const day = date.getDate();
@@ -87,7 +87,7 @@ export default function DashboardPage() {
       }
     }
   
-    return `${desiDay} ${desiMonthName} ${nanakshahiYear}`;
+    return { day: desiDay, month: desiMonthName, year: nanakshahiYear };
   };
     
   useEffect(() => {
@@ -326,8 +326,17 @@ export default function DashboardPage() {
 
   const dailyProductSales = useMemo(() => {
     if (!isLoaded) return {};
+
+    const now = new Date();
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
+
+    const currentMonthTransactions = transactions.filter(tx => {
+        const txDate = new Date(tx.timestamp);
+        return isValid(txDate) && txDate >= monthStart && txDate <= monthEnd;
+    });
     
-    const salesByDayAndProduct = filteredData.transactions.reduce((acc, tx) => {
+    const salesByDayAndProduct = currentMonthTransactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
             if (!acc[date]) {
@@ -350,7 +359,7 @@ export default function DashboardPage() {
     }, {} as Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>>);
 
     return salesByDayAndProduct;
-    }, [isLoaded, filteredData.transactions, products]);
+  }, [isLoaded, transactions, products]);
 
     const sortedDailySalesKeys = useMemo(() => {
         return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
@@ -620,7 +629,7 @@ export default function DashboardPage() {
              <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-primary"><BarChart2 /> Daily Product Sales</CardTitle>
-                    <CardDescription>A breakdown of sales by product for each day in the selected period.</CardDescription>
+                    <CardDescription>A breakdown of sales by product for each day of the current month.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {sortedDailySalesKeys.length > 0 ? (
@@ -653,7 +662,7 @@ export default function DashboardPage() {
                         </Accordion>
                     ) : (
                         <div className="text-center text-muted-foreground p-8">
-                            No sales data available for the selected period.
+                            No sales data available for the current month.
                         </div>
                     )}
                 </CardContent>
