@@ -160,7 +160,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {topNavItems.map(item => (
               <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label} className={cn(item.href === '/' && 'text-green-600 hover:text-green-700 data-[active=true]:text-green-700')}>
-                      <Link href={item.href} legacyBehavior={false}>
+                      <Link href={item.href}>
                           <item.icon />
                           <span>{item.label}</span>
                       </Link>
@@ -185,12 +185,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <SidebarMenuSub>
                             {group.links.map(link => (
                             <SidebarMenuSubItem key={link.href}>
-                                <SidebarMenuSubButton asChild isActive={isLinkActive(link.href)}>
-                                    <Link href={link.href} target={(link as any).target || '_self'} rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}>
+                                <Link href={link.href} passHref legacyBehavior>
+                                    <SidebarMenuSubButton
+                                        isActive={isLinkActive(link.href)}
+                                        target={(link as any).target || '_self'}
+                                        rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}
+                                    >
                                         <link.icon/>
                                         <span>{link.label}</span>
-                                    </Link>
-                                </SidebarMenuSubButton>
+                                    </SidebarMenuSubButton>
+                                </Link>
                             </SidebarMenuSubItem>
                             ))}
                         </SidebarMenuSub>
@@ -205,7 +209,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             {bottomNavItems.map(item => (
               <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
-                      <Link href={item.href} legacyBehavior={false}>
+                      <Link href={item.href}>
                           <item.icon />
                           <span>{item.label}</span>
                       </Link>
