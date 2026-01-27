@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download, X } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,7 @@ import Link from 'next/link';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 
 type CombinedEntry = {
@@ -234,6 +235,24 @@ export default function AllTransactionsPage() {
     );
   }, [combinedEntries, searchTerm, dateRange]);
 
+  const groupedEntries = useMemo(() => {
+    const groups = filteredEntries.reduce((acc, entry) => {
+        const dateKey = format(new Date(entry.timestamp), 'yyyy-MM-dd');
+        if (!acc[dateKey]) {
+            acc[dateKey] = [];
+        }
+        acc[dateKey].push(entry);
+        return acc;
+    }, {} as Record<string, CombinedEntry[]>);
+
+    for (const dateKey in groups) {
+        groups[dateKey].sort((a,b) => a.type.localeCompare(b.type));
+    }
+    return groups;
+  }, [filteredEntries]);
+
+  const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
+
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
 
@@ -345,85 +364,99 @@ export default function AllTransactionsPage() {
             </div>
             </CardHeader>
             <CardContent>
-            {isLoaded && filteredEntries.length > 0 ? (
-                <Table>
-                <TableHeader>
-                    <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Partner</TableHead>
-                    <TableHead>Details</TableHead>
-                    <TableHead className="text-right">Amount (PKR)</TableHead>
-                    <TableHead className="text-right">Profit (PKR)</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {filteredEntries.map(entry => {
-                    const customer = getCustomerForEntry(entry);
-                    const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
-                    const date = new Date(entry.timestamp);
-                    const entityId = entry.original?.customerId || entry.original?.supplierId || entry.original?.partnerId;
-                    const color = getEntryColor(entry);
-                    const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+            {isLoaded && sortedDateKeys.length > 0 ? (
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={sortedDateKeys}>
+                    {sortedDateKeys.map(dateKey => {
+                        const dayEntries = groupedEntries[dateKey];
+                        return (
+                            <AccordionItem value={dateKey} key={dateKey} className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
+                                <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
+                                    <div className="flex justify-between w-full pr-4 items-center">
+                                        <span className="font-semibold text-primary">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
+                                    </div>
+                                </AccordionTrigger>
+                                <AccordionContent className="px-4 pb-4">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Time</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead>Partner</TableHead>
+                                                <TableHead>Details</TableHead>
+                                                <TableHead className="text-right">Amount (PKR)</TableHead>
+                                                <TableHead className="text-right">Profit (PKR)</TableHead>
+                                                <TableHead className="text-center">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {dayEntries.map(entry => {
+                                                const customer = getCustomerForEntry(entry);
+                                                const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
+                                                const date = new Date(entry.timestamp);
+                                                const color = getEntryColor(entry);
+                                                const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
 
-
-                    return (
-                    <TableRow key={entry.id}>
-                        <TableCell className="font-medium whitespace-nowrap" style={{ color }}>
-                            {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
-                        </TableCell>
-                        <TableCell>
-                        <Badge 
-                            className="text-xs border"
-                            style={{ 
-                                backgroundColor: `${color}20`, 
-                                color: color,
-                                borderColor: `${color}40`,
-                            }}
-                        >{typeLabel}</Badge>
-                        </TableCell>
-                        <TableCell className="font-medium">{entry.partner}</TableCell>
-                        <TableCell>{entry.details}</TableCell>
-                        <TableCell className="text-right font-semibold font-mono" style={{ color }}>
-                            {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right font-mono text-blue-600">
-                          {entry.type === 'Sale' && typeof entry.profit === 'number' ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                        </TableCell>
-                        <TableCell className="text-center space-x-0.5">
-                             <Button asChild variant="ghost" size="icon" title="Edit">
-                                <Link href={entry.type === 'Purchase' ? '/settings' : '/customers'}>
-                                    <Pencil className="w-4 h-4" />
-                                </Link>
-                            </Button>
-                            {isPrintable && (
-                            <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                                <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`}>
-                                <Printer className="w-4 h-4" />
-                                </Link>
-                            </Button>
-                            )}
-                            {customer?.contact && (
-                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
-                                    <a 
-                                    href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    >
-                                    <WhatsAppIcon className="w-5 h-5" />
-                                    </a>
-                                </Button>
-                            )}
-                            <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                                <Trash2 className="w-4 h-4" />
-                            </Button>
-                        </TableCell>
-                    </TableRow>
-                    )
+                                                return (
+                                                <TableRow key={entry.id}>
+                                                    <TableCell className="font-medium whitespace-nowrap" style={{ color }}>
+                                                        {isValid(date) ? format(date, 'hh:mm a') : 'Invalid Time'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                    <Badge 
+                                                        className="text-xs border"
+                                                        style={{ 
+                                                            backgroundColor: `${color}20`, 
+                                                            color: color,
+                                                            borderColor: `${color}40`,
+                                                        }}
+                                                    >{typeLabel}</Badge>
+                                                    </TableCell>
+                                                    <TableCell className="font-medium">{entry.partner}</TableCell>
+                                                    <TableCell>{entry.details}</TableCell>
+                                                    <TableCell className="text-right font-semibold font-mono" style={{ color }}>
+                                                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </TableCell>
+                                                    <TableCell className="text-right font-mono text-blue-600">
+                                                    {entry.type === 'Sale' && typeof entry.profit === 'number' ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                                    </TableCell>
+                                                    <TableCell className="text-center space-x-0.5">
+                                                        <Button asChild variant="ghost" size="icon" title="Edit">
+                                                            <Link href={entry.type === 'Purchase' ? '/settings' : '/customers'}>
+                                                                <Pencil className="w-4 h-4" />
+                                                            </Link>
+                                                        </Button>
+                                                        {isPrintable && (
+                                                        <Button asChild variant="ghost" size="icon" title="Print Invoice">
+                                                            <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`}>
+                                                            <Printer className="w-4 h-4" />
+                                                            </Link>
+                                                        </Button>
+                                                        )}
+                                                        {customer?.contact && (
+                                                            <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
+                                                                <a 
+                                                                href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer"
+                                                                >
+                                                                <WhatsAppIcon className="w-5 h-5" />
+                                                                </a>
+                                                            </Button>
+                                                        )}
+                                                        <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </AccordionContent>
+                            </AccordionItem>
+                        );
                     })}
-                </TableBody>
-                </Table>
+                </Accordion>
             ) : (
                 <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                 {isLoaded ? (
@@ -507,3 +540,5 @@ export default function AllTransactionsPage() {
     </>
   );
 }
+
+    
