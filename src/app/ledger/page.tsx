@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -819,8 +818,12 @@ export default function LedgerPage() {
                         return (
                         <AccordionItem value={dayKey} key={dayKey} className="border border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
                             <AccordionTrigger className="hover:no-underline p-4 text-lg data-[state=open]:bg-muted/50">
-                                <div className="flex justify-between w-full pr-4">
+                                <div className="flex justify-between w-full pr-4 items-center">
                                     <span className="font-semibold text-red-500">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
+                                    <div className="flex gap-4 text-sm font-normal">
+                                        <span>Previous Closing: <span className="font-mono text-muted-foreground">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></span>
+                                        <span>Day's Closing: <span className="font-mono font-semibold">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></span>
+                                    </div>
                                 </div>
                             </AccordionTrigger>
                             <AccordionContent className="px-4 pb-4 bg-background">
@@ -844,10 +847,10 @@ export default function LedgerPage() {
                                     </div>
                                     <div className="col-span-2 md:col-span-3 lg:col-span-2">
                                         <h4 className="font-semibold border-b pb-1 mb-1">Balance Summary</h4>
-                                        <div className="flex justify-between"><span>Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                        <div className="flex justify-between"><span>Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                        <div className="flex justify-between"><span>Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                        <div className="flex justify-between font-bold"><span>Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                        <div className="flex justify-between"><span>Previous Closing:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
+                                        <div className="flex justify-between"><span>Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
+                                        <div className="flex justify-between"><span>Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
+                                        <div className="flex justify-between font-bold"><span>Day's Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
                                     </div>
                                 </div>
                                 {showJournal && (
@@ -996,3 +999,5 @@ export default function LedgerPage() {
     </>
   );
 }
+
+    
