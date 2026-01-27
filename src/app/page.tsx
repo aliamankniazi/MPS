@@ -105,7 +105,8 @@ export default function DashboardPage() {
             year: 'numeric'
         }).format(now);
         
-        const punjabiDate = getPunjabiDate(now);
+        const desiDate = getPunjabiDate(now);
+        const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
 
         const time = now.toLocaleString('en-US', {
             hour: '2-digit',
@@ -380,15 +381,15 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-            <div className="flex items-baseline gap-4">
+            <div className="flex items-baseline gap-4 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
-              <p className="text-xl font-bold text-destructive">{currentTime}</p>
+              <p className="text-xl font-medium text-muted-foreground">{currentTime}</p>
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
              <DateRangePicker date={dateRange} onDateChange={setDateRange} />
             <Button asChild variant="outline">
                 <Link href="/reports">View All Reports</Link>
