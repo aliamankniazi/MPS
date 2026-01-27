@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search, UserX } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import Barcode from 'react-barcode';
@@ -58,7 +58,7 @@ const contactDisplay = (contact: any): string => {
 };
 
 export default function CustomersPage() {
-  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer, updateBusinessPartner, deleteBusinessPartner } = useDatabase();
+  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer, updateBusinessPartner, deleteBusinessPartner, transactions, customerPayments, cashAdvances } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
   
@@ -76,6 +76,41 @@ export default function CustomersPage() {
   
   const isPartnerWatch = watchEdit('isPartner');
   const isBlacklistedWatch = watchEdit('isBlacklisted');
+
+  const lastActivityMap = useMemo(() => {
+    const activityMap = new Map<string, string>();
+
+    const allEntries = [
+        ...transactions,
+        ...customerPayments,
+        ...cashAdvances,
+        ...customers.map(c => ({ customerId: c.id, timestamp: c.timestamp })),
+        ...businessPartners.map(p => ({ customerId: p.id, timestamp: p.timestamp })),
+    ];
+
+    for (const entry of allEntries) {
+        const id = entry.customerId || (entry as any).id;
+        if (id && entry.timestamp && isValid(new Date(entry.timestamp))) {
+            const existing = activityMap.get(id);
+            if (!existing || new Date(entry.timestamp) > new Date(existing)) {
+                activityMap.set(id, entry.timestamp);
+            }
+        }
+    }
+    return activityMap;
+  }, [transactions, customerPayments, cashAdvances, customers, businessPartners]);
+
+  const balances = useMemo(() => {
+    const balanceMap = new Map<string, number>();
+    customers.forEach(c => {
+        const openingBalance = c.openingBalance || 0;
+        const totalSales = transactions.filter(tx => tx.customerId === c.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
+        const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === c.id).reduce((sum, ca) => sum + ca.amount, 0);
+        const totalPayments = customerPayments.filter(p => p.customerId === c.id).reduce((sum, p) => sum + p.amount, 0);
+        balanceMap.set(c.id, openingBalance + totalSales + totalCashAdvances - totalPayments);
+    });
+    return balanceMap;
+  }, [customers, transactions, customerPayments, cashAdvances]);
 
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, Customer>();
@@ -99,8 +134,21 @@ export default function CustomersPage() {
         }
     });
     
-    return Array.from(peopleMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [customers, businessPartners]);
+    const peopleArray = Array.from(peopleMap.values());
+    
+    peopleArray.sort((a,b) => {
+        const dateA = lastActivityMap.get(a.id);
+        const dateB = lastActivityMap.get(b.id);
+        if(dateA && dateB) {
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+        }
+        if(dateA) return -1;
+        if(dateB) return 1;
+        return a.name.localeCompare(b.name);
+    });
+
+    return peopleArray;
+  }, [customers, businessPartners, lastActivityMap]);
   
   const filteredCustomers = useMemo(() => {
     if (!searchTerm) return allPeople;
@@ -313,7 +361,10 @@ export default function CustomersPage() {
                           <div className="text-sm text-muted-foreground">{contactDisplay(c.contact)}</div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
                           <div className="text-xs text-muted-foreground">{c.vehicleNumber || 'N/A'}</div>
-                          <div className="text-xs text-muted-foreground">Added: {format(new Date(c.timestamp), 'dd-MMM-yyyy')}</div>
+                          <div className="text-xs text-muted-foreground">Last Activity: {lastActivityMap.get(c.id) ? format(new Date(lastActivityMap.get(c.id)!), 'dd-MMM-yyyy') : 'N/A'}</div>
+                          <div className="font-bold mt-1">
+                            Balance: PKR {balances.get(c.id)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Barcode value={c.id} height={40} width={1.5} fontSize={10} margin={2} />
