@@ -817,139 +817,139 @@ export default function LedgerPage() {
                        const areSomeSelected = dayEntryIds.some(id => selectedEntries.includes(id));
 
                         return (
-                        <AccordionItem value={dayKey} key={dayKey} className="border-b-0">
-                            <Card>
-                                <AccordionTrigger className="hover:no-underline p-4 text-lg">
-                                    <div className="flex justify-between w-full pr-4">
-                                        <span className="font-semibold">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
+                        <AccordionItem value={dayKey} key={dayKey} className="border border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
+                            <AccordionTrigger className="hover:no-underline p-4 text-lg data-[state=open]:bg-muted/50">
+                                <div className="flex justify-between w-full pr-4">
+                                    <span className="font-semibold text-red-500">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
+                                </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-4 pb-4 bg-background">
+                                <div className="p-4 rounded-lg bg-muted/50 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm mb-4">
+                                    <div>
+                                        <h4 className="font-semibold border-b pb-1 mb-1 text-green-600">Income</h4>
+                                        <div className="flex justify-between"><span>Cash Sale:</span> <span className="font-mono">{dayData.dailySummary.cashSale.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Recovery:</span> <span className="font-mono">{dayData.dailySummary.recovery.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Other:</span> <span className="font-mono">{dayData.dailySummary.otherIncome.toLocaleString()}</span></div>
                                     </div>
-                                </AccordionTrigger>
-                                <AccordionContent className="px-2 pb-2">
-                                    <div className="p-4 rounded-lg bg-muted/50 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm mb-4">
-                                        <div>
-                                            <h4 className="font-semibold border-b pb-1 mb-1 text-green-600">Income</h4>
-                                            <div className="flex justify-between"><span>Cash Sale:</span> <span className="font-mono">{dayData.dailySummary.cashSale.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Recovery:</span> <span className="font-mono">{dayData.dailySummary.recovery.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Other:</span> <span className="font-mono">{dayData.dailySummary.otherIncome.toLocaleString()}</span></div>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenses</h4>
-                                            <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
-                                        </div>
-                                        <div className="col-span-2 md:col-span-1">
-                                            <h4 className="font-semibold border-b pb-1 mb-1 text-blue-600">Purchases</h4>
-                                            <div className="flex justify-between"><span>Purchases:</span> <span className="font-mono">{dayData.dailySummary.purchases.toLocaleString()}</span></div>
-                                            <div className="flex justify-between"><span>Supplier Payment:</span> <span className="font-mono">{dayData.dailySummary.supplierPayment.toLocaleString()}</span></div>
-                                        </div>
-                                        <div className="col-span-2 md:col-span-3 lg:col-span-2">
-                                            <h4 className="font-semibold border-b pb-1 mb-1">Balance Summary</h4>
-                                            <div className="flex justify-between"><span>Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            <div className="flex justify-between"><span>Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            <div className="flex justify-between"><span>Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                            <div className="flex justify-between font-bold"><span>Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
-                                        </div>
+                                    <div>
+                                        <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenses</h4>
+                                        <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
                                     </div>
-                                    {showJournal && (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead className="w-12 px-4">
-                                                      <Checkbox
-                                                        checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false}
-                                                        onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)}
-                                                        aria-label="Select all entries for this day"
-                                                      />
-                                                    </TableHead>
-                                                    <TableHead>Sr #</TableHead>
-                                                    <TableHead>Date & Time</TableHead>
-                                                    <TableHead>Partner</TableHead>
-                                                    <TableHead>Notes</TableHead>
-                                                    <TableHead>Particulars</TableHead>
-                                                    <TableHead>Type</TableHead>
-                                                    <TableHead className="text-right">Debit</TableHead>
-                                                    <TableHead className="text-right">Credit</TableHead>
-                                                    <TableHead className="text-right">Balance</TableHead>
-                                                    <TableHead className="text-center">Actions</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {dayData.entries.slice().reverse().map((entry) => {
-                                                    const date = new Date(entry.timestamp);
-                                                    const color = getEntryColor(entry);
-                                                    const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
-                                                    const currentSr = runningEntryCount--;
-                                                    const link = getEntryLink(entry);
+                                    <div className="col-span-2 md:col-span-1">
+                                        <h4 className="font-semibold border-b pb-1 mb-1 text-blue-600">Purchases</h4>
+                                        <div className="flex justify-between"><span>Purchases:</span> <span className="font-mono">{dayData.dailySummary.purchases.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Supplier Payment:</span> <span className="font-mono">{dayData.dailySummary.supplierPayment.toLocaleString()}</span></div>
+                                    </div>
+                                    <div className="col-span-2 md:col-span-3 lg:col-span-2">
+                                        <h4 className="font-semibold border-b pb-1 mb-1">Balance Summary</h4>
+                                        <div className="flex justify-between"><span>Opening Balance:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                        <div className="flex justify-between"><span>Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                        <div className="flex justify-between"><span>Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                        <div className="flex justify-between font-bold"><span>Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:0})}</span></div>
+                                    </div>
+                                </div>
+                                {showJournal && (
+                                    <div className="border rounded-md">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="w-12 px-4">
+                                                  <Checkbox
+                                                    checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false}
+                                                    onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)}
+                                                    aria-label="Select all entries for this day"
+                                                  />
+                                                </TableHead>
+                                                <TableHead>Sr #</TableHead>
+                                                <TableHead>Date & Time</TableHead>
+                                                <TableHead>Partner</TableHead>
+                                                <TableHead>Notes</TableHead>
+                                                <TableHead>Particulars</TableHead>
+                                                <TableHead>Type</TableHead>
+                                                <TableHead className="text-right">Debit</TableHead>
+                                                <TableHead className="text-right">Credit</TableHead>
+                                                <TableHead className="text-right">Balance</TableHead>
+                                                <TableHead className="text-center">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {dayData.entries.slice().reverse().map((entry) => {
+                                                const date = new Date(entry.timestamp);
+                                                const color = getEntryColor(entry);
+                                                const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+                                                const currentSr = runningEntryCount--;
+                                                const link = getEntryLink(entry);
 
-                                                    return (
-                                                        <TableRow key={entry.id}>
-                                                            <TableCell className="px-4">
-                                                              <Checkbox
-                                                                checked={selectedEntries.includes(entry.id)}
-                                                                onCheckedChange={(checked) => handleSelectEntry(entry.id, !!checked)}
-                                                                disabled={!entry.id.includes('-')}
-                                                                aria-label="Select row"
-                                                              />
-                                                            </TableCell>
-                                                            <TableCell>{currentSr}</TableCell>
-                                                            <TableCell className="font-medium" style={{ color }}>
-                                                                {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
-                                                            </TableCell>
-                                                            <TableCell className="font-medium" style={{ color }}>
-                                                                <Link href={link} className="hover:underline" rel="noopener noreferrer">
-                                                                    {entry.partnerName}
+                                                return (
+                                                    <TableRow key={entry.id}>
+                                                        <TableCell className="px-4">
+                                                          <Checkbox
+                                                            checked={selectedEntries.includes(entry.id)}
+                                                            onCheckedChange={(checked) => handleSelectEntry(entry.id, !!checked)}
+                                                            disabled={!entry.id.includes('-')}
+                                                            aria-label="Select row"
+                                                          />
+                                                        </TableCell>
+                                                        <TableCell>{currentSr}</TableCell>
+                                                        <TableCell className="font-medium" style={{ color }}>
+                                                            {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
+                                                        </TableCell>
+                                                        <TableCell className="font-medium" style={{ color }}>
+                                                            <Link href={link} className="hover:underline" rel="noopener noreferrer">
+                                                                {entry.partnerName}
+                                                            </Link>
+                                                        </TableCell>
+                                                        <TableCell>{entry.notes || ''}</TableCell>
+                                                        <TableCell className="font-medium" style={{ color }}>
+                                                            {entry.description}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                        <Badge 
+                                                            className="text-xs border"
+                                                            style={{
+                                                                backgroundColor: `${color}20`,
+                                                                color: color,
+                                                                borderColor: `${color}40`,
+                                                            }}
+                                                        >
+                                                          {typeLabel}
+                                                        </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono" style={{ color }}>
+                                                            {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono" style={{ color }}>
+                                                            {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
+                                                            {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Button asChild variant="ghost" size="icon" title="Edit">
+                                                                <Link href="/customers">
+                                                                    <Pencil className="w-4 h-4" />
                                                                 </Link>
-                                                            </TableCell>
-                                                            <TableCell>{entry.notes || ''}</TableCell>
-                                                            <TableCell className="font-medium" style={{ color }}>
-                                                                {entry.description}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                            <Badge 
-                                                                className="text-xs border"
-                                                                style={{
-                                                                    backgroundColor: `${color}20`,
-                                                                    color: color,
-                                                                    borderColor: `${color}40`,
-                                                                }}
+                                                            </Button>
+                                                            <Button 
+                                                            variant="ghost" 
+                                                            size="icon" 
+                                                            className="text-destructive hover:text-destructive" 
+                                                            onClick={() => setEntryToDelete(entry)}
+                                                            disabled={!entry.id.includes('-')}
                                                             >
-                                                              {typeLabel}
-                                                            </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono" style={{ color }}>
-                                                                {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono" style={{ color }}>
-                                                                {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                                                            </TableCell>
-                                                            <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                                {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                            </TableCell>
-                                                            <TableCell className="text-center">
-                                                                <Button asChild variant="ghost" size="icon" title="Edit">
-                                                                    <Link href="/customers">
-                                                                        <Pencil className="w-4 h-4" />
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button 
-                                                                variant="ghost" 
-                                                                size="icon" 
-                                                                className="text-destructive hover:text-destructive" 
-                                                                onClick={() => setEntryToDelete(entry)}
-                                                                disabled={!entry.id.includes('-')}
-                                                                >
-                                                                    <Trash2 className="h-4 w-4" />
-                                                                </Button>
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )
-                                                })}
-                                            </TableBody>
-                                        </Table>
-                                    )}
-                                </AccordionContent>
-                            </Card>
+                                                                <Trash2 className="h-4 w-4" />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                    </div>
+                                )}
+                            </AccordionContent>
                         </AccordionItem>
                         )
                     })}
