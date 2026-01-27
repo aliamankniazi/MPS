@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -44,18 +43,18 @@ export default function DashboardPage() {
   
     // Based on Bikrami calendar for Punjab
     const monthData = [
-        { name: 'چیت', length: 31, start: { m: 2, d: 14 } },
-        { name: 'وساکھ', length: 31, start: { m: 3, d: 14 } },
-        { name: 'جیٹھ', length: 31, start: { m: 4, d: 15 } },
-        { name: 'ہاੜ', length: 31, start: { m: 5, d: 15 } },
-        { name: 'ساوڻ', length: 31, start: { m: 6, d: 16 } },
-        { name: 'بھادوں', length: 30, start: { m: 7, d: 16 } },
-        { name: 'اسو', length: 30, start: { m: 8, d: 15 } },
-        { name: 'کاتک', length: 30, start: { m: 9, d: 15 } },
-        { name: 'مگھر', length: 30, start: { m: 10, d: 14 } },
-        { name: 'پوہ', length: 30, start: { m: 11, d: 14 } },
-        { name: 'ماگھ', length: 30, start: { m: 0, d: 13 } },
-        { name: 'پھگਣ', length: 30, start: { m: 1, d: 12 } }
+      { name: 'ਚੇਤ', start: { m: 2, d: 14 } },
+      { name: 'ਵਸਾਖ', start: { m: 3, d: 14 } },
+      { name: 'ਜੇਠ', start: { m: 4, d: 15 } },
+      { name: 'ਹਾੜ', start: { m: 5, d: 15 } },
+      { name: 'ਸਾਵਣ', start: { m: 6, d: 16 } },
+      { name: 'ਭਾਦੋਂ', start: { m: 7, d: 16 } },
+      { name: 'Աਸੂ', start: { m: 8, d: 16 } },
+      { name: 'ਕੱਤਕ', start: { m: 9, d: 16 } },
+      { name: 'ਮੱਘਰ', start: { m: 10, d: 15 } },
+      { name: 'ਪੋਹ', start: { m: 11, d: 14 } },
+      { name: 'ਮਾਘ', start: { m: 0, d: 13 } },
+      { name: 'ਫੱਗਣ', start: { m: 1, d: 12 } }
     ];
 
     let bikramiYear = year + 57;
@@ -392,15 +391,6 @@ export default function DashboardPage() {
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-             <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-            <Button asChild variant="outline">
-                <Link href="/reports">View All Reports</Link>
-            </Button>
-            <Button asChild>
-                <Link href="/sales">New Sale</Link>
-            </Button>
-        </div>
       </div>
 
        <div className="grid gap-6 lg:grid-cols-5">
@@ -572,7 +562,16 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-2 space-y-6">
-             <Card className="border-destructive">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+                <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                <Button asChild variant="outline">
+                    <Link href="/reports">View All Reports</Link>
+                </Button>
+                <Button asChild>
+                    <Link href="/sales">New Sale</Link>
+                </Button>
+            </div>
+            <Card className="border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted And Defaulter Customers</CardTitle>
                     <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
@@ -715,7 +714,4 @@ export default function DashboardPage() {
       </div>
     </div>
   );
-
-    
-
 }
