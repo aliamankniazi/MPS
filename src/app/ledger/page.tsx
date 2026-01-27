@@ -40,6 +40,7 @@ type LedgerEntry = {
   timestamp: string;
   description: string;
   partnerName: string;
+  entityId?: string;
   type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Daily Closing Stock' | 'Salary Expense';
   debit: number;
   credit: number;
@@ -116,6 +117,39 @@ export default function LedgerPage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
+  const entityBalances = useMemo(() => {
+    if (!isLoaded) return {};
+    const balances: Record<string, number> = {};
+
+    // Customers
+    customers.forEach(c => {
+        const opening = c.openingBalance || 0;
+        const sales = transactions.filter(tx => tx.customerId === c.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
+        const advances = cashAdvances.filter(ca => ca.customerId === c.id).reduce((sum, ca) => sum + ca.amount, 0);
+        const payments = customerPayments.filter(p => p.customerId === c.id).reduce((sum, p) => sum + p.amount, 0);
+        balances[c.id] = opening + sales + advances - payments;
+    });
+
+    // Suppliers
+    suppliers.forEach(s => {
+        const opening = s.openingBalance || 0;
+        const purchasesTotal = purchases.filter(p => p.supplierId === s.id).reduce((sum, p) => sum + p.totalCost, 0);
+        const paymentsTotal = supplierPayments.filter(sp => sp.supplierId === s.id).reduce((sum, sp) => sum + sp.amount, 0);
+        balances[s.id] = opening + purchasesTotal - paymentsTotal;
+    });
+
+    // Business Partners (their investment capital, separate from any customer balance they may have)
+    businessPartners.forEach(p => {
+        const investmentsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Investment').reduce((sum, i) => sum + i.amount, 0);
+        const withdrawalsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Withdrawal').reduce((sum, i) => sum + i.amount, 0);
+        balances[p.id] = (balances[p.id] || 0) + investmentsTotal - withdrawalsTotal;
+    });
+
+
+    return balances;
+  }, [isLoaded, customers, suppliers, businessPartners, transactions, purchases, customerPayments, supplierPayments, cashAdvances, investments]);
+
+
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
     
@@ -136,6 +170,7 @@ export default function LedgerPage() {
             timestamp: tx.timestamp,
             description,
             partnerName: customerName,
+            entityId: tx.customerId,
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
             credit: !isCreditSale ? tx.totalAmount : 0,
@@ -158,6 +193,7 @@ export default function LedgerPage() {
           timestamp: cp.timestamp,
           description,
           partnerName: customerName,
+          entityId: cp.customerId,
           type: 'Customer Payment',
           debit: 0,
           credit: cp.amount,
@@ -177,6 +213,7 @@ export default function LedgerPage() {
           timestamp: ca.timestamp,
           description: 'Cash Advance',
           partnerName: customerName,
+          entityId: ca.customerId,
           type: 'Cash Advance',
           debit: ca.amount,
           credit: 0,
@@ -197,6 +234,7 @@ export default function LedgerPage() {
             timestamp: p.timestamp,
             description,
             partnerName: supplierName,
+            entityId: p.supplierId,
             type: 'Purchase',
             credit: p.totalCost,
             debit: 0,
@@ -215,6 +253,7 @@ export default function LedgerPage() {
             timestamp: sp.timestamp,
             description: `Payment Made (${sp.paymentMethod})`,
             partnerName: supplierName,
+            entityId: sp.supplierId,
             type: 'Supplier Payment',
             debit: sp.amount, 
             credit: 0, 
@@ -237,6 +276,7 @@ export default function LedgerPage() {
             timestamp: e.timestamp,
             description: e.description,
             partnerName: partnerName,
+            entityId: employeeAsCustomer?.id,
             type: isSalaryExpense ? 'Salary' : 'Expense',
             debit: e.amount,
             credit: 0,
@@ -255,6 +295,7 @@ export default function LedgerPage() {
             timestamp: pr.timestamp,
             description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
             partnerName: supplierName,
+            entityId: pr.supplierId,
             type: 'Purchase Return',
             debit: 0,
             credit: pr.totalRefund,
@@ -274,6 +315,7 @@ export default function LedgerPage() {
         timestamp: sr.timestamp,
         description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
         partnerName: customerName,
+        entityId: sr.customerId,
         type: 'Sale Return',
         debit: sr.totalRefund,
         credit: 0,
@@ -308,6 +350,7 @@ export default function LedgerPage() {
                 timestamp: inv.timestamp,
                 description: 'Investment',
                 partnerName: partnerName,
+                entityId: inv.partnerId,
                 type: 'Investment',
                 debit: 0,
                 credit: inv.amount,
@@ -320,6 +363,7 @@ export default function LedgerPage() {
                 timestamp: inv.timestamp,
                 description: 'Withdrawal',
                 partnerName: partnerName,
+                entityId: inv.partnerId,
                 type: 'Withdrawal',
                 debit: inv.amount,
                 credit: 0,
@@ -669,20 +713,22 @@ export default function LedgerPage() {
   let runningEntryCount = filteredEntries.length;
 
   const getEntryLink = (entry: LedgerEntry): string => {
+    if (!entry.entityId) return '#';
+
     if (entry.type === 'Sale') {
       return `/invoice/sale/${entry.original.id}`;
     }
     if (entry.type === 'Purchase') {
       return `/invoice/purchase/${entry.original.id}`;
     }
-    if (entry.original.customerId) {
-        return `/customers/${entry.original.customerId}/ledger`;
+    if (entry.original.customerId || entry.type === 'Customer Payment' || entry.type === 'Cash Advance' || entry.type === 'Sale Return' ) {
+        return `/customers/${entry.entityId}/ledger`;
     }
-    if (entry.original.supplierId) {
-        return `/customers/${entry.original.supplierId}/ledger`;
+    if (entry.original.supplierId || entry.type === 'Supplier Payment' || entry.type === 'Purchase Return') {
+        return `/customers/${entry.entityId}/ledger`;
     }
-    if (entry.original.partnerId) {
-        return `/customers/${entry.original.partnerId}/ledger`;
+    if (entry.original.partnerId || entry.type === 'Investment' || entry.type === 'Withdrawal') {
+        return `/customers/${entry.entityId}/ledger`;
     }
     return '#'; // Default fallback
   }
@@ -903,6 +949,11 @@ export default function LedgerPage() {
                                                             <Link href={link} className="hover:underline" rel="noopener noreferrer">
                                                                 {entry.partnerName}
                                                             </Link>
+                                                            {entry.entityId && entityBalances[entry.entityId] !== undefined && (
+                                                                <div className="text-xs text-muted-foreground">
+                                                                    Cur. Bal: {entityBalances[entry.entityId].toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                                                </div>
+                                                            )}
                                                         </TableCell>
                                                         <TableCell>{entry.notes || ''}</TableCell>
                                                         <TableCell className="font-medium" style={{ color }}>
@@ -999,5 +1050,3 @@ export default function LedgerPage() {
     </>
   );
 }
-
-    
