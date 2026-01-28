@@ -185,16 +185,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         <SidebarMenuSub>
                             {group.links.map(link => (
                             <SidebarMenuSubItem key={link.href}>
-                                <Link href={link.href} passHref legacyBehavior>
-                                    <SidebarMenuSubButton
-                                        isActive={isLinkActive(link.href)}
-                                        target={(link as any).target || '_self'}
-                                        rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}
-                                    >
+                                <SidebarMenuSubButton
+                                    asChild
+                                    isActive={isLinkActive(link.href)}
+                                    target={(link as any).target || '_self'}
+                                    rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}
+                                >
+                                    <Link href={link.href}>
                                         <link.icon/>
                                         <span>{link.label}</span>
-                                    </SidebarMenuSubButton>
-                                </Link>
+                                    </Link>
+                                </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                             ))}
                         </SidebarMenuSub>
