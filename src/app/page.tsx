@@ -44,18 +44,18 @@ export default function DashboardPage() {
   
     // Based on Bikrami calendar for Punjab
     const monthData = [
-      { name: 'ਚੇਤ', start: { m: 2, d: 14 } },
-      { name: 'ਵਸਾਖ', start: { m: 3, d: 14 } },
-      { name: 'ਜੇਠ', start: { m: 4, d: 15 } },
-      { name: 'ਹਾੜ', start: { m: 5, d: 15 } },
-      { name: 'ਸਾਵਣ', start: { m: 6, d: 16 } },
-      { name: 'ਭਾਦੋਂ', start: { m: 7, d: 16 } },
-      { name: 'Աਸੂ', start: { m: 8, d: 16 } },
-      { name: 'ਕੱਤਕ', start: { m: 9, d: 16 } },
-      { name: 'ਮੱਘਰ', start: { m: 10, d: 15 } },
-      { name: 'ਪੋਹ', start: { m: 11, d: 14 } },
-      { name: 'ਮਾਘ', start: { m: 0, d: 13 } },
-      { name: 'ਫੱਗਣ', start: { m: 1, d: 12 } }
+        { name: 'ਚੇਤ', length: 31, start: { m: 2, d: 14 } },
+        { name: 'ਵਸਾਖ', length: 31, start: { m: 3, d: 14 } },
+        { name: 'ਜੇਠ', length: 31, start: { m: 4, d: 15 } },
+        { name: 'ਹਾੜ', length: 31, start: { m: 5, d: 15 } },
+        { name: 'ਸਾਵਣ', length: 31, start: { m: 6, d: 16 } },
+        { name: 'ਭਾਦੋਂ', length: 30, start: { m: 7, d: 16 } },
+        { name: 'Աਸੂ', length: 30, start: { m: 8, d: 15 } },
+        { name: 'ਕੱਤਕ', length: 30, start: { m: 9, d: 15 } },
+        { name: 'ਮੱਘਰ', length: 30, start: { m: 10, d: 14 } },
+        { name: 'ਪੋਹ', length: 30, start: { m: 11, d: 14 } },
+        { name: 'ਮਾਘ', length: 30, start: { m: 0, d: 13 } },
+        { name: 'ਫੱਗਣ', length: 30, start: { m: 1, d: 12 } }
     ];
 
     let bikramiYear = year + 57;
@@ -73,12 +73,22 @@ export default function DashboardPage() {
         startDate: new Date(m.start.m >= 2 ? gregorianYearForBikramiStart : gregorianYearForBikramiStart + 1, m.start.m, m.start.d)
     })).sort((a,b) => a.startDate.getTime() - b.startDate.getTime());
     
+    let foundMonth = false;
     for (let i = monthStarts.length - 1; i >= 0; i--) {
         if (date >= monthStarts[i].startDate) {
             desiMonth = monthStarts[i].name;
             desiDay = differenceInDays(date, monthStarts[i].startDate) + 1;
+            foundMonth = true;
             break;
         }
+    }
+
+    if (!foundMonth) {
+        // Handle dates before the first defined month start (e.g. early January)
+        const lastMonthOfPreviousYear = monthStarts[monthStarts.length -1];
+        desiMonth = lastMonthOfPreviousYear.name;
+        // This is an approximation, real logic might be more complex
+        desiDay = differenceInDays(date, new Date(gregorianYearForBikramiStart, lastMonthOfPreviousYear.start.m, lastMonthOfPreviousYear.start.d)) + 1;
     }
     
     return { day: desiDay, month: desiMonth, year: bikramiYear };
@@ -109,7 +119,7 @@ export default function DashboardPage() {
             hour12: true,
         });
 
-        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', '')} | ${punjabiDate} | ${time}`);
+        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate} | ${time}`);
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -151,7 +161,7 @@ export default function DashboardPage() {
     const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
     const grossProfit = totalRevenue - totalCostOfGoods;
     const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
-    const netProfit = grossProfit - totalExpenses;
+    
     const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
 
     const salesByDay = transactions.reduce((acc, tx) => {
@@ -179,7 +189,8 @@ export default function DashboardPage() {
       .reduce((sum, adj) => sum + adj.value, 0);
       
     const netStockAdjustment = totalSurplus - totalShortage;
-
+    
+    const netProfit = grossProfit - totalExpenses + netStockAdjustment;
 
     return {
       totalRevenue,
@@ -214,7 +225,7 @@ export default function DashboardPage() {
       const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   
       const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-      const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.price;
+      const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.salePrice;
   
       const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
@@ -400,6 +411,16 @@ export default function DashboardPage() {
          <div className="lg:col-span-3 space-y-6">
           {/* Stat Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
+              </CardContent>
+            </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
@@ -469,16 +490,6 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-[hsl(var(--chart-3))]">PKR {financialSummary?.totalOtherIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">From other sources</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
               </CardContent>
             </Card>
           </div>
