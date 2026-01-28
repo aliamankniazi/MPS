@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -148,8 +149,9 @@ export default function DashboardPage() {
     const totalRevenue = totalFuelRevenue + totalOtherIncomeValue;
     
     const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    const grossProfit = totalRevenue - totalCostOfGoods;
     const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
-    const netProfit = totalRevenue - totalCostOfGoods - totalExpenses;
+    const netProfit = grossProfit - totalExpenses;
     const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
 
     const salesByDay = transactions.reduce((acc, tx) => {
@@ -184,6 +186,7 @@ export default function DashboardPage() {
       totalPurchases: totalCostOfGoods,
       totalExpenses,
       totalOtherIncome: totalOtherIncomeValue,
+      grossProfit,
       netProfit,
       activeCustomers,
       bestSaleDay,
@@ -415,6 +418,16 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">Total cost of goods</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
               </CardContent>
             </Card>
             <Card>
