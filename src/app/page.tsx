@@ -195,7 +195,7 @@ export default function DashboardPage() {
     }, 0);
     
     const totalSoldVolume = filteredTransactions
-        .filter(tx => tx.fuelType && tx.volume && products.some(p => p.name === tx.fuelType && p.category === 'Main Product'))
+        .filter(tx => tx.volume)
         .reduce((sum, tx) => sum + (tx.volume || 0), 0);
 
     const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
@@ -269,7 +269,7 @@ export default function DashboardPage() {
       const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   
       const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-      const lastSaleRate = lastSale ? lastSale.pricePerLitre : (product.salePrice || 0);
+      const lastSaleRate = lastSale?.pricePerLitre ?? product.salePrice ?? 0;
   
       const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
@@ -456,16 +456,6 @@ export default function DashboardPage() {
          <div className="lg:col-span-3 space-y-6">
           {/* Stat Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
-              </CardContent>
-            </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
@@ -487,9 +477,19 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
                     PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} Liters Sold
+                <p className="text-sm font-medium text-muted-foreground">
+                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
                 </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
               </CardContent>
             </Card>
             <Card>
@@ -501,7 +501,7 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
                     PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                 <p className="text-xs text-muted-foreground">
                     For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
                 </p>
               </CardContent>
@@ -714,7 +714,7 @@ export default function DashboardPage() {
                     <CardDescription>A breakdown of sales by product for each day of the current month.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {sortedDailySalesKeys.length > 0 ? (
+                    {sortedDailySalesKeys && sortedDailySalesKeys.length > 0 ? (
                         <Accordion type="single" collapsible className="w-full">
                             {sortedDailySalesKeys.map(date => (
                                 <AccordionItem value={date} key={date}>
@@ -804,3 +804,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
