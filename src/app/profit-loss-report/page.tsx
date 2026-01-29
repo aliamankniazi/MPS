@@ -4,7 +4,7 @@
 import { useMemo } from 'react';
 import { useDatabase } from '@/hooks/use-database';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { DollarSign, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react';
 import { startOfDay, endOfDay, isValid } from 'date-fns';
 
 export default function ProfitLossReportPage() {
@@ -42,10 +42,9 @@ export default function ProfitLossReportPage() {
   const profitSummary = useMemo(() => {
     const { transactions, otherIncomes, expenses } = filteredData;
 
-    const salesProfit = transactions.reduce((sum, sale) => {
-        const profit = sale.totalAmount - (sale.costPrice || 0);
-        return sum + profit;
-    }, 0);
+    const totalSalesAmount = transactions.reduce((sum, sale) => sum + sale.totalAmount, 0);
+    const costOfGoodsSold = transactions.reduce((sum, sale) => sum + (sale.costPrice || 0), 0);
+    const salesProfit = totalSalesAmount - costOfGoodsSold;
 
     const totalOtherIncome = otherIncomes.reduce((sum, income) => sum + income.amount, 0);
 
@@ -53,10 +52,9 @@ export default function ProfitLossReportPage() {
 
     const netProfit = salesProfit + totalOtherIncome - totalExpenses;
 
-    const totalSalesAmount = transactions.reduce((sum, sale) => sum + sale.totalAmount, 0);
-
     return {
         totalSalesAmount,
+        costOfGoodsSold,
         salesProfit,
         totalOtherIncome,
         totalExpenses,
@@ -88,9 +86,18 @@ export default function ProfitLossReportPage() {
                         <div className="text-2xl font-bold">PKR {profitSummary.totalSalesAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                     </CardContent>
                 </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Cost of Goods Sold (COGS)</CardTitle>
+                        <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-destructive">PKR {profitSummary.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                    </CardContent>
+                </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Sales Profit</CardTitle>
+                        <CardTitle className="text-sm font-medium">Sales Profit (Gross)</CardTitle>
                         <TrendingUp className="h-4 w-4 text-green-500" />
                     </CardHeader>
                     <CardContent>
