@@ -12,7 +12,7 @@ import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart,
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType, Transaction, Purchase, Customer } from '@/lib/types';
+import type { DateRange, FuelType, Transaction, Purchase, Customer, Product } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -153,10 +153,9 @@ export default function DashboardPage() {
     if (!isLoaded) return null;
 
     const { transactions: filteredTransactions, purchases: filteredPurchases, expenses: filteredExpenses, otherIncomes: filteredOtherIncomes, stockAdjustments: filteredStockAdjustments } = filteredData;
-    const allPurchases = purchases; // Use all purchases for historical lookup
     
     const costOfGoodsSold = filteredTransactions.reduce((totalCost, sale) => {
-        const productInfo = products.find(p => p.name === sale.product);
+        const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
 
         if (!productInfo) {
             return totalCost; 
@@ -171,7 +170,8 @@ export default function DashboardPage() {
             let latestPurchase: Purchase | null = null;
             let latestPurchaseTime = 0;
 
-            for (const p of allPurchases) {
+            // Use all purchases for accurate COGS calculation, not just filtered ones
+            for (const p of purchases) {
                 if (p.fuelType && p.fuelType.toLowerCase() === sale.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
                     const purchaseTime = new Date(p.timestamp).getTime();
                     if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
@@ -198,9 +198,10 @@ export default function DashboardPage() {
         .filter(tx => tx.fuelType && tx.volume && products.some(p => p.name === tx.fuelType && p.category === 'Main Product'))
         .reduce((sum, tx) => sum + (tx.volume || 0), 0);
 
-    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
     const grossProfit = totalRevenue - costOfGoodsSold;
     const totalExpenses = filteredExpenses.reduce((sum, ex) => sum + ex.amount, 0);
+    const totalOtherIncome = filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
     
     const totalSurplus = filteredStockAdjustments
       .filter(adj => adj.adjustment > 0)
@@ -212,7 +213,7 @@ export default function DashboardPage() {
       
     const netStockAdjustment = totalSurplus - totalShortage;
     
-    const netProfit = grossProfit - totalExpenses + netStockAdjustment;
+    const netProfit = grossProfit - totalExpenses + totalOtherIncome + netStockAdjustment;
 
     const salesByDay = filteredTransactions.reduce((acc, tx) => {
         const txDate = new Date(tx.timestamp);
@@ -237,7 +238,7 @@ export default function DashboardPage() {
       totalPurchases: filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0),
       totalPurchasesVolume: filteredPurchases.reduce((sum, p) => sum + p.volume, 0),
       totalExpenses,
-      totalOtherIncome: filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0),
+      totalOtherIncome,
       grossProfit,
       netProfit,
       activeCustomers,
@@ -412,7 +413,7 @@ export default function DashboardPage() {
   }, [isLoaded, transactions, products]);
 
     const sortedDailySalesKeys = useMemo(() => {
-        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
+        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a.getTime()))
     }, [dailyProductSales]);
   
     const formatPhoneNumberForWhatsApp = (phone: string | number | undefined) => {
@@ -456,12 +457,12 @@ export default function DashboardPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
              <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
               </CardContent>
             </Card>
             <Card>
@@ -488,16 +489,6 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">
                     For all items sold in period
                 </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
               </CardContent>
             </Card>
             <Card>
@@ -553,6 +544,16 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">
                     For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
                 </p>
+              </CardContent>
+            </Card>
+             <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
               </CardContent>
             </Card>
           </div>
