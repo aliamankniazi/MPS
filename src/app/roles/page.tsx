@@ -10,13 +10,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Shield, ShieldPlus, List, Edit, Trash2, AlertTriangle, KeyRound } from 'lucide-react';
+import { Shield, ShieldPlus, List, Edit, Trash2, AlertTriangle, KeyRound, Users } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useAuth, PERMISSIONS, type Permission } from '@/hooks/use-auth';
+import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Role } from '@/lib/types';
+import type { Role, RoleId } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 
 const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
     'General': ['view_dashboard', 'view_all_transactions', 'view_summary', 'generate_ai_summary', 'view_sales_by_type_report'],
@@ -35,7 +38,8 @@ const roleSchema = z.object({
 type RoleFormValues = z.infer<typeof roleSchema>;
 
 export default function RolesPage() {
-  const { roles, addRole, updateRole, deleteRole } = useAuth();
+  const { roles, addRole, updateRole, deleteRole, updateUserRole, resetPassword } = useAuth();
+  const { userRoles, isLoaded } = useDatabase();
   const { toast } = useToast();
   
   const [roleToEdit, setRoleToEdit] = useState<Role | null>(null);
@@ -76,6 +80,30 @@ export default function RolesPage() {
     toast({ title: 'Role Deleted', description: `The "${roleToDelete.name}" role has been removed.` });
     setRoleToDelete(null);
   }
+
+  const handlePasswordReset = async (email: string | undefined) => {
+    if (!email) {
+      toast({
+        variant: 'destructive',
+        title: 'Cannot reset password',
+        description: 'User email is not available.',
+      });
+      return;
+    }
+    try {
+      await resetPassword(email);
+      toast({
+        title: 'Password Reset Email Sent',
+        description: `An email has been sent to ${email} with instructions to reset the password.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to send password reset email.',
+      });
+    }
+  };
 
   return (
     <>
@@ -182,6 +210,58 @@ export default function RolesPage() {
               </div>
             )}
           </CardContent>
+        </Card>
+      </div>
+      
+      <div className="lg:col-span-3">
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Users /> User Management</CardTitle>
+                <CardDescription>Assign roles and manage user accounts.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoaded ? (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User Email</TableHead>
+                                <TableHead>Role</TableHead>
+                                <TableHead className="text-center">Actions</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {userRoles.length > 0 ? userRoles.map(userRole => (
+                                <TableRow key={userRole.id}>
+                                    <TableCell className="font-medium">{userRole.email || userRole.id}</TableCell>
+                                    <TableCell>
+                                        <Select value={userRole.roleId} onValueChange={(newRoleId) => updateUserRole(userRole.id, newRoleId as RoleId)}>
+                                            <SelectTrigger className="w-[180px]">
+                                                <SelectValue placeholder="Select a role" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {roles.map(role => (
+                                                    <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </TableCell>
+                                    <TableCell className="text-center">
+                                        <Button variant="outline" onClick={() => handlePasswordReset(userRole.email)} disabled={!userRole.email}>
+                                            <KeyRound className="mr-2 h-4 w-4" /> Reset Password
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            )) : (
+                                <TableRow>
+                                    <TableCell colSpan={3} className="h-24 text-center">No users found.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                ) : (
+                    <p>Loading users...</p>
+                )}
+            </CardContent>
         </Card>
       </div>
     </div>

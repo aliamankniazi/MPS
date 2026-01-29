@@ -15,6 +15,7 @@ import {
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, firestore } from '@/lib/firebase';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
@@ -55,6 +56,8 @@ interface AuthContextType {
   updateRole: (id: RoleId, updatedRole: Omit<Role, 'id'>) => void;
   deleteRole: (id: RoleId) => void;
   hasPermission: (permission: Permission) => boolean;
+  updateUserRole: (userId: string, roleId: RoleId) => void;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -192,10 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const assignRoleToUser = (userId: string, roleId: RoleId) => {
+  const assignRoleToUser = (userId: string, roleId: RoleId, email: string) => {
     if (!firestore) return;
     const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
-    const roleData = { roleId };
+    const roleData = { roleId, email };
     setDoc(userRoleRef, roleData).catch(error => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: userRoleRef.path,
@@ -203,6 +206,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             requestResourceData: roleData,
         }));
     });
+  };
+
+  const updateUserRole = (userId: string, roleId: RoleId) => {
+    if (!firestore) return;
+    const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
+    updateDoc(userRoleRef, { roleId }).catch(error => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: userRoleRef.path,
+            operation: 'update',
+            requestResourceData: { roleId },
+        }));
+    });
+  };
+
+  const resetPassword = (email: string) => {
+    if (!auth) return Promise.reject(new Error("Firebase Auth is not configured."));
+    return sendPasswordResetEmail(auth, email);
   };
 
   const signIn = (data: AuthFormValues) => {
@@ -232,9 +252,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // First user to sign up becomes an admin
     if (!hasUsers) {
-      assignRoleToUser(userCredential.user.uid, 'admin');
+      assignRoleToUser(userCredential.user.uid, 'admin', data.email);
     } else {
-      assignRoleToUser(userCredential.user.uid, 'attendant'); // Default role for subsequent users
+      assignRoleToUser(userCredential.user.uid, 'attendant', data.email); // Default role for subsequent users
     }
     
     return userCredential;
@@ -271,7 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     addRole,
     updateRole,
     deleteRole,
-    hasPermission
+    hasPermission,
+    updateUserRole,
+    resetPassword,
   };
 
   if (isLoading && !isAuthPage) {

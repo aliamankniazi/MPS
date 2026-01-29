@@ -36,6 +36,8 @@ import type {
     SupplierPayment,
     Transaction,
     DateRange,
+    Role,
+    RoleId,
 } from '@/lib/types';
 import { firestore, auth } from '@/lib/firebase';
 import { 
@@ -81,6 +83,7 @@ const FIRESTORE_PATHS = {
     dictionary: 'dictionary',
     recycleBin: 'recycleBin',
     settings: 'settings',
+    userRoles: 'userRoles',
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -143,6 +146,7 @@ interface DatabaseState {
     attendance: AttendanceRecord[];
     dictionary: DictionaryEntry[];
     recycleBin: RecycledItem[];
+    userRoles: { id: string; email: string; roleId: RoleId }[];
     settings: AppSettings;
     isLoaded: boolean;
 }
@@ -225,7 +229,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: [], otherIncomes: [], customers: [], suppliers: [],
         bankAccounts: [], employees: [], customerPayments: [], supplierPayments: [],
         cashAdvances: [], machines: [], machineReadings: [], investments: [], businessPartners: [],
-        stockAdjustments: [], products: [], attendance: [], dictionary: [], recycleBin: [],
+        stockAdjustments: [], products: [], attendance: [], dictionary: [], recycleBin: [], userRoles: [],
         settings: {
             fuelPrices: DEFAULT_FUEL_PRICES,
             initialFuelStock: DEFAULT_INITIAL_STOCK,
@@ -384,6 +388,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             attendance: [...state.attendance].sort(createSorter('date')),
             dictionary: [...state.dictionary].sort(createSorter('key', 'asc')),
             recycleBin: [...state.recycleBin].sort(createSorter('deletedAt')),
+            userRoles: [...state.userRoles].sort(createSorter('email', 'asc')),
             fuelPrices: state.settings.fuelPrices,
             initialFuelStock: state.settings.initialFuelStock,
             colorSettings: state.settings.colorSettings,
