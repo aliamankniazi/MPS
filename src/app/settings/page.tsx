@@ -56,7 +56,7 @@ type SupplierFormValues = z.infer<typeof supplierSchema>;
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
-  price: z.coerce.number().min(0, 'Price must be non-negative'),
+  salePrice: z.coerce.number().min(0, 'Price must be non-negative'),
   unit: z.string().min(1, 'Unit is required'),
   category: z.enum(['Main Product', 'Supplementary Product'], { required_error: 'Category is required' }),
   openingStock: z.coerce.number().optional(),
@@ -164,7 +164,7 @@ export default function SettingsPage() {
   React.useEffect(() => {
       if (productToEdit) {
           setProductValue('name', productToEdit.name);
-          setProductValue('price', productToEdit.price);
+          setProductValue('salePrice', (productToEdit as any).salePrice || (productToEdit as any).price || 0);
           setProductValue('unit', productToEdit.unit);
           setProductValue('category', productToEdit.category);
           setProductValue('openingStock', initialFuelStock[productToEdit.name as FuelType] || 0);
@@ -239,7 +239,7 @@ export default function SettingsPage() {
         toast({ title: "Product Added", description: `${data.name} has been added.`});
     }
     setProductToEdit(null);
-    resetProduct({name: '', price: 0, unit: '', category: undefined, openingStock: undefined});
+    resetProduct({name: '', salePrice: 0, unit: '', category: undefined, openingStock: undefined});
   };
 
   const handleDeleteSupplier = () => {
@@ -441,9 +441,9 @@ export default function SettingsPage() {
                                 {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
                             </div>
                              <div className="space-y-2">
-                                <Label htmlFor="productPrice">Price</Label>
-                                <Input id="productPrice" type="number" step="0.01" {...registerProduct('price')} placeholder="e.g., 1200" />
-                                {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                                <Label htmlFor="productPrice">Sale Price</Label>
+                                <Input id="productPrice" type="number" step="0.01" {...registerProduct('salePrice')} placeholder="e.g., 1200" />
+                                {productErrors.salePrice && <p className="text-sm text-destructive">{productErrors.salePrice.message}</p>}
                             </div>
                              <div className="space-y-2">
                                 <Label htmlFor="productUnit">Unit</Label>
@@ -512,7 +512,7 @@ export default function SettingsPage() {
                                             {purchaseRate > 0 ? `PKR ${purchaseRate.toFixed(2)} / ${p.unit}` : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-right font-mono">
-                                            {typeof p.price === 'number' ? `PKR ${p.price.toFixed(2)} / ${p.unit}` : 'N/A'}
+                                            {typeof p.salePrice === 'number' ? `PKR ${p.salePrice.toFixed(2)} / ${p.unit}` : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Button variant="ghost" size="icon" title="Edit Product" onClick={() => setProductToEdit(p)}><Edit className="w-4 h-4" /></Button>
@@ -695,9 +695,9 @@ export default function SettingsPage() {
                         {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="editProductPrice">Price</Label>
-                        <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('price')} />
-                        {productErrors.price && <p className="text-sm text-destructive">{productErrors.price.message}</p>}
+                        <Label htmlFor="editProductPrice">Sale Price</Label>
+                        <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('salePrice')} />
+                        {productErrors.salePrice && <p className="text-sm text-destructive">{productErrors.salePrice.message}</p>}
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="editProductUnit">Unit</Label>

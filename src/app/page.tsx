@@ -268,7 +268,7 @@ export default function DashboardPage() {
       const lastPurchase = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   
       const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-      const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.salePrice;
+      const lastSaleRate = lastSale ? lastSale.pricePerLitre : (product.salePrice || 0);
   
       const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
@@ -601,7 +601,7 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex justify-between">
                             <span className="text-[hsl(var(--chart-2))]">Last Sale Rate</span>
-                            <span className="font-mono font-semibold">PKR {stat.lastSaleRate.toFixed(2)}</span>
+                            <span className="font-mono font-semibold">PKR {(stat.lastSaleRate || 0).toFixed(2)}</span>
                         </div>
                          <div className="flex justify-between">
                             <span className="text-[hsl(var(--chart-3))]">Last Purchase Rate</span>
