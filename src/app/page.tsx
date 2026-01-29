@@ -152,19 +152,69 @@ export default function DashboardPage() {
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
 
-    const { transactions, purchases, expenses, otherIncomes, stockAdjustments: filteredStockAdjustments } = filteredData;
-
-    const totalFuelRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
-    const totalOtherIncomeValue = otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalRevenue = totalFuelRevenue + totalOtherIncomeValue;
+    const { transactions: filteredTransactions, purchases: filteredPurchases, expenses: filteredExpenses, otherIncomes: filteredOtherIncomes, stockAdjustments: filteredStockAdjustments } = filteredData;
+    const allPurchases = purchases; // Use all purchases for historical lookup
     
-    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
-    const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = expenses.reduce((sum, ex) => sum + ex.amount, 0);
-    
-    const activeCustomers = new Set(transactions.map(tx => tx.customerId).filter(Boolean)).size;
+    const costOfGoodsSold = filteredTransactions.reduce((totalCost, sale) => {
+        const productInfo = products.find(p => p.name === sale.product);
 
-    const salesByDay = transactions.reduce((acc, tx) => {
+        if (!productInfo) {
+            return totalCost; 
+        }
+
+        if (productInfo.category === 'Main Product') {
+            if (!sale.timestamp || !isValid(new Date(sale.timestamp)) || !sale.volume || sale.volume <= 0) {
+                return totalCost;
+            }
+            
+            const saleTime = new Date(sale.timestamp).getTime();
+            let latestPurchase: Purchase | null = null;
+            let latestPurchaseTime = 0;
+
+            for (const p of allPurchases) {
+                if (p.fuelType && p.fuelType.toLowerCase() === sale.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
+                    const purchaseTime = new Date(p.timestamp).getTime();
+                    if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
+                        latestPurchaseTime = purchaseTime;
+                        latestPurchase = p;
+                    }
+                }
+            }
+            
+            if (latestPurchase && latestPurchase.volume > 0) {
+                const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+                return totalCost + (costPerLitre * sale.volume);
+            }
+
+            return totalCost;
+        } else { // Supplementary Product
+            const quantity = sale.volume || 0;
+            const purchasePrice = productInfo.purchasePrice || 0;
+            return totalCost + (purchasePrice * quantity);
+        }
+    }, 0);
+    
+    const totalSoldVolume = filteredTransactions
+        .filter(tx => tx.fuelType && tx.volume && products.some(p => p.name === tx.fuelType && p.category === 'Main Product'))
+        .reduce((sum, tx) => sum + (tx.volume || 0), 0);
+
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const grossProfit = totalRevenue - costOfGoodsSold;
+    const totalExpenses = filteredExpenses.reduce((sum, ex) => sum + ex.amount, 0);
+    
+    const totalSurplus = filteredStockAdjustments
+      .filter(adj => adj.adjustment > 0)
+      .reduce((sum, adj) => sum + adj.value, 0);
+
+    const totalShortage = filteredStockAdjustments
+      .filter(adj => adj.adjustment < 0)
+      .reduce((sum, adj) => sum + Math.abs(adj.value), 0);
+      
+    const netStockAdjustment = totalSurplus - totalShortage;
+    
+    const netProfit = grossProfit - totalExpenses + netStockAdjustment;
+
+    const salesByDay = filteredTransactions.reduce((acc, tx) => {
         const txDate = new Date(tx.timestamp);
         if (tx.timestamp && isValid(txDate)) {
             const date = txDate.toDateString();
@@ -180,30 +230,23 @@ export default function DashboardPage() {
         }
     }
     
-    const totalSurplus = filteredStockAdjustments
-      .filter(adj => adj.adjustment > 0)
-      .reduce((sum, adj) => sum + adj.value, 0);
-
-    const totalShortage = filteredStockAdjustments
-      .filter(adj => adj.adjustment < 0)
-      .reduce((sum, adj) => sum + adj.value, 0);
-      
-    const netStockAdjustment = totalSurplus - totalShortage;
-    
-    const netProfit = grossProfit - totalExpenses + netStockAdjustment;
+    const activeCustomers = new Set(filteredTransactions.map(tx => tx.customerId).filter(Boolean)).size;
 
     return {
       totalRevenue,
-      totalPurchases: totalCostOfGoods,
+      totalPurchases: filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0),
+      totalPurchasesVolume: filteredPurchases.reduce((sum, p) => sum + p.volume, 0),
       totalExpenses,
-      totalOtherIncome: totalOtherIncomeValue,
+      totalOtherIncome: filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0),
       grossProfit,
       netProfit,
       activeCustomers,
       bestSaleDay,
       netStockAdjustment,
+      costOfGoodsSold,
+      totalSoldVolume,
     };
-  }, [isLoaded, filteredData]);
+  }, [isLoaded, filteredData, products, purchases]);
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
@@ -433,12 +476,18 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
+                <CardTitle className="text-sm font-medium text-primary">
+                    Cost of Goods Sold
+                </CardTitle>
                 <ShoppingCart className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Total cost of goods</p>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
+                    PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    For all items sold in period
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -490,6 +539,20 @@ export default function DashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold text-[hsl(var(--chart-3))]">PKR {financialSummary?.totalOtherIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
                 <p className="text-xs text-muted-foreground">From other sources</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
+                    PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
+                </p>
               </CardContent>
             </Card>
           </div>
