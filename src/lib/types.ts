@@ -10,6 +10,7 @@ export interface Transaction {
   pricePerLitre: number;
   product?: string;
   totalAmount: number;
+  costPrice?: number;
   paymentMethod: PaymentMethod;
   customerId?: string;
   customerName?: string;

@@ -31,7 +31,8 @@ const MAX_CAPACITY: Record<string, number> = {
 
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
-  salePrice: z.coerce.number().min(0, 'Price must be non-negative'),
+  salePrice: z.coerce.number().min(0, 'Sale price must be non-negative'),
+  purchasePrice: z.coerce.number().min(0, 'Purchase price must be non-negative'),
   unit: z.string().min(1, 'Unit is required'),
   category: z.enum(['Main Product', 'Supplementary Product'], { required_error: 'Category is required' }),
 });
@@ -90,13 +91,14 @@ export default function InventoryPage() {
         toast({ title: "Product Added", description: `${data.name} has been added.`});
     }
     setProductToEdit(null);
-    resetProduct({name: '', salePrice: 0, unit: '', category: undefined});
+    resetProduct({name: '', salePrice: 0, purchasePrice: 0, unit: '', category: undefined});
   };
 
   React.useEffect(() => {
       if (productToEdit) {
           setProductValue('name', productToEdit.name);
           setProductValue('salePrice', productToEdit.salePrice);
+          setProductValue('purchasePrice', productToEdit.purchasePrice);
           setProductValue('unit', productToEdit.unit);
           setProductValue('category', productToEdit.category);
       }
@@ -229,16 +231,21 @@ export default function InventoryPage() {
         </CardHeader>
          <CardContent>
              <form onSubmit={handleSubmitProduct(onProductSubmit)} className="space-y-4">
-                 <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                 <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 items-end">
                     <div className="space-y-2">
                         <Label htmlFor="productName">Product Name</Label>
                         <Input id="productName" {...registerProduct('name')} placeholder="e.g., Engine Oil" />
                         {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
                     </div>
                      <div className="space-y-2">
-                        <Label htmlFor="productPrice">Price</Label>
-                        <Input id="productPrice" type="number" step="0.01" {...registerProduct('salePrice')} placeholder="e.g., 1200" />
+                        <Label htmlFor="productSalePrice">Sale Price</Label>
+                        <Input id="productSalePrice" type="number" step="0.01" {...registerProduct('salePrice')} placeholder="e.g., 1200" />
                         {productErrors.salePrice && <p className="text-sm text-destructive">{productErrors.salePrice.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="productPurchasePrice">Purchase Price</Label>
+                        <Input id="productPurchasePrice" type="number" step="0.01" {...registerProduct('purchasePrice')} placeholder="e.g., 900" />
+                        {productErrors.purchasePrice && <p className="text-sm text-destructive">{productErrors.purchasePrice.message}</p>}
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="productUnit">Unit</Label>
@@ -294,7 +301,7 @@ export default function InventoryPage() {
                              const lastPurchase = purchases
                                 .filter(purchase => purchase.fuelType === p.name)
                                 .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                            const purchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : 0;
+                            const purchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : p.purchasePrice;
                             return (
                             <TableRow key={p.id}>
                                 <TableCell className="font-medium">{p.name}</TableCell>
@@ -338,9 +345,14 @@ export default function InventoryPage() {
                     {productErrors.name && <p className="text-sm text-destructive">{productErrors.name.message}</p>}
                 </div>
                   <div className="space-y-2">
-                    <Label htmlFor="editProductPrice">Price</Label>
-                    <Input id="editProductPrice" type="number" step="0.01" {...registerProduct('salePrice')} />
+                    <Label htmlFor="editProductSalePrice">Sale Price</Label>
+                    <Input id="editProductSalePrice" type="number" step="0.01" {...registerProduct('salePrice')} />
                     {productErrors.salePrice && <p className="text-sm text-destructive">{productErrors.salePrice.message}</p>}
+                </div>
+                <div className="space-y-2">
+                    <Label htmlFor="editProductPurchasePrice">Purchase Price</Label>
+                    <Input id="editProductPurchasePrice" type="number" step="0.01" {...registerProduct('purchasePrice')} />
+                    {productErrors.purchasePrice && <p className="text-sm text-destructive">{productErrors.purchasePrice.message}</p>}
                 </div>
                   <div className="space-y-2">
                     <Label htmlFor="editProductUnit">Unit</Label>

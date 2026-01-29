@@ -12,14 +12,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
-import type { PaymentMethod, Transaction, Product } from '@/lib/types';
+import type { PaymentMethod, Transaction, Product, Purchase } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useDatabase } from '@/hooks/use-database';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, transactions, dateRange, colorSettings } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -211,12 +211,30 @@ export default function SalesPage() {
     const finalInvoiceDate = data.invoiceDate.toISOString();
 
     cart.forEach(item => {
+        const product = products.find(p => p.id === item.productId);
+        let costPrice = 0;
+        if (product) {
+            if (product.category === 'Main Product') {
+                const saleTime = new Date(data.invoiceDate).getTime();
+                const latestPurchase = purchases
+                    .filter(p => p.fuelType === item.productName && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                if (latestPurchase && latestPurchase.volume > 0) {
+                    const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+                    costPrice = costPerLitre * item.quantity;
+                }
+            } else { // Supplementary Product
+                costPrice = (product.purchasePrice || 0) * item.quantity;
+            }
+        }
+
         const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
           fuelType: item.productName,
           volume: item.quantity,
           pricePerLitre: item.price,
           product: item.productName,
           totalAmount: item.totalAmount,
+          costPrice: costPrice,
           paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
           customerId: data.customerId,
           customerName: selectedCustomer?.name || 'Walk-in Customer',

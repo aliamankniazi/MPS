@@ -52,6 +52,14 @@ const reportList: ReportCardProps[] = [
     permission: 'view_sales_by_type_report',
     isFrequentlyUsed: true,
   },
+  {
+    title: 'Real-Time Profit/Loss Report',
+    description: 'Live profit/loss calculation based on sales, purchases, and expenses.',
+    href: '/profit-loss-report',
+    icon: TrendingUp,
+    permission: 'view_summary',
+    isFrequentlyUsed: true,
+  },
   // Sales & Customer Reports
   {
     title: 'Date Wise Sale And Recovery Report',
