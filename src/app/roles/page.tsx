@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -224,15 +225,17 @@ export default function RolesPage() {
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>User Name</TableHead>
                                 <TableHead>User Email</TableHead>
                                 <TableHead>Role</TableHead>
-                                <TableHead className="text-center">Actions</TableHead>
+                                <TableHead className="text-center">Password</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {userRoles.length > 0 ? userRoles.map(userRole => (
                                 <TableRow key={userRole.id}>
-                                    <TableCell className="font-medium">{userRole.email || userRole.id}</TableCell>
+                                    <TableCell className="font-medium">{userRole.email?.split('@')[0] || 'N/A'}</TableCell>
+                                    <TableCell>{userRole.email || userRole.id}</TableCell>
                                     <TableCell>
                                         <Select value={userRole.roleId} onValueChange={(newRoleId) => updateUserRole(userRole.id, newRoleId as RoleId)}>
                                             <SelectTrigger className="w-[180px]">
@@ -253,7 +256,7 @@ export default function RolesPage() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={3} className="h-24 text-center">No users found.</TableCell>
+                                    <TableCell colSpan={4} className="h-24 text-center">No users found.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
