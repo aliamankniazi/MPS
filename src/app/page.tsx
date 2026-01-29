@@ -376,7 +376,7 @@ export default function DashboardPage() {
   }, [isLoaded, customers, transactions, customerPayments, cashAdvances]);
 
   const dailyProductSales = useMemo(() => {
-    if (!isLoaded) return {};
+    if (!isLoaded || !transactions || !products) return {};
 
     const now = new Date();
     const monthStart = startOfMonth(now);
@@ -413,7 +413,8 @@ export default function DashboardPage() {
   }, [isLoaded, transactions, products]);
 
     const sortedDailySalesKeys = useMemo(() => {
-        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a.getTime()))
+        if (!dailyProductSales) return [];
+        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
     }, [dailyProductSales]);
   
     const formatPhoneNumberForWhatsApp = (phone: string | number | undefined) => {
@@ -487,7 +488,21 @@ export default function DashboardPage() {
                     PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                    For all items sold in period
+                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} Liters Sold
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
+                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
+                    PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
                 </p>
               </CardContent>
             </Card>
@@ -533,20 +548,6 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
-                    PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
-                </p>
-              </CardContent>
-            </Card>
-             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
