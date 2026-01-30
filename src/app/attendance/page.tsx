@@ -311,6 +311,14 @@ export default function EmployeeManagementPage() {
     }
   }, [employeeToEdit, setEditValue, resetEdit]);
 
+  const previousSalaryEntry = useMemo(() => {
+    if (!employeeToEdit || !employeeToEdit.salaryHistory || employeeToEdit.salaryHistory.length < 2) {
+      return null;
+    }
+    const sorted = [...employeeToEdit.salaryHistory].sort((a,b) => b.effectiveDate.localeCompare(a.effectiveDate));
+    return sorted[1];
+  }, [employeeToEdit]);
+
   return (
     <>
     <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
@@ -721,6 +729,12 @@ export default function EmployeeManagementPage() {
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    {previousSalaryEntry && (
+                        <div className="space-y-2">
+                            <Label htmlFor="previous-salary">Previous Salary</Label>
+                            <Input id="previous-salary" value={`PKR ${previousSalaryEntry.amount.toLocaleString()}`} readOnly disabled />
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="current-salary">Current Salary</Label>
                         <Input id="current-salary" value={`PKR ${employeeToEdit?.salary.toLocaleString()}`} readOnly disabled />
