@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -49,6 +49,7 @@ type SalaryPaymentConfirmation = SalaryPaymentFormValues & {
     baseSalary: number;
     presentDays: number;
     daysInMonth: number;
+    employeeId: string;
 };
 
 const months = Array.from({ length: 12 }, (_, i) => format(new Date(0, i), 'MMMM'));
@@ -116,7 +117,7 @@ export default function SalaryPaymentPage() {
     }
     
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
-    const daysInMonth = getDaysInMonth(salaryMonthDate);
+    const daysInMonthCount = getDaysInMonth(salaryMonthDate);
     
     const employeeAttendance = attendance.filter(a => 
         a.employeeId === employee.id &&
@@ -124,18 +125,39 @@ export default function SalaryPaymentPage() {
         new Date(a.date).getMonth() === salaryMonthDate.getMonth()
     );
 
-    const presentDays = employeeAttendance.filter(a => a.status === 'Present').length;
-    
-    const dailySalary = employee.salary / daysInMonth;
-    const calculatedSalary = Math.round(dailySalary * presentDays);
+    const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
+        .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+
+    let calculatedSalary = 0;
+    let presentDays = 0;
+
+    for (let i = 1; i <= daysInMonthCount; i++) {
+        const day = new Date(salaryMonthDate.getFullYear(), salaryMonthDate.getMonth(), i);
+        const attendanceRecord = employeeAttendance.find(a => isSameDay(new Date(a.date), day));
+        
+        if (attendanceRecord && attendanceRecord.status === 'Present') {
+            presentDays++;
+
+            const applicableSalaryEntry = [...sortedHistory]
+                .reverse()
+                .find(h => new Date(h.effectiveDate) <= day);
+
+            if (applicableSalaryEntry) {
+                const salaryForDay = applicableSalaryEntry.amount;
+                const dailyRate = salaryForDay / daysInMonthCount;
+                calculatedSalary += dailyRate;
+            }
+        }
+    }
 
     return {
         ...data,
+        employeeId: employee.id,
         employeeName: employee.name,
-        salaryAmount: calculatedSalary,
+        salaryAmount: Math.round(calculatedSalary),
         baseSalary: employee.salary,
         presentDays,
-        daysInMonth
+        daysInMonth: daysInMonthCount
     };
   }
 

@@ -63,9 +63,8 @@ export default function SalaryReportPage() {
                             .find(h => new Date(h.effectiveDate) <= day);
 
                         if (salaryForDay) {
-                            const monthOfSalary = new Date(salaryForDay.effectiveDate);
-                            const daysInThatMonth = getDaysInMonth(monthOfSalary);
-                            const dailyRate = salaryForDay.amount / daysInThatMonth;
+                            const daysInMonthOfCurrentDay = getDaysInMonth(day);
+                            const dailyRate = salaryForDay.amount / daysInMonthOfCurrentDay;
                             calculatedSalary += dailyRate;
                         }
                     }
