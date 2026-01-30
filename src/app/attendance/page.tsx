@@ -22,6 +22,8 @@ import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 
 const employeeSchema = z.object({
@@ -29,7 +31,6 @@ const employeeSchema = z.object({
   mobileNumber: z.string().optional(),
   position: z.string().min(1, 'Position is required'),
   salary: z.coerce.number().min(0, 'Salary must be a positive number'),
-  salaryEffectiveDate: z.date().optional(),
   hireDate: z.date({ required_error: "Hire date is required."}),
   terminationDate: z.date().optional().nullable(),
 });
@@ -70,23 +71,23 @@ export default function EmployeeManagementPage() {
   });
 
   const onAddSubmit: SubmitHandler<EmployeeFormValues> = async (data) => {
+    const hireDateStr = format(data.hireDate, 'yyyy-MM-dd');
     const initialSalaryHistory: SalaryHistoryEntry[] = [{
         amount: data.salary,
-        effectiveDate: data.hireDate.toISOString(),
+        effectiveDate: hireDateStr,
     }];
 
     const newEmployee = await addEmployee({ 
         ...data, 
-        hireDate: data.hireDate.toISOString(), 
+        hireDate: hireDateStr, 
         timestamp: new Date().toISOString(),
         salaryHistory: initialSalaryHistory 
     });
     
-    // Automatically mark the new employee as present for the selected attendance date
     await addAttendance({
       employeeId: newEmployee.id,
       employeeName: newEmployee.name,
-      date: attendanceDate.toISOString(),
+      date: format(attendanceDate, 'yyyy-MM-dd'),
       status: 'Present',
     });
 
@@ -101,25 +102,12 @@ export default function EmployeeManagementPage() {
   const onEditSubmit: SubmitHandler<EmployeeFormValues> = (data) => {
     if (!employeeToEdit) return;
 
-    const updates: Partial<Employee> & { salaryEffectiveDate?: Date } = {
+    const updates: Partial<Employee> = {
         ...data,
-        hireDate: data.hireDate.toISOString(),
-        terminationDate: data.terminationDate ? data.terminationDate.toISOString() : null,
+        hireDate: format(data.hireDate, 'yyyy-MM-dd'),
+        terminationDate: data.terminationDate ? format(data.terminationDate, 'yyyy-MM-dd') : null,
       };
       
-      if (data.salary !== employeeToEdit.salary) {
-          const effectiveDate = data.salaryEffectiveDate || new Date();
-          const newHistoryEntry: SalaryHistoryEntry = {
-            amount: data.salary,
-            effectiveDate: effectiveDate.toISOString(),
-          };
-          updates.salaryHistory = employeeToEdit.salaryHistory
-            ? [...employeeToEdit.salaryHistory, newHistoryEntry]
-            : [newHistoryEntry];
-      }
-    
-      delete updates.salaryEffectiveDate;
-
     updateEmployee(employeeToEdit.id, updates);
     toast({
         title: 'Employee Updated',
@@ -133,14 +121,11 @@ export default function EmployeeManagementPage() {
   
     const newHistoryEntry: SalaryHistoryEntry = {
       amount: data.newSalary,
-      effectiveDate: startOfDay(data.effectiveDate).toISOString(),
+      effectiveDate: format(data.effectiveDate, 'yyyy-MM-dd'),
     };
   
-    // Get current history, ensuring it's an array.
     const currentHistory = employeeToEdit.salaryHistory ? [...employeeToEdit.salaryHistory] : [];
   
-    // If history is empty, create a base entry using the employee's current salary and hire date.
-    // This assumes `employeeToEdit.salary` holds the "old" salary before this increase.
     if (currentHistory.length === 0 && employeeToEdit.hireDate) {
         currentHistory.push({
             amount: employeeToEdit.salary,
@@ -148,16 +133,13 @@ export default function EmployeeManagementPage() {
         });
     }
 
-    // Add the new salary entry
     currentHistory.push(newHistoryEntry);
     
-    // Sort and remove duplicates just in case (e.g., if user submits twice with same date)
-    // It keeps the last entry for a given date.
     const uniqueHistory = Array.from(new Map(currentHistory.map(item => [item.effectiveDate.split('T')[0], item])).values());
-    const updatedHistory = uniqueHistory.sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+    const updatedHistory = uniqueHistory.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
   
     updateEmployee(employeeToEdit.id, {
-      salary: data.newSalary, // Update the main salary field to the new one
+      salary: data.newSalary,
       salaryHistory: updatedHistory,
     });
   
@@ -197,12 +179,12 @@ export default function EmployeeManagementPage() {
     const attendanceDay = startOfDay(attendanceDate);
     return employees.filter(emp => {
       if (!emp.hireDate) return false;
-      const hireDate = startOfDay(parseISO(emp.hireDate));
+      const hireDate = parseISO(emp.hireDate);
       if (!isValid(hireDate) || hireDate > attendanceDay) {
         return false;
       }
       if (emp.terminationDate) {
-        const terminationDate = startOfDay(parseISO(emp.terminationDate));
+        const terminationDate = parseISO(emp.terminationDate);
         if (isValid(terminationDate) && attendanceDay > terminationDate) {
           return false;
         }
@@ -233,7 +215,7 @@ export default function EmployeeManagementPage() {
       await addAttendance({
           employeeId: employee.id,
           employeeName: employee.name,
-          date: attendanceDate.toISOString(),
+          date: format(attendanceDate, 'yyyy-MM-dd'),
           status: status,
       });
 
@@ -244,13 +226,14 @@ export default function EmployeeManagementPage() {
   };
 
   const handleMarkAllPresent = () => {
+    const dateStr = format(attendanceDate, 'yyyy-MM-dd');
     employeesForAttendanceSheet.forEach(emp => {
         const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
         if (!currentStatus || currentStatus !== 'Present') {
              addAttendance({
                 employeeId: emp.id,
                 employeeName: emp.name,
-                date: attendanceDate.toISOString(),
+                date: dateStr,
                 status: 'Present',
             });
         }
@@ -262,16 +245,15 @@ export default function EmployeeManagementPage() {
   }
   
   const filteredHistory = useMemo(() => {
-    if (!dateRange?.from) return attendance.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    if (!dateRange?.from) return attendance.sort((a,b) => b.date.localeCompare(a.date));
 
-    const from = dateRange.from;
-    const to = dateRange.to || from;
+    const from = format(dateRange.from, 'yyyy-MM-dd');
+    const to = format(dateRange.to || dateRange.from, 'yyyy-MM-dd');
 
     return attendance.filter(a => {
-        if (!a.date || !isValid(parseISO(a.date))) return false;
-        const recordDate = parseISO(a.date);
-        return recordDate >= from && recordDate <= to;
-    }).sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+        if (!a.date) return false;
+        return a.date >= from && a.date <= to;
+    }).sort((a,b) => b.date.localeCompare(a.date));
 
   }, [attendance, dateRange]);
 
@@ -324,65 +306,10 @@ export default function EmployeeManagementPage() {
       setEditValue('salary', employeeToEdit.salary);
       setEditValue('hireDate', employeeToEdit.hireDate ? parseISO(employeeToEdit.hireDate) : new Date());
       setEditValue('terminationDate', employeeToEdit.terminationDate ? parseISO(employeeToEdit.terminationDate) : null);
-      setEditValue('salaryEffectiveDate', new Date()); // Default to today for new changes
     } else {
       resetEdit();
     }
   }, [employeeToEdit, setEditValue, resetEdit]);
-  
-  const DateDropdowns = ({ value, onChange }: { value: Date | undefined, onChange: (date: Date) => void}) => {
-    const handleDateChange = (part: 'day' | 'month' | 'year', val: string) => {
-        const currentDate = value || new Date();
-        let newDate = new Date(currentDate);
-
-        if (part === 'year') newDate.setFullYear(parseInt(val, 10));
-        if (part === 'month') newDate.setMonth(parseInt(val, 10));
-        if (part === 'day') newDate.setDate(parseInt(val, 10));
-        
-        const daysInNewMonth = getDaysInMonth(newDate);
-        if (newDate.getDate() > daysInNewMonth) {
-            newDate.setDate(daysInNewMonth);
-        }
-
-        if (isValid(newDate)) {
-            onChange(newDate);
-        }
-    };
-    
-    const selectedDate = value || new Date();
-    const currentDay = getDate(selectedDate).toString();
-    const currentMonth = getMonth(selectedDate).toString();
-    const currentYear = getYear(selectedDate).toString();
-
-    const years = Array.from({ length: 80 }, (_, i) => (new Date().getFullYear() - 79 + i).toString()).reverse();
-    const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
-    const daysInMonth = getDaysInMonth(selectedDate);
-    const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-
-    return (
-        <div className="flex gap-2">
-            <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
-                <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                <SelectContent>
-                    {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
-                <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-                <SelectContent>
-                    {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                </SelectContent>
-            </Select>
-            <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
-                <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                <SelectContent>
-                    {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                </SelectContent>
-            </Select>
-        </div>
-    );
-};
-
 
   return (
     <>
@@ -397,7 +324,17 @@ export default function EmployeeManagementPage() {
                         </div>
                          <div className="flex items-center gap-2">
                             <Button onClick={handleMarkAllPresent}><UserCheck className="mr-2 h-4 w-4"/> Mark All Present</Button>
-                            <DateDropdowns value={attendanceDate} onChange={setAttendanceDate} />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant={"outline"} className={cn("w-[280px] justify-start text-left font-normal", !attendanceDate && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {attendanceDate ? format(attendanceDate, "PPP") : <span>Pick a date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar mode="single" selected={attendanceDate} onSelect={(d) => d && setAttendanceDate(d)} initialFocus />
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
                 </CardHeader>
@@ -685,12 +622,21 @@ export default function EmployeeManagementPage() {
                             name="hireDate"
                             control={control}
                             render={({ field }) => (
-                                <DateDropdowns value={field.value} onChange={field.onChange} />
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
                             )}
                         />
                         {errors.hireDate && <p className="text-sm text-destructive">{errors.hireDate.message}</p>}
                     </div>
-
 
                     <Button type="submit" className="w-full">Add Employee</Button>
                     </form>
@@ -723,16 +669,41 @@ export default function EmployeeManagementPage() {
                     <Input id="edit-position" {...registerEdit('position')} />
                      {editErrors.position && <p className="text-sm text-destructive">{editErrors.position.message}</p>}
                   </div>
+                   <div className="space-y-2">
+                        <Label htmlFor="salary">Salary (PKR)</Label>
+                        <Input id="salary" type="number" {...registerEdit('salary')} />
+                        {editErrors.salary && <p className="text-sm text-destructive">{editErrors.salary.message}</p>}
+                    </div>
                   <div className="space-y-2">
                     <Label>Date of Joining</Label>
                     <Controller name="hireDate" control={controlEdit} render={({ field }) => (
-                       <DateDropdowns value={field.value} onChange={field.onChange} />
+                       <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                            </PopoverContent>
+                        </Popover>
                     )} />
                   </div>
                   <div className="space-y-2">
                     <Label>Date of Termination (Optional)</Label>
                     <Controller name="terminationDate" control={controlEdit} render={({ field }) => (
-                         <DateDropdowns value={field.value ?? undefined} onChange={field.onChange} />
+                         <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                                <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                            </PopoverContent>
+                        </Popover>
                     )} />
                   </div>
                 </div>
@@ -765,7 +736,17 @@ export default function EmployeeManagementPage() {
                             name="effectiveDate"
                             control={controlIncrease}
                             render={({ field }) => (
-                                <DateDropdowns value={field.value} onChange={field.onChange} />
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
                             )}
                         />
                         {increaseErrors.effectiveDate && <p className="text-sm text-destructive">{increaseErrors.effectiveDate.message}</p>}

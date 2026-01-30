@@ -135,17 +135,14 @@ export default function SalaryPaymentPage() {
     
     const employeeAttendance = attendance.filter(a => 
         a.employeeId === employee.id &&
-        isValid(parseISO(a.date)) &&
-        parseISO(a.date).getFullYear() === salaryMonthDate.getFullYear() &&
-        parseISO(a.date).getMonth() === salaryMonthDate.getMonth()
+        a.date.startsWith(format(salaryMonthDate, 'yyyy-MM'))
     );
 
-    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
-    // Ensure there's a base salary from hire date if history is missing it
-    const hireDateExistsInHistory = sortedHistory.some(h => isSameDay(parseISO(h.effectiveDate), parseISO(employee.hireDate)));
-    if (!hireDateExistsInHistory) {
+    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    const hireDateExistsInHistory = sortedHistory.some(h => h.effectiveDate === employee.hireDate);
+    if (!hireDateExistsInHistory && employee.hireDate) {
         sortedHistory.unshift({ amount: employee.salary, effectiveDate: employee.hireDate });
-        sortedHistory.sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+        sortedHistory.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
     }
 
 
@@ -156,13 +153,15 @@ export default function SalaryPaymentPage() {
     let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
 
     daysInPeriodArray.forEach(day => {
-        const attendanceRecord = employeeAttendance.find(a => isSameDay(parseISO(a.date), day));
+        const dayString = format(day, 'yyyy-MM-dd');
+        const attendanceRecord = employeeAttendance.find(a => a.date === dayString);
+
         if (attendanceRecord && attendanceRecord.status === 'Present') {
             totalPresentDays++;
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
-                .find(h => parseISO(h.effectiveDate) <= day);
+                .find(h => h.effectiveDate <= dayString);
             
             const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
             const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
@@ -263,15 +262,13 @@ export default function SalaryPaymentPage() {
         const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
         const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
 
-        // 1. Log the salary as an expense
         await addExpense({
           description: salaryDescription,
           category: 'Salaries',
           amount: salaryAmount,
-          timestamp: postingDate.toISOString(),
+          timestamp: format(postingDate, 'yyyy-MM-dd'),
         });
 
-        // 2. Find or create a customer record for the employee to track payments in their ledger
         let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employeeName.toLowerCase() && c.area === 'Employee');
         
         let customerId = employeeAsCustomer?.id;
@@ -286,14 +283,13 @@ export default function SalaryPaymentPage() {
             customerId = newCustomer.id;
         }
 
-        // 3. Log a payment against the employee's customer record (acts as a CREDIT to balance their account)
         if (customerId) {
             await addCustomerPayment({
                 customerId: customerId,
                 customerName: employeeName,
                 amount: salaryAmount,
                 paymentMethod: 'Salary',
-                timestamp: postingDate.toISOString(),
+                timestamp: format(postingDate, 'yyyy-MM-dd'),
                 notes: paymentNotes,
             });
         }
@@ -443,58 +439,19 @@ export default function SalaryPaymentPage() {
                         <Controller
                             name="postingDate"
                             control={control}
-                            render={({ field }) => {
-                                const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
-                                    const currentDate = field.value || new Date();
-                                    let newDate = new Date(currentDate);
-                    
-                                    if (part === 'year') newDate.setFullYear(parseInt(value, 10));
-                                    if (part === 'month') newDate.setMonth(parseInt(value, 10));
-                                    if (part === 'day') newDate.setDate(parseInt(value, 10));
-                                    
-                                    const daysInNewMonth = getDaysInMonth(newDate);
-                                    if (newDate.getDate() > daysInNewMonth) {
-                                        newDate.setDate(daysInNewMonth);
-                                    }
-                    
-                                    if (isValid(newDate)) {
-                                        field.onChange(newDate);
-                                    }
-                                };
-                                
-                                const selectedDate = field.value || new Date();
-                                const currentDay = getDate(selectedDate).toString();
-                                const currentMonth = getMonth(selectedDate).toString();
-                                const currentYear = getYear(selectedDate).toString();
-                    
-                                const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - 10 + i).toString());
-                                const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
-                                const daysInMonth = getDaysInMonth(selectedDate);
-                                const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-                    
-                                return (
-                                    <div className="flex gap-2">
-                                        <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
-                                            <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                                            <SelectContent>
-                                                {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
-                                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-                                            <SelectContent>
-                                                {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                        <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
-                                            <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                                            <SelectContent>
-                                                {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                );
-                            }}
+                            render={({ field }) => (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                            )}
                         />
                         {errors.postingDate && <p className="text-sm text-destructive">{errors.postingDate.message}</p>}
                     </div>

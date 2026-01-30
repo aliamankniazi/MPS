@@ -53,16 +53,16 @@ export default function SalaryReportPage() {
             .filter(emp => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .map(employee => {
                 const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
-                    .sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+                    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 
                 let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
                 let totalPresentDays = 0;
 
                 daysInPeriodArray.forEach(day => {
+                    const dayString = format(day, 'yyyy-MM-dd');
                     const attendanceForDay = attendance.find(a => 
                         a.employeeId === employee.id && 
-                        isValid(parseISO(a.date)) && 
-                        isSameDay(parseISO(a.date), day)
+                        a.date === dayString
                     );
 
                     if (attendanceForDay?.status === 'Present') {
@@ -70,7 +70,7 @@ export default function SalaryReportPage() {
                         
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => parseISO(h.effectiveDate) <= day);
+                            .find(h => h.effectiveDate <= dayString);
                         
                         const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
                         const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
