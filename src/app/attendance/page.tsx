@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock, HelpCircle, X } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parseISO } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parseISO, startOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -181,6 +181,23 @@ export default function EmployeeManagementPage() {
     return [...new Set(employees.map(e => e.position).filter(Boolean))];
   }, [employees]);
 
+  const employeesForAttendanceSheet = useMemo(() => {
+    const attendanceDay = startOfDay(attendanceDate);
+    return employees.filter(emp => {
+      const hireDate = startOfDay(parseISO(emp.hireDate));
+      if (!isValid(hireDate) || hireDate > attendanceDay) {
+        return false;
+      }
+      if (emp.terminationDate) {
+        const terminationDate = startOfDay(parseISO(emp.terminationDate));
+        if (isValid(terminationDate) && attendanceDay > terminationDate) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [employees, attendanceDate]);
+  
   const activeEmployees = useMemo(() => {
     return employees.filter(emp => !emp.terminationDate);
   }, [employees]);
@@ -194,10 +211,10 @@ export default function EmployeeManagementPage() {
     const present = selectedDayAttendance.filter(a => a.status === 'Present').length;
     const absent = selectedDayAttendance.filter(a => a.status === 'Absent').length;
     const leave = selectedDayAttendance.filter(a => a.status === 'Leave').length;
-    const total = activeEmployees.length;
+    const total = employeesForAttendanceSheet.length;
     const unmarked = total - present - absent - leave;
     return { present, absent, leave, unmarked, total };
-  }, [selectedDayAttendance, activeEmployees]);
+  }, [selectedDayAttendance, employeesForAttendanceSheet]);
   
   const handleAttendanceChange = async (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
       await addAttendance({
@@ -214,7 +231,7 @@ export default function EmployeeManagementPage() {
   };
 
   const handleMarkAllPresent = () => {
-    activeEmployees.forEach(emp => {
+    employeesForAttendanceSheet.forEach(emp => {
         const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
         if (!currentStatus || currentStatus !== 'Present') {
              addAttendance({
@@ -402,7 +419,7 @@ export default function EmployeeManagementPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                            {activeEmployees.map(emp => {
+                            {employeesForAttendanceSheet.map(emp => {
                                 const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
                                 return (
                                 <TableRow key={emp.id}>
