@@ -432,7 +432,7 @@ export default function DashboardPage() {
   }, [isLoaded, transactions, products]);
 
     const sortedDailySalesKeys = useMemo(() => {
-        if (!dailyProductSales) return [];
+        if (!dailyProductSales || Object.keys(dailyProductSales).length === 0) return [];
         return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
     }, [dailyProductSales]);
   
@@ -482,7 +482,9 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">For selected period</p>
+                <p className="text-sm font-medium text-muted-foreground">
+                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
+                </p>
               </CardContent>
             </Card>
             <Card>
@@ -566,7 +568,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-muted-foreground">Net value of stock adjustments</p>
               </CardContent>
             </Card>
-            <Card>
+             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
                 <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -823,5 +825,4 @@ export default function DashboardPage() {
     </div>
   );
 }
-
 
