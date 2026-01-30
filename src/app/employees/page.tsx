@@ -124,7 +124,7 @@ export default function SalaryPaymentPage() {
   }, [reset, dateRange]);
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
-    if (!employee.salary || employee.salary < 0) {
+    if (!employee.salary && (!employee.salaryHistory || employee.salaryHistory.length === 0)) {
         return null;
     }
     
@@ -140,11 +140,14 @@ export default function SalaryPaymentPage() {
         parseISO(a.date).getMonth() === salaryMonthDate.getMonth()
     );
 
-    const history = (employee.salaryHistory && employee.salaryHistory.length > 0)
-      ? employee.salaryHistory
-      : [{ amount: employee.salary, effectiveDate: employee.hireDate }];
-      
-    const sortedHistory = [...history].sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+    // Ensure there's a base salary from hire date if history is missing it
+    const hireDateExistsInHistory = sortedHistory.some(h => isSameDay(parseISO(h.effectiveDate), parseISO(employee.hireDate)));
+    if (!hireDateExistsInHistory) {
+        sortedHistory.unshift({ amount: employee.salary, effectiveDate: employee.hireDate });
+        sortedHistory.sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+    }
+
 
     const calculationParts: SalaryCalculationPart[] = [];
     const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
