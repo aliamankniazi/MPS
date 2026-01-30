@@ -328,6 +328,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                            docData[field] = docData[field].toDate().toISOString();
                         }
                     }
+                    
+                    if (docData.salaryHistory && Array.isArray(docData.salaryHistory)) {
+                        docData.salaryHistory = docData.salaryHistory.map(entry => {
+                            if (entry.effectiveDate && typeof entry.effectiveDate.toDate === 'function') {
+                                return { ...entry, effectiveDate: entry.effectiveDate.toDate().toISOString() };
+                            }
+                            return entry;
+                        });
+                    }
+                    
                     return { id: doc.id, ...docData };
                 }) as any[];
                 setState(prevState => ({ ...prevState, [key]: data }));
