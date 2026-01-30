@@ -51,6 +51,7 @@ type SalaryCalculationPart = {
     daysInMonth: number;
     presentDays: number;
     subtotal: number;
+    effectiveDate: string;
 };
 
 type SalaryPaymentConfirmation = SalaryPaymentFormValues & {
@@ -162,17 +163,18 @@ export default function SalaryPaymentPage() {
                 const salaryForDay = applicableSalaryEntry.amount;
                 const dailyRate = salaryForDay / daysInMonthCount;
 
-                let part = calculationParts.find(p => p.salary === salaryForDay);
+                let part = calculationParts.find(p => p.effectiveDate === applicableSalaryEntry.effectiveDate);
                 if (part) {
                     part.presentDays++;
                     part.subtotal += dailyRate;
                 } else {
                     calculationParts.push({
-                        period: `At rate of ${salaryForDay.toLocaleString()}/month`,
+                        period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(new Date(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
                         salary: salaryForDay,
                         daysInMonth: daysInMonthCount,
                         presentDays: 1,
                         subtotal: dailyRate,
+                        effectiveDate: applicableSalaryEntry.effectiveDate,
                     });
                 }
             }
@@ -527,7 +529,7 @@ export default function SalaryPaymentPage() {
                             <p className="font-medium">{part.period}</p>
                             <div className="flex justify-between text-muted-foreground">
                                 <span>Present Days:</span>
-                                <span>{part.presentDays} / {part.daysInMonth}</span>
+                                <span>{part.presentDays}</span>
                             </div>
                             <div className="flex justify-between text-muted-foreground">
                                 <span>Subtotal:</span>

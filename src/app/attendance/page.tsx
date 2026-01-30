@@ -70,7 +70,17 @@ export default function EmployeeManagementPage() {
   });
 
   const onAddSubmit: SubmitHandler<EmployeeFormValues> = async (data) => {
-    const newEmployee = await addEmployee({ ...data, hireDate: data.hireDate.toISOString(), timestamp: new Date().toISOString() });
+    const initialSalaryHistory: SalaryHistoryEntry[] = [{
+        amount: data.salary,
+        effectiveDate: data.hireDate.toISOString(),
+    }];
+
+    const newEmployee = await addEmployee({ 
+        ...data, 
+        hireDate: data.hireDate.toISOString(), 
+        timestamp: new Date().toISOString(),
+        salaryHistory: initialSalaryHistory 
+    });
     
     // Automatically mark the new employee as present for the selected attendance date
     await addAttendance({

@@ -19,6 +19,7 @@ interface SalaryCalculationPart {
     salary: number;
     presentDays: number;
     subtotal: number;
+    effectiveDate: string;
 }
 
 interface SalaryReportRow {
@@ -42,7 +43,7 @@ export default function SalaryReportPage() {
     });
     const [searchTerm, setSearchTerm] = useState('');
 
-    const salaryReportData: SalaryReportRow[] = useMemo(() => { // Added type annotation
+    const salaryReportData: SalaryReportRow[] = useMemo(() => {
         if (!isLoaded || !dateRange.from || !dateRange.to) return [];
 
         const interval = { start: dateRange.from, end: dateRange.to };
@@ -76,16 +77,17 @@ export default function SalaryReportPage() {
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
                             const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
                             
-                            let part = calculationParts.find(p => p.salary === salaryForDay);
+                            let part = calculationParts.find(p => p.effectiveDate === applicableSalaryEntry.effectiveDate);
                             if (part) {
                                 part.presentDays++;
                                 part.subtotal += dailyRate;
                             } else {
                                 calculationParts.push({
-                                    period: `At rate of ${salaryForDay.toLocaleString()}/month`,
+                                    period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(new Date(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
                                     salary: salaryForDay,
                                     presentDays: 1,
                                     subtotal: dailyRate,
+                                    effectiveDate: applicableSalaryEntry.effectiveDate,
                                 });
                             }
                         }
