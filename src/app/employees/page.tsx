@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -33,6 +33,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 
 const salaryPaymentSchema = z.object({
   employeeId: z.string().optional(),
@@ -43,12 +44,23 @@ const salaryPaymentSchema = z.object({
 });
 
 type SalaryPaymentFormValues = z.infer<typeof salaryPaymentSchema>;
+
+type SalaryCalculationPart = {
+    period: string;
+    salary: number;
+    daysInMonth: number;
+    presentDays: number;
+    subtotal: number;
+};
+
 type SalaryPaymentConfirmation = SalaryPaymentFormValues & {
     employeeName: string;
-    salaryAmount: number;
-    baseSalary: number;
-    presentDays: number;
-    daysInMonth: number;
+    calculation: {
+        parts: SalaryCalculationPart[];
+        total: number;
+        totalPresentDays: number;
+        daysInMonth: number;
+    }
     employeeId: string;
 };
 
@@ -112,11 +124,13 @@ export default function SalaryPaymentPage() {
   }, [reset, dateRange]);
 
   const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
-    if (!employee.salary || employee.salary <= 0) {
+    if (!employee.salary || employee.salary < 0) {
         return null;
     }
     
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
+    const firstDayOfMonth = startOfMonth(salaryMonthDate);
+    const lastDayOfMonth = endOfMonth(salaryMonthDate);
     const daysInMonthCount = getDaysInMonth(salaryMonthDate);
     
     const employeeAttendance = attendance.filter(a => 
@@ -125,18 +139,20 @@ export default function SalaryPaymentPage() {
         new Date(a.date).getMonth() === salaryMonthDate.getMonth()
     );
 
-    const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
-        .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+    const history = (employee.salaryHistory && employee.salaryHistory.length > 0)
+      ? employee.salaryHistory
+      : [{ amount: employee.salary, effectiveDate: employee.hireDate }];
+      
+    const sortedHistory = [...history].sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
 
-    let calculatedSalary = 0;
-    let presentDays = 0;
+    const calculationParts: SalaryCalculationPart[] = [];
+    const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
+    let totalPresentDays = 0;
 
-    for (let i = 1; i <= daysInMonthCount; i++) {
-        const day = new Date(salaryMonthDate.getFullYear(), salaryMonthDate.getMonth(), i);
+    daysInPeriodArray.forEach(day => {
         const attendanceRecord = employeeAttendance.find(a => isSameDay(new Date(a.date), day));
-        
         if (attendanceRecord && attendanceRecord.status === 'Present') {
-            presentDays++;
+            totalPresentDays++;
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
@@ -145,19 +161,36 @@ export default function SalaryPaymentPage() {
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
                 const dailyRate = salaryForDay / daysInMonthCount;
-                calculatedSalary += dailyRate;
+
+                let part = calculationParts.find(p => p.salary === salaryForDay);
+                if (part) {
+                    part.presentDays++;
+                    part.subtotal += dailyRate;
+                } else {
+                    calculationParts.push({
+                        period: `At rate of ${salaryForDay.toLocaleString()}/month`,
+                        salary: salaryForDay,
+                        daysInMonth: daysInMonthCount,
+                        presentDays: 1,
+                        subtotal: dailyRate,
+                    });
+                }
             }
         }
-    }
+    });
+    
+    const totalSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
     return {
         ...data,
         employeeId: employee.id,
         employeeName: employee.name,
-        salaryAmount: Math.round(calculatedSalary),
-        baseSalary: employee.salary,
-        presentDays,
-        daysInMonth: daysInMonthCount
+        calculation: {
+            parts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
+            total: Math.round(totalSalary),
+            totalPresentDays: totalPresentDays,
+            daysInMonth: daysInMonthCount
+        },
     };
   }
 
@@ -173,10 +206,10 @@ export default function SalaryPaymentPage() {
             return;
         }
         const paymentDetails = calculateSalaryForEmployee(employee, data);
-        if (paymentDetails) {
+        if (paymentDetails && paymentDetails.calculation.total > 0) {
             setPaymentToConfirm([paymentDetails]);
         } else {
-             toast({ variant: 'destructive', title: 'Salary Not Set', description: `Salary for ${employee.name} is not set or is zero. Please update their salary.` });
+             toast({ variant: 'destructive', title: 'Salary Not Set or Zero', description: `Salary for ${employee.name} is not set, or calculated to zero. Please update their salary or attendance.` });
         }
     } else { // Bulk mode
         const paymentsToConfirm: SalaryPaymentConfirmation[] = [];
@@ -184,7 +217,7 @@ export default function SalaryPaymentPage() {
 
         activeEmployees.forEach(employee => {
             const paymentDetails = calculateSalaryForEmployee(employee, data);
-            if (paymentDetails) {
+            if (paymentDetails && paymentDetails.calculation.total > 0) {
                 paymentsToConfirm.push(paymentDetails);
             } else {
                 employeesWithoutSalary.push(employee.name);
@@ -194,8 +227,8 @@ export default function SalaryPaymentPage() {
         if (employeesWithoutSalary.length > 0) {
             toast({
                 variant: 'destructive',
-                title: 'Salary Not Set',
-                description: `Salary is not set for: ${employeesWithoutSalary.join(', ')}. They were skipped.`,
+                title: 'Salary Not Set or Zero',
+                description: `Salary not processed for: ${employeesWithoutSalary.join(', ')}.`,
             });
         }
         
@@ -204,7 +237,7 @@ export default function SalaryPaymentPage() {
         } else {
             toast({
                 title: 'Nothing to Pay',
-                description: 'No active employees with salaries found to process.',
+                description: 'No active employees with salaries and attendance found to process.',
             });
         }
     }
@@ -214,7 +247,8 @@ export default function SalaryPaymentPage() {
     if (!paymentToConfirm) return;
 
     for (const payment of paymentToConfirm) {
-        const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName, salaryAmount } = payment;
+        const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName } = payment;
+        const salaryAmount = payment.calculation.total;
         
         const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
         const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
@@ -267,7 +301,7 @@ export default function SalaryPaymentPage() {
   
   const totalBulkSalary = useMemo(() => {
     if (!paymentToConfirm || paymentToConfirm.length <= 1) return 0;
-    return paymentToConfirm.reduce((sum, p) => sum + p.salaryAmount, 0);
+    return paymentToConfirm.reduce((sum, p) => sum + p.calculation.total, 0);
   }, [paymentToConfirm]);
 
   return (
@@ -479,29 +513,36 @@ export default function SalaryPaymentPage() {
           {paymentToConfirm && paymentToConfirm.length > 0 && (
             paymentToConfirm.length === 1 ? (
                 <div className="text-sm space-y-2 my-4 p-4 bg-muted rounded-md">
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Employee:</span>
-                        <span className="font-semibold">{paymentToConfirm[0].employeeName}</span>
+                    <div className="flex justify-between font-semibold">
+                        <span>Employee:</span>
+                        <span>{paymentToConfirm[0].employeeName}</span>
                     </div>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Salary for:</span>
-                        <span className="font-semibold">{paymentToConfirm[0].salaryMonth} {paymentToConfirm[0].salaryYear}</span>
+                        <span>{paymentToConfirm[0].salaryMonth} {paymentToConfirm[0].salaryYear}</span>
                     </div>
-                    <div className="flex justify-between border-t pt-2 mt-2">
-                        <span className="text-muted-foreground">Base Salary:</span>
-                        <span className="font-semibold">PKR {paymentToConfirm[0].baseSalary.toLocaleString()}</span>
+                    <Separator />
+                    {paymentToConfirm[0].calculation.parts.map((part, index) => (
+                        <div key={index} className="space-y-1 border-b pb-2">
+                            <p className="font-medium">{part.period}</p>
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Present Days:</span>
+                                <span>{part.presentDays} / {part.daysInMonth}</span>
+                            </div>
+                            <div className="flex justify-between text-muted-foreground">
+                                <span>Subtotal:</span>
+                                <span className="font-mono">PKR {part.subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                            </div>
+                        </div>
+                    ))}
+                    <Separator />
+                    <div className="flex justify-between text-lg font-bold pt-2">
+                        <span>Total Present Days:</span>
+                        <span className="text-primary">{paymentToConfirm[0].calculation.totalPresentDays}</span>
                     </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Days in Month:</span>
-                        <span className="font-semibold">{paymentToConfirm[0].daysInMonth}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Days Present:</span>
-                        <span className="font-semibold text-green-600">{paymentToConfirm[0].presentDays}</span>
-                    </div>
-                    <div className="flex justify-between text-lg">
-                        <span className="text-muted-foreground">Calculated Salary:</span>
-                        <span className="font-bold text-primary">PKR {paymentToConfirm[0].salaryAmount.toLocaleString()}</span>
+                    <div className="flex justify-between text-lg font-bold">
+                        <span>Final Calculated Salary:</span>
+                        <span className="text-primary">PKR {paymentToConfirm[0].calculation.total.toLocaleString()}</span>
                     </div>
                 </div>
             ) : (
@@ -510,8 +551,7 @@ export default function SalaryPaymentPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Employee</TableHead>
-                                <TableHead>Base Salary</TableHead>
-                                <TableHead>Days Present</TableHead>
+                                <TableHead>Attendance</TableHead>
                                 <TableHead className="text-right">Calculated Salary</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -519,9 +559,8 @@ export default function SalaryPaymentPage() {
                             {paymentToConfirm.map(p => (
                                 <TableRow key={p.employeeId}>
                                     <TableCell>{p.employeeName}</TableCell>
-                                    <TableCell>PKR {p.baseSalary.toLocaleString()}</TableCell>
-                                    <TableCell>{p.presentDays}/{p.daysInMonth}</TableCell>
-                                    <TableCell className="text-right font-semibold">PKR {p.salaryAmount.toLocaleString()}</TableCell>
+                                    <TableCell>{p.calculation.totalPresentDays}/{p.calculation.daysInMonth}</TableCell>
+                                    <TableCell className="text-right font-semibold">PKR {p.calculation.total.toLocaleString()}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
