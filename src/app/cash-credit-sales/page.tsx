@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
-import type { FuelType, MachineReading } from '@/lib/types';
+import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -27,26 +27,78 @@ interface SalesSummary {
     creditSalesAmount: number;
 }
 
+interface ReportRow {
+    fuelType: string;
+    openingStock: number;
+    cashSalesVolume: number;
+    creditSalesVolume: number;
+    closingStock: number;
+}
+
+
 type GroupedReport = {
     [dateKey: string]: {
-        rows: {
-            fuelType: string;
-            cashSalesVolume: number;
-            creditSalesVolume: number;
-        }[];
+        rows: ReportRow[];
         totals: SalesSummary;
         machineReadings?: MachineReading[];
     }
 };
 
 export default function CashCreditSalesReportPage() {
-    const { transactions, products, machineReadings, isLoaded, dateRange, setDateRange } = useDatabase();
+    const { 
+        transactions, 
+        products, 
+        machineReadings, 
+        isLoaded, 
+        dateRange, 
+        setDateRange,
+        purchases,
+        purchaseReturns,
+        saleReturns,
+        stockAdjustments,
+        initialFuelStock
+    } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const groupedReportData: GroupedReport = useMemo(() => {
         if (!isLoaded || !products.length) return {};
 
-        const mainProducts = products.filter(p => p.category === 'Main Product').map(p => p.name);
+        const mainProducts = products.filter(p => p.category === 'Main Product');
+
+        const allMovements = [
+            ...purchases.map(p => ({ ...p, type: 'purchase' })),
+            ...transactions.map(t => ({ ...t, type: 'sale' })),
+            ...purchaseReturns.map(pr => ({ ...pr, type: 'purchase_return' })),
+            ...saleReturns.map(sr => ({ ...sr, type: 'sale_return' })),
+            ...stockAdjustments.map(sa => ({ ...sa, type: 'adjustment' }))
+        ];
+
+        const getStockAtPoint = (fuelType: string, pointInTime: Date): number => {
+            const lastReading = machineReadings
+                .filter(r => r.fuelType === fuelType && isValid(new Date(r.timestamp)) && new Date(r.timestamp) < pointInTime)
+                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            
+            let stock = lastReading ? lastReading.volume : (initialFuelStock[fuelType as FuelType] || 0);
+            const startTime = lastReading ? new Date(lastReading.timestamp) : new Date(0);
+
+            const movementsSince = allMovements.filter(m => 
+                ((m as any).fuelType === fuelType) && 
+                isValid(new Date(m.timestamp)) && 
+                new Date(m.timestamp) > startTime && 
+                new Date(m.timestamp) < pointInTime
+            );
+
+            for (const move of movementsSince) {
+                switch(move.type) {
+                    case 'purchase': stock += (move as Purchase).volume; break;
+                    case 'sale': stock -= (move as any).volume || 0; break;
+                    case 'purchase_return': stock -= (move as PurchaseReturn).volume; break;
+                    case 'sale_return': stock += (move as SaleReturn).volume; break;
+                    case 'adjustment': stock += (move as StockAdjustment).adjustment; break;
+                }
+            }
+            return stock;
+        };
 
         let filteredTransactions = transactions;
         let filteredMachineReadings = machineReadings;
@@ -70,7 +122,7 @@ export default function CashCreditSalesReportPage() {
             const dateKey = format(date, 'yyyy-MM-dd');
             const fuelType = tx.fuelType as FuelType;
 
-            if (!tx.volume || !mainProducts.includes(fuelType)) {
+            if (!tx.volume || !mainProducts.some(p => p.name === fuelType)) {
                 return acc;
             }
 
@@ -107,30 +159,44 @@ export default function CashCreditSalesReportPage() {
         const allDateKeys = [...new Set([...Object.keys(summaryByDateAndFuel), ...Object.keys(readingsByDate)])];
 
         for (const dateKey of allDateKeys) {
+            const dayStart = startOfDay(new Date(dateKey));
+            const dayEnd = endOfDay(new Date(dateKey));
+
             const dailyFuelSummary = summaryByDateAndFuel[dateKey] || {};
-            let rows = Object.keys(dailyFuelSummary).map(fuelType => ({
-                fuelType,
-                cashSalesVolume: dailyFuelSummary[fuelType].cashSalesVolume,
-                creditSalesVolume: dailyFuelSummary[fuelType].creditSalesVolume,
-            })).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+            
+            const movementsForTheDay = allMovements.filter(m => {
+                const moveDate = new Date(m.timestamp);
+                return isValid(moveDate) && moveDate >= dayStart && moveDate <= dayEnd;
+            });
+
+            let rows: ReportRow[] = mainProducts.map(product => {
+                const fuelType = product.name;
+                const openingStock = getStockAtPoint(fuelType, dayStart);
+                const salesSummary = dailyFuelSummary[fuelType] || { cashSalesVolume: 0, creditSalesVolume: 0 };
+                
+                const purchasesVol = movementsForTheDay.filter(m => m.type === 'purchase' && (m as Purchase).fuelType === fuelType).reduce((s, m) => s + (m as Purchase).volume, 0);
+                const salesVol = salesSummary.cashSalesVolume + salesSummary.creditSalesVolume;
+                const purchaseReturnsVol = movementsForTheDay.filter(m => m.type === 'purchase_return' && (m as PurchaseReturn).fuelType === fuelType).reduce((s, m) => s + (m as PurchaseReturn).volume, 0);
+                const saleReturnsVol = movementsForTheDay.filter(m => m.type === 'sale_return' && (m as SaleReturn).fuelType === fuelType).reduce((s, m) => s + (m as SaleReturn).volume, 0);
+                const adjustmentsVol = movementsForTheDay.filter(m => m.type === 'adjustment' && (m as StockAdjustment).fuelType === fuelType).reduce((s, m) => s + (m as StockAdjustment).adjustment, 0);
+
+                const closingStock = openingStock + purchasesVol - salesVol - purchaseReturnsVol + saleReturnsVol + adjustmentsVol;
+
+                return {
+                    fuelType,
+                    openingStock,
+                    closingStock,
+                    cashSalesVolume: salesSummary.cashSalesVolume,
+                    creditSalesVolume: salesSummary.creditSalesVolume,
+                };
+            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+
 
             if (searchTerm) {
                 rows = rows.filter(row => row.fuelType.toLowerCase().includes(searchTerm.toLowerCase()));
             }
-            
-            const dailyReadings = readingsByDate[dateKey] || [];
-            const latestReadingsForDay = Object.values(
-                dailyReadings.reduce((acc, reading) => {
-                    const existing = acc[reading.machineName];
-                    if (!existing || new Date(reading.timestamp) > new Date(existing.timestamp)) {
-                        acc[reading.machineName] = reading;
-                    }
-                    return acc;
-                }, {} as Record<string, MachineReading>)
-            );
 
-            if (rows.length === 0 && latestReadingsForDay.length === 0) continue;
-
+            if (rows.length === 0) continue;
 
             const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
                 acc.cashSalesVolume += summary.cashSalesVolume;
@@ -140,12 +206,12 @@ export default function CashCreditSalesReportPage() {
                 return acc;
             }, { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 });
 
-            result[dateKey] = { rows, totals, machineReadings: latestReadingsForDay };
+            result[dateKey] = { rows, totals, machineReadings: readingsByDate[dateKey] };
         }
 
         return result;
 
-    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm]);
+    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm, purchases, purchaseReturns, saleReturns, stockAdjustments, initialFuelStock]);
     
     const sortedDateKeys = useMemo(() => {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -158,9 +224,11 @@ export default function CashCreditSalesReportPage() {
             return dayData.rows.map(row => ({
                 'Date': format(new Date(dateKey), 'dd-MMM-yyyy'),
                 'Fuel Type': row.fuelType,
+                'Opening Stock (Liters)': row.openingStock.toFixed(2),
                 'Cash Sales (Liters)': row.cashSalesVolume.toFixed(2),
                 'Credit Sales (Liters)': row.creditSalesVolume.toFixed(2),
                 'Total Sales (Liters)': (row.cashSalesVolume + row.creditSalesVolume).toFixed(2),
+                'Closing Stock (Liters)': row.closingStock.toFixed(2),
             }));
         });
         
@@ -223,19 +291,31 @@ export default function CashCreditSalesReportPage() {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>Fuel Type</TableHead>
+                                                        <TableHead>Fuel Type / Opening Stock</TableHead>
                                                         <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
                                                         <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
                                                         <TableHead className="text-right">Total Sales (Liters)</TableHead>
+                                                        <TableHead className="text-right">Remaining Stock</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
                                                     {dayData.rows.map(row => (
                                                         <TableRow key={row.fuelType}>
-                                                            <TableCell className="font-medium flex items-center gap-2"><Fuel size={16}/> {row.fuelType}</TableCell>
+                                                            <TableCell className="font-medium">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Fuel size={16}/>
+                                                                    <div>
+                                                                        {row.fuelType}
+                                                                        <div className="text-xs text-muted-foreground">
+                                                                            Opening: {row.openingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </TableCell>
                                                             <TableCell className="text-right font-mono text-green-600">{row.cashSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                             <TableCell className="text-right font-mono text-blue-600">{row.creditSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                             <TableCell className="text-right font-mono font-bold">{(row.cashSalesVolume + row.creditSalesVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            <TableCell className="text-right font-mono font-semibold">{row.closingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
