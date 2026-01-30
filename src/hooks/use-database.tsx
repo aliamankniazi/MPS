@@ -198,7 +198,7 @@ interface DatabaseActions {
     deleteBusinessPartner: (id: string) => void;
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'value'>) => void;
     deleteStockAdjustment: (id: string) => void;
-    addAttendance: (record: Omit<AttendanceRecord, 'id'>) => Promise<void>;
+    addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     updateInitialStock: (fuelType: FuelType, newStock: number) => void;
@@ -673,16 +673,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(FIRESTORE_PATHS.products, id, u);
     const deleteProduct = (id: string) => deleteEntity(FIRESTORE_PATHS.products, id);
     
-    const addAttendance = async (record: Omit<AttendanceRecord, 'id'>) => {
+    const addAttendance = (record: Omit<AttendanceRecord, 'id'>) => {
         const todayStr = record.date.substring(0, 10);
         const existingRecord = processedState.attendance.find(
           a => a.employeeId === record.employeeId && a.date.startsWith(todayStr)
         );
     
         if (existingRecord) {
-          await updateEntity(FIRESTORE_PATHS.attendance, existingRecord.id, { status: record.status });
+          updateEntity(FIRESTORE_PATHS.attendance, existingRecord.id, { status: record.status });
         } else {
-          await addEntity(FIRESTORE_PATHS.attendance, record);
+          addEntity(FIRESTORE_PATHS.attendance, record);
         }
     };
 

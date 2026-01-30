@@ -84,7 +84,7 @@ export default function EmployeeManagementPage() {
         salaryHistory: initialSalaryHistory 
     });
     
-    await addAttendance({
+    addAttendance({
       employeeId: newEmployee.id,
       employeeName: newEmployee.name,
       date: format(attendanceDate, 'yyyy-MM-dd'),
@@ -211,8 +211,8 @@ export default function EmployeeManagementPage() {
     return { present, absent, leave, unmarked, total };
   }, [selectedDayAttendance, employeesForAttendanceSheet]);
   
-  const handleAttendanceChange = async (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
-      await addAttendance({
+  const handleAttendanceChange = (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
+      addAttendance({
           employeeId: employee.id,
           employeeName: employee.name,
           date: format(attendanceDate, 'yyyy-MM-dd'),
