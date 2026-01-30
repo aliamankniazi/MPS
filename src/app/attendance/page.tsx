@@ -133,20 +133,32 @@ export default function EmployeeManagementPage() {
   
     const newHistoryEntry: SalaryHistoryEntry = {
       amount: data.newSalary,
-      effectiveDate: data.effectiveDate.toISOString(),
+      effectiveDate: startOfDay(data.effectiveDate).toISOString(),
     };
-    
-    // Ensure there is a base history entry from the hire date
-    const currentHistory = (employeeToEdit.salaryHistory && employeeToEdit.salaryHistory.length > 0)
-      ? employeeToEdit.salaryHistory
-      : [{ amount: employeeToEdit.salary, effectiveDate: employeeToEdit.hireDate }];
   
-    // Combine and update
-    const updatedHistory = [...currentHistory, newHistoryEntry];
+    // Get current history, ensuring it's an array.
+    const currentHistory = employeeToEdit.salaryHistory ? [...employeeToEdit.salaryHistory] : [];
+  
+    // If history is empty, create a base entry using the employee's current salary and hire date.
+    // This assumes `employeeToEdit.salary` holds the "old" salary before this increase.
+    if (currentHistory.length === 0 && employeeToEdit.hireDate) {
+        currentHistory.push({
+            amount: employeeToEdit.salary,
+            effectiveDate: employeeToEdit.hireDate,
+        });
+    }
+
+    // Add the new salary entry
+    currentHistory.push(newHistoryEntry);
     
+    // Sort and remove duplicates just in case (e.g., if user submits twice with same date)
+    // It keeps the last entry for a given date.
+    const uniqueHistory = Array.from(new Map(currentHistory.map(item => [item.effectiveDate.split('T')[0], item])).values());
+    const updatedHistory = uniqueHistory.sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
+  
     updateEmployee(employeeToEdit.id, {
-      salary: data.newSalary, // Update the current salary field
-      salaryHistory: updatedHistory, // Set the new, complete history
+      salary: data.newSalary, // Update the main salary field to the new one
+      salaryHistory: updatedHistory,
     });
   
     toast({
@@ -184,6 +196,7 @@ export default function EmployeeManagementPage() {
   const employeesForAttendanceSheet = useMemo(() => {
     const attendanceDay = startOfDay(attendanceDate);
     return employees.filter(emp => {
+      if (!emp.hireDate) return false;
       const hireDate = startOfDay(parseISO(emp.hireDate));
       if (!isValid(hireDate) || hireDate > attendanceDay) {
         return false;
@@ -255,8 +268,9 @@ export default function EmployeeManagementPage() {
     const to = dateRange.to || from;
 
     return attendance.filter(a => {
+        if (!a.date || !isValid(parseISO(a.date))) return false;
         const recordDate = parseISO(a.date);
-        return isValid(recordDate) && recordDate >= from && recordDate <= to;
+        return recordDate >= from && recordDate <= to;
     }).sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
 
   }, [attendance, dateRange]);
@@ -308,7 +322,7 @@ export default function EmployeeManagementPage() {
       setEditValue('mobileNumber', employeeToEdit.mobileNumber);
       setEditValue('position', employeeToEdit.position);
       setEditValue('salary', employeeToEdit.salary);
-      setEditValue('hireDate', parseISO(employeeToEdit.hireDate));
+      setEditValue('hireDate', employeeToEdit.hireDate ? parseISO(employeeToEdit.hireDate) : new Date());
       setEditValue('terminationDate', employeeToEdit.terminationDate ? parseISO(employeeToEdit.terminationDate) : null);
       setEditValue('salaryEffectiveDate', new Date()); // Default to today for new changes
     } else {
@@ -596,7 +610,7 @@ export default function EmployeeManagementPage() {
                                 <div className={`text-xs ${emp.terminationDate ? 'text-destructive' : 'text-green-600'}`}>
                                     {emp.terminationDate 
                                     ? `Terminated on ${format(parseISO(emp.terminationDate), 'dd-MMM-yyyy')}` 
-                                    : `Joined: ${format(parseISO(emp.hireDate), 'dd-MMM-yyyy')}`}
+                                    : (emp.hireDate ? `Joined: ${format(parseISO(emp.hireDate), 'dd-MMM-yyyy')}` : 'No join date')}
                                 </div>
                                 </TableCell>
                                 <TableCell className="text-center space-x-0">
