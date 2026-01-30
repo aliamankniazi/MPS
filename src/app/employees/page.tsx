@@ -163,8 +163,7 @@ export default function SalaryPaymentPage() {
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
-                const daysInMonthOfCurrentDay = getDaysInMonth(day);
-                const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
+                const dailyRate = salaryForDay / daysInMonthCount;
 
                 if (!subtotalForRate[applicableSalaryEntry.effectiveDate]) {
                     subtotalForRate[applicableSalaryEntry.effectiveDate] = { salary: salaryForDay, days: 0, total: 0 };
