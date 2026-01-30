@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
-import type { FuelType } from '@/lib/types';
+import type { FuelType, MachineReading } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -35,11 +35,12 @@ type GroupedReport = {
             creditSalesVolume: number;
         }[];
         totals: SalesSummary;
+        machineReadings?: MachineReading[];
     }
 };
 
 export default function CashCreditSalesReportPage() {
-    const { transactions, products, isLoaded, dateRange, setDateRange } = useDatabase();
+    const { transactions, products, machineReadings, isLoaded, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const groupedReportData: GroupedReport = useMemo(() => {
@@ -48,13 +49,18 @@ export default function CashCreditSalesReportPage() {
         const mainProducts = products.filter(p => p.category === 'Main Product').map(p => p.name);
 
         let filteredTransactions = transactions;
+        let filteredMachineReadings = machineReadings;
         if (dateRange?.from) {
             const from = startOfDay(dateRange.from);
             const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-            filteredTransactions = transactions.filter(tx => {
-                const txDate = new Date(tx.timestamp);
-                return isValid(txDate) && txDate >= from && txDate <= to;
+            
+            const filterByDate = (items: any[]) => items.filter(item => {
+                const itemDate = new Date(item.timestamp);
+                return isValid(itemDate) && itemDate >= from && itemDate <= to;
             });
+
+            filteredTransactions = filterByDate(transactions);
+            filteredMachineReadings = filterByDate(machineReadings);
         }
         
         const summaryByDateAndFuel = filteredTransactions.reduce((acc, tx) => {
@@ -85,11 +91,23 @@ export default function CashCreditSalesReportPage() {
 
             return acc;
         }, {} as Record<string, Record<string, SalesSummary>>);
+        
+        const readingsByDate = filteredMachineReadings.reduce((acc, reading) => {
+            const date = new Date(reading.timestamp);
+            if (!isValid(date)) return acc;
+            const dateKey = format(date, 'yyyy-MM-dd');
+            if(!acc[dateKey]) acc[dateKey] = [];
+            acc[dateKey].push(reading);
+            return acc;
+        }, {} as Record<string, MachineReading[]>);
+
 
         const result: GroupedReport = {};
+        
+        const allDateKeys = [...new Set([...Object.keys(summaryByDateAndFuel), ...Object.keys(readingsByDate)])];
 
-        for (const dateKey in summaryByDateAndFuel) {
-            const dailyFuelSummary = summaryByDateAndFuel[dateKey];
+        for (const dateKey of allDateKeys) {
+            const dailyFuelSummary = summaryByDateAndFuel[dateKey] || {};
             let rows = Object.keys(dailyFuelSummary).map(fuelType => ({
                 fuelType,
                 cashSalesVolume: dailyFuelSummary[fuelType].cashSalesVolume,
@@ -99,8 +117,20 @@ export default function CashCreditSalesReportPage() {
             if (searchTerm) {
                 rows = rows.filter(row => row.fuelType.toLowerCase().includes(searchTerm.toLowerCase()));
             }
+            
+            const dailyReadings = readingsByDate[dateKey] || [];
+            const latestReadingsForDay = Object.values(
+                dailyReadings.reduce((acc, reading) => {
+                    const existing = acc[reading.machineName];
+                    if (!existing || new Date(reading.timestamp) > new Date(existing.timestamp)) {
+                        acc[reading.machineName] = reading;
+                    }
+                    return acc;
+                }, {} as Record<string, MachineReading>)
+            );
 
-            if (rows.length === 0) continue;
+            if (rows.length === 0 && latestReadingsForDay.length === 0) continue;
+
 
             const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
                 acc.cashSalesVolume += summary.cashSalesVolume;
@@ -110,12 +140,12 @@ export default function CashCreditSalesReportPage() {
                 return acc;
             }, { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 });
 
-            result[dateKey] = { rows, totals };
+            result[dateKey] = { rows, totals, machineReadings: latestReadingsForDay };
         }
 
         return result;
 
-    }, [isLoaded, transactions, products, dateRange, searchTerm]);
+    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm]);
     
     const sortedDateKeys = useMemo(() => {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -211,6 +241,31 @@ export default function CashCreditSalesReportPage() {
                                                 </TableBody>
                                             </Table>
                                         </div>
+                                        {dayData.machineReadings && dayData.machineReadings.length > 0 && (
+                                            <div className="mt-4">
+                                                <h4 className="text-md font-semibold mb-2 flex items-center gap-2"><Fuel size={16} /> Machine Readings for the Day</h4>
+                                                <div className="border rounded-md">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Machine Name</TableHead>
+                                                                <TableHead>Fuel Type</TableHead>
+                                                                <TableHead className="text-right">Reading (Liters)</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {dayData.machineReadings.map(reading => (
+                                                                <TableRow key={reading.machineName}>
+                                                                    <TableCell>{reading.machineName}</TableCell>
+                                                                    <TableCell>{reading.fuelType}</TableCell>
+                                                                    <TableCell className="text-right font-mono">{reading.volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </div>
+                                        )}
                                     </AccordionContent>
                                 </AccordionItem>
                                 );
