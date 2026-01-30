@@ -276,8 +276,8 @@ export default function EmployeeManagementPage() {
       setEditValue('mobileNumber', employeeToEdit.mobileNumber);
       setEditValue('position', employeeToEdit.position);
       setEditValue('salary', employeeToEdit.salary);
-      setEditValue('hireDate', new Date(employeeToEdit.hireDate));
-      setEditValue('terminationDate', employeeToEdit.terminationDate ? new Date(employeeToEdit.terminationDate) : null);
+      setEditValue('hireDate', parseISO(employeeToEdit.hireDate));
+      setEditValue('terminationDate', employeeToEdit.terminationDate ? parseISO(employeeToEdit.terminationDate) : null);
       setEditValue('salaryEffectiveDate', new Date()); // Default to today for new changes
     } else {
       resetEdit();
@@ -528,8 +528,8 @@ export default function EmployeeManagementPage() {
                                 <div className="text-sm text-muted-foreground">{emp.position}</div>
                                 <div className={`text-xs ${emp.terminationDate ? 'text-destructive' : 'text-green-600'}`}>
                                     {emp.terminationDate 
-                                    ? `Terminated on ${format(new Date(emp.terminationDate), 'dd-MMM-yyyy')}` 
-                                    : `Joined: ${format(new Date(emp.hireDate), 'dd-MMM-yyyy')}`}
+                                    ? `Terminated on ${format(parseISO(emp.terminationDate), 'dd-MMM-yyyy')}` 
+                                    : `Joined: ${format(parseISO(emp.hireDate), 'dd-MMM-yyyy')}`}
                                 </div>
                                 </TableCell>
                                 <TableCell className="text-center space-x-0">
@@ -620,13 +620,13 @@ export default function EmployeeManagementPage() {
     
     <Dialog open={!!employeeToEdit} onOpenChange={(isOpen) => !isOpen && setEmployeeToEdit(null)}>
         <DialogContent className="max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>Edit Employee</DialogTitle>
-                <DialogDescription>
-                    Update the details for this employee.
-                </DialogDescription>
-            </DialogHeader>
             <form onSubmit={handleSubmitEdit(onEditSubmit)}>
+                <DialogHeader>
+                    <DialogTitle>Edit Employee</DialogTitle>
+                    <DialogDescription>
+                        Update the details for this employee.
+                    </DialogDescription>
+                </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="space-y-2">
                     <Label htmlFor="edit-name">Employee Name</Label>

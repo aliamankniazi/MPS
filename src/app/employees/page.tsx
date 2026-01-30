@@ -163,7 +163,8 @@ export default function SalaryPaymentPage() {
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
-                const dailyRate = salaryForDay / daysInMonthCount;
+                const daysInMonthOfCurrentDay = getDaysInMonth(day);
+                const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
 
                 if (!subtotalForRate[applicableSalaryEntry.effectiveDate]) {
                     subtotalForRate[applicableSalaryEntry.effectiveDate] = { salary: salaryForDay, days: 0, total: 0 };
@@ -544,7 +545,7 @@ export default function SalaryPaymentPage() {
                     <Separator />
                     <div className="flex justify-between text-lg font-bold pt-2">
                         <span>Total Present Days:</span>
-                        <span className="text-primary">{paymentToConfirm[0].calculation.totalPresentDays}</span>
+                        <span className="text-primary">{paymentToConfirm[0].calculation.totalPresentDays} / {paymentToConfirm[0].calculation.daysInMonth}</span>
                     </div>
                     <div className="flex justify-between text-lg font-bold">
                         <span>Final Calculated Salary:</span>
