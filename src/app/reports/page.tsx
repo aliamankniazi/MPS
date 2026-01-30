@@ -101,6 +101,13 @@ const reportList: ReportCardProps[] = [
     isFrequentlyUsed: true,
   },
   {
+    title: 'Salary Report',
+    description: 'Calculate and view employee salaries based on attendance.',
+    href: '/salary-report',
+    icon: Briefcase,
+    permission: 'manage_employees',
+  },
+  {
     title: 'Date Wise Business Report',
     description: "A high-level business overview without individual journal entries.",
     href: '/ledger',

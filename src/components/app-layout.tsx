@@ -21,7 +21,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -68,6 +68,7 @@ const navGroups = [
             { href: '/customers', label: 'Customers & Partners', icon: Users },
             { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
             { href: '/investments', label: 'Partner Investments', icon: PiggyBank },
+            { href: '/salary-report', label: 'Salary Report', icon: Briefcase },
         ]
     },
     {
