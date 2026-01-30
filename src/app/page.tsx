@@ -515,20 +515,6 @@ export default function DashboardPage() {
             </Card>
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Total Purchases</CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
-                    PKR {financialSummary?.totalPurchases.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
-                </div>
-                 <p className="text-xs text-muted-foreground">
-                    For {financialSummary?.totalPurchasesVolume.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '0'} Liters Purchased
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
                 <Receipt className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
@@ -825,4 +811,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
