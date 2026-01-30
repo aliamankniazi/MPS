@@ -13,6 +13,14 @@ import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import * as XLSX from 'xlsx';
 
+// New interface for breakdown
+interface SalaryCalculationPart {
+    period: string;
+    salary: number;
+    presentDays: number;
+    subtotal: number;
+}
+
 interface SalaryReportRow {
     employeeId: string;
     employeeName: string;
@@ -23,6 +31,7 @@ interface SalaryReportRow {
     totalDaysInPeriod: number;
     calculatedSalary: number;
     salaryHistory: { amount: number; effectiveDate: string }[];
+    calculationParts: SalaryCalculationPart[]; // Added for breakdown
 }
 
 export default function SalaryReportPage() {
@@ -33,7 +42,7 @@ export default function SalaryReportPage() {
     });
     const [searchTerm, setSearchTerm] = useState('');
 
-    const salaryReportData = useMemo(() => {
+    const salaryReportData: SalaryReportRow[] = useMemo(() => { // Added type annotation
         if (!isLoaded || !dateRange.from || !dateRange.to) return [];
 
         const interval = { start: dateRange.from, end: dateRange.to };
@@ -45,9 +54,9 @@ export default function SalaryReportPage() {
                 const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
                     .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
 
-                let calculatedSalary = 0;
-                let presentDays = 0;
-                
+                const calculationParts: SalaryCalculationPart[] = [];
+                let totalPresentDays = 0;
+
                 daysInPeriodArray.forEach(day => {
                     const attendanceForDay = attendance.find(a => 
                         a.employeeId === employee.id && 
@@ -56,19 +65,34 @@ export default function SalaryReportPage() {
                     );
 
                     if (attendanceForDay?.status === 'Present') {
-                        presentDays++;
+                        totalPresentDays++;
                         
-                        const salaryForDay = [...sortedHistory]
+                        const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
                             .find(h => new Date(h.effectiveDate) <= day);
 
-                        if (salaryForDay) {
+                        if (applicableSalaryEntry) {
+                            const salaryForDay = applicableSalaryEntry.amount;
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
-                            const dailyRate = salaryForDay.amount / daysInMonthOfCurrentDay;
-                            calculatedSalary += dailyRate;
+                            const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
+                            
+                            let part = calculationParts.find(p => p.salary === salaryForDay);
+                            if (part) {
+                                part.presentDays++;
+                                part.subtotal += dailyRate;
+                            } else {
+                                calculationParts.push({
+                                    period: `At rate of ${salaryForDay.toLocaleString()}/month`,
+                                    salary: salaryForDay,
+                                    presentDays: 1,
+                                    subtotal: dailyRate,
+                                });
+                            }
                         }
                     }
                 });
+
+                const totalCalculatedSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
                 return {
                     employeeId: employee.id,
@@ -76,10 +100,11 @@ export default function SalaryReportPage() {
                     position: employee.position,
                     hireDate: employee.hireDate,
                     baseSalary: employee.salary,
-                    presentDays: presentDays,
+                    presentDays: totalPresentDays,
                     totalDaysInPeriod: daysInPeriodArray.length,
-                    calculatedSalary: Math.round(calculatedSalary),
+                    calculatedSalary: Math.round(totalCalculatedSalary),
                     salaryHistory: [...sortedHistory].reverse(),
+                    calculationParts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
                 };
             });
     }, [isLoaded, employees, attendance, dateRange, searchTerm]);
@@ -145,7 +170,31 @@ export default function SalaryReportPage() {
                                 </AccordionTrigger>
                                 <AccordionContent>
                                     <div className="p-4 bg-muted/50 rounded-md">
-                                        <h4 className="font-semibold mb-2">Salary History</h4>
+                                        <h4 className="font-semibold mb-2">Salary Calculation Breakdown</h4>
+                                        {row.calculationParts.length > 0 ? (
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Period / Rate</TableHead>
+                                                        <TableHead className="text-right">Present Days</TableHead>
+                                                        <TableHead className="text-right">Salary Subtotal</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {row.calculationParts.map((part, index) => (
+                                                        <TableRow key={index}>
+                                                            <TableCell>{part.period}</TableCell>
+                                                            <TableCell className="text-right">{part.presentDays}</TableCell>
+                                                            <TableCell className="text-right font-mono">PKR {part.subtotal.toLocaleString()}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground">No attendance found for this period.</p>
+                                        )}
+                                        
+                                        <h4 className="font-semibold mt-4 mb-2">Salary Change History</h4>
                                         {row.salaryHistory && row.salaryHistory.length > 0 ? (
                                             <Table>
                                                 <TableHeader>
