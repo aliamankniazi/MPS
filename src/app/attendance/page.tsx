@@ -189,6 +189,15 @@ export default function EmployeeManagementPage() {
     const selectedDateStr = format(attendanceDate, 'yyyy-MM-dd');
     return attendance.filter(a => a.date.startsWith(selectedDateStr));
   }, [attendance, attendanceDate]);
+
+  const dailySummary = useMemo(() => {
+    const present = selectedDayAttendance.filter(a => a.status === 'Present').length;
+    const absent = selectedDayAttendance.filter(a => a.status === 'Absent').length;
+    const leave = selectedDayAttendance.filter(a => a.status === 'Leave').length;
+    const total = activeEmployees.length;
+    const unmarked = total - present - absent - leave;
+    return { present, absent, leave, unmarked, total };
+  }, [selectedDayAttendance, activeEmployees]);
   
   const handleAttendanceChange = async (employee: Employee, status: 'Present' | 'Absent' | 'Leave') => {
       await addAttendance({
@@ -362,42 +371,77 @@ export default function EmployeeManagementPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {activeEmployees.map(emp => {
-                             const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
-                             return (
-                                <Card key={emp.id} className="p-4">
-                                    <div className="font-medium text-center">{emp.name}</div>
-                                    <div className="text-sm text-muted-foreground text-center mb-4">{emp.position}</div>
-                                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-5 gap-4 mb-6 text-center">
+                        <div className="p-3 bg-muted/30 rounded-lg">
+                            <div className="text-2xl font-bold">{dailySummary.total}</div>
+                            <div className="text-xs text-muted-foreground">Total</div>
+                        </div>
+                        <div className="p-3 bg-green-100 dark:bg-green-900/50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-600">{dailySummary.present}</div>
+                            <div className="text-xs text-green-700 dark:text-green-300">Present</div>
+                        </div>
+                        <div className="p-3 bg-red-100 dark:bg-red-900/50 rounded-lg">
+                            <div className="text-2xl font-bold text-red-600">{dailySummary.absent}</div>
+                            <div className="text-xs text-red-700 dark:text-red-300">Absent</div>
+                        </div>
+                        <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-600">{dailySummary.leave}</div>
+                            <div className="text-xs text-blue-700 dark:text-blue-300">Leave</div>
+                        </div>
+                        <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                            <div className="text-2xl font-bold">{dailySummary.unmarked}</div>
+                            <div className="text-xs text-muted-foreground">Unmarked</div>
+                        </div>
+                    </div>
+                    <div className="border rounded-md">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead className="text-center w-[300px]">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                            {activeEmployees.map(emp => {
+                                const currentStatus = selectedDayAttendance.find(a => a.employeeId === emp.id)?.status;
+                                return (
+                                <TableRow key={emp.id}>
+                                    <TableCell>
+                                        <div className="font-medium">{emp.name}</div>
+                                        <div className="text-sm text-muted-foreground">{emp.position}</div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex justify-center gap-2">
                                         <Button
-                                            variant="outline"
-                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Present' && 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/50 dark:border-green-700 dark:text-green-300')}
+                                            variant={currentStatus === 'Present' ? 'default' : 'outline'}
+                                            size="sm"
+                                            className={cn(currentStatus === 'Present' && 'bg-green-500 hover:bg-green-600 text-white')}
                                             onClick={() => handleAttendanceChange(emp, 'Present')}
                                         >
-                                            <UserCheck className="w-5 h-5"/>
-                                            <span className="text-xs font-semibold">Present</span>
+                                            <UserCheck className="w-4 h-4 mr-2"/> Present
                                         </Button>
                                         <Button
-                                            variant="outline"
-                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Absent' && 'bg-red-100 border-red-400 text-red-700 dark:bg-red-900/50 dark:border-red-700 dark:text-red-300')}
+                                            variant={currentStatus === 'Absent' ? 'destructive' : 'outline'}
+                                            size="sm"
                                             onClick={() => handleAttendanceChange(emp, 'Absent')}
                                         >
-                                            <UserX className="w-5 h-5"/>
-                                            <span className="text-xs font-semibold">Absent</span>
+                                            <UserX className="w-4 h-4 mr-2"/> Absent
                                         </Button>
                                         <Button
-                                            variant="outline"
-                                            className={cn("flex flex-col items-center justify-center gap-1 rounded-md p-2 h-auto border-2 cursor-pointer hover:bg-accent hover:text-accent-foreground", currentStatus === 'Leave' && 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/50 dark:border-blue-700 dark:text-blue-300')}
+                                            variant={currentStatus === 'Leave' ? 'secondary' : 'outline'}
+                                            size="sm"
+                                            className={cn(currentStatus === 'Leave' && 'bg-blue-500 hover:bg-blue-600 text-white')}
                                             onClick={() => handleAttendanceChange(emp, 'Leave')}
                                         >
-                                            <Clock className="w-5 h-5"/>
-                                            <span className="text-xs font-semibold">Leave</span>
+                                            <Clock className="w-4 h-4 mr-2"/> Leave
                                         </Button>
-                                    </div>
-                                </Card>
-                             )
-                        })}
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                                )
+                            })}
+                            </TableBody>
+                        </Table>
                     </div>
                 </CardContent>
             </Card>
