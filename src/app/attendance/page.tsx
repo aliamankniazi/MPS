@@ -135,12 +135,18 @@ export default function EmployeeManagementPage() {
       amount: data.newSalary,
       effectiveDate: data.effectiveDate.toISOString(),
     };
+    
+    // Ensure there is a base history entry from the hire date
+    const currentHistory = (employeeToEdit.salaryHistory && employeeToEdit.salaryHistory.length > 0)
+      ? employeeToEdit.salaryHistory
+      : [{ amount: employeeToEdit.salary, effectiveDate: employeeToEdit.hireDate }];
   
-    const updatedHistory = employeeToEdit.salaryHistory ? [...employeeToEdit.salaryHistory, newHistoryEntry] : [newHistoryEntry];
+    // Combine and update
+    const updatedHistory = [...currentHistory, newHistoryEntry];
     
     updateEmployee(employeeToEdit.id, {
-      salary: data.newSalary,
-      salaryHistory: updatedHistory,
+      salary: data.newSalary, // Update the current salary field
+      salaryHistory: updatedHistory, // Set the new, complete history
     });
   
     toast({
