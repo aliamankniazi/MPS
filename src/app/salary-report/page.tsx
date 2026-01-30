@@ -72,16 +72,18 @@ export default function SalaryReportPage() {
                             .reverse()
                             .find(h => parseISO(h.effectiveDate) <= day);
                         
-                        if (applicableSalaryEntry) {
-                            const salaryForDay = applicableSalaryEntry.amount;
+                        const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
+                        const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
+
+                        if (salaryForDay > 0) {
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
                             const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
                             
-                            if (!subtotalForRate[applicableSalaryEntry.effectiveDate]) {
-                                subtotalForRate[applicableSalaryEntry.effectiveDate] = { salary: salaryForDay, days: 0, total: 0 };
+                            if (!subtotalForRate[effectiveDateForGrouping]) {
+                                subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
                             }
-                            subtotalForRate[applicableSalaryEntry.effectiveDate].days++;
-                            subtotalForRate[applicableSalaryEntry.effectiveDate].total += dailyRate;
+                            subtotalForRate[effectiveDateForGrouping].days++;
+                            subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                         }
                     }
                 });

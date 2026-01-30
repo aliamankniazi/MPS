@@ -161,26 +161,27 @@ export default function SalaryPaymentPage() {
                 .reverse()
                 .find(h => parseISO(h.effectiveDate) <= day);
             
-            if (applicableSalaryEntry) {
-                const salaryForDay = applicableSalaryEntry.amount;
+            const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
+            const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
+
+            if (salaryForDay > 0) {
                 const dailyRate = salaryForDay / daysInMonthCount;
 
-                if (!subtotalForRate[applicableSalaryEntry.effectiveDate]) {
-                    subtotalForRate[applicableSalaryEntry.effectiveDate] = { salary: salaryForDay, days: 0, total: 0 };
+                if (!subtotalForRate[effectiveDateForGrouping]) {
+                    subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
                 }
-                subtotalForRate[applicableSalaryEntry.effectiveDate].days++;
-                subtotalForRate[applicableSalaryEntry.effectiveDate].total += dailyRate;
+                subtotalForRate[effectiveDateForGrouping].days++;
+                subtotalForRate[effectiveDateForGrouping].total += dailyRate;
             }
         }
     });
 
     Object.keys(subtotalForRate).forEach(effectiveDate => {
-        const rateInfo = subtotalForRate[effectiveDate];
         calculationParts.push({
-            period: `At rate of ${rateInfo.salary.toLocaleString()}/month (from ${format(parseISO(effectiveDate), 'MMM dd')})`,
-            salary: rateInfo.salary,
-            presentDays: rateInfo.days,
-            subtotal: rateInfo.total,
+            period: `At rate of ${subtotalForRate[effectiveDate].salary.toLocaleString()}/month (from ${format(parseISO(effectiveDate), 'MMM dd')})`,
+            salary: subtotalForRate[effectiveDate].salary,
+            presentDays: subtotalForRate[effectiveDate].days,
+            subtotal: subtotalForRate[effectiveDate].total,
             effectiveDate: effectiveDate,
         });
     });
