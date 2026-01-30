@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -16,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import {
@@ -85,6 +86,11 @@ export default function SalaryPaymentPage() {
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
   });
+
+  const activeEmployees = useMemo(() => {
+    if (!employees) return [];
+    return employees.filter(emp => !emp.terminationDate);
+  }, [employees]);
 
   useEffect(() => {
     reset({
@@ -212,7 +218,7 @@ export default function SalaryPaymentPage() {
                                     className="w-full justify-between"
                                   >
                                     {field.value
-                                      ? employees.find((e) => e.id === field.value)?.name
+                                      ? activeEmployees.find((e) => e.id === field.value)?.name
                                       : "Select an employee..."}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                   </Button>
@@ -223,7 +229,7 @@ export default function SalaryPaymentPage() {
                                     <CommandList>
                                       <CommandEmpty>No employee found.</CommandEmpty>
                                       <CommandGroup>
-                                        {isLoaded ? employees.map(e => (
+                                        {isLoaded ? activeEmployees.map(e => (
                                           <CommandItem
                                             key={e.id}
                                             value={e.name}
