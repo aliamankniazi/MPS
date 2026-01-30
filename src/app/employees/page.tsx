@@ -30,10 +30,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const salaryPaymentSchema = z.object({
-  employeeId: z.string().min(1, 'Please select an employee.'),
+  employeeId: z.string().optional(),
   salaryMonth: z.string().min(1, "Salary month is required."),
   salaryYear: z.string().min(4, "Salary year is required."),
   postingDate: z.date({ required_error: "A posting date is required."}),
@@ -41,6 +43,13 @@ const salaryPaymentSchema = z.object({
 });
 
 type SalaryPaymentFormValues = z.infer<typeof salaryPaymentSchema>;
+type SalaryPaymentConfirmation = SalaryPaymentFormValues & {
+    employeeName: string;
+    salaryAmount: number;
+    baseSalary: number;
+    presentDays: number;
+    daysInMonth: number;
+};
 
 const months = Array.from({ length: 12 }, (_, i) => format(new Date(0, i), 'MMMM'));
 const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString());
@@ -81,7 +90,8 @@ export default function SalaryPaymentPage() {
   const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, attendance } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
-  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentFormValues & { employeeName: string; salaryAmount: number; baseSalary: number; presentDays: number; daysInMonth: number; } | null>(null);
+  const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentConfirmation[] | null>(null);
+  const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
@@ -100,22 +110,16 @@ export default function SalaryPaymentPage() {
     });
   }, [reset, dateRange]);
 
-  const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
-    const employee = employees.find(e => e.id === data.employeeId);
-    if (!employee) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Employee not found.' });
-        return;
-    }
-     if (!employee.salary || employee.salary <= 0) {
-        toast({ variant: 'destructive', title: 'Salary Not Set', description: `Salary for ${employee.name} is not set or is zero. Please update their salary in the attendance page.` });
-        return;
+  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
+    if (!employee.salary || employee.salary <= 0) {
+        return null;
     }
     
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
     const daysInMonth = getDaysInMonth(salaryMonthDate);
     
     const employeeAttendance = attendance.filter(a => 
-        a.employeeId === data.employeeId &&
+        a.employeeId === employee.id &&
         new Date(a.date).getFullYear() === salaryMonthDate.getFullYear() &&
         new Date(a.date).getMonth() === salaryMonthDate.getMonth()
     );
@@ -125,69 +129,124 @@ export default function SalaryPaymentPage() {
     const dailySalary = employee.salary / daysInMonth;
     const calculatedSalary = Math.round(dailySalary * presentDays);
 
-    setPaymentToConfirm({
+    return {
         ...data,
         employeeName: employee.name,
         salaryAmount: calculatedSalary,
         baseSalary: employee.salary,
         presentDays,
         daysInMonth
-    });
+    };
+  }
+
+  const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
+    if (paymentMode === 'single') {
+        if (!data.employeeId) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Please select an employee.' });
+            return;
+        }
+        const employee = employees.find(e => e.id === data.employeeId);
+        if (!employee) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Employee not found.' });
+            return;
+        }
+        const paymentDetails = calculateSalaryForEmployee(employee, data);
+        if (paymentDetails) {
+            setPaymentToConfirm([paymentDetails]);
+        } else {
+             toast({ variant: 'destructive', title: 'Salary Not Set', description: `Salary for ${employee.name} is not set or is zero. Please update their salary.` });
+        }
+    } else { // Bulk mode
+        const paymentsToConfirm: SalaryPaymentConfirmation[] = [];
+        const employeesWithoutSalary: string[] = [];
+
+        activeEmployees.forEach(employee => {
+            const paymentDetails = calculateSalaryForEmployee(employee, data);
+            if (paymentDetails) {
+                paymentsToConfirm.push(paymentDetails);
+            } else {
+                employeesWithoutSalary.push(employee.name);
+            }
+        });
+        
+        if (employeesWithoutSalary.length > 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Salary Not Set',
+                description: `Salary is not set for: ${employeesWithoutSalary.join(', ')}. They were skipped.`,
+            });
+        }
+        
+        if (paymentsToConfirm.length > 0) {
+            setPaymentToConfirm(paymentsToConfirm);
+        } else {
+            toast({
+                title: 'Nothing to Pay',
+                description: 'No active employees with salaries found to process.',
+            });
+        }
+    }
   };
 
   const handleProcessSalaryPayment = async () => {
     if (!paymentToConfirm) return;
 
-    const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName, salaryAmount } = paymentToConfirm;
-    
-    const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
-    const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
+    for (const payment of paymentToConfirm) {
+        const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName, salaryAmount } = payment;
+        
+        const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
+        const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
 
-    // 1. Log the salary as an expense
-    await addExpense({
-      description: salaryDescription,
-      category: 'Salaries',
-      amount: salaryAmount,
-      timestamp: postingDate.toISOString(),
-    });
-
-    // 2. Find or create a customer record for the employee to track payments in their ledger
-    let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employeeName.toLowerCase() && c.area === 'Employee');
-    
-    let customerId = employeeAsCustomer?.id;
-    if (!employeeAsCustomer) {
-        const newCustomer = await addCustomer({
-            name: employeeName,
-            contact: employees.find(e => e.id === employeeId)?.mobileNumber || '',
-            area: 'Employee',
-            isPartner: false,
-            timestamp: new Date().toISOString(),
+        // 1. Log the salary as an expense
+        await addExpense({
+          description: salaryDescription,
+          category: 'Salaries',
+          amount: salaryAmount,
+          timestamp: postingDate.toISOString(),
         });
-        customerId = newCustomer.id;
-    }
 
+        // 2. Find or create a customer record for the employee to track payments in their ledger
+        let employeeAsCustomer = customers.find(c => c.name.toLowerCase() === employeeName.toLowerCase() && c.area === 'Employee');
+        
+        let customerId = employeeAsCustomer?.id;
+        if (!employeeAsCustomer) {
+            const newCustomer = await addCustomer({
+                name: employeeName,
+                contact: employees.find(e => e.id === employeeId)?.mobileNumber || '',
+                area: 'Employee',
+                isPartner: false,
+                timestamp: new Date().toISOString(),
+            });
+            customerId = newCustomer.id;
+        }
 
-    // 3. Log a payment against the employee's customer record (acts as a CREDIT to balance their account)
-    if (customerId) {
-        await addCustomerPayment({
-            customerId: customerId,
-            customerName: employeeName,
-            amount: salaryAmount,
-            paymentMethod: 'Salary',
-            timestamp: postingDate.toISOString(),
-            notes: paymentNotes,
-        });
+        // 3. Log a payment against the employee's customer record (acts as a CREDIT to balance their account)
+        if (customerId) {
+            await addCustomerPayment({
+                customerId: customerId,
+                customerName: employeeName,
+                amount: salaryAmount,
+                paymentMethod: 'Salary',
+                timestamp: postingDate.toISOString(),
+                notes: paymentNotes,
+            });
+        }
     }
 
 
     toast({
-      title: 'Salary Paid',
-      description: `Salary for ${employeeName} has been successfully recorded.`,
+      title: `${paymentToConfirm.length} Salaries Paid`,
+      description: `Salaries for ${paymentToConfirm.length} employees have been successfully recorded.`,
     });
     
     setPaymentToConfirm(null);
     reset();
   };
+  
+  const totalBulkSalary = useMemo(() => {
+    if (!paymentToConfirm || paymentToConfirm.length <= 1) return 0;
+    return paymentToConfirm.reduce((sum, p) => sum + p.salaryAmount, 0);
+  }, [paymentToConfirm]);
 
   return (
     <>
@@ -204,58 +263,79 @@ export default function SalaryPaymentPage() {
             <CardContent>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                     <div className="space-y-2">
-                        <Label>Employee</Label>
-                        <Controller
-                            name="employeeId"
-                            control={control}
-                            render={({ field }) => (
-                                <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    role="combobox"
-                                    aria-expanded={employeeComboboxOpen}
-                                    className="w-full justify-between"
-                                  >
-                                    {field.value
-                                      ? activeEmployees.find((e) => e.id === field.value)?.name
-                                      : "Select an employee..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                  <Command>
-                                    <CommandInput placeholder="Search employee..." />
-                                    <CommandList>
-                                      <CommandEmpty>No employee found.</CommandEmpty>
-                                      <CommandGroup>
-                                        {isLoaded ? activeEmployees.map(e => (
-                                          <CommandItem
-                                            key={e.id}
-                                            value={e.name}
-                                            onSelect={() => {
-                                              field.onChange(e.id);
-                                              setEmployeeComboboxOpen(false);
-                                            }}
-                                          >
-                                            <Check
-                                              className={cn(
-                                                "mr-2 h-4 w-4",
-                                                field.value === e.id ? "opacity-100" : "opacity-0"
-                                              )}
-                                            />
-                                            {e.name} - {e.position}
-                                          </CommandItem>
-                                        )) : <CommandItem disabled>Loading...</CommandItem>}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
-                            )}
-                        />
-                        {errors.employeeId && <p className="text-sm text-destructive">{errors.employeeId.message}</p>}
+                        <Label>Payment Mode</Label>
+                        <RadioGroup
+                            defaultValue="single"
+                            onValueChange={(value: 'single' | 'bulk') => setPaymentMode(value)}
+                            className="flex items-center space-x-4"
+                        >
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="single" id="single" />
+                                <Label htmlFor="single">Single Employee</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="bulk" id="bulk" />
+                                <Label htmlFor="bulk">All Active Employees</Label>
+                            </div>
+                        </RadioGroup>
                     </div>
+
+                    {paymentMode === 'single' && (
+                        <div className="space-y-2">
+                            <Label>Employee</Label>
+                            <Controller
+                                name="employeeId"
+                                control={control}
+                                render={({ field }) => (
+                                    <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
+                                    <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        aria-expanded={employeeComboboxOpen}
+                                        className="w-full justify-between"
+                                    >
+                                        {field.value
+                                        ? activeEmployees.find((e) => e.id === field.value)?.name
+                                        : "Select an employee..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Search employee..." />
+                                        <CommandList>
+                                        <CommandEmpty>No employee found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {isLoaded ? activeEmployees.map(e => (
+                                            <CommandItem
+                                                key={e.id}
+                                                value={e.name}
+                                                onSelect={() => {
+                                                field.onChange(e.id);
+                                                setEmployeeComboboxOpen(false);
+                                                }}
+                                            >
+                                                <Check
+                                                className={cn(
+                                                    "mr-2 h-4 w-4",
+                                                    field.value === e.id ? "opacity-100" : "opacity-0"
+                                                )}
+                                                />
+                                                {e.name} - {e.position}
+                                            </CommandItem>
+                                            )) : <CommandItem disabled>Loading...</CommandItem>}
+                                        </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                    </PopoverContent>
+                                </Popover>
+                                )}
+                            />
+                            {errors.employeeId && <p className="text-sm text-destructive">{errors.employeeId.message}</p>}
+                        </div>
+                    )}
+
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
@@ -367,45 +447,73 @@ export default function SalaryPaymentPage() {
     </div>
 
     <AlertDialog open={!!paymentToConfirm} onOpenChange={(isOpen) => !isOpen && setPaymentToConfirm(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/> Confirm Salary Payment</AlertDialogTitle>
             <AlertDialogDescription>
               Please review and confirm the salary payment details before posting to the ledger.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {paymentToConfirm && (
-            <div className="text-sm space-y-2 my-4 p-4 bg-muted rounded-md">
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Employee:</span>
-                    <span className="font-semibold">{paymentToConfirm.employeeName}</span>
+          {paymentToConfirm && paymentToConfirm.length > 0 && (
+            paymentToConfirm.length === 1 ? (
+                <div className="text-sm space-y-2 my-4 p-4 bg-muted rounded-md">
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Employee:</span>
+                        <span className="font-semibold">{paymentToConfirm[0].employeeName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Salary for:</span>
+                        <span className="font-semibold">{paymentToConfirm[0].salaryMonth} {paymentToConfirm[0].salaryYear}</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-2 mt-2">
+                        <span className="text-muted-foreground">Base Salary:</span>
+                        <span className="font-semibold">PKR {paymentToConfirm[0].baseSalary.toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Days in Month:</span>
+                        <span className="font-semibold">{paymentToConfirm[0].daysInMonth}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Days Present:</span>
+                        <span className="font-semibold text-green-600">{paymentToConfirm[0].presentDays}</span>
+                    </div>
+                    <div className="flex justify-between text-lg">
+                        <span className="text-muted-foreground">Calculated Salary:</span>
+                        <span className="font-bold text-primary">PKR {paymentToConfirm[0].salaryAmount.toLocaleString()}</span>
+                    </div>
                 </div>
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Salary for:</span>
-                    <span className="font-semibold">{paymentToConfirm.salaryMonth} {paymentToConfirm.salaryYear}</span>
-                </div>
-                <div className="flex justify-between border-t pt-2 mt-2">
-                    <span className="text-muted-foreground">Base Salary:</span>
-                    <span className="font-semibold">PKR {paymentToConfirm.baseSalary.toLocaleString()}</span>
-                </div>
-                 <div className="flex justify-between">
-                    <span className="text-muted-foreground">Days in Month:</span>
-                    <span className="font-semibold">{paymentToConfirm.daysInMonth}</span>
-                </div>
-                <div className="flex justify-between">
-                    <span className="text-muted-foreground">Days Present:</span>
-                    <span className="font-semibold text-green-600">{paymentToConfirm.presentDays}</span>
-                </div>
-                <div className="flex justify-between text-lg">
-                    <span className="text-muted-foreground">Calculated Salary:</span>
-                    <span className="font-bold text-primary">PKR {paymentToConfirm.salaryAmount.toLocaleString()}</span>
-                </div>
-            </div>
+            ) : (
+                <ScrollArea className="max-h-[50vh] my-4">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Employee</TableHead>
+                                <TableHead>Base Salary</TableHead>
+                                <TableHead>Days Present</TableHead>
+                                <TableHead className="text-right">Calculated Salary</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paymentToConfirm.map(p => (
+                                <TableRow key={p.employeeId}>
+                                    <TableCell>{p.employeeName}</TableCell>
+                                    <TableCell>PKR {p.baseSalary.toLocaleString()}</TableCell>
+                                    <TableCell>{p.presentDays}/{p.daysInMonth}</TableCell>
+                                    <TableCell className="text-right font-semibold">PKR {p.salaryAmount.toLocaleString()}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                    <div className="text-right mt-4 font-bold text-lg">
+                        Total Payroll: PKR {totalBulkSalary.toLocaleString()}
+                    </div>
+                </ScrollArea>
+            )
           )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleProcessSalaryPayment}>
-              Confirm & Post Payment
+              {paymentToConfirm && paymentToConfirm.length > 1 ? `Confirm & Pay ${paymentToConfirm.length} Salaries` : 'Confirm & Post Payment'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
