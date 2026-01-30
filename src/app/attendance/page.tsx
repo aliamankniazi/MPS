@@ -11,8 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock, HelpCircle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
+import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock, HelpCircle, X } from 'lucide-react';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parseISO } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 
 const employeeSchema = z.object({
@@ -43,7 +44,7 @@ const salaryIncreaseSchema = z.object({
 type SalaryIncreaseFormValues = z.infer<typeof salaryIncreaseSchema>;
 
 export default function EmployeeManagementPage() {
-  const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded } = useDatabase();
+  const { employees, addEmployee, updateEmployee, deleteEmployee, attendance, addAttendance, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   
   const [employeeToEdit, setEmployeeToEdit] = useState<Employee | null>(null);
@@ -52,7 +53,6 @@ export default function EmployeeManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [positionFilter, setPositionFilter] = useState('');
   const [attendanceDate, setAttendanceDate] = useState(new Date());
-  const [historyDate, setHistoryDate] = useState<Date | undefined>();
 
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<EmployeeFormValues>({
@@ -217,13 +217,20 @@ export default function EmployeeManagementPage() {
   }
   
   const filteredHistory = useMemo(() => {
-    if (!historyDate) return [];
-    const selectedDateStr = format(historyDate, 'yyyy-MM-dd');
-    return attendance.filter(a => a.date.startsWith(selectedDateStr));
-  }, [attendance, historyDate]);
+    if (!dateRange?.from) return attendance.sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+
+    const from = dateRange.from;
+    const to = dateRange.to || from;
+
+    return attendance.filter(a => {
+        const recordDate = parseISO(a.date);
+        return isValid(recordDate) && recordDate >= from && recordDate <= to;
+    }).sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+
+  }, [attendance, dateRange]);
 
   const attendanceSummary = useMemo(() => {
-    if (!historyDate) return null;
+    if (!dateRange?.from) return null;
 
     const presentCount = filteredHistory.filter(r => r.status === 'Present').length;
     const absentCount = filteredHistory.filter(r => r.status === 'Absent').length;
@@ -239,7 +246,7 @@ export default function EmployeeManagementPage() {
       notMarked: notMarkedCount,
       total: activeEmployees.length,
     };
-  }, [filteredHistory, activeEmployees, historyDate]);
+  }, [filteredHistory, activeEmployees, dateRange]);
 
 
   const filteredEmployees = useMemo(() => {
@@ -394,9 +401,12 @@ export default function EmployeeManagementPage() {
                     <div className="flex items-center justify-between">
                         <div>
                             <CardTitle>Attendance History</CardTitle>
-                            <CardDescription>View past attendance records by selecting a date.</CardDescription>
+                            <CardDescription>View past attendance records. Select a date range to filter.</CardDescription>
                         </div>
-                        <DateDropdowns value={historyDate} onChange={setHistoryDate} />
+                        <div className="flex items-center gap-2">
+                             <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                             {dateRange?.from && <Button variant="ghost" onClick={() => setDateRange(undefined)}><X className="mr-2 h-4 w-4"/>Clear</Button>}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -427,15 +437,17 @@ export default function EmployeeManagementPage() {
                      <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead>Date</TableHead>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Status</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {historyDate && filteredHistory.length > 0 ? (
+                            {filteredHistory.length > 0 ? (
                                 <>
                                     {filteredHistory.map(record => (
                                         <TableRow key={record.id}>
+                                            <TableCell className="font-medium">{format(parseISO(record.date), 'dd-MMM-yyyy')}</TableCell>
                                             <TableCell className="font-medium">{record.employeeName}</TableCell>
                                             <TableCell>
                                                 <span className={cn('font-semibold', 
@@ -451,8 +463,8 @@ export default function EmployeeManagementPage() {
                                 </>
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
-                                        {historyDate ? 'No records found for this date.' : 'Select a date to view attendance summary and history.'}
+                                    <TableCell colSpan={3} className="text-center h-24 text-muted-foreground">
+                                        {dateRange?.from ? 'No records found for this period.' : 'No attendance records yet.'}
                                     </TableCell>
                                 </TableRow>
                             )}

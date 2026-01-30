@@ -55,7 +55,7 @@ export default function SalaryReportPage() {
                 const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
                     .sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
 
-                const calculationParts: SalaryCalculationPart[] = [];
+                let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
                 let totalPresentDays = 0;
 
                 daysInPeriodArray.forEach(day => {
@@ -71,29 +71,32 @@ export default function SalaryReportPage() {
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
                             .find(h => parseISO(h.effectiveDate) <= day);
-
+                        
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
                             const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
                             
-                            let part = calculationParts.find(p => p.effectiveDate === applicableSalaryEntry.effectiveDate);
-                            if (part) {
-                                part.presentDays++;
-                                part.subtotal += dailyRate;
-                            } else {
-                                calculationParts.push({
-                                    period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(parseISO(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
-                                    salary: salaryForDay,
-                                    presentDays: 1,
-                                    subtotal: dailyRate,
-                                    effectiveDate: applicableSalaryEntry.effectiveDate,
-                                });
+                            if (!subtotalForRate[applicableSalaryEntry.effectiveDate]) {
+                                subtotalForRate[applicableSalaryEntry.effectiveDate] = { salary: salaryForDay, days: 0, total: 0 };
                             }
+                            subtotalForRate[applicableSalaryEntry.effectiveDate].days++;
+                            subtotalForRate[applicableSalaryEntry.effectiveDate].total += dailyRate;
                         }
                     }
                 });
 
+                const calculationParts: SalaryCalculationPart[] = Object.keys(subtotalForRate).map(effectiveDate => {
+                    const rateInfo = subtotalForRate[effectiveDate];
+                    return {
+                        period: `At rate of ${rateInfo.salary.toLocaleString()}/month (from ${format(parseISO(effectiveDate), 'MMM dd')})`,
+                        salary: rateInfo.salary,
+                        presentDays: rateInfo.days,
+                        subtotal: rateInfo.total,
+                        effectiveDate: effectiveDate,
+                    };
+                });
+                
                 const totalCalculatedSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
                 return {
