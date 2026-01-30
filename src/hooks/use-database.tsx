@@ -481,15 +481,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
-    const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>) => {
-        if (!firestore) return;
+    const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>): Promise<void> => {
+        if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
         const docRef = doc(firestore, path, id);
-        updateDoc(docRef, updates).catch(error => {
+        return updateDoc(docRef, updates).catch(error => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'update',
                 requestResourceData: updates,
             }));
+            throw error;
         });
     }, []);
 
