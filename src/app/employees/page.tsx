@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -136,28 +136,29 @@ export default function SalaryPaymentPage() {
     
     const employeeAttendance = attendance.filter(a => 
         a.employeeId === employee.id &&
-        new Date(a.date).getFullYear() === salaryMonthDate.getFullYear() &&
-        new Date(a.date).getMonth() === salaryMonthDate.getMonth()
+        isValid(parseISO(a.date)) &&
+        parseISO(a.date).getFullYear() === salaryMonthDate.getFullYear() &&
+        parseISO(a.date).getMonth() === salaryMonthDate.getMonth()
     );
 
     const history = (employee.salaryHistory && employee.salaryHistory.length > 0)
       ? employee.salaryHistory
       : [{ amount: employee.salary, effectiveDate: employee.hireDate }];
       
-    const sortedHistory = [...history].sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+    const sortedHistory = [...history].sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
 
     const calculationParts: SalaryCalculationPart[] = [];
     const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
     let totalPresentDays = 0;
 
     daysInPeriodArray.forEach(day => {
-        const attendanceRecord = employeeAttendance.find(a => isSameDay(new Date(a.date), day));
+        const attendanceRecord = employeeAttendance.find(a => isSameDay(parseISO(a.date), day));
         if (attendanceRecord && attendanceRecord.status === 'Present') {
             totalPresentDays++;
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
-                .find(h => new Date(h.effectiveDate) <= day);
+                .find(h => parseISO(h.effectiveDate) <= day);
 
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
@@ -169,7 +170,7 @@ export default function SalaryPaymentPage() {
                     part.subtotal += dailyRate;
                 } else {
                     calculationParts.push({
-                        period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(new Date(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
+                        period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(parseISO(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
                         salary: salaryForDay,
                         daysInMonth: daysInMonthCount,
                         presentDays: 1,

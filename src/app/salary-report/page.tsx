@@ -53,7 +53,7 @@ export default function SalaryReportPage() {
             .filter(emp => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .map(employee => {
                 const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
-                    .sort((a, b) => new Date(a.effectiveDate).getTime() - new Date(b.effectiveDate).getTime());
+                    .sort((a, b) => parseISO(a.effectiveDate).getTime() - parseISO(b.effectiveDate).getTime());
 
                 const calculationParts: SalaryCalculationPart[] = [];
                 let totalPresentDays = 0;
@@ -70,7 +70,7 @@ export default function SalaryReportPage() {
                         
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => new Date(h.effectiveDate) <= day);
+                            .find(h => parseISO(h.effectiveDate) <= day);
 
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
@@ -83,7 +83,7 @@ export default function SalaryReportPage() {
                                 part.subtotal += dailyRate;
                             } else {
                                 calculationParts.push({
-                                    period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(new Date(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
+                                    period: `At rate of ${salaryForDay.toLocaleString()}/month (from ${format(parseISO(applicableSalaryEntry.effectiveDate), 'MMM dd')})`,
                                     salary: salaryForDay,
                                     presentDays: 1,
                                     subtotal: dailyRate,
@@ -115,7 +115,7 @@ export default function SalaryReportPage() {
         const dataToExport = salaryReportData.map(row => ({
             'Employee Name': row.employeeName,
             'Position': row.position,
-            'Hire Date': format(new Date(row.hireDate), 'dd-MMM-yyyy'),
+            'Hire Date': format(parseISO(row.hireDate), 'dd-MMM-yyyy'),
             'Base Salary': row.baseSalary,
             'Present Days': `${row.presentDays}/${row.totalDaysInPeriod}`,
             'Calculated Salary (PKR)': row.calculatedSalary,
@@ -208,7 +208,7 @@ export default function SalaryReportPage() {
                                                 <TableBody>
                                                     {row.salaryHistory.map((history, index) => (
                                                         <TableRow key={index}>
-                                                            <TableCell>{format(new Date(history.effectiveDate), 'dd MMMM, yyyy')}</TableCell>
+                                                            <TableCell>{format(parseISO(history.effectiveDate), 'dd MMMM, yyyy')}</TableCell>
                                                             <TableCell className="text-right font-mono">PKR {history.amount.toLocaleString()}</TableCell>
                                                         </TableRow>
                                                     ))}
