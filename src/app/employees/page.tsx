@@ -41,6 +41,7 @@ const salaryPaymentSchema = z.object({
   salaryYear: z.string().min(4, "Salary year is required."),
   postingDate: z.date({ required_error: "A posting date is required."}),
   notes: z.string().optional(),
+  manualPresentDays: z.coerce.number().optional(),
 });
 
 type SalaryPaymentFormValues = z.infer<typeof salaryPaymentSchema>;
@@ -130,59 +131,90 @@ export default function SalaryPaymentPage() {
     const firstDayOfMonth = startOfMonth(salaryMonthDate);
     const lastDayOfMonth = endOfMonth(salaryMonthDate);
     
-    const employeeAttendance = attendance.filter(a => 
-        a.employeeId === employee.id &&
-        a.date.startsWith(format(salaryMonthDate, 'yyyy-MM'))
-    );
-
-    const calculationParts: SalaryCalculationPart[] = [];
     const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
     let totalPresentDays = 0;
     
-    let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
+    let calculationParts: SalaryCalculationPart[] = [];
+    const daysInMonth = getDaysInMonth(salaryMonthDate);
 
-    daysInPeriodArray.forEach(day => {
-        const dayString = format(day, 'yyyy-MM-dd');
-        const attendanceRecord = employeeAttendance.find(a => a.date.startsWith(dayString));
+    if (typeof data.manualPresentDays === 'number' && data.manualPresentDays >= 0) {
+        totalPresentDays = data.manualPresentDays;
+        
+        const latestSalaryEntry = [...sortedHistory].reverse().find(h => parseISO(h.effectiveDate).getTime() <= lastDayOfMonth.getTime());
+        
+        if (latestSalaryEntry) {
+            const dailyRate = latestSalaryEntry.amount / daysInMonth;
+            const totalSalary = totalPresentDays * dailyRate;
+            calculationParts.push({
+                period: `Manual entry: ${totalPresentDays} days at latest rate`,
+                salary: latestSalaryEntry.amount,
+                presentDays: totalPresentDays,
+                subtotal: totalSalary,
+                effectiveDate: latestSalaryEntry.effectiveDate,
+            });
+        } else if (employee.salary > 0) { // Fallback to main salary if no history
+             const dailyRate = employee.salary / daysInMonth;
+             const totalSalary = totalPresentDays * dailyRate;
+             calculationParts.push({
+                period: `Manual entry: ${totalPresentDays} days at base rate`,
+                salary: employee.salary,
+                presentDays: totalPresentDays,
+                subtotal: totalSalary,
+                effectiveDate: employee.hireDate,
+            });
+        }
 
-        const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
-        const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
+    } else {
+        const employeeAttendance = attendance.filter(a => 
+            a.employeeId === employee.id &&
+            a.date.startsWith(format(salaryMonthDate, 'yyyy-MM'))
+        );
 
-        if (attendanceRecord && attendanceRecord.status === 'Present' && day >= hireDate && day <= termDate) {
-            totalPresentDays++;
+        let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
 
-            const dayDate = startOfDay(day);
-            const applicableSalaryEntry = [...sortedHistory]
-                .reverse()
-                .find(h => startOfDay(parseISO(h.effectiveDate)) <= dayDate);
-            
-            if (applicableSalaryEntry) {
-                const salaryForDay = applicableSalaryEntry.amount;
-                const effectiveDateForGrouping = applicableSalaryEntry.effectiveDate;
-                const daysInMonthOfCurrentDay = getDaysInMonth(day);
+        daysInPeriodArray.forEach(day => {
+            const dayString = format(day, 'yyyy-MM-dd');
+            const attendanceRecord = employeeAttendance.find(a => a.date.startsWith(dayString));
 
-                if (salaryForDay > 0) {
-                    const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
+            const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
+            const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
 
-                    if (!subtotalForRate[effectiveDateForGrouping]) {
-                        subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+            if (attendanceRecord && attendanceRecord.status === 'Present' && day.getTime() >= hireDate.getTime() && day.getTime() <= termDate.getTime()) {
+                totalPresentDays++;
+
+                const dayDate = startOfDay(day);
+                const applicableSalaryEntry = [...sortedHistory]
+                    .reverse()
+                    .find(h => parseISO(h.effectiveDate).getTime() <= dayDate.getTime());
+                
+                if (applicableSalaryEntry) {
+                    const salaryForDay = applicableSalaryEntry.amount;
+                    const effectiveDateForGrouping = applicableSalaryEntry.effectiveDate;
+                    const daysInMonthOfCurrentDay = getDaysInMonth(day);
+
+                    if (salaryForDay > 0) {
+                        const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
+
+                        if (!subtotalForRate[effectiveDateForGrouping]) {
+                            subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+                        }
+                        subtotalForRate[effectiveDateForGrouping].days++;
+                        subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                     }
-                    subtotalForRate[effectiveDateForGrouping].days++;
-                    subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                 }
             }
-        }
-    });
-
-    Object.keys(subtotalForRate).forEach(effectiveDate => {
-        calculationParts.push({
-            period: `At rate of ${subtotalForRate[effectiveDate].salary.toLocaleString()}/month (from ${format(parseISO(effectiveDate), 'MMM dd')})`,
-            salary: subtotalForRate[effectiveDate].salary,
-            presentDays: subtotalForRate[effectiveDate].days,
-            subtotal: subtotalForRate[effectiveDate].total,
-            effectiveDate: effectiveDate,
         });
-    });
+
+        Object.keys(subtotalForRate).forEach(effectiveDate => {
+            calculationParts.push({
+                period: `At rate of ${subtotalForRate[effectiveDate].salary.toLocaleString()}/month (from ${format(parseISO(effectiveDate), 'MMM dd')})`,
+                salary: subtotalForRate[effectiveDate].salary,
+                presentDays: subtotalForRate[effectiveDate].days,
+                subtotal: subtotalForRate[effectiveDate].total,
+                effectiveDate: effectiveDate,
+            });
+        });
+    }
     
     const totalSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
@@ -476,6 +508,13 @@ export default function SalaryPaymentPage() {
                         <Textarea id="notes" {...register('notes')} placeholder="e.g., Including overtime payment" />
                     </div>
 
+                    <Separator />
+                     <div className="space-y-2">
+                        <Label htmlFor="manualPresentDays">Manual Present Days (Optional)</Label>
+                        <Input id="manualPresentDays" type="number" {...register('manualPresentDays')} placeholder="Overrides attendance calculation" />
+                         <p className="text-xs text-muted-foreground">If provided, uses the latest salary rate for the entire period.</p>
+                    </div>
+
                     <Button type="submit" className="w-full">Calculate & Confirm Salary</Button>
                 </form>
             </CardContent>
@@ -564,5 +603,3 @@ export default function SalaryPaymentPage() {
     </>
   );
 }
-
-    

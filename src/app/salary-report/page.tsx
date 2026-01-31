@@ -68,13 +68,13 @@ export default function SalaryReportPage() {
                     const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
 
 
-                    if (attendanceForDay?.status === 'Present' && day >= hireDate && day <= termDate) {
+                    if (attendanceForDay?.status === 'Present' && day.getTime() >= hireDate.getTime() && day.getTime() <= termDate.getTime()) {
                         totalPresentDays++;
                         
                         const dayDate = startOfDay(day);
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => startOfDay(parseISO(h.effectiveDate)) <= dayDate);
+                            .find(h => parseISO(h.effectiveDate).getTime() <= dayDate.getTime());
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
@@ -242,5 +242,3 @@ export default function SalaryReportPage() {
         </div>
     );
 }
-
-    
