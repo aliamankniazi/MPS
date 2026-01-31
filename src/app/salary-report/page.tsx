@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay } from 'date-fns';
 import { DollarSign, Printer, Search, Download, Briefcase } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
@@ -71,9 +71,10 @@ export default function SalaryReportPage() {
                     if (attendanceForDay?.status === 'Present' && day >= hireDate && day <= termDate) {
                         totalPresentDays++;
                         
+                        const dayDate = startOfDay(day);
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => h.effectiveDate.substring(0, 10) <= dayString);
+                            .find(h => startOfDay(parseISO(h.effectiveDate)) <= dayDate);
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;

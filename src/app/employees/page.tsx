@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, subDays } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -151,9 +151,10 @@ export default function SalaryPaymentPage() {
         if (attendanceRecord && attendanceRecord.status === 'Present' && day >= hireDate && day <= termDate) {
             totalPresentDays++;
 
+            const dayDate = startOfDay(day);
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
-                .find(h => h.effectiveDate.substring(0, 10) <= dayString);
+                .find(h => startOfDay(parseISO(h.effectiveDate)) <= dayDate);
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
