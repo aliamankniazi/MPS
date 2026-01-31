@@ -6,21 +6,24 @@ import { useDatabase } from '@/hooks/use-database';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DollarSign, TrendingUp, TrendingDown, ShoppingCart } from 'lucide-react';
 import { startOfDay, endOfDay, isValid } from 'date-fns';
+import type { Purchase } from '@/lib/types';
 
 export default function ProfitLossReportPage() {
   const {
     transactions,
     otherIncomes,
     expenses,
+    products,
+    purchases,
     isLoaded,
     dateRange,
   } = useDatabase();
 
   const filteredData = useMemo(() => {
-    if (!isLoaded) return { transactions: [], otherIncomes: [], expenses: [] };
+    if (!isLoaded) return { transactions: [], otherIncomes: [], expenses: [], purchases: [] };
 
     if (!dateRange || !dateRange.from) {
-      return { transactions, otherIncomes, expenses };
+      return { transactions, otherIncomes, expenses, purchases };
     }
 
     const from = startOfDay(dateRange.from);
@@ -35,15 +38,56 @@ export default function ProfitLossReportPage() {
       transactions: filterByDate(transactions),
       otherIncomes: filterByDate(otherIncomes),
       expenses: filterByDate(expenses),
+      purchases: filterByDate(purchases),
     };
-  }, [isLoaded, transactions, otherIncomes, expenses, dateRange]);
+  }, [isLoaded, transactions, otherIncomes, expenses, purchases, dateRange]);
 
 
   const profitSummary = useMemo(() => {
     const { transactions, otherIncomes, expenses } = filteredData;
+    
+    const costOfGoodsSold = transactions.reduce((totalCost, sale) => {
+        const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
+
+        if (!productInfo) {
+            return totalCost; 
+        }
+
+        if (productInfo.category === 'Main Product') {
+            if (!sale.timestamp || !isValid(new Date(sale.timestamp)) || !sale.volume || sale.volume <= 0) {
+                return totalCost;
+            }
+            
+            const saleTime = new Date(sale.timestamp).getTime();
+            let latestPurchase: Purchase | null = null;
+            let latestPurchaseTime = 0;
+
+            // Use all purchases for accurate COGS calculation, not just filtered ones
+            for (const p of purchases) {
+                if (p.fuelType && p.fuelType.toLowerCase() === sale.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
+                    const purchaseTime = new Date(p.timestamp).getTime();
+                    if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
+                        latestPurchaseTime = purchaseTime;
+                        latestPurchase = p;
+                    }
+                }
+            }
+            
+            if (latestPurchase && latestPurchase.volume > 0) {
+                const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+                return totalCost + (costPerLitre * sale.volume);
+            }
+
+            return totalCost;
+        } else { // Supplementary Product
+            const quantity = sale.volume || 0;
+            const purchasePrice = productInfo.purchasePrice || 0;
+            return totalCost + (purchasePrice * quantity);
+        }
+    }, 0);
+
 
     const totalSalesAmount = transactions.reduce((sum, sale) => sum + sale.totalAmount, 0);
-    const costOfGoodsSold = transactions.reduce((sum, sale) => sum + (sale.costPrice || 0), 0);
     const salesProfit = totalSalesAmount - costOfGoodsSold;
 
     const totalOtherIncome = otherIncomes.reduce((sum, income) => sum + income.amount, 0);
@@ -60,7 +104,7 @@ export default function ProfitLossReportPage() {
         totalExpenses,
         netProfit,
     };
-  }, [filteredData]);
+  }, [filteredData, products, purchases]);
 
   if (!isLoaded) {
     return <p>Loading...</p>
