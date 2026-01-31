@@ -254,12 +254,11 @@ export default function DashboardPage() {
   
     const mainProducts = products.filter(p => p.category === 'Main Product');
   
-    const sortedProducts = mainProducts.map(product => {
-      const totalVolumeSold = filteredData.transactions
-        .filter(t => (t.fuelType === product.name || t.product === product.name) && t.volume)
-        .reduce((sum, t) => sum + t.volume, 0);
-      return { ...product, totalVolumeSold };
-    }).sort((a, b) => b.totalVolumeSold - a.totalVolumeSold);
+    const sortedProducts = mainProducts.sort((a, b) => {
+      const stockA = fuelStock[a.name as FuelType] || 0;
+      const stockB = fuelStock[b.name as FuelType] || 0;
+      return stockB - stockA;
+    });
   
     return sortedProducts.map(product => {
       const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
