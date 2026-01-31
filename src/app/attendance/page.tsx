@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { Users, UserPlus, List, Edit, Trash2, AlertTriangle, Calendar as CalendarIcon, UserX, UserCheck, Search, CheckCircle, XCircle, Clock, HelpCircle, X } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parseISO, startOfDay } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parseISO, startOfDay, subDays } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -312,11 +312,18 @@ export default function EmployeeManagementPage() {
   }, [employeeToEdit, setEditValue, resetEdit]);
 
   const previousSalaryEntry = useMemo(() => {
-    if (!employeeToEdit || !employeeToEdit.salaryHistory || employeeToEdit.salaryHistory.length < 2) {
+    if (!employeeToEdit || !employeeToEdit.salaryHistory || employeeToEdit.salaryHistory.length < 1) {
       return null;
     }
     const sorted = [...employeeToEdit.salaryHistory].sort((a,b) => b.effectiveDate.localeCompare(a.effectiveDate));
-    return sorted[1];
+    return sorted[1]; // The one before the current latest
+  }, [employeeToEdit]);
+
+  const currentSalaryEntry = useMemo(() => {
+    if (!employeeToEdit || !employeeToEdit.salaryHistory || employeeToEdit.salaryHistory.length === 0) {
+      return null;
+    }
+    return [...employeeToEdit.salaryHistory].sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0];
   }, [employeeToEdit]);
 
   return (
@@ -679,7 +686,8 @@ export default function EmployeeManagementPage() {
                   </div>
                    <div className="space-y-2">
                         <Label htmlFor="salary">Salary (PKR)</Label>
-                        <Input id="salary" type="number" {...registerEdit('salary')} />
+                        <Input id="salary" type="number" {...registerEdit('salary')} readOnly disabled />
+                        <p className="text-xs text-muted-foreground">To change the salary, use the "Record Pay Increase" section below.</p>
                         {editErrors.salary && <p className="text-sm text-destructive">{editErrors.salary.message}</p>}
                     </div>
                   <div className="space-y-2">
@@ -728,17 +736,25 @@ export default function EmployeeManagementPage() {
                         This will update the employee's current salary and record this change in their history.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-                    {previousSalaryEntry && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+                    {previousSalaryEntry && currentSalaryEntry && (
                         <div className="space-y-2">
                             <Label htmlFor="previous-salary">Previous Salary</Label>
                             <Input id="previous-salary" value={`PKR ${previousSalaryEntry.amount.toLocaleString()}`} readOnly disabled />
+                            <p className="text-xs text-muted-foreground">
+                                Effective: {format(parseISO(previousSalaryEntry.effectiveDate), 'dd-MMM-yy')} to {format(subDays(parseISO(currentSalaryEntry.effectiveDate), 1), 'dd-MMM-yy')}
+                            </p>
                         </div>
                     )}
-                    <div className="space-y-2">
-                        <Label htmlFor="current-salary">Current Salary</Label>
-                        <Input id="current-salary" value={`PKR ${employeeToEdit?.salary.toLocaleString()}`} readOnly disabled />
-                    </div>
+                    {currentSalaryEntry && (
+                        <div className="space-y-2">
+                            <Label htmlFor="current-salary">Current Salary</Label>
+                            <Input id="current-salary" value={`PKR ${currentSalaryEntry.amount.toLocaleString()}`} readOnly disabled />
+                            <p className="text-xs text-muted-foreground">
+                                Effective from: {format(parseISO(currentSalaryEntry.effectiveDate), 'dd-MMM-yy')}
+                            </p>
+                        </div>
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="newSalary">New Salary (PKR)</Label>
                         <Input id="newSalary" type="number" {...registerIncrease('newSalary')} />

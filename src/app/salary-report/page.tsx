@@ -67,9 +67,16 @@ export default function SalaryReportPage() {
                     if (attendanceForDay?.status === 'Present') {
                         totalPresentDays++;
                         
-                        const applicableSalaryEntry = [...sortedHistory]
+                        let applicableSalaryEntry = [...sortedHistory]
                             .reverse()
                             .find(h => h.effectiveDate <= dayString);
+                        
+                        if (!applicableSalaryEntry && employee.hireDate && day >= parseISO(employee.hireDate)) {
+                            applicableSalaryEntry = {
+                                amount: employee.salary,
+                                effectiveDate: employee.hireDate,
+                            };
+                        }
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;

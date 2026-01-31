@@ -124,9 +124,7 @@ export default function SalaryPaymentPage() {
   }, [reset, dateRange]);
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
-    if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
-        return null;
-    }
+    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
     
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
     const firstDayOfMonth = startOfMonth(salaryMonthDate);
@@ -136,8 +134,6 @@ export default function SalaryPaymentPage() {
         a.employeeId === employee.id &&
         a.date.startsWith(format(salaryMonthDate, 'yyyy-MM'))
     );
-
-    const sortedHistory = [...employee.salaryHistory].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 
     const calculationParts: SalaryCalculationPart[] = [];
     const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
@@ -155,9 +151,16 @@ export default function SalaryPaymentPage() {
         if (attendanceRecord && attendanceRecord.status === 'Present' && day >= hireDate && day <= termDate) {
             totalPresentDays++;
 
-            const applicableSalaryEntry = [...sortedHistory]
+            let applicableSalaryEntry = [...sortedHistory]
                 .reverse()
                 .find(h => h.effectiveDate <= dayString);
+            
+            if (!applicableSalaryEntry && day >= hireDate) {
+                applicableSalaryEntry = {
+                    amount: employee.salary,
+                    effectiveDate: employee.hireDate,
+                };
+            }
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
