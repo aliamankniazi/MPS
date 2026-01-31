@@ -18,13 +18,11 @@ import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useEffect } from 'react';
-
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
+import React, { useEffect, useMemo } from 'react';
 
 const machineSchema = z.object({
   name: z.string().min(1, 'Machine name is required'),
-  fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
+  fuelType: z.string({ required_error: 'Please select a fuel type.' }).min(1, "Please select a fuel type."),
 });
 
 type MachineFormValues = z.infer<typeof machineSchema>;
@@ -38,8 +36,13 @@ const machineReadingSchema = z.object({
 type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, initialFuelStock, fuelStock } = useDatabase();
+  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, fuelStock, products } = useDatabase();
   const { toast } = useToast();
+
+  const mainProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter(p => p.category === 'Main Product');
+  }, [products]);
 
   const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
     resolver: zodResolver(machineReadingSchema),
@@ -208,8 +211,8 @@ export default function MachineManagementPage() {
                             <Select onValueChange={field.onChange} value={field.value} defaultValue="">
                             <SelectTrigger><SelectValue placeholder="Select fuel type" /></SelectTrigger>
                             <SelectContent>
-                                {FUEL_TYPES.map(fuel => (
-                                <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                                {mainProducts.map(fuel => (
+                                <SelectItem key={fuel.id} value={fuel.name}>{fuel.name}</SelectItem>
                                 ))}
                             </SelectContent>
                             </Select>
