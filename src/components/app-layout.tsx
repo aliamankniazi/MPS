@@ -66,9 +66,8 @@ const navGroups = [
         icon: Users,
         links: [
             { href: '/customers', label: 'Customers & Partners', icon: Users },
-            { href: '/attendance', label: 'Attendance', icon: CalendarCheck },
+            { href: '/employees', label: 'Employees & Salary', icon: Briefcase },
             { href: '/investments', label: 'Partner Investments', icon: PiggyBank },
-            { href: '/salary-report', label: 'Salary Report', icon: Briefcase },
         ]
     },
     {

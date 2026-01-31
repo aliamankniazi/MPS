@@ -152,16 +152,6 @@ export default function SalaryPaymentPage() {
                 subtotal: totalSalary,
                 effectiveDate: latestSalaryEntry.effectiveDate,
             });
-        } else if (employee.salary > 0) { // Fallback to main salary if no history
-             const dailyRate = employee.salary / daysInMonth;
-             const totalSalary = totalPresentDays * dailyRate;
-             calculationParts.push({
-                period: `Manual entry: ${totalPresentDays} days at base rate`,
-                salary: employee.salary,
-                presentDays: totalPresentDays,
-                subtotal: totalSalary,
-                effectiveDate: employee.hireDate,
-            });
         }
 
     } else {
@@ -182,10 +172,9 @@ export default function SalaryPaymentPage() {
             if (attendanceRecord && attendanceRecord.status === 'Present' && day.getTime() >= hireDate.getTime() && day.getTime() <= termDate.getTime()) {
                 totalPresentDays++;
 
-                const dayDate = startOfDay(day);
                 const applicableSalaryEntry = [...sortedHistory]
                     .reverse()
-                    .find(h => parseISO(h.effectiveDate).getTime() <= dayDate.getTime());
+                    .find(h => h.effectiveDate.substring(0, 10) <= dayString);
                 
                 if (applicableSalaryEntry) {
                     const salaryForDay = applicableSalaryEntry.amount;
