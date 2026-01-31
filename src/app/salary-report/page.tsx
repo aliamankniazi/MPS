@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay } from 'date-fns';
 import { DollarSign, Printer, Search, Download, Briefcase, Edit, PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
@@ -254,8 +254,8 @@ export default function SalaryReportPage() {
                                             <div className="text-sm">Present: <span className="font-mono">{row.presentDays}/{row.totalDaysInPeriod}</span></div>
                                             <div className="text-sm">Base Salary: <span className="font-mono">PKR {row.baseSalary.toLocaleString()}</span></div>
                                             <div className="font-semibold">Calculated: <span className="font-mono text-green-600">PKR {row.calculatedSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEmployeeToEdit(row); }}>
-                                                <Edit className="w-4 h-4"/>
+                                            <Button asChild variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEmployeeToEdit(row); }}>
+                                                <span><Edit className="w-4 h-4"/></span>
                                             </Button>
                                         </div>
                                     </div>
