@@ -53,10 +53,19 @@ export default function MachineManagementPage() {
         date: new Date(),
     });
   }, [resetReading]);
-
+  
   const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors }, watch: watchMachine } = useForm<MachineFormValues>();
-
+  
   const selectedFuelTypeForNewMachine = watchMachine('fuelType');
+
+  const latestReadingForSelectedFuel = useMemo(() => {
+    if (!selectedFuelTypeForNewMachine || !machineReadings) return null;
+
+    return [...machineReadings]
+        .filter(r => r.fuelType === selectedFuelTypeForNewMachine)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+  }, [selectedFuelTypeForNewMachine, machineReadings]);
 
   const onReadingSubmit: SubmitHandler<MachineReadingFormValues> = (data) => {
     const machine = machines.find(t => t.id === data.machineId);
@@ -121,7 +130,7 @@ export default function MachineManagementPage() {
               
               <div className="space-y-2">
                 <Label htmlFor="volume">Current Volume (Litres)</Label>
-                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 12500" step="any" />
+                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 12500" step="0.01" />
                 {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
               </div>
 
@@ -219,9 +228,20 @@ export default function MachineManagementPage() {
                         )}
                         />
                         {machineErrors.fuelType && <p className="text-sm text-destructive">{machineErrors.fuelType.message}</p>}
-                        {selectedFuelTypeForNewMachine && fuelStock && (
-                            <div className="text-xs text-muted-foreground mt-2">
-                                Current Stock: {(fuelStock[selectedFuelTypeForNewMachine as FuelType] || 0).toLocaleString()} Ltr
+                        {selectedFuelTypeForNewMachine && (
+                            <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                                {fuelStock && (
+                                    <div>
+                                        Current Stock: {(fuelStock[selectedFuelTypeForNewMachine as FuelType] || 0).toLocaleString()} Ltr
+                                    </div>
+                                )}
+                                {latestReadingForSelectedFuel ? (
+                                    <div>
+                                        Latest Reading: {latestReadingForSelectedFuel.volume.toLocaleString()} Ltr on '{latestReadingForSelectedFuel.machineName}' ({format(new Date(latestReadingForSelectedFuel.timestamp), 'dd-MMM-yy')})
+                                    </div>
+                                ) : (
+                                    <div>Latest Reading: N/A</div>
+                                )}
                             </div>
                         )}
                     </div>
