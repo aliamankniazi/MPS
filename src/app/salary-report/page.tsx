@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, isSameDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO } from 'date-fns';
 import { DollarSign, Printer, Search, Download, Briefcase } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
@@ -52,8 +52,7 @@ export default function SalaryReportPage() {
         return employees
             .filter(emp => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .map(employee => {
-                const sortedHistory = [...(employee.salaryHistory || [{ amount: employee.salary, effectiveDate: employee.hireDate }])]
-                    .sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+                const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 
                 let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
                 let totalPresentDays = 0;
@@ -72,18 +71,20 @@ export default function SalaryReportPage() {
                             .reverse()
                             .find(h => h.effectiveDate <= dayString);
                         
-                        const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
-                        const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
-
-                        if (salaryForDay > 0) {
+                        if (applicableSalaryEntry) {
+                            const salaryForDay = applicableSalaryEntry.amount;
+                            const effectiveDateForGrouping = applicableSalaryEntry.effectiveDate;
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
-                            const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
                             
-                            if (!subtotalForRate[effectiveDateForGrouping]) {
-                                subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+                            if (salaryForDay > 0) {
+                                const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
+                                
+                                if (!subtotalForRate[effectiveDateForGrouping]) {
+                                    subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+                                }
+                                subtotalForRate[effectiveDateForGrouping].days++;
+                                subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                             }
-                            subtotalForRate[effectiveDateForGrouping].days++;
-                            subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                         }
                     }
                 });
@@ -110,7 +111,7 @@ export default function SalaryReportPage() {
                     presentDays: totalPresentDays,
                     totalDaysInPeriod: daysInPeriodArray.length,
                     calculatedSalary: Math.round(totalCalculatedSalary),
-                    salaryHistory: [...sortedHistory].reverse(),
+                    salaryHistory: [...(employee.salaryHistory || [])].sort((a,b) => b.effectiveDate.localeCompare(a.effectiveDate)),
                     calculationParts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
                 };
             });
@@ -120,7 +121,7 @@ export default function SalaryReportPage() {
         const dataToExport = salaryReportData.map(row => ({
             'Employee Name': row.employeeName,
             'Position': row.position,
-            'Hire Date': format(parseISO(row.hireDate), 'dd-MMM-yyyy'),
+            'Hire Date': row.hireDate ? format(parseISO(row.hireDate), 'dd-MMM-yyyy') : 'N/A',
             'Base Salary': row.baseSalary,
             'Present Days': `${row.presentDays}/${row.totalDaysInPeriod}`,
             'Calculated Salary (PKR)': row.calculatedSalary,

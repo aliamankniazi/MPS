@@ -124,27 +124,20 @@ export default function SalaryPaymentPage() {
   }, [reset, dateRange]);
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
-    if (!employee.salary && (!employee.salaryHistory || employee.salaryHistory.length === 0)) {
+    if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
         return null;
     }
     
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
     const firstDayOfMonth = startOfMonth(salaryMonthDate);
     const lastDayOfMonth = endOfMonth(salaryMonthDate);
-    const daysInMonthCount = getDaysInMonth(salaryMonthDate);
     
     const employeeAttendance = attendance.filter(a => 
         a.employeeId === employee.id &&
         a.date.startsWith(format(salaryMonthDate, 'yyyy-MM'))
     );
 
-    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-    const hireDateExistsInHistory = sortedHistory.some(h => h.effectiveDate === employee.hireDate);
-    if (!hireDateExistsInHistory && employee.hireDate) {
-        sortedHistory.unshift({ amount: employee.salary, effectiveDate: employee.hireDate });
-        sortedHistory.sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
-    }
-
+    const sortedHistory = [...employee.salaryHistory].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
 
     const calculationParts: SalaryCalculationPart[] = [];
     const daysInPeriodArray = eachDayOfInterval({ start: firstDayOfMonth, end: lastDayOfMonth });
@@ -156,24 +149,30 @@ export default function SalaryPaymentPage() {
         const dayString = format(day, 'yyyy-MM-dd');
         const attendanceRecord = employeeAttendance.find(a => a.date === dayString);
 
-        if (attendanceRecord && attendanceRecord.status === 'Present') {
+        const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
+        const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
+
+        if (attendanceRecord && attendanceRecord.status === 'Present' && day >= hireDate && day <= termDate) {
             totalPresentDays++;
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
                 .find(h => h.effectiveDate <= dayString);
             
-            const salaryForDay = applicableSalaryEntry ? applicableSalaryEntry.amount : employee.salary;
-            const effectiveDateForGrouping = applicableSalaryEntry ? applicableSalaryEntry.effectiveDate : employee.hireDate;
+            if (applicableSalaryEntry) {
+                const salaryForDay = applicableSalaryEntry.amount;
+                const effectiveDateForGrouping = applicableSalaryEntry.effectiveDate;
+                const daysInMonthOfCurrentDay = getDaysInMonth(day);
 
-            if (salaryForDay > 0) {
-                const dailyRate = salaryForDay / daysInMonthCount;
+                if (salaryForDay > 0) {
+                    const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
 
-                if (!subtotalForRate[effectiveDateForGrouping]) {
-                    subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+                    if (!subtotalForRate[effectiveDateForGrouping]) {
+                        subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
+                    }
+                    subtotalForRate[effectiveDateForGrouping].days++;
+                    subtotalForRate[effectiveDateForGrouping].total += dailyRate;
                 }
-                subtotalForRate[effectiveDateForGrouping].days++;
-                subtotalForRate[effectiveDateForGrouping].total += dailyRate;
             }
         }
     });
@@ -198,7 +197,7 @@ export default function SalaryPaymentPage() {
             parts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
             total: Math.round(totalSalary),
             totalPresentDays: totalPresentDays,
-            daysInMonth: daysInMonthCount
+            daysInMonth: getDaysInMonth(salaryMonthDate)
         },
     };
   }
@@ -218,7 +217,7 @@ export default function SalaryPaymentPage() {
         if (paymentDetails && paymentDetails.calculation.total > 0) {
             setPaymentToConfirm([paymentDetails]);
         } else {
-             toast({ variant: 'destructive', title: 'Salary Not Set or Zero', description: `Salary for ${employee.name} is not set, or calculated to zero. Please update their salary or attendance.` });
+             toast({ variant: 'destructive', title: 'Salary Not Set or Zero', description: `Salary for ${employee.name} is not set, or calculated to zero. Please update their salary history or attendance.` });
         }
     } else { // Bulk mode
         const paymentsToConfirm: SalaryPaymentConfirmation[] = [];
@@ -237,13 +236,13 @@ export default function SalaryPaymentPage() {
             toast({
                 variant: 'destructive',
                 title: 'Salary Not Set or Zero',
-                description: `Salary not processed for: ${employeesWithoutSalary.join(', ')}.`,
+                description: `Salary not processed for: ${employeesWithoutSalary.join(', ')}. Please check their salary history and attendance.`,
             });
         }
         
         if (paymentsToConfirm.length > 0) {
             setPaymentToConfirm(paymentsToConfirm);
-        } else {
+        } else if (employeesWithoutSalary.length === 0) {
             toast({
                 title: 'Nothing to Pay',
                 description: 'No active employees with salaries and attendance found to process.',
