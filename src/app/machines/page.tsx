@@ -38,7 +38,7 @@ const machineReadingSchema = z.object({
 type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, initialFuelStock } = useDatabase();
+  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, initialFuelStock, fuelStock } = useDatabase();
   const { toast } = useToast();
 
   const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
@@ -216,9 +216,9 @@ export default function MachineManagementPage() {
                         )}
                         />
                         {machineErrors.fuelType && <p className="text-sm text-destructive">{machineErrors.fuelType.message}</p>}
-                        {selectedFuelTypeForNewMachine && initialFuelStock && (
+                        {selectedFuelTypeForNewMachine && fuelStock && (
                             <div className="text-xs text-muted-foreground mt-2">
-                                Initial Stock: {initialFuelStock[selectedFuelTypeForNewMachine as FuelType]?.toLocaleString() || 0} Ltr
+                                Current Stock: {(fuelStock[selectedFuelTypeForNewMachine as FuelType] || 0).toLocaleString()} Ltr
                             </div>
                         )}
                     </div>
