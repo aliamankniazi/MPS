@@ -36,7 +36,7 @@ const machineReadingSchema = z.object({
 type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, fuelStock, products } = useDatabase();
+  const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, fuelStock, products, initialFuelStock } = useDatabase();
   const { toast } = useToast();
 
   const mainProducts = useMemo(() => {
@@ -230,6 +230,11 @@ export default function MachineManagementPage() {
                         {machineErrors.fuelType && <p className="text-sm text-destructive">{machineErrors.fuelType.message}</p>}
                         {selectedFuelTypeForNewMachine && (
                             <div className="text-xs text-muted-foreground mt-2 space-y-1">
+                                {initialFuelStock && (
+                                    <div>
+                                        Initial Stock: {(initialFuelStock[selectedFuelTypeForNewMachine as FuelType] || 0).toLocaleString()} Ltr
+                                    </div>
+                                )}
                                 {fuelStock && (
                                     <div>
                                         Current Stock: {(fuelStock[selectedFuelTypeForNewMachine as FuelType] || 0).toLocaleString()} Ltr
