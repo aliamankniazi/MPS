@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, subDays } from 'date-fns';
+import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, subDays, isBefore, isEqual } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -181,7 +181,8 @@ export default function SalaryPaymentPage() {
                     .reverse()
                     .find(h => {
                          try {
-                            return startOfDay(parseISO(h.effectiveDate)).getTime() <= day.getTime();
+                            const effectiveDate = startOfDay(parseISO(h.effectiveDate));
+                            return isBefore(effectiveDate, day) || isEqual(effectiveDate, day);
                         } catch {
                             return false;
                         }

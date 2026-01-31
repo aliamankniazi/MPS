@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay, endOfDay, isBefore, isEqual, isSameDay } from 'date-fns';
 import { DollarSign, Printer, Search, Download, Briefcase, Edit, PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
@@ -141,7 +141,8 @@ export default function SalaryReportPage() {
                         const applicableSalaryEntry = sortedHistory
                             .find(h => {
                                 try {
-                                    return startOfDay(parseISO(h.effectiveDate)).getTime() <= day.getTime();
+                                    const effectiveDate = startOfDay(parseISO(h.effectiveDate));
+                                    return isBefore(effectiveDate, day) || isEqual(effectiveDate, day);
                                 } catch {
                                     return false;
                                 }
@@ -405,5 +406,3 @@ export default function SalaryReportPage() {
         </>
     );
 }
-
-    
