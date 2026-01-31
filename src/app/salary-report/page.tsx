@@ -61,7 +61,7 @@ export default function SalaryReportPage() {
                     const dayString = format(day, 'yyyy-MM-dd');
                     const attendanceForDay = attendance.find(a => 
                         a.employeeId === employee.id && 
-                        a.date === dayString
+                        a.date.startsWith(dayString)
                     );
                     
                     const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
@@ -73,7 +73,7 @@ export default function SalaryReportPage() {
                         
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => h.effectiveDate <= dayString);
+                            .find(h => h.effectiveDate.substring(0, 10) <= dayString);
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;

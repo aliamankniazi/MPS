@@ -143,7 +143,7 @@ export default function SalaryPaymentPage() {
 
     daysInPeriodArray.forEach(day => {
         const dayString = format(day, 'yyyy-MM-dd');
-        const attendanceRecord = employeeAttendance.find(a => a.date === dayString);
+        const attendanceRecord = employeeAttendance.find(a => a.date.startsWith(dayString));
 
         const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
         const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
@@ -153,7 +153,7 @@ export default function SalaryPaymentPage() {
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
-                .find(h => h.effectiveDate <= dayString);
+                .find(h => h.effectiveDate.substring(0, 10) <= dayString);
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
