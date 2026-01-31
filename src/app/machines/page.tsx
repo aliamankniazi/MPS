@@ -23,6 +23,7 @@ import React, { useEffect, useMemo } from 'react';
 const machineSchema = z.object({
   name: z.string().min(1, 'Machine name is required'),
   fuelType: z.string({ required_error: 'Please select a fuel type.' }).min(1, "Please select a fuel type."),
+  currentReading: z.coerce.number().optional(),
 });
 
 type MachineFormValues = z.infer<typeof machineSchema>;
@@ -54,7 +55,9 @@ export default function MachineManagementPage() {
     });
   }, [resetReading]);
   
-  const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors }, watch: watchMachine } = useForm<MachineFormValues>();
+  const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors }, watch: watchMachine } = useForm<MachineFormValues>({
+    resolver: zodResolver(machineSchema),
+  });
   
   const selectedFuelTypeForNewMachine = watchMachine('fuelType');
 
@@ -86,13 +89,32 @@ export default function MachineManagementPage() {
     resetReading({ machineId: '', volume: 0, date: new Date() });
   };
   
-  const onMachineSubmit: SubmitHandler<MachineFormValues> = (data) => {
-    addMachine(data);
-    toast({
-      title: 'Machine Added',
-      description: `${data.name} has been added to your machine list.`,
+  const onMachineSubmit: SubmitHandler<MachineFormValues> = async (data) => {
+    const newMachine = await addMachine({
+        name: data.name,
+        fuelType: data.fuelType,
     });
-    resetMachine();
+
+    if (data.currentReading && data.currentReading > 0 && newMachine) {
+        addMachineReading({
+            machineId: newMachine.id,
+            machineName: newMachine.name,
+            fuelType: newMachine.fuelType as FuelType,
+            volume: data.currentReading,
+            timestamp: new Date().toISOString(),
+        });
+        toast({
+            title: 'Machine Added & Reading Logged',
+            description: `${data.name} added and initial reading logged.`,
+        });
+    } else if (newMachine) {
+        toast({
+          title: 'Machine Added',
+          description: `${data.name} has been added to your machine list.`,
+        });
+    }
+
+    resetMachine({ name: '', fuelType: '', currentReading: undefined });
   };
 
   return (
@@ -210,6 +232,10 @@ export default function MachineManagementPage() {
                         <Label htmlFor="machineName">Machine Name</Label>
                         <Input id="machineName" {...registerMachine('name')} placeholder="e.g. Unleaded Machine 1 (A+B Side)" />
                         {machineErrors.name && <p className="text-sm text-destructive">{machineErrors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="currentReading">Current Unit Reading (Optional)</Label>
+                        <Input id="currentReading" type="number" {...registerMachine('currentReading')} placeholder="e.g., 12345.67" step="any" />
                     </div>
                      <div className="space-y-2">
                         <Label>Fuel Type</Label>
