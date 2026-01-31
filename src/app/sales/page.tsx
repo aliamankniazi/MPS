@@ -303,6 +303,51 @@ export default function SalesPage() {
       <main className="container mx-auto p-4 grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
               <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
+                    <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {machines.map(machine => {
+                        const latestReading = getLatestReading(machine.id);
+                        const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
+                        const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
+                        return (
+                            <div key={machine.id} className="p-3 border rounded-lg space-y-2">
+                                <h4 className="font-semibold">{machine.name} ({machine.fuelType})</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Last Reading</Label>
+                                        <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
+                                        <Input 
+                                            id={`reading-${machine.id}`}
+                                            type="number"
+                                            step="any"
+                                            value={newReadings[machine.id] || ''}
+                                            onChange={(e) => handleReadingChange(machine.id, e.target.value)}
+                                            placeholder="Enter reading"
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-xs">Dispensed</Label>
+                                        <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
+                                    </div>
+                                    <div>
+                                        <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                      {machines.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/machines" className="underline">Machines</Link> page.</p>
+                    )}
+                </CardContent>
+              </Card>
+              <Card>
                   <CardHeader>
                       <CardTitle style={{ color: colorSettings['Sale'] }}>Add Items to Sale</CardTitle>
                   </CardHeader>
@@ -406,52 +451,6 @@ export default function SalesPage() {
                       </form>
                   </CardContent>
               </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
-                        <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {machines.map(machine => {
-                            const latestReading = getLatestReading(machine.id);
-                            const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
-                            const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
-                            return (
-                                <div key={machine.id} className="p-3 border rounded-lg space-y-2">
-                                    <h4 className="font-semibold">{machine.name} ({machine.fuelType})</h4>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Last Reading</Label>
-                                            <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
-                                            <Input 
-                                                id={`reading-${machine.id}`}
-                                                type="number"
-                                                step="any"
-                                                value={newReadings[machine.id] || ''}
-                                                onChange={(e) => handleReadingChange(machine.id, e.target.value)}
-                                                placeholder="Enter reading"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs">Dispensed</Label>
-                                            <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
-                                        </div>
-                                        <div>
-                                            <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                         {machines.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/machines" className="underline">Machines</Link> page.</p>
-                        )}
-                    </CardContent>
-                </Card>
 
               <Card>
                   <CardHeader>
@@ -690,4 +689,5 @@ export default function SalesPage() {
   );
 }
 
+    
     
