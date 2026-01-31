@@ -46,6 +46,7 @@ export default function ProfitLossReportPage() {
 
 
   const profitSummary = useMemo(() => {
+    if (!isLoaded) return null;
     const { transactions, otherIncomes, expenses, stockAdjustments } = filteredData;
     
     const costOfGoodsSold = transactions.reduce((totalCost, sale) => {
@@ -117,9 +118,9 @@ export default function ProfitLossReportPage() {
         netStockAdjustment,
         netProfit,
     };
-  }, [filteredData, products, purchases]);
+  }, [isLoaded, filteredData, products, purchases]);
 
-  if (!isLoaded) {
+  if (!isLoaded || !profitSummary) {
     return <p>Loading...</p>
   }
 
