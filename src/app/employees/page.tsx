@@ -153,7 +153,7 @@ export default function SalaryPaymentPage() {
 
             const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
-                .find(h => h.effectiveDate <= dayString);
+                .find(h => h.effectiveDate.substring(0, 10) <= dayString);
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
