@@ -140,7 +140,7 @@ export default function SalaryPaymentPage() {
     if (typeof data.manualPresentDays === 'number' && data.manualPresentDays >= 0) {
         totalPresentDays = data.manualPresentDays;
         
-        const latestSalaryEntry = [...sortedHistory].reverse().find(h => parseISO(h.effectiveDate).getTime() <= lastDayOfMonth.getTime());
+        const latestSalaryEntry = [...sortedHistory].reverse().find(h => startOfDay(parseISO(h.effectiveDate)).getTime() <= lastDayOfMonth.getTime());
         
         if (latestSalaryEntry) {
             const dailyRate = latestSalaryEntry.amount / daysInMonth;
@@ -163,18 +163,29 @@ export default function SalaryPaymentPage() {
         let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
 
         daysInPeriodArray.forEach(day => {
-            const dayString = format(day, 'yyyy-MM-dd');
-            const attendanceRecord = employeeAttendance.find(a => a.date.startsWith(dayString));
+            const attendanceRecord = employeeAttendance.find(a => {
+                try {
+                    return isSameDay(parseISO(a.date), day);
+                } catch {
+                    return false;
+                }
+            });
 
             const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
             const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
 
-            if (attendanceRecord && attendanceRecord.status === 'Present' && day.getTime() >= hireDate.getTime() && day.getTime() <= termDate.getTime()) {
+            if (attendanceRecord && attendanceRecord.status === 'Present' && day.getTime() >= startOfDay(hireDate).getTime() && day.getTime() <= startOfDay(termDate).getTime()) {
                 totalPresentDays++;
 
                 const applicableSalaryEntry = [...sortedHistory]
                     .reverse()
-                    .find(h => h.effectiveDate.substring(0, 10) <= dayString);
+                    .find(h => {
+                         try {
+                            return startOfDay(parseISO(h.effectiveDate)).getTime() <= day.getTime();
+                        } catch {
+                            return false;
+                        }
+                    });
                 
                 if (applicableSalaryEntry) {
                     const salaryForDay = applicableSalaryEntry.amount;
