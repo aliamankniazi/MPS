@@ -30,7 +30,7 @@ type MachineFormValues = z.infer<typeof machineSchema>;
 
 const machineReadingSchema = z.object({
   machineId: z.string().min(1, 'Please select a machine.'),
-  volume: z.coerce.number().min(0, 'Volume cannot be negative'),
+  volume: z.coerce.number().min(0, 'Reading cannot be negative'),
   date: z.date({ required_error: "A date is required."}),
 });
 
@@ -84,7 +84,7 @@ export default function MachineManagementPage() {
     
     toast({
       title: 'Machine Reading Logged',
-      description: `New volume for ${machine.name} has been recorded as ${data.volume}L.`,
+      description: `New reading for ${machine.name} has been recorded as ${data.volume}.`,
     });
     resetReading({ machineId: '', volume: 0, date: new Date() });
   };
@@ -125,7 +125,7 @@ export default function MachineManagementPage() {
             <CardTitle className="flex items-center gap-2">
               <PlusCircle /> New Machine Reading
             </CardTitle>
-            <CardDescription>Enter the current volume for a fuel machine.</CardDescription>
+            <CardDescription>Enter the current reading for a fuel machine.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmitReading(onReadingSubmit)} className="space-y-4">
@@ -151,8 +151,8 @@ export default function MachineManagementPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="volume">Current Volume (Litres)</Label>
-                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 12500" step="0.01" />
+                <Label htmlFor="volume">Current Reading</Label>
+                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 123456.78" step="0.01" />
                 {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
               </div>
 
@@ -289,7 +289,7 @@ export default function MachineManagementPage() {
               <List /> Machine Reading History
             </CardTitle>
             <CardDescription>
-              A historical record of all machine volume entries.
+              A historical record of all machine reading entries.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -299,7 +299,7 @@ export default function MachineManagementPage() {
                   <TableRow>
                     <TableHead>Date & Time</TableHead>
                     <TableHead>Machine</TableHead>
-                    <TableHead className="text-right">Volume (L)</TableHead>
+                    <TableHead className="text-right">Reading</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
