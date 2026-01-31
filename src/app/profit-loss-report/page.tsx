@@ -15,15 +15,16 @@ export default function ProfitLossReportPage() {
     expenses,
     products,
     purchases,
+    stockAdjustments,
     isLoaded,
     dateRange,
   } = useDatabase();
 
   const filteredData = useMemo(() => {
-    if (!isLoaded) return { transactions: [], otherIncomes: [], expenses: [], purchases: [] };
+    if (!isLoaded) return { transactions: [], otherIncomes: [], expenses: [], purchases: [], stockAdjustments: [] };
 
     if (!dateRange || !dateRange.from) {
-      return { transactions, otherIncomes, expenses, purchases };
+      return { transactions, otherIncomes, expenses, purchases, stockAdjustments };
     }
 
     const from = startOfDay(dateRange.from);
@@ -39,12 +40,13 @@ export default function ProfitLossReportPage() {
       otherIncomes: filterByDate(otherIncomes),
       expenses: filterByDate(expenses),
       purchases: filterByDate(purchases),
+      stockAdjustments: filterByDate(stockAdjustments),
     };
-  }, [isLoaded, transactions, otherIncomes, expenses, purchases, dateRange]);
+  }, [isLoaded, transactions, otherIncomes, expenses, purchases, stockAdjustments, dateRange]);
 
 
   const profitSummary = useMemo(() => {
-    const { transactions, otherIncomes, expenses } = filteredData;
+    const { transactions, otherIncomes, expenses, stockAdjustments } = filteredData;
     
     const costOfGoodsSold = transactions.reduce((totalCost, sale) => {
         const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
@@ -94,7 +96,17 @@ export default function ProfitLossReportPage() {
 
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
 
-    const netProfit = salesProfit + totalOtherIncome - totalExpenses;
+    const totalSurplus = stockAdjustments
+      .filter(adj => adj.adjustment > 0)
+      .reduce((sum, adj) => sum + adj.value, 0);
+
+    const totalShortage = stockAdjustments
+      .filter(adj => adj.adjustment < 0)
+      .reduce((sum, adj) => sum + Math.abs(adj.value), 0);
+      
+    const netStockAdjustment = totalSurplus - totalShortage;
+
+    const netProfit = salesProfit + totalOtherIncome - totalExpenses + netStockAdjustment;
 
     return {
         totalSalesAmount,
@@ -102,6 +114,7 @@ export default function ProfitLossReportPage() {
         salesProfit,
         totalOtherIncome,
         totalExpenses,
+        netStockAdjustment,
         netProfit,
     };
   }, [filteredData, products, purchases]);
@@ -167,6 +180,24 @@ export default function ProfitLossReportPage() {
                         <div className="text-2xl font-bold text-destructive">PKR {profitSummary.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
                     </CardContent>
                 </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            {profitSummary.netStockAdjustment >= 0 ? 'Stock Surplus' : 'Stock Loss'}
+                        </CardTitle>
+                        {profitSummary.netStockAdjustment >= 0 ? (
+                            <TrendingUp className="h-4 w-4 text-green-500" />
+                        ) : (
+                            <TrendingDown className="h-4 w-4 text-red-500" />
+                        )}
+                    </CardHeader>
+                    <CardContent>
+                        <div className={`text-2xl font-bold ${profitSummary.netStockAdjustment >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                            PKR {Math.abs(profitSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Net value from stock adjustments</p>
+                    </CardContent>
+                </Card>
                 <Card className="col-span-1 md:col-span-2 lg:col-span-3">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Net Profit</CardTitle>
@@ -174,7 +205,7 @@ export default function ProfitLossReportPage() {
                     </CardHeader>
                     <CardContent>
                         <div className={`text-4xl font-bold ${profitSummary.netProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>PKR {profitSummary.netProfit.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
-                        <p className="text-xs text-muted-foreground">Sales Profit + Other Income - Total Expenses</p>
+                        <p className="text-xs text-muted-foreground">Sales Profit + Other Income - Expenses +/- Stock Adjustments</p>
                     </CardContent>
                 </Card>
             </div>
