@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay } from 'date-fns';
+import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { DollarSign, Printer, Search, Download, Briefcase, Edit, PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
@@ -60,11 +60,7 @@ type EmployeeEditFormValues = z.infer<typeof employeeEditSchema>;
 
 
 export default function SalaryReportPage() {
-    const { employees, attendance, isLoaded, updateEmployee } = useDatabase();
-    const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date()),
-    });
+    const { employees, attendance, isLoaded, updateEmployee, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
     const [employeeToEdit, setEmployeeToEdit] = useState<SalaryReportRow | null>(null);
     const { toast } = useToast();
@@ -114,7 +110,7 @@ export default function SalaryReportPage() {
     };
 
     const salaryReportData: SalaryReportRow[] = useMemo(() => {
-        if (!isLoaded || !dateRange.from || !dateRange.to) return [];
+        if (!isLoaded || !dateRange || !dateRange.from || !dateRange.to) return [];
 
         const interval = { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to) };
         const daysInPeriodArray = eachDayOfInterval(interval);
@@ -409,3 +405,5 @@ export default function SalaryReportPage() {
         </>
     );
 }
+
+    
