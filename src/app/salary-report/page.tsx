@@ -73,7 +73,7 @@ export default function SalaryReportPage() {
                         
                         const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
-                            .find(h => h.effectiveDate.substring(0, 10) <= dayString);
+                            .find(h => parseISO(h.effectiveDate) <= day);
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
@@ -241,7 +241,5 @@ export default function SalaryReportPage() {
         </div>
     );
 }
-
-    
 
     
