@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, Fuel } from 'lucide-react';
 import type { PaymentMethod, Transaction, Product, Purchase } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings, machines, machineReadings, addMachineReading } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -89,6 +89,48 @@ export default function SalesPage() {
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
+
+  const [newReadings, setNewReadings] = useState<Record<string, string>>({});
+
+  const handleReadingChange = (machineId: string, value: string) => {
+      setNewReadings(prev => ({ ...prev, [machineId]: value }));
+  };
+
+  const getLatestReading = useCallback((machineId: string) => {
+    if (!machineReadings) return undefined;
+    return machineReadings
+        .filter(r => r.machineId === machineId)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [machineReadings]);
+
+
+  const handleSaveReading = (machineId: string) => {
+      const machine = machines.find(m => m.id === machineId);
+      const newReadingValue = parseFloat(newReadings[machineId]);
+      const latestReading = getLatestReading(machineId);
+      
+      if (!machine || isNaN(newReadingValue)) {
+          toast({ variant: 'destructive', title: 'Invalid input', description: 'Please enter a valid number for the reading.' });
+          return;
+      }
+
+      if (latestReading && newReadingValue < latestReading.volume) {
+           toast({ variant: 'destructive', title: 'Invalid Reading', description: 'New reading cannot be less than the last reading.' });
+          return;
+      }
+
+      addMachineReading({
+          machineId: machine.id,
+          machineName: machine.name,
+          fuelType: machine.fuelType,
+          volume: newReadingValue,
+          timestamp: new Date().toISOString(),
+      });
+
+      toast({ title: 'Reading Updated', description: `New reading for ${machine.name} saved.` });
+      
+      setNewReadings(prev => ({ ...prev, [machineId]: '' }));
+  };
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -365,6 +407,52 @@ export default function SalesPage() {
                   </CardContent>
               </Card>
 
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
+                        <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {machines.map(machine => {
+                            const latestReading = getLatestReading(machine.id);
+                            const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
+                            const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
+                            return (
+                                <div key={machine.id} className="p-3 border rounded-lg space-y-2">
+                                    <h4 className="font-semibold">{machine.name} ({machine.fuelType})</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Last Reading</Label>
+                                            <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
+                                            <Input 
+                                                id={`reading-${machine.id}`}
+                                                type="number"
+                                                step="any"
+                                                value={newReadings[machine.id] || ''}
+                                                onChange={(e) => handleReadingChange(machine.id, e.target.value)}
+                                                placeholder="Enter reading"
+                                            />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs">Dispensed</Label>
+                                            <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
+                                        </div>
+                                        <div>
+                                            <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                         {machines.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/machines" className="underline">Machines</Link> page.</p>
+                        )}
+                    </CardContent>
+                </Card>
+
               <Card>
                   <CardHeader>
                       <CardTitle>Current Cart</CardTitle>
@@ -601,3 +689,5 @@ export default function SalesPage() {
     </div>
   );
 }
+
+    
