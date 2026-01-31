@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
@@ -23,7 +23,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { useParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -41,8 +40,7 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage() {
-  const params = useParams<{ id: string }>();
+export default function CustomerLedgerPage({ params }: { params: { id: string } }) {
   const { id: entityId } = params;
   const { 
     customers, 
@@ -503,5 +501,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
-    
