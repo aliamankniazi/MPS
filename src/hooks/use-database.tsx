@@ -414,39 +414,34 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         for (const product of mainProducts) {
             const ft = product.name;
             
-            const lastReading = processedState.machineReadings
-                .filter(r => r.fuelType === ft)
-                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                
-            let startingPoint = lastReading ? new Date(lastReading.timestamp) : new Date(0);
-            let startingStock = lastReading ? lastReading.volume : (state.settings.initialFuelStock[ft as FuelType] || 0);
+            const initialStock = state.settings.initialFuelStock[ft as FuelType] || 0;
 
-            const purchasesSince = processedState.purchases
-                .filter(p => p.fuelType === ft && isValid(new Date(p.timestamp)) && new Date(p.timestamp) > startingPoint)
+            const totalPurchases = processedState.purchases
+                .filter(p => p.fuelType === ft && isValid(new Date(p.timestamp)))
                 .reduce((sum, p) => sum + p.volume, 0);
 
-            const salesSince = processedState.transactions
-                .filter(t => (t.fuelType === ft || t.product === ft) && t.volume && isValid(new Date(t.timestamp)) && new Date(t.timestamp) > startingPoint)
+            const totalSales = processedState.transactions
+                .filter(t => (t.fuelType === ft || t.product === ft) && t.volume && isValid(new Date(t.timestamp)))
                 .reduce((sum, t) => sum + t.volume, 0);
 
-            const purchaseReturnsSince = processedState.purchaseReturns
-                .filter(pr => pr.fuelType === ft && isValid(new Date(pr.timestamp)) && new Date(pr.timestamp) > startingPoint)
+            const totalPurchaseReturns = processedState.purchaseReturns
+                .filter(pr => pr.fuelType === ft && isValid(new Date(pr.timestamp)))
                 .reduce((sum, pr) => sum + pr.volume, 0);
             
-            const saleReturnsSince = processedState.saleReturns
-                .filter(sr => sr.fuelType === ft && isValid(new Date(sr.timestamp)) && new Date(sr.timestamp) > startingPoint)
+            const totalSaleReturns = processedState.saleReturns
+                .filter(sr => sr.fuelType === ft && isValid(new Date(sr.timestamp)))
                 .reduce((sum, sr) => sum + sr.volume, 0);
             
-            const adjustmentsSince = processedState.stockAdjustments
-                .filter(adj => adj.fuelType === ft && isValid(new Date(adj.timestamp)) && new Date(adj.timestamp) > startingPoint)
+            const totalAdjustments = processedState.stockAdjustments
+                .filter(adj => adj.fuelType === ft && isValid(new Date(adj.timestamp)))
                 .reduce((sum, adj) => sum + adj.adjustment, 0);
 
-            stock[ft] = startingStock + purchasesSince - salesSince - purchaseReturnsSince + saleReturnsSince + adjustmentsSince;
+            stock[ft] = initialStock + totalPurchases - totalSales - totalPurchaseReturns + totalSaleReturns + totalAdjustments;
         }
 
         return stock;
 
-    }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.machineReadings, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
+    }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
     const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T> => {

@@ -82,21 +82,16 @@ export default function CashCreditSalesReportPage() {
         ];
 
         const getStockAtPoint = (fuelType: string, pointInTime: Date): number => {
-            const lastReading = machineReadings
-                .filter(r => r.fuelType === fuelType && isValid(new Date(r.timestamp)) && new Date(r.timestamp) < pointInTime)
-                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            const initialStock = initialFuelStock[fuelType as FuelType] || 0;
             
-            let stock = lastReading ? lastReading.volume : (initialFuelStock[fuelType as FuelType] || 0);
-            const startTime = lastReading ? new Date(lastReading.timestamp) : new Date(0);
-
-            const movementsSince = allMovements.filter(m => 
+            const movementsBefore = allMovements.filter(m => 
                 ((m as any).fuelType === fuelType) && 
                 isValid(new Date(m.timestamp)) && 
-                new Date(m.timestamp) > startTime && 
                 new Date(m.timestamp) < pointInTime
             );
 
-            for (const move of movementsSince) {
+            let stock = initialStock;
+            for (const move of movementsBefore) {
                 switch(move.type) {
                     case 'purchase': stock += (move as Purchase).volume; break;
                     case 'sale': stock -= (move as any).volume || 0; break;
