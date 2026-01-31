@@ -151,16 +151,9 @@ export default function SalaryPaymentPage() {
         if (attendanceRecord && attendanceRecord.status === 'Present' && day >= hireDate && day <= termDate) {
             totalPresentDays++;
 
-            let applicableSalaryEntry = [...sortedHistory]
+            const applicableSalaryEntry = [...sortedHistory]
                 .reverse()
                 .find(h => h.effectiveDate <= dayString);
-            
-            if (!applicableSalaryEntry && day >= hireDate) {
-                applicableSalaryEntry = {
-                    amount: employee.salary,
-                    effectiveDate: employee.hireDate,
-                };
-            }
             
             if (applicableSalaryEntry) {
                 const salaryForDay = applicableSalaryEntry.amount;
@@ -216,36 +209,55 @@ export default function SalaryPaymentPage() {
             toast({ variant: 'destructive', title: 'Error', description: 'Employee not found.' });
             return;
         }
+        
+        if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
+            toast({ variant: 'destructive', title: 'Salary History Not Found', description: `Cannot calculate salary for ${employee.name} because no salary history is set.` });
+            return;
+        }
+
         const paymentDetails = calculateSalaryForEmployee(employee, data);
+
         if (paymentDetails && paymentDetails.calculation.total > 0) {
             setPaymentToConfirm([paymentDetails]);
         } else {
-             toast({ variant: 'destructive', title: 'Salary Not Set or Zero', description: `Salary for ${employee.name} is not set, or calculated to zero. Please update their salary history or attendance.` });
+             toast({ title: 'Zero Salary Calculated', description: `Salary for ${employee.name} is calculated to zero, likely due to no attendance in the selected period.` });
         }
     } else { // Bulk mode
         const paymentsToConfirm: SalaryPaymentConfirmation[] = [];
-        const employeesWithoutSalary: string[] = [];
+        const employeesWithoutSalaryHistory: string[] = [];
+        const employeesWithZeroSalary: string[] = [];
 
         activeEmployees.forEach(employee => {
+            if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
+                employeesWithoutSalaryHistory.push(employee.name);
+                return;
+            }
             const paymentDetails = calculateSalaryForEmployee(employee, data);
             if (paymentDetails && paymentDetails.calculation.total > 0) {
                 paymentsToConfirm.push(paymentDetails);
             } else {
-                employeesWithoutSalary.push(employee.name);
+                employeesWithZeroSalary.push(employee.name);
             }
         });
         
-        if (employeesWithoutSalary.length > 0) {
+        if (employeesWithoutSalaryHistory.length > 0) {
             toast({
                 variant: 'destructive',
-                title: 'Salary Not Set or Zero',
-                description: `Salary not processed for: ${employeesWithoutSalary.join(', ')}. Please check their salary history and attendance.`,
+                title: 'Salary History Not Found',
+                description: `Cannot process salary for: ${employeesWithoutSalaryHistory.join(', ')}. Please set their salary history.`,
+            });
+        }
+        
+        if (employeesWithZeroSalary.length > 0) {
+            toast({
+                title: 'Zero Salary Calculated',
+                description: `Salary is zero for: ${employeesWithZeroSalary.join(', ')} (check attendance).`,
             });
         }
         
         if (paymentsToConfirm.length > 0) {
             setPaymentToConfirm(paymentsToConfirm);
-        } else if (employeesWithoutSalary.length === 0) {
+        } else if (employeesWithoutSalaryHistory.length === 0 && employeesWithZeroSalary.length === 0) {
             toast({
                 title: 'Nothing to Pay',
                 description: 'No active employees with salaries and attendance found to process.',
@@ -551,3 +563,5 @@ export default function SalaryPaymentPage() {
     </>
   );
 }
+
+    

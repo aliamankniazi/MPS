@@ -63,20 +63,17 @@ export default function SalaryReportPage() {
                         a.employeeId === employee.id && 
                         a.date === dayString
                     );
+                    
+                    const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
+                    const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
 
-                    if (attendanceForDay?.status === 'Present') {
+
+                    if (attendanceForDay?.status === 'Present' && day >= hireDate && day <= termDate) {
                         totalPresentDays++;
                         
-                        let applicableSalaryEntry = [...sortedHistory]
+                        const applicableSalaryEntry = [...sortedHistory]
                             .reverse()
                             .find(h => h.effectiveDate <= dayString);
-                        
-                        if (!applicableSalaryEntry && employee.hireDate && day >= parseISO(employee.hireDate)) {
-                            applicableSalaryEntry = {
-                                amount: employee.salary,
-                                effectiveDate: employee.hireDate,
-                            };
-                        }
                         
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
@@ -244,3 +241,5 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
+    
