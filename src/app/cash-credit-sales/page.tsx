@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { startOfDay, endOfDay, isValid, format } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format, subDays } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
 import {
@@ -35,12 +35,20 @@ interface ReportRow {
     closingStock: number;
 }
 
+interface ComparisonSummary {
+    fuelType: string;
+    sales: number;
+    dispensed: number;
+    difference: number;
+}
+
 
 type GroupedReport = {
     [dateKey: string]: {
         rows: ReportRow[];
         totals: SalesSummary;
-        machineReadings?: MachineReading[];
+        machineReadings?: (MachineReading & { previousReadingVolume?: number, dispensed: number })[];
+        comparisonSummary?: ComparisonSummary[];
     }
 };
 
@@ -101,7 +109,7 @@ export default function CashCreditSalesReportPage() {
         };
 
         let filteredTransactions = transactions;
-        let filteredMachineReadings = machineReadings;
+        let filteredMachineReadingsByDate = machineReadings;
         if (dateRange?.from) {
             const from = startOfDay(dateRange.from);
             const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
@@ -112,7 +120,7 @@ export default function CashCreditSalesReportPage() {
             });
 
             filteredTransactions = filterByDate(transactions);
-            filteredMachineReadings = filterByDate(machineReadings);
+            filteredMachineReadingsByDate = filterByDate(machineReadings);
         }
         
         const summaryByDateAndFuel = filteredTransactions.reduce((acc, tx) => {
@@ -144,7 +152,7 @@ export default function CashCreditSalesReportPage() {
             return acc;
         }, {} as Record<string, Record<string, SalesSummary>>);
         
-        const readingsByDate = filteredMachineReadings.reduce((acc, reading) => {
+        const readingsByDate = filteredMachineReadingsByDate.reduce((acc, reading) => {
             const date = new Date(reading.timestamp);
             if (!isValid(date)) return acc;
             const dateKey = format(date, 'yyyy-MM-dd');
@@ -189,14 +197,14 @@ export default function CashCreditSalesReportPage() {
                     cashSalesVolume: salesSummary.cashSalesVolume,
                     creditSalesVolume: salesSummary.creditSalesVolume,
                 };
-            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0 || row.openingStock > 0).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
 
 
             if (searchTerm) {
                 rows = rows.filter(row => row.fuelType.toLowerCase().includes(searchTerm.toLowerCase()));
             }
 
-            if (rows.length === 0) continue;
+            if (rows.length === 0 && (!readingsByDate[dateKey] || readingsByDate[dateKey].length === 0)) continue;
 
             const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
                 acc.cashSalesVolume += summary.cashSalesVolume;
@@ -206,7 +214,52 @@ export default function CashCreditSalesReportPage() {
                 return acc;
             }, { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 });
 
-            result[dateKey] = { rows, totals, machineReadings: readingsByDate[dateKey] };
+             const uniqueMachineNamesForDay = [...new Set(
+                (readingsByDate[dateKey] || []).map(r => r.machineName)
+            )];
+
+            const processedReadings = uniqueMachineNamesForDay.map(machineName => {
+                const latestReadingForDay = (readingsByDate[dateKey] || [])
+                    .filter(r => r.machineName === machineName)
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                
+                const previousReading = machineReadings // use unfiltered list
+                    .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                
+                const dispensed = previousReading ? latestReadingForDay.volume - previousReading.volume : 0;
+
+                return {
+                    ...latestReadingForDay,
+                    previousReadingVolume: previousReading?.volume,
+                    dispensed: dispensed > 0 ? dispensed : 0,
+                };
+            }).filter(r => r.id);
+
+            const salesSummaryByFuel = rows.reduce((acc, row) => {
+                acc[row.fuelType] = (acc[row.fuelType] || 0) + row.cashSalesVolume + row.creditSalesVolume;
+                return acc;
+            }, {} as Record<string, number>);
+
+            const dispensedSummaryByFuel = processedReadings.reduce((acc, reading) => {
+                acc[reading.fuelType] = (acc[reading.fuelType] || 0) + reading.dispensed;
+                return acc;
+            }, {} as Record<string, number>);
+
+            const allFuelTypesInDay = [...new Set([...Object.keys(salesSummaryByFuel), ...Object.keys(dispensedSummaryByFuel)])];
+
+            const comparisonSummary = allFuelTypesInDay.map(fuelType => {
+                const sales = salesSummaryByFuel[fuelType] || 0;
+                const dispensed = dispensedSummaryByFuel[fuelType] || 0;
+                return {
+                    fuelType,
+                    sales,
+                    dispensed,
+                    difference: dispensed - sales,
+                };
+            });
+
+            result[dateKey] = { rows, totals, machineReadings: processedReadings, comparisonSummary };
         }
 
         return result;
@@ -286,7 +339,7 @@ export default function CashCreditSalesReportPage() {
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="px-4 pb-4 bg-background">
+                                    <AccordionContent className="px-4 pb-4 bg-background space-y-4">
                                         <div className="border rounded-md">
                                             <Table>
                                                 <TableHeader>
@@ -321,24 +374,53 @@ export default function CashCreditSalesReportPage() {
                                                 </TableBody>
                                             </Table>
                                         </div>
+                                         {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
+                                            <div>
+                                                <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification</h4>
+                                                <div className="border rounded-md">
+                                                    <Table>
+                                                        <TableHeader>
+                                                            <TableRow>
+                                                                <TableHead>Fuel Type</TableHead>
+                                                                <TableHead className="text-right">Invoice Sales (Ltr)</TableHead>
+                                                                <TableHead className="text-right">Machine Dispensed (Ltr)</TableHead>
+                                                                <TableHead className="text-right">Variance (Dispensed - Sales)</TableHead>
+                                                            </TableRow>
+                                                        </TableHeader>
+                                                        <TableBody>
+                                                            {dayData.comparisonSummary.map(summary => (
+                                                                <TableRow key={summary.fuelType}>
+                                                                    <TableCell className="font-medium">{summary.fuelType}</TableCell>
+                                                                    <TableCell className="text-right font-mono">{summary.sales.toFixed(2)}</TableCell>
+                                                                    <TableCell className="text-right font-mono">{summary.dispensed.toFixed(2)}</TableCell>
+                                                                    <TableCell className={`text-right font-mono font-semibold ${summary.difference > 0.01 ? 'text-green-600' : summary.difference < -0.01 ? 'text-destructive' : ''}`}>
+                                                                        {summary.difference.toFixed(2)}
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            ))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </div>
+                                            </div>
+                                        )}
                                         {dayData.machineReadings && dayData.machineReadings.length > 0 && (
-                                            <div className="mt-4">
-                                                <h4 className="text-md font-semibold mb-2 flex items-center gap-2"><Fuel size={16} /> Machine Readings for the Day</h4>
+                                            <div>
+                                                <h4 className="font-semibold text-md mb-2">Machine Reading Details</h4>
                                                 <div className="border rounded-md">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
                                                                 <TableHead>Machine Name</TableHead>
-                                                                <TableHead>Fuel Type</TableHead>
-                                                                <TableHead className="text-right">Reading (Liters)</TableHead>
+                                                                <TableHead className="text-right">Previous Reading</TableHead>
+                                                                <TableHead className="text-right">Closing Reading</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
                                                             {dayData.machineReadings.map(reading => (
-                                                                <TableRow key={reading.machineName}>
-                                                                    <TableCell>{reading.machineName}</TableCell>
-                                                                    <TableCell>{reading.fuelType}</TableCell>
-                                                                    <TableCell className="text-right font-mono">{reading.volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableRow key={reading.id}>
+                                                                    <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
+                                                                    <TableCell className="text-right font-mono">{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</TableCell>
+                                                                    <TableCell className="text-right font-mono">{reading.volume.toFixed(2)}</TableCell>
                                                                 </TableRow>
                                                             ))}
                                                         </TableBody>
