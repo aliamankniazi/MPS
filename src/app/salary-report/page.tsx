@@ -114,9 +114,9 @@ export default function SalaryReportPage() {
                     baseSalary: employee.salary,
                     presentDays: totalPresentDays,
                     totalDaysInPeriod: daysInPeriodArray.length,
-                    calculatedSalary: Math.round(totalCalculatedSalary),
+                    calculatedSalary: totalCalculatedSalary,
                     salaryHistory: [...(employee.salaryHistory || [])].sort((a,b) => b.effectiveDate.localeCompare(a.effectiveDate)),
-                    calculationParts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
+                    calculationParts: calculationParts,
                 };
             });
     }, [isLoaded, employees, attendance, dateRange, searchTerm]);
@@ -128,7 +128,7 @@ export default function SalaryReportPage() {
             'Hire Date': row.hireDate ? format(parseISO(row.hireDate), 'dd-MMM-yyyy') : 'N/A',
             'Base Salary': row.baseSalary,
             'Present Days': `${row.presentDays}/${row.totalDaysInPeriod}`,
-            'Calculated Salary (PKR)': row.calculatedSalary,
+            'Calculated Salary (PKR)': row.calculatedSalary.toFixed(2),
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(dataToExport);
@@ -176,7 +176,7 @@ export default function SalaryReportPage() {
                                         <div className="flex gap-6 text-sm">
                                             <span>Present: <span className="font-mono">{row.presentDays}/{row.totalDaysInPeriod}</span></span>
                                             <span>Base Salary: <span className="font-mono">PKR {row.baseSalary.toLocaleString()}</span></span>
-                                            <span className="font-semibold">Calculated: <span className="font-mono text-green-600">PKR {row.calculatedSalary.toLocaleString()}</span></span>
+                                            <span className="font-semibold">Calculated: <span className="font-mono text-green-600">PKR {row.calculatedSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></span>
                                         </div>
                                     </div>
                                 </AccordionTrigger>
@@ -197,7 +197,7 @@ export default function SalaryReportPage() {
                                                         <TableRow key={index}>
                                                             <TableCell>{part.period}</TableCell>
                                                             <TableCell className="text-right">{part.presentDays}</TableCell>
-                                                            <TableCell className="text-right font-mono">PKR {part.subtotal.toLocaleString()}</TableCell>
+                                                            <TableCell className="text-right font-mono">PKR {part.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                         </TableRow>
                                                     ))}
                                                 </TableBody>
@@ -241,5 +241,7 @@ export default function SalaryReportPage() {
         </div>
     );
 }
+
+    
 
     

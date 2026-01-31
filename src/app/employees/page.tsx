@@ -190,8 +190,8 @@ export default function SalaryPaymentPage() {
         employeeId: employee.id,
         employeeName: employee.name,
         calculation: {
-            parts: calculationParts.map(p => ({...p, subtotal: Math.round(p.subtotal)})),
-            total: Math.round(totalSalary),
+            parts: calculationParts,
+            total: totalSalary,
             totalPresentDays: totalPresentDays,
             daysInMonth: getDaysInMonth(salaryMonthDate)
         },
@@ -512,7 +512,7 @@ export default function SalaryPaymentPage() {
                             </div>
                             <div className="flex justify-between text-muted-foreground">
                                 <span>Subtotal:</span>
-                                <span className="font-mono">PKR {part.subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                                <span className="font-mono">PKR {part.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
                     ))}
@@ -523,7 +523,7 @@ export default function SalaryPaymentPage() {
                     </div>
                     <div className="flex justify-between text-lg font-bold">
                         <span>Final Calculated Salary:</span>
-                        <span className="text-primary">PKR {paymentToConfirm[0].calculation.total.toLocaleString()}</span>
+                        <span className="text-primary">PKR {paymentToConfirm[0].calculation.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
                 </div>
             ) : (
@@ -541,13 +541,13 @@ export default function SalaryPaymentPage() {
                                 <TableRow key={p.employeeId}>
                                     <TableCell>{p.employeeName}</TableCell>
                                     <TableCell>{p.calculation.totalPresentDays}/{p.calculation.daysInMonth}</TableCell>
-                                    <TableCell className="text-right font-semibold">PKR {p.calculation.total.toLocaleString()}</TableCell>
+                                    <TableCell className="text-right font-semibold">PKR {p.calculation.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
                     <div className="text-right mt-4 font-bold text-lg">
-                        Total Payroll: PKR {totalBulkSalary.toLocaleString()}
+                        Total Payroll: PKR {totalBulkSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                 </ScrollArea>
             )
@@ -563,5 +563,7 @@ export default function SalaryPaymentPage() {
     </>
   );
 }
+
+    
 
     
