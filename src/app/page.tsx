@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -120,12 +121,18 @@ export default function DashboardPage() {
   const [islamicDateString, setIslamicDateString] = useState('');
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    setChartEndDate(new Date());
+    // This effect runs only on the client, after the initial render.
+    setIsClient(true);
   }, []);
 
   useEffect(() => {
+    if (!isClient) return;
+    
+    setChartEndDate(new Date());
+
     const timer = setInterval(() => {
         const now = new Date();
         const gregorianDate = now.toLocaleString('en-US', {
@@ -168,7 +175,7 @@ export default function DashboardPage() {
         }
     }, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [isClient]);
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
@@ -510,11 +517,17 @@ export default function DashboardPage() {
         <div>
             <div className="flex items-baseline gap-4 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
-              <p className="text-xl font-medium text-muted-foreground">{currentTime}</p>
+              {isClient ? 
+                <p className="text-xl font-medium text-muted-foreground">{currentTime}</p> 
+                : <Skeleton className="h-7 w-96" />
+              }
             </div>
              <div className="flex items-baseline gap-4 flex-wrap mt-1">
-                <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p>
-                {ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
+                {isClient ? 
+                  <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p>
+                  : <Skeleton className="h-6 w-80" />
+                }
+                {isClient && ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
