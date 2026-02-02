@@ -190,6 +190,7 @@ interface DatabaseActions {
     addMachine: (machine: Omit<Machine, 'id'>) => Promise<Machine>;
     deleteMachine: (id: string) => void;
     addMachineReading: (reading: Omit<MachineReading, 'id'>) => Promise<MachineReading>;
+    updateMachineReading: (id: string, updates: Partial<MachineReading>) => void;
     deleteMachineReading: (id: string) => void;
     addInvestment: (investment: Omit<Investment, 'id'>) => Promise<Investment>;
     deleteInvestment: (id: string) => void;
@@ -600,6 +601,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteMachine = (id: string) => deleteEntity(FIRESTORE_PATHS.machines, id);
 
     const addMachineReading = (r: Omit<MachineReading, 'id'>) => addEntity<MachineReading>(FIRESTORE_PATHS.machineReadings, r);
+    const updateMachineReading = (id: string, u: Partial<MachineReading>) => updateEntity(FIRESTORE_PATHS.machineReadings, id, u);
     const deleteMachineReading = (id: string) => deleteEntity(FIRESTORE_PATHS.machineReadings, id);
     
     const addInvestment = (i: Omit<Investment, 'id'>) => addEntity<Investment>(FIRESTORE_PATHS.investments, i);
@@ -805,6 +807,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         addMachine,
         deleteMachine,
         addMachineReading,
+        updateMachineReading,
         deleteMachineReading,
         addInvestment,
         deleteInvestment,

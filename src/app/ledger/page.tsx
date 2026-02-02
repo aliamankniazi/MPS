@@ -2,6 +2,9 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
@@ -33,6 +36,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/date-range-picker';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 
 type LedgerEntry = {
@@ -90,6 +104,12 @@ const TRANSACTION_TYPES = [
     'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary', 'Salary Expense', 'Daily Closing Stock'
 ];
 
+const machineReadingEditSchema = z.object({
+  volume: z.coerce.number().min(0, "Volume cannot be negative."),
+  date: z.date({ required_error: "A date is required."}),
+});
+type MachineReadingEditFormValues = z.infer<typeof machineReadingEditSchema>;
+
 
 export default function LedgerPage() {
   const { 
@@ -125,9 +145,11 @@ export default function LedgerPage() {
     deleteCustomerPayment,
     deleteCashAdvance,
     deleteMachineReading,
+    updateMachineReading,
   } = useDatabase();
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
+  const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
@@ -135,6 +157,32 @@ export default function LedgerPage() {
 
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
+
+  const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
+    resolver: zodResolver(machineReadingEditSchema),
+  });
+
+  useEffect(() => {
+    if (readingToEdit) {
+      resetReading({
+        volume: readingToEdit.volume,
+        date: new Date(readingToEdit.timestamp),
+      });
+    }
+  }, [readingToEdit, resetReading]);
+
+  const onEditReadingSubmit: SubmitHandler<MachineReadingEditFormValues> = (data) => {
+    if (!readingToEdit) return;
+    updateMachineReading(readingToEdit.id, {
+      volume: data.volume,
+      timestamp: data.date.toISOString(),
+    });
+    toast({
+      title: "Reading Updated",
+      description: `The reading for ${readingToEdit.machineName} has been updated.`,
+    });
+    setReadingToEdit(null);
+  };
 
   const entityBalances = useMemo(() => {
     if (!isLoaded) return {};
@@ -1040,8 +1088,8 @@ export default function LedgerPage() {
                                                     <TableHeader>
                                                         <TableRow>
                                                             <TableHead>Machine Name</TableHead>
-                                                            <TableHead className="text-right">Previous Reading</TableHead>
-                                                            <TableHead className="text-right">Closing Reading</TableHead>
+                                                            <TableHead className="text-right">Start of Day Reading</TableHead>
+                                                            <TableHead className="text-right">End of Day Reading</TableHead>
                                                             <TableHead className="text-center">Actions</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
@@ -1062,6 +1110,9 @@ export default function LedgerPage() {
                                                                     )}
                                                                 </TableCell>
                                                                 <TableCell className="text-center">
+                                                                    <Button variant="ghost" size="icon" title="Edit" onClick={() => setReadingToEdit(reading)}>
+                                                                        <Pencil className="w-4 h-4" />
+                                                                    </Button>
                                                                     <Button variant="ghost" size="icon" title="Delete" onClick={() => setReadingToDelete(reading)}>
                                                                         <Trash2 className="w-4 h-4 text-destructive" />
                                                                     </Button>
@@ -1240,6 +1291,51 @@ export default function LedgerPage() {
             </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!readingToEdit} onOpenChange={(isOpen) => !isOpen && setReadingToEdit(null)}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Edit Machine Reading for {readingToEdit?.machineName}</DialogTitle>
+                <DialogDescription>
+                    Update the closing reading volume and date.
+                </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmitReading(onEditReadingSubmit)}>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="edit-reading-volume">Volume</Label>
+                        <Input id="edit-reading-volume" type="number" step="any" {...registerReading('volume')} />
+                        {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Date</Label>
+                        <Controller
+                            name="date"
+                            control={controlReading}
+                            render={({ field }) => (
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                            )}
+                        />
+                        {readingErrors.date && <p className="text-sm text-destructive">{readingErrors.date.message}</p>}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setReadingToEdit(null)}>Cancel</Button>
+                    <Button type="submit">Save Changes</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
