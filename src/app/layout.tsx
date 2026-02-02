@@ -7,6 +7,7 @@ import { AuthProvider } from '@/hooks/use-auth';
 import { PrintStyles } from '@/components/print-styles';
 import { DatabaseProvider } from '@/hooks/use-database';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { FirebaseClientProvider } from '@/firebase';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,13 +29,15 @@ export default function RootLayout({
       <head>
       </head>
       <body className="font-body antialiased">
-        <DatabaseProvider>
-          <AuthProvider>
-            <PrintStyles />
-            <FirebaseErrorListener />
-            {children}
-          </AuthProvider>
-        </DatabaseProvider>
+        <FirebaseClientProvider>
+          <DatabaseProvider>
+            <AuthProvider>
+              <PrintStyles />
+              <FirebaseErrorListener />
+              {children}
+            </AuthProvider>
+          </DatabaseProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

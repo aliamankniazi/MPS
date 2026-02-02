@@ -39,7 +39,7 @@ import type {
     Role,
     RoleId,
 } from '@/lib/types';
-import { firestore, auth } from '@/lib/firebase';
+import { useFirebase } from '@/firebase';
 import { 
     collection, 
     onSnapshot, 
@@ -53,7 +53,6 @@ import {
     setDoc,
     writeBatch
 } from 'firebase/firestore';
-import { onAuthStateChanged, type User } from 'firebase/auth';
 import { isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -224,6 +223,7 @@ type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & {
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
 
 export function DatabaseProvider({ children }: { children: ReactNode }) {
+    const { user, isUserLoading: isAuthLoading, firestore } = useFirebase();
     const [state, setState] = useState<DatabaseState>({
         transactions: [], purchases: [], purchaseReturns: [], saleReturns: [],
         expenses: [], otherIncomes: [], customers: [], suppliers: [],
@@ -238,22 +238,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: false,
     });
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
-    const [user, setUser] = useState<User | null>(null);
-    const [isAuthLoading, setIsAuthLoading] = useState(true);
-
-    useEffect(() => {
-        if (!auth) {
-            console.warn("Auth service not available. Data fetching will be skipped.");
-            setIsAuthLoading(false);
-            return;
-        }
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-            setUser(firebaseUser);
-            setIsAuthLoading(false);
-        });
-        return () => unsubscribe();
-    }, []);
-
+    
     useEffect(() => {
         if (isAuthLoading) {
             return; // Wait for authentication state to be resolved.
@@ -356,7 +341,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         return () => {
             subscriptions.forEach(unsubscribe => unsubscribe());
         };
-    }, [user, isAuthLoading]);
+    }, [user, isAuthLoading, firestore]);
     
     const processedState: ProcessedDatabaseState = useMemo(() => {
         const createSorter = (key: string, order: 'asc' | 'desc' = 'desc') => (a: any, b: any) => {
@@ -474,7 +459,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     reject(error);
                 });
         });
-    }, []);
+    }, [firestore]);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>): Promise<void> => {
         if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
@@ -487,7 +472,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             }));
             throw error;
         });
-    }, []);
+    }, [firestore]);
 
     const deleteEntity = useCallback((path: string, id: string) => {
         if (!firestore) return;
@@ -523,7 +508,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         }).catch(error => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: sourceRef.path, operation: 'get' }));
         });
-    }, []);
+    }, [firestore]);
 
     const restoreFromRecycleBin = useCallback((item: RecycledItem) => {
         if (!firestore) return;
@@ -550,7 +535,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 })
             );
         });
-    }, []);
+    }, [firestore]);
 
     const deletePermanently = useCallback((id: string) => {
         if (!firestore) return;
@@ -564,7 +549,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 })
             );
         });
-    }, []);
+    }, [firestore]);
     
     // Specific Actions
     const addTransaction = (t: Omit<Transaction, 'id'>) => addEntity<Transaction>(FIRESTORE_PATHS.transactions, t);
@@ -726,7 +711,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         if (!firestore) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
         updateDoc(settingsRef, { [`initialFuelStock.${fuelType}`]: newStock });
-    }, []);
+    }, [firestore]);
 
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
         if (!firestore || isNaN(newPrice) || newPrice < 0) return;
@@ -744,7 +729,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 requestResourceData: { [`initialFuelStock.${fuelType}`]: newStock },
             }));
         });
-    }, []);
+    }, [firestore]);
 
     const updateColorSetting = (key: string, color: string) => {
         if (!firestore) return;

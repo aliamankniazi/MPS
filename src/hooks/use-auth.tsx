@@ -10,14 +10,12 @@ import {
   useCallback,
 } from 'react';
 import {
-  onAuthStateChanged,
   type User,
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
 } from 'firebase/auth';
-import { auth, firestore } from '@/lib/firebase';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
 import { usePathname, useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
@@ -25,6 +23,7 @@ import { useDatabase } from './use-database';
 import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirebase } from '@/firebase';
 
 
 const ROLES_COLLECTION = 'roles';
@@ -63,8 +62,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, isUserLoading: authLoading, auth, firestore } = useFirebase();
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
@@ -117,20 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRolesLoading(false);
     });
     return () => unsubscribe();
-  }, [user, authLoading]); // Depend on user and authLoading
-
-  // Effect for tracking user auth state
-  useEffect(() => {
-    if (!auth) {
-        setAuthLoading(false);
-        return;
-    }
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
+  }, [user, authLoading, firestore]); // Depend on user and authLoading
 
   // Effect for tracking user role from Firestore
   useEffect(() => {
@@ -150,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setUserRole(null);
     }
-  }, [user]);
+  }, [user, firestore]);
 
   const hasPermission = useCallback((permission: Permission): boolean => {
       if (!userRole) return false;
