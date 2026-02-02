@@ -27,7 +27,7 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import type { Transaction, Product, Purchase, DateRange } from '@/lib/types';
+import type { Transaction, Product, Purchase, DateRange, MachineReading } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -50,6 +50,19 @@ type LedgerEntry = {
   notes?: string;
 };
 
+interface ProcessedReading extends MachineReading {
+    previousReadingVolume?: number;
+    previousReadingTimestamp?: string;
+    dispensed: number;
+}
+
+interface ComparisonSummary {
+    fuelType: string;
+    sales: number;
+    dispensed: number;
+    difference: number;
+}
+
 type GroupedEntries = {
   [key: string]: {
     entries: LedgerEntry[];
@@ -66,7 +79,9 @@ type GroupedEntries = {
         expenses: number;
         purchases: number;
         supplierPayment: number;
-    }
+    };
+    machineReadings: ProcessedReading[];
+    comparisonSummary: ComparisonSummary[];
   }
 }
 
@@ -93,6 +108,8 @@ export default function LedgerPage() {
     customers,
     suppliers,
     businessPartners,
+    machines,
+    machineReadings,
     colorSettings,
     isLoaded,
     dateRange, 
@@ -445,7 +462,7 @@ export default function LedgerPage() {
     return entries;
   }, [allEntries, searchTerm, dateRange, selectedType]);
 
-  const groupedEntries = useMemo(() => {
+  const groupedEntries: GroupedEntries = useMemo(() => {
     const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
     
     const openingBalanceForRange = rangeStart
@@ -456,7 +473,6 @@ export default function LedgerPage() {
 
     let lastDayClosingBalance = openingBalanceForRange;
     
-    // Get unique day keys from filtered entries and sort them chronologically
     const dayKeysSorted = [...new Set(filteredEntries.map(e => format(new Date(e.timestamp), 'yyyy-MM-dd')))]
       .filter(key => isValid(new Date(key)))
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
@@ -464,6 +480,7 @@ export default function LedgerPage() {
     const result: GroupedEntries = {};
 
     for (const dayKey of dayKeysSorted) {
+      const dayStart = startOfDay(new Date(dayKey));
       const dayEntries = filteredEntries.filter(e => format(new Date(e.timestamp), 'yyyy-MM-dd') === dayKey);
       
       const dayOpeningBalance = lastDayClosingBalance;
@@ -473,6 +490,78 @@ export default function LedgerPage() {
 
       lastDayClosingBalance = dayOpeningBalance + dayCredit - dayDebit;
       
+       // --- Machine Reading Logic ---
+        const readingsOnDay = machineReadings.filter(r => {
+            const readingDate = new Date(r.timestamp);
+            return isValid(readingDate) && isSameDay(readingDate, dayStart);
+        });
+
+        const salesOnDay = dayEntries
+            .filter(e => e.type === 'Sale')
+            .map(e => e.original as Transaction);
+            
+        const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
+
+        const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
+            const latestReadingForDay = readingsOnDay
+                .filter(r => r.machineName === machineName)
+                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            
+            if (!latestReadingForDay) return null;
+
+            const previousReading = machineReadings
+                .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
+                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            
+            let dispensed = 0;
+
+            if (previousReading) {
+                dispensed = latestReadingForDay.volume - previousReading.volume;
+            } else {
+                const readingsOnSameDaySorted = readingsOnDay
+                    .filter(r => r.machineName === machineName)
+                    .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+                
+                if (readingsOnSameDaySorted.length > 1) {
+                    dispensed = readingsOnSameDaySorted[readingsOnSameDaySorted.length-1].volume - readingsOnSameDaySorted[0].volume;
+                }
+            }
+
+            return {
+                ...latestReadingForDay,
+                previousReadingVolume: previousReading?.volume,
+                previousReadingTimestamp: previousReading?.timestamp,
+                dispensed: dispensed > 0 ? dispensed : 0,
+            };
+        }).filter((r): r is ProcessedReading => r !== null);
+
+
+        const salesSummaryByFuel = salesOnDay
+            .filter(tx => tx.fuelType && tx.volume)
+            .reduce((acc, tx) => {
+                acc[tx.fuelType] = (acc[tx.fuelType] || 0) + tx.volume;
+                return acc;
+        }, {} as Record<string, number>);
+
+        const dispensedSummaryByFuel = processedReadings.reduce((acc, reading) => {
+            acc[reading.fuelType] = (acc[reading.fuelType] || 0) + reading.dispensed;
+            return acc;
+        }, {} as Record<string, number>);
+
+        const allFuelTypesInDay = [...new Set([...Object.keys(salesSummaryByFuel), ...Object.keys(dispensedSummaryByFuel)])];
+
+        const comparisonSummary = allFuelTypesInDay.map(fuelType => {
+            const sales = salesSummaryByFuel[fuelType] || 0;
+            const dispensed = dispensedSummaryByFuel[fuelType] || 0;
+            return {
+                fuelType,
+                sales,
+                dispensed,
+                difference: dispensed - sales,
+            };
+        });
+      // --- End Machine Reading Logic ---
+
       result[dayKey] = {
         entries: dayEntries,
         openingBalance: dayOpeningBalance,
@@ -489,13 +578,15 @@ export default function LedgerPage() {
           if (entry.type === 'Purchase') summary.purchases += entry.credit;
           if (entry.type === 'Supplier Payment') summary.supplierPayment += entry.debit;
           return summary;
-        }, { cashSale: 0, recovery: 0, otherIncome: 0, creditSale: 0, cashAdvance: 0, expenses: 0, purchases: 0, supplierPayment: 0 })
+        }, { cashSale: 0, recovery: 0, otherIncome: 0, creditSale: 0, cashAdvance: 0, expenses: 0, purchases: 0, supplierPayment: 0 }),
+        machineReadings: processedReadings,
+        comparisonSummary: comparisonSummary,
       };
     }
     
     return result;
 
-  }, [filteredEntries, allEntries, dateRange]);
+  }, [filteredEntries, allEntries, dateRange, machineReadings]);
   
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -854,7 +945,7 @@ export default function LedgerPage() {
                 <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentDayKey, ...dayKeys.filter(k => k !== currentDayKey)]}>
                     {dayKeys.map(dayKey => {
                        const dayData = groupedEntries[dayKey];
-                       if (!dayData || dayData.entries.length === 0) return null;
+                       if (!dayData || (dayData.entries.length === 0 && dayData.machineReadings.length === 0)) return null;
                        
                        const dayEntryIds = dayData.entries.map(e => e.id).filter(id => id.includes('-'));
                        const areAllSelected = dayEntryIds.length > 0 && dayEntryIds.every(id => selectedEntries.includes(id));
@@ -898,6 +989,74 @@ export default function LedgerPage() {
                                         <div className="flex justify-between font-bold"><span>Day's Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
                                     </div>
                                 </div>
+                                
+                                <div className="space-y-4 mb-4">
+                                     {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification</h4>
+                                            <div className="border rounded-md">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Fuel Type</TableHead>
+                                                            <TableHead className="text-right">Invoice Sales (Ltr)</TableHead>
+                                                            <TableHead className="text-right">Machine Dispensed (Ltr)</TableHead>
+                                                            <TableHead className="text-right">Variance (Dispensed - Sales)</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {dayData.comparisonSummary.map(summary => (
+                                                            <TableRow key={summary.fuelType}>
+                                                                <TableCell className="font-medium">{summary.fuelType}</TableCell>
+                                                                <TableCell className="text-right font-mono">{summary.sales.toFixed(2)}</TableCell>
+                                                                <TableCell className="text-right font-mono">{summary.dispensed.toFixed(2)}</TableCell>
+                                                                <TableCell className={`text-right font-mono font-semibold ${summary.difference > 0.01 ? 'text-green-600' : summary.difference < -0.01 ? 'text-destructive' : ''}`}>
+                                                                    {summary.difference.toFixed(2)}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    )}
+                                    {dayData.machineReadings && dayData.machineReadings.length > 0 && (
+                                        <div>
+                                            <h4 className="font-semibold text-md mb-2">Machine Reading Details</h4>
+                                            <div className="border rounded-md">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Machine Name</TableHead>
+                                                            <TableHead className="text-right">Previous Reading</TableHead>
+                                                            <TableHead className="text-right">Closing Reading</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {dayData.machineReadings.map(reading => (
+                                                            <TableRow key={reading.id}>
+                                                                <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
+                                                                <TableCell className="text-right font-mono">
+                                                                    <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
+                                                                    {reading.previousReadingTimestamp && (
+                                                                        <div className="text-xs text-muted-foreground">{format(new Date(reading.previousReadingTimestamp), 'dd-MMM-yy hh:mm a')}</div>
+                                                                    )}
+                                                                </TableCell>
+                                                                <TableCell className="text-right font-mono">
+                                                                    <div>{reading.volume.toFixed(2)}</div>
+                                                                    {reading.timestamp && (
+                                                                        <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'dd-MMM-yy hh:mm a')}</div>
+                                                                    )}
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {showJournal && (
                                     <div className="border rounded-md">
                                     <Table>
