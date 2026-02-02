@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -256,8 +255,8 @@ export default function MachineReadingReportPage() {
                                                     <TableRow>
                                                         <TableHead>Machine Name</TableHead>
                                                         <TableHead>Fuel Type</TableHead>
-                                                        <TableHead className="text-right">Opening Reading</TableHead>
-                                                        <TableHead className="text-right">Closing Reading</TableHead>
+                                                        <TableHead className="text-right">Start of Day Reading</TableHead>
+                                                        <TableHead className="text-right">End of Day Reading</TableHead>
                                                         <TableHead className="text-right">Dispensed Volume</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
