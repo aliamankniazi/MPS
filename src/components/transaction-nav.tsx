@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -14,11 +13,13 @@ import {
     Undo2, 
     DollarSign, 
     User,
-    Wrench
+    Wrench,
+    ArrowRightLeft
 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 
 const navItems = [
+  { href: '/sales', label: 'New Transaction', icon: ArrowRightLeft, colorKey: 'Sale' },
   { href: '/sales', label: 'Sale', icon: ShoppingCart, colorKey: 'Sale' },
   { href: '/purchases', label: 'Purchase', icon: Truck, colorKey: 'Purchase' },
   { href: '/customer-payments', label: 'Customer Payment', icon: Wallet, colorKey: 'Customer Payment' },
@@ -44,7 +45,7 @@ export function TransactionNav() {
                     return (
                         <Button
                             asChild
-                            key={item.href}
+                            key={item.label}
                             variant="ghost"
                             className={cn(
                                 "border-b-2 rounded-none flex-shrink-0 hover:bg-transparent",
