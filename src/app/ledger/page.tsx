@@ -421,7 +421,13 @@ export default function LedgerPage() {
 
 
   const filteredEntries = useMemo(() => {
-    let entries = allEntries;
+    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
+    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+
+    let entries = allEntries.filter(entry => {
+        const entryDate = new Date(entry.timestamp);
+        return isValid(entryDate) && entryDate >= from && entryDate <= to;
+    });
 
     if (searchTerm) {
         const lowercasedTerm = searchTerm.toLowerCase();
@@ -435,19 +441,12 @@ export default function LedgerPage() {
     if (selectedType && selectedType !== 'all') {
         entries = entries.filter(e => e.type === selectedType);
     }
-    if (dateRange?.from) {
-      const rangeStart = startOfDay(dateRange.from);
-      const rangeEnd = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
-      entries = entries.filter(e => {
-        const entryDate = new Date(e.timestamp);
-        return isValid(entryDate) && entryDate >= rangeStart && entryDate <= rangeEnd;
-      });
-    }
+    
     return entries;
   }, [allEntries, searchTerm, dateRange, selectedType]);
 
   const groupedEntries = useMemo(() => {
-    const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : null;
+    const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
     
     const openingBalanceForRange = rangeStart
       ? allEntries

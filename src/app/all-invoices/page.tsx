@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { FileText, XCircle, Printer, Search, Download, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -49,21 +49,16 @@ export default function AllInvoicesPage() {
   const allInvoicesForExport = useMemo(() => {
     if (!isLoaded) return [];
 
-    let allTransactions = transactions;
-    let filteredPurchases = purchases;
+    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
+    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
 
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+    const filterByDate = (items: any[]) => items.filter(item => {
+        const itemDate = new Date(item.timestamp);
+        return isValid(itemDate) && itemDate >= from && itemDate <= to;
+    });
 
-        const filterByDate = (items: any[]) => items.filter(item => {
-            const itemDate = new Date(item.timestamp);
-            return isValid(itemDate) && itemDate >= from && itemDate <= to;
-        });
-
-        allTransactions = filterByDate(transactions);
-        filteredPurchases = filterByDate(purchases);
-    }
+    const allTransactions = filterByDate(transactions);
+    const filteredPurchases = filterByDate(purchases);
 
     const getProfitForSale = (sale: Transaction, allPurchases: Purchase[]): number => {
       if (!sale.fuelType || !sale.volume || sale.volume <= 0 || !sale.timestamp || !isValid(new Date(sale.timestamp))) {

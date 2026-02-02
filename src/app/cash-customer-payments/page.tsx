@@ -4,7 +4,7 @@
 import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Wallet, XCircle, Search, Download, Printer } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -60,15 +60,13 @@ export default function CashAndCustomerPaymentsPage() {
   }, [isLoaded, customerPayments, cashAdvances]);
 
   const filteredEntries = useMemo(() => {
-    let entries = combinedEntries;
-    if (dateRange?.from) {
-      const from = startOfDay(dateRange.from);
-      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-      entries = entries.filter(entry => {
-          const entryDate = new Date(entry.timestamp);
-          return isValid(entryDate) && entryDate >= from && entryDate <= to;
-      });
-    }
+    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
+    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+
+    let entries = combinedEntries.filter(entry => {
+        const entryDate = new Date(entry.timestamp);
+        return isValid(entryDate) && entryDate >= from && entryDate <= to;
+    });
 
     if (!searchTerm) return entries;
     

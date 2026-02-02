@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { startOfDay, endOfDay, isValid, format, subDays } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
 import {
@@ -71,6 +71,17 @@ export default function CashCreditSalesReportPage() {
     const groupedReportData: GroupedReport = useMemo(() => {
         if (!isLoaded || !products.length) return {};
 
+        const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
+        const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+
+        const filterByDate = (items: any[]) => items.filter(item => {
+            const itemDate = new Date(item.timestamp);
+            return isValid(itemDate) && itemDate >= from && itemDate <= to;
+        });
+
+        const filteredTransactions = filterByDate(transactions);
+        const filteredMachineReadingsByDate = filterByDate(machineReadings);
+
         const mainProducts = products.filter(p => p.category === 'Main Product');
 
         const allMovements = [
@@ -102,21 +113,6 @@ export default function CashCreditSalesReportPage() {
             }
             return stock;
         };
-
-        let filteredTransactions = transactions;
-        let filteredMachineReadingsByDate = machineReadings;
-        if (dateRange?.from) {
-            const from = startOfDay(dateRange.from);
-            const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-            
-            const filterByDate = (items: any[]) => items.filter(item => {
-                const itemDate = new Date(item.timestamp);
-                return isValid(itemDate) && itemDate >= from && itemDate <= to;
-            });
-
-            filteredTransactions = filterByDate(transactions);
-            filteredMachineReadingsByDate = filterByDate(machineReadings);
-        }
         
         const summaryByDateAndFuel = filteredTransactions.reduce((acc, tx) => {
             const date = new Date(tx.timestamp);
