@@ -1,12 +1,12 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth } from 'date-fns';
-import { Fuel, Droplets, XCircle, Printer, Download, Search } from 'lucide-react';
+import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
 import {
   Accordion,
@@ -18,6 +18,32 @@ import { DateRangePicker } from '@/components/date-range-picker';
 import { Button } from '@/components/ui/button';
 import * as XLSX from 'xlsx';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 
 interface SalesSummary {
@@ -58,6 +84,13 @@ type GroupedReport = {
     }
 };
 
+const machineReadingEditSchema = z.object({
+  volume: z.coerce.number().min(0, "Volume cannot be negative."),
+  date: z.date({ required_error: "A date is required."}),
+});
+type MachineReadingEditFormValues = z.infer<typeof machineReadingEditSchema>;
+
+
 export default function CashCreditSalesReportPage() {
     const { 
         transactions, 
@@ -70,9 +103,50 @@ export default function CashCreditSalesReportPage() {
         purchaseReturns,
         saleReturns,
         stockAdjustments,
-        initialFuelStock
+        initialFuelStock,
+        deleteMachineReading,
+        updateMachineReading
     } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
+    const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
+    const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
+    const { toast } = useToast();
+
+     const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
+        resolver: zodResolver(machineReadingEditSchema),
+    });
+
+    useEffect(() => {
+        if (readingToEdit) {
+            resetReading({
+                volume: readingToEdit.volume,
+                date: new Date(readingToEdit.timestamp),
+            });
+        }
+    }, [readingToEdit, resetReading]);
+
+    const onEditReadingSubmit: SubmitHandler<MachineReadingEditFormValues> = (data) => {
+        if (!readingToEdit) return;
+        updateMachineReading(readingToEdit.id, {
+          volume: data.volume,
+          timestamp: data.date.toISOString(),
+        });
+        toast({
+          title: "Reading Updated",
+          description: `The reading for ${readingToEdit.machineName} has been updated.`,
+        });
+        setReadingToEdit(null);
+    };
+
+    const handleDeleteReading = () => {
+        if (!readingToDelete) return;
+        deleteMachineReading(readingToDelete.id);
+        toast({
+            title: 'Reading Deleted',
+            description: `The reading for ${readingToDelete.machineName} has been deleted.`,
+        });
+        setReadingToDelete(null);
+    }
 
     const groupedReportData: GroupedReport = useMemo(() => {
         if (!isLoaded || !products.length) return {};
@@ -308,6 +382,7 @@ export default function CashCreditSalesReportPage() {
     };
 
     return (
+        <>
         <div className="p-4 md:p-8">
             <Card>
                 <CardHeader>
@@ -429,6 +504,7 @@ export default function CashCreditSalesReportPage() {
                                                                 <TableHead>Machine Name</TableHead>
                                                                 <TableHead className="text-right">Start of Day Reading</TableHead>
                                                                 <TableHead className="text-right">End of Day Reading</TableHead>
+                                                                <TableHead className="text-center">Actions</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
@@ -446,6 +522,14 @@ export default function CashCreditSalesReportPage() {
                                                                         {reading.timestamp && (
                                                                             <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'dd-MMM-yy hh:mm a')}</div>
                                                                         )}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-center">
+                                                                        <Button variant="ghost" size="icon" title="Edit" onClick={() => setReadingToEdit(reading)}>
+                                                                            <Pencil className="w-4 h-4" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" title="Delete" onClick={() => setReadingToDelete(reading)}>
+                                                                            <Trash2 className="w-4 h-4 text-destructive" />
+                                                                        </Button>
                                                                     </TableCell>
                                                                 </TableRow>
                                                             ))}
@@ -472,5 +556,68 @@ export default function CashCreditSalesReportPage() {
                 </CardContent>
             </Card>
         </div>
+
+        <AlertDialog open={!!readingToDelete} onOpenChange={(isOpen) => !isOpen && setReadingToDelete(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will move the machine reading to the recycle bin.
+                </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleDeleteReading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, delete reading
+                </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
+        <Dialog open={!!readingToEdit} onOpenChange={(isOpen) => !isOpen && setReadingToEdit(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Edit Machine Reading for {readingToEdit?.machineName}</DialogTitle>
+                    <DialogDescription>
+                        Update the closing reading volume and date.
+                    </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleSubmitReading(onEditReadingSubmit)}>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-reading-volume">Volume</Label>
+                            <Input id="edit-reading-volume" type="number" step="any" {...registerReading('volume')} />
+                            {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
+                        </div>
+                            <div className="space-y-2">
+                            <Label>Date</Label>
+                            <Controller
+                                name="date"
+                                control={controlReading}
+                                render={({ field }) => (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                            />
+                            {readingErrors.date && <p className="text-sm text-destructive">{readingErrors.date.message}</p>}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setReadingToEdit(null)}>Cancel</Button>
+                        <Button type="submit">Save Changes</Button>
+                    </DialogFooter>
+                </form>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }
