@@ -17,6 +17,7 @@ interface DailySummary {
     totalRevenue: number;
     costOfGoodsSold: number;
     grossProfit: number;
+    otherIncome: number;
     totalExpenses: number;
     netProfit: number;
 }
@@ -86,7 +87,10 @@ export default function DailySummaryPage() {
                 }
             }, 0);
 
-            const totalRevenue = dayTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + dayOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+            const totalSalesRevenue = dayTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
+            const totalOtherIncome = dayOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+            const totalRevenue = totalSalesRevenue + totalOtherIncome;
+
             const grossProfit = totalRevenue - costOfGoodsSold;
             const totalExpenses = dayExpenses.reduce((sum, ex) => sum + ex.amount, 0);
             const netProfit = grossProfit - totalExpenses;
@@ -96,6 +100,7 @@ export default function DailySummaryPage() {
                 totalRevenue,
                 costOfGoodsSold,
                 grossProfit,
+                otherIncome: totalOtherIncome,
                 totalExpenses,
                 netProfit,
             };
@@ -109,6 +114,7 @@ export default function DailySummaryPage() {
             'Total Revenue (PKR)': summary.totalRevenue.toFixed(2),
             'Cost of Goods Sold (PKR)': summary.costOfGoodsSold.toFixed(2),
             'Gross Profit (PKR)': summary.grossProfit.toFixed(2),
+            'Other Income (PKR)': summary.otherIncome.toFixed(2),
             'Total Expenses (PKR)': summary.totalExpenses.toFixed(2),
             'Net Profit (PKR)': summary.netProfit.toFixed(2),
         }));
@@ -147,6 +153,7 @@ export default function DailySummaryPage() {
                                 <TableHead className="text-right">Total Revenue</TableHead>
                                 <TableHead className="text-right">COGS</TableHead>
                                 <TableHead className="text-right">Gross Profit</TableHead>
+                                <TableHead className="text-right">Other Income</TableHead>
                                 <TableHead className="text-right">Total Expenses</TableHead>
                                 <TableHead className="text-right">Net Profit</TableHead>
                             </TableRow>
@@ -160,6 +167,9 @@ export default function DailySummaryPage() {
                                     <TableCell className={`text-right font-mono font-semibold ${summary.grossProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                         {summary.grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                     </TableCell>
+                                    <TableCell className="text-right font-mono text-blue-600">
+                                        {summary.otherIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </TableCell>
                                     <TableCell className="text-right font-mono text-destructive">{summary.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                     <TableCell className={`text-right font-mono font-bold ${summary.netProfit >= 0 ? 'text-green-600' : 'text-destructive'}`}>
                                         {summary.netProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -167,7 +177,7 @@ export default function DailySummaryPage() {
                                 </TableRow>
                             )) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">
+                                    <TableCell colSpan={7} className="text-center h-24">
                                         {isLoaded ? 'No data for selected period.' : 'Loading...'}
                                     </TableCell>
                                 </TableRow>
