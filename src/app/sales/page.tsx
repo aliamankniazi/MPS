@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useDatabase } from '@/hooks/use-database';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
@@ -185,6 +185,47 @@ export default function SalesPage() {
   const newAccountBalance = useMemo(() => {
     return customerBalance + invoiceBalance;
   }, [customerBalance, invoiceBalance]);
+
+  const dispensedTotals = useMemo(() => {
+    if (!isLoaded || !machines.length) return {};
+    
+    const { from, to } = dateRange || {};
+    const startDate = from ? startOfDay(from) : startOfDay(new Date());
+    const endDate = to ? endOfDay(to) : endOfDay(startDate);
+
+    const totals: Record<string, number> = {};
+
+    machines.forEach(machine => {
+      const allReadingsForMachine = machineReadings
+        .filter(r => r.machineId === machine.id)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      const endReading = [...allReadingsForMachine]
+        .reverse()
+        .find(r => new Date(r.timestamp) <= endDate);
+
+      let startReading = [...allReadingsForMachine]
+        .reverse()
+        .find(r => new Date(r.timestamp) < startDate);
+
+      if (!startReading) {
+        // If no reading before the start date, find the first reading on or after the start date
+        startReading = allReadingsForMachine.find(r => new Date(r.timestamp) >= startDate);
+      }
+
+      if (endReading && startReading && endReading.id !== startReading.id) {
+        const dispensed = endReading.volume - startReading.volume;
+        if (dispensed > 0) {
+          if (!totals[machine.fuelType]) {
+            totals[machine.fuelType] = 0;
+          }
+          totals[machine.fuelType] += dispensed;
+        }
+      }
+    });
+
+    return totals;
+  }, [machines, machineReadings, isLoaded, dateRange]);
 
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
@@ -401,13 +442,49 @@ export default function SalesPage() {
                       </div>
                   </CardContent>
               </Card>
+               <Card>
+                <CardHeader>
+                    <CardTitle>Dispensed Fuel Totals</CardTitle>
+                    <CardDescription>
+                        Total volume dispensed from machines for the selected period.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Fuel Type</TableHead>
+                                <TableHead className="text-right">Volume Dispensed (Ltr)</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {Object.keys(dispensedTotals).length > 0 ? (
+                                Object.entries(dispensedTotals).map(([fuelType, volume]) => (
+                                    <TableRow key={fuelType}>
+                                        <TableCell className="font-medium">{fuelType}</TableCell>
+                                        <TableCell className="text-right font-mono font-semibold text-green-600">
+                                            {volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
+                                        No dispensed fuel data for this period.
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
           </div>
 
           <div className="lg:col-span-1">
               <form onSubmit={handleSubmit(onSubmit)}>
               <Card>
                   <CardHeader>
-                      <CardTitle>Customer & Payment</CardTitle>
+                      <CardTitle>Customer &amp; Payment</CardTitle>
                       <CardDescription>Select customer and finalize payment details.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -591,7 +668,7 @@ export default function SalesPage() {
                       )}
                   </CardContent>
                   <CardFooter className="flex flex-col gap-2">
-                      <Button type="submit" size="lg" className="w-full">Complete & Print Invoice</Button>
+                      <Button type="submit" size="lg" className="w-full">Complete &amp; Print Invoice</Button>
                       <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
                   </CardFooter>
               </Card>
@@ -601,3 +678,5 @@ export default function SalesPage() {
     </div>
   );
 }
+
+    
