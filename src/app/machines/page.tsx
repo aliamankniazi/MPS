@@ -13,6 +13,7 @@ import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TransactionNav } from '@/components/transaction-nav';
 import { startOfDay, endOfDay } from 'date-fns';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 
 function PageHeader() {
@@ -48,7 +49,7 @@ function PageHeader() {
 }
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachineReading, isLoaded } = useDatabase();
+  const { machines, machineReadings, addMachineReading, isLoaded, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [newReadings, setNewReadings] = React.useState<Record<string, string>>({});
   
@@ -94,30 +95,33 @@ export default function MachineManagementPage() {
 
   const dailyDispensedTotals = useMemo(() => {
     if (!isLoaded) return {};
-    const todayStart = startOfDay(new Date());
-    const todayEnd = endOfDay(new Date());
+    
+    const { from, to } = dateRange || {};
+    const startDate = from ? startOfDay(from) : startOfDay(new Date());
+    const endDate = to ? endOfDay(to) : endOfDay(startDate);
 
     const totals: Record<string, number> = {};
 
     machines.forEach(machine => {
-      const todaysReadings = machineReadings
-        .filter(r => r.machineId === machine.id && new Date(r.timestamp) >= todayStart && new Date(r.timestamp) <= todayEnd)
+      const allReadingsForMachine = machineReadings
+        .filter(r => r.machineId === machine.id)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      if (todaysReadings.length === 0) return;
+      const endReading = [...allReadingsForMachine]
+        .reverse()
+        .find(r => new Date(r.timestamp) <= endDate);
 
-      let openingReading = machineReadings
-        .filter(r => r.machineId === machine.id && new Date(r.timestamp) < todayStart)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      let startReading = [...allReadingsForMachine]
+        .reverse()
+        .find(r => new Date(r.timestamp) < startDate);
 
-      if (!openingReading) {
-        openingReading = todaysReadings[0];
+      if (!startReading) {
+        // If no reading before the start date, find the first reading on or after the start date
+        startReading = allReadingsForMachine.find(r => new Date(r.timestamp) >= startDate);
       }
 
-      const latestReadingForToday = todaysReadings[todaysReadings.length - 1];
-
-      if (latestReadingForToday && openingReading && latestReadingForToday.id !== openingReading.id) {
-        const dispensed = latestReadingForToday.volume - openingReading.volume;
+      if (endReading && startReading && endReading.id !== startReading.id) {
+        const dispensed = endReading.volume - startReading.volume;
         if (dispensed > 0) {
           if (!totals[machine.fuelType]) {
             totals[machine.fuelType] = 0;
@@ -128,7 +132,7 @@ export default function MachineManagementPage() {
     });
 
     return totals;
-  }, [machines, machineReadings, isLoaded]);
+  }, [machines, machineReadings, isLoaded, dateRange]);
 
   const machinesByFuelType = useMemo(() => {
     return machines.reduce((acc, machine) => {
@@ -148,8 +152,13 @@ export default function MachineManagementPage() {
       <main className="container mx-auto p-4 md:p-8">
         <Card>
           <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
-              <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
+                <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
+              </div>
+              <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
@@ -194,7 +203,7 @@ export default function MachineManagementPage() {
                         </div>
                         <div className="mt-4 p-3 border-t-2 border-primary flex justify-end items-center">
                             <div className="text-right">
-                                <p className="font-semibold">Today's Dispensed Total ({fuelType})</p>
+                                <p className="font-semibold">Dispensed Total ({fuelType})</p>
                                 <p className="text-xl font-bold text-green-600">
                                     {(dailyDispensedTotals[fuelType] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
                                 </p>
