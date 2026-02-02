@@ -11,14 +11,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, List, PlusCircle, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
-import type { FuelType, Machine } from '@/lib/types';
+import { Fuel, List, PlusCircle, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
+import type { FuelType } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
+import Link from 'next/link';
 
 const machineSchema = z.object({
   name: z.string().min(1, 'Machine name is required'),
@@ -28,36 +26,18 @@ const machineSchema = z.object({
 
 type MachineFormValues = z.infer<typeof machineSchema>;
 
-const machineReadingSchema = z.object({
-  machineId: z.string().min(1, 'Please select a machine.'),
-  volume: z.coerce.number().min(0, 'Reading cannot be negative'),
-  date: z.date({ required_error: "A date is required."}),
-});
-
-type MachineReadingFormValues = z.infer<typeof machineReadingSchema>;
-
 export default function MachineManagementPage() {
   const { machines, machineReadings, addMachine, deleteMachine, addMachineReading, fuelStock, products, initialFuelStock } = useDatabase();
   const { toast } = useToast();
+  const [newReadings, setNewReadings] = React.useState<Record<string, string>>({});
+
 
   const mainProducts = useMemo(() => {
     if (!products) return [];
     return products.filter(p => p.category === 'Main Product');
   }, [products]);
 
-  const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingFormValues>({
-    resolver: zodResolver(machineReadingSchema),
-  });
-  
-  useEffect(() => {
-    resetReading({
-        date: new Date(),
-    });
-  }, [resetReading]);
-  
-  const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors }, watch: watchMachine } = useForm<MachineFormValues>({
-    resolver: zodResolver(machineSchema),
-  });
+  const { register: registerMachine, handleSubmit: handleSubmitMachine, control: controlMachine, reset: resetMachine, formState: { errors: machineErrors }, watch: watchMachine } = useForm<MachineFormValues>();
   
   const selectedFuelTypeForNewMachine = watchMachine('fuelType');
 
@@ -70,25 +50,6 @@ export default function MachineManagementPage() {
 
   }, [selectedFuelTypeForNewMachine, machineReadings]);
 
-  const onReadingSubmit: SubmitHandler<MachineReadingFormValues> = (data) => {
-    const machine = machines.find(t => t.id === data.machineId);
-    if (!machine) return;
-
-    addMachineReading({ 
-        machineId: machine.id,
-        machineName: machine.name,
-        fuelType: machine.fuelType,
-        volume: data.volume,
-        timestamp: data.date.toISOString(),
-    });
-    
-    toast({
-      title: 'Machine Reading Logged',
-      description: `New reading for ${machine.name} has been recorded as ${data.volume}.`,
-    });
-    resetReading({ machineId: '', volume: 0, date: new Date() });
-  };
-  
   const onMachineSubmit: SubmitHandler<MachineFormValues> = async (data) => {
     const newMachine = await addMachine({
         name: data.name,
@@ -116,109 +77,94 @@ export default function MachineManagementPage() {
 
     resetMachine({ name: '', fuelType: '', currentReading: undefined });
   };
+  
+  const handleReadingChange = (machineId: string, value: string) => {
+      setNewReadings(prev => ({ ...prev, [machineId]: value }));
+  };
+
+  const getLatestReading = useCallback((machineId: string) => {
+    if (!machineReadings) return undefined;
+    return machineReadings
+        .filter(r => r.machineId === machineId)
+        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+  }, [machineReadings]);
+
+
+  const handleSaveReading = (machineId: string) => {
+      const machine = machines.find(m => m.id === machineId);
+      const newReadingValue = parseFloat(newReadings[machineId]);
+      const latestReading = getLatestReading(machineId);
+      
+      if (!machine || isNaN(newReadingValue)) {
+          toast({ variant: 'destructive', title: 'Invalid input', description: 'Please enter a valid number for the reading.' });
+          return;
+      }
+
+      if (latestReading && newReadingValue < latestReading.volume) {
+           toast({ variant: 'destructive', title: 'Invalid Reading', description: 'New reading cannot be less than the last reading.' });
+          return;
+      }
+
+      addMachineReading({
+          machineId: machine.id,
+          machineName: machine.name,
+          fuelType: machine.fuelType,
+          volume: newReadingValue,
+          timestamp: new Date().toISOString(),
+      });
+
+      toast({ title: 'Reading Updated', description: `New reading for ${machine.name} saved.` });
+      
+      setNewReadings(prev => ({ ...prev, [machineId]: '' }));
+  };
+
 
   return (
     <div className="p-4 md:p-8 grid gap-8 lg:grid-cols-3">
       <div className="lg:col-span-1 space-y-8">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PlusCircle /> New Machine Reading
-            </CardTitle>
-            <CardDescription>Enter the current reading for a fuel machine.</CardDescription>
+              <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
+              <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmitReading(onReadingSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Machine</Label>
-                <Controller
-                  name="machineId"
-                  control={controlReading}
-                  render={({ field }) => (
-                    <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a machine" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {machines.map(machine => (
-                          <SelectItem key={machine.id} value={machine.id}>{machine.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {readingErrors.machineId && <p className="text-sm text-destructive">{readingErrors.machineId.message}</p>}
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="volume">Current Reading</Label>
-                <Input id="volume" type="number" {...registerReading('volume')} placeholder="e.g., 123456.78" step="0.01" />
-                {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
-              </div>
-
-               <div className="space-y-2">
-                <Label>Date</Label>
-                <Controller
-                    name="date"
-                    control={controlReading}
-                    render={({ field }) => {
-                        const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
-                            const currentDate = field.value || new Date();
-                            let newDate = new Date(currentDate);
-            
-                            if (part === 'year') newDate.setFullYear(parseInt(value, 10));
-                            if (part === 'month') newDate.setMonth(parseInt(value, 10));
-                            if (part === 'day') newDate.setDate(parseInt(value, 10));
-                            
-                            const daysInNewMonth = getDaysInMonth(newDate);
-                            if (newDate.getDate() > daysInNewMonth) {
-                                newDate.setDate(daysInNewMonth);
-                            }
-            
-                            if (isValid(newDate)) {
-                                field.onChange(newDate);
-                            }
-                        };
-                        
-                        const selectedDate = field.value || new Date();
-                        const currentDay = getDate(selectedDate).toString();
-                        const currentMonth = getMonth(selectedDate).toString();
-                        const currentYear = getYear(selectedDate).toString();
-            
-                        const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - 10 + i).toString());
-                        const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
-                        const daysInMonth = getDaysInMonth(selectedDate);
-                        const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-            
-                        return (
-                            <div className="flex gap-2">
-                                <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
-                                    <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                                    <SelectContent>
-                                        {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
-                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-                                    <SelectContent>
-                                        {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
-                                    <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                                    <SelectContent>
-                                        {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        );
-                    }}
-                />
-                {readingErrors.date && <p className="text-sm text-destructive">{readingErrors.date.message}</p>}
-              </div>
-
-              <Button type="submit" className="w-full">Log Reading</Button>
-            </form>
+          <CardContent className="space-y-4">
+              {machines.map(machine => {
+                  const latestReading = getLatestReading(machine.id);
+                  const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
+                  const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
+                  return (
+                      <div key={machine.id} className="p-3 border rounded-lg space-y-2">
+                          <h4 className="font-semibold">{machine.name} ({machine.fuelType})</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                              <div className="space-y-1">
+                                  <Label className="text-xs">Last Reading</Label>
+                                  <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
+                              </div>
+                              <div className="space-y-1">
+                                  <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
+                                  <Input 
+                                      id={`reading-${machine.id}`}
+                                      type="number"
+                                      step="any"
+                                      value={newReadings[machine.id] || ''}
+                                      onChange={(e) => handleReadingChange(machine.id, e.target.value)}
+                                      placeholder="Enter reading"
+                                  />
+                              </div>
+                              <div className="space-y-1">
+                                  <Label className="text-xs">Dispensed</Label>
+                                  <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
+                              </div>
+                              <div>
+                                  <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                              </div>
+                          </div>
+                      </div>
+                  )
+              })}
+                {machines.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/machines" className="underline">Machines</Link> page.</p>
+              )}
           </CardContent>
         </Card>
         

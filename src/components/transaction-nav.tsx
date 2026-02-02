@@ -20,7 +20,7 @@ import {
 import { useDatabase } from '@/hooks/use-database';
 
 const navItems = [
-  { href: '/sales', label: 'Machine Reading', icon: Fuel, colorKey: 'Sale' },
+  { href: '/machines', label: 'Machine Reading', icon: Fuel, colorKey: 'Sale' },
   { href: '/sales', label: 'Sale', icon: ShoppingCart, colorKey: 'Sale' },
   { href: '/purchases', label: 'Purchase', icon: Truck, colorKey: 'Purchase' },
   { href: '/customer-payments', label: 'Customer Payment', icon: Wallet, colorKey: 'Customer Payment' },
