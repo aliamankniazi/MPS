@@ -201,7 +201,12 @@ export default function CashCreditSalesReportPage() {
                 rows = rows.filter(row => row.fuelType.toLowerCase().includes(searchTerm.toLowerCase()));
             }
 
-            if (rows.length === 0 && (!readingsByDate[dateKey] || readingsByDate[dateKey].length === 0)) continue;
+            const readingsOnDay = machineReadings.filter(r => {
+                const readingDate = new Date(r.timestamp);
+                return isValid(readingDate) && readingDate >= dayStart && readingDate <= dayEnd;
+            });
+
+            if (rows.length === 0 && readingsOnDay.length === 0) continue;
 
             const totals = Object.values(dailyFuelSummary).reduce((acc, summary) => {
                 acc.cashSalesVolume += summary.cashSalesVolume;
@@ -211,12 +216,10 @@ export default function CashCreditSalesReportPage() {
                 return acc;
             }, { cashSalesVolume: 0, creditSalesVolume: 0, cashSalesAmount: 0, creditSalesAmount: 0 });
 
-             const uniqueMachineNamesForDay = [...new Set(
-                (readingsByDate[dateKey] || []).map(r => r.machineName)
-            )];
+             const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
 
             const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
-                const latestReadingForDay = (readingsByDate[dateKey] || [])
+                const latestReadingForDay = readingsOnDay
                     .filter(r => r.machineName === machineName)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
@@ -231,12 +234,12 @@ export default function CashCreditSalesReportPage() {
                 if (previousReading) {
                     dispensed = latestReadingForDay.volume - previousReading.volume;
                 } else {
-                    const readingsOnSameDay = (readingsByDate[dateKey] || [])
+                    const readingsForMachineOnDay = readingsOnDay
                         .filter(r => r.machineName === machineName)
                         .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // ASC
                     
-                    if (readingsOnSameDay.length > 1) {
-                        previousReading = readingsOnSameDay[0];
+                    if (readingsForMachineOnDay.length > 1) {
+                        previousReading = readingsForMachineOnDay[0];
                         dispensed = latestReadingForDay.volume - previousReading.volume;
                     }
                 }
