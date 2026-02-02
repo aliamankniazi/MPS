@@ -25,6 +25,7 @@ import {
   Users,
   Receipt,
   Droplets,
+  BarChart2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Permission } from '@/hooks/use-roles';
@@ -44,6 +45,14 @@ interface ReportCardProps {
 
 const reportList: ReportCardProps[] = [
   // New Report
+  {
+    title: 'Machine Reading Report',
+    description: 'View machine readings, dispensed volume, and sales variance by unit and product.',
+    href: '/machine-reading-report',
+    icon: BarChart2,
+    permission: 'view_tank_readings',
+    isFrequentlyUsed: true,
+  },
   {
     title: 'Cash & Credit Sales Report',
     description: 'Breaks down fuel sales by volume (in liters) for cash and credit transactions.',
