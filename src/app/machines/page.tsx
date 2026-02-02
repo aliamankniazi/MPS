@@ -9,9 +9,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Fuel, Sun } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TransactionNav } from '@/components/transaction-nav';
+import { startOfDay, endOfDay } from 'date-fns';
 
 
 function PageHeader() {
@@ -47,7 +48,7 @@ function PageHeader() {
 }
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachineReading } = useDatabase();
+  const { machines, machineReadings, addMachineReading, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [newReadings, setNewReadings] = React.useState<Record<string, string>>({});
   
@@ -91,6 +92,55 @@ export default function MachineManagementPage() {
       setNewReadings(prev => ({ ...prev, [machineId]: '' }));
   };
 
+  const dailyDispensedTotals = useMemo(() => {
+    if (!isLoaded) return {};
+    const todayStart = startOfDay(new Date());
+    const todayEnd = endOfDay(new Date());
+
+    const totals: Record<string, number> = {};
+
+    machines.forEach(machine => {
+      const todaysReadings = machineReadings
+        .filter(r => r.machineId === machine.id && new Date(r.timestamp) >= todayStart && new Date(r.timestamp) <= todayEnd)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      if (todaysReadings.length === 0) return;
+
+      let openingReading = machineReadings
+        .filter(r => r.machineId === machine.id && new Date(r.timestamp) < todayStart)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+      if (!openingReading) {
+        openingReading = todaysReadings[0];
+      }
+
+      const latestReadingForToday = todaysReadings[todaysReadings.length - 1];
+
+      if (latestReadingForToday && openingReading && latestReadingForToday.id !== openingReading.id) {
+        const dispensed = latestReadingForToday.volume - openingReading.volume;
+        if (dispensed > 0) {
+          if (!totals[machine.fuelType]) {
+            totals[machine.fuelType] = 0;
+          }
+          totals[machine.fuelType] += dispensed;
+        }
+      }
+    });
+
+    return totals;
+  }, [machines, machineReadings, isLoaded]);
+
+  const machinesByFuelType = useMemo(() => {
+    return machines.reduce((acc, machine) => {
+      const fuelTypeKey = machine.fuelType as string;
+      if (!acc[fuelTypeKey]) {
+        acc[fuelTypeKey] = [];
+      }
+      acc[fuelTypeKey].push(machine);
+      return acc;
+    }, {} as Record<string, typeof machines>);
+  }, [machines]);
+
   return (
     <div className="bg-muted/30 min-h-screen">
       <PageHeader />
@@ -101,44 +151,61 @@ export default function MachineManagementPage() {
               <CardTitle className="flex items-center gap-2"><Fuel/> Machine Readings & Dispensed Fuel</CardTitle>
               <CardDescription>Update readings to verify dispensed volume against sales.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-              {machines.map(machine => {
-                  const latestReading = getLatestReading(machine.id);
-                  const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
-                  const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
-                  return (
-                      <div key={machine.id} className="p-3 border rounded-lg space-y-2">
-                          <h4 className="font-semibold">{machine.name} ({machine.fuelType})</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                              <div className="space-y-1">
-                                  <Label className="text-xs">Last Reading</Label>
-                                  <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
-                              </div>
-                              <div className="space-y-1">
-                                  <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
-                                  <Input 
-                                      id={`reading-${machine.id}`}
-                                      type="number"
-                                      step="any"
-                                      value={newReadings[machine.id] || ''}
-                                      onChange={(e) => handleReadingChange(machine.id, e.target.value)}
-                                      placeholder="Enter reading"
-                                  />
-                              </div>
-                              <div className="space-y-1">
-                                  <Label className="text-xs">Dispensed</Label>
-                                  <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
-                              </div>
-                              <div>
-                                  <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
-                              </div>
-                          </div>
-                      </div>
-                  )
-              })}
+          <CardContent>
+            <div className="space-y-6">
+                {Object.keys(machinesByFuelType).map(fuelType => (
+                    <div key={fuelType}>
+                        <h3 className="text-lg font-semibold mb-2 text-primary">{fuelType}</h3>
+                        <div className="space-y-4">
+                            {machinesByFuelType[fuelType].map(machine => {
+                                const latestReading = getLatestReading(machine.id);
+                                const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
+                                const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
+                                return (
+                                    <div key={machine.id} className="p-3 border rounded-lg space-y-2">
+                                        <h4 className="font-semibold">{machine.name}</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Last Reading</Label>
+                                                <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
+                                                <Input 
+                                                    id={`reading-${machine.id}`}
+                                                    type="number"
+                                                    step="any"
+                                                    value={newReadings[machine.id] || ''}
+                                                    onChange={(e) => handleReadingChange(machine.id, e.target.value)}
+                                                    placeholder="Enter reading"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs">Dispensed</Label>
+                                                <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
+                                            </div>
+                                            <div>
+                                                <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                        <div className="mt-4 p-3 border-t-2 border-primary flex justify-end items-center">
+                            <div className="text-right">
+                                <p className="font-semibold">Today's Dispensed Total ({fuelType})</p>
+                                <p className="text-xl font-bold text-green-600">
+                                    {(dailyDispensedTotals[fuelType] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                ))}
                 {machines.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/settings" className="underline">Settings</Link> page.</p>
               )}
+            </div>
           </CardContent>
         </Card>
       </main>
