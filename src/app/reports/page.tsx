@@ -44,6 +44,14 @@ interface ReportCardProps {
 }
 
 const reportList: ReportCardProps[] = [
+  {
+    title: 'Daily Business Summary',
+    description: 'A day-by-day summary of sales, purchases, expenses, and profit.',
+    href: '/daily-summary',
+    icon: BarChart2,
+    permission: 'view_summary',
+    isFrequentlyUsed: true,
+  },
   // New Report
   {
     title: 'Machine Reading Report',
