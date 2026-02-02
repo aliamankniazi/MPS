@@ -311,7 +311,7 @@ export default function CashCreditSalesReportPage() {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                         <div>
                             <CardTitle className="flex items-center gap-2">
-                                <Droplets /> Cash & Credit Sales Report (Volume in Liters)
+                                <Droplets /> Cash &amp; Credit Sales Report (Volume in Liters)
                             </CardTitle>
                             <CardDescription>
                                 A breakdown of fuel sales by volume (in liters) for cash and credit transactions for the selected period, grouped by date.
@@ -435,13 +435,13 @@ export default function CashCreditSalesReportPage() {
                                                                     <TableCell className="text-right font-mono">
                                                                         <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
                                                                         {reading.previousReadingTimestamp && (
-                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.previousReadingTimestamp), 'hh:mm a')}</div>
+                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.previousReadingTimestamp), 'dd-MMM-yy hh:mm a')}</div>
                                                                         )}
                                                                     </TableCell>
                                                                     <TableCell className="text-right font-mono">
                                                                         <div>{reading.volume.toFixed(2)}</div>
                                                                         {reading.timestamp && (
-                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'hh:mm a')}</div>
+                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'dd-MMM-yy hh:mm a')}</div>
                                                                         )}
                                                                     </TableCell>
                                                                 </TableRow>
@@ -460,7 +460,8 @@ export default function CashCreditSalesReportPage() {
                         <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
                             <XCircle className="w-16 h-16" />
                             <h3 className="text-xl font-semibold">
-                                {isLoaded ? 'No Sales Data' : 'Loading Report...'}
+                                {isLoaded ? 'No Sales Data' : 'Loading Report...'
+                            }
                             </h3>
                             <p>{isLoaded ? 'There are no sales transactions for the selected period.' : 'Please wait while the data is being loaded.'}</p>
                         </div>
