@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
 import {
@@ -277,7 +277,7 @@ export default function CashCreditSalesReportPage() {
 
             const readingsOnDay = machineReadings.filter(r => {
                 const readingDate = new Date(r.timestamp);
-                return isValid(readingDate) && readingDate >= dayStart && readingDate <= dayEnd;
+                return isValid(readingDate) && isSameDay(readingDate, dayStart);
             });
 
             if (rows.length === 0 && readingsOnDay.length === 0) continue;
@@ -419,7 +419,7 @@ export default function CashCreditSalesReportPage() {
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey} className="border border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
+                                <AccordionItem value={dateKey} key={dateKey} className="border-2 border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
                                     <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
                                             <span className="font-semibold text-red-500">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
