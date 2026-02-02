@@ -56,9 +56,13 @@ export default function AiSummaryPage() {
           activityData: JSON.stringify(dataForSummary),
         });
         setSummary(result.summary);
-      } catch (e) {
+      } catch (e: any) {
         console.error(e);
-        setError('Failed to generate summary. Please try again later.');
+        if (e.message && (e.message.toLowerCase().includes('rate limit') || e.message.toLowerCase().includes('rate exceeded'))) {
+          setError('AI rate limit exceeded. Please wait a moment before trying again.');
+        } else {
+          setError('Failed to generate summary. Please try again later.');
+        }
       }
     });
   };
