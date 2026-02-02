@@ -424,8 +424,8 @@ export default function CashCreditSalesReportPage() {
                                                         <TableHeader>
                                                             <TableRow>
                                                                 <TableHead>Machine Name</TableHead>
-                                                                <TableHead className="text-right">Previous Reading</TableHead>
-                                                                <TableHead className="text-right">Closing Reading</TableHead>
+                                                                <TableHead className="text-right">Start of Day Reading</TableHead>
+                                                                <TableHead className="text-right">End of Day Reading</TableHead>
                                                             </TableRow>
                                                         </TableHeader>
                                                         <TableBody>
