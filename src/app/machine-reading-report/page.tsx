@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -52,10 +53,10 @@ export default function MachineReadingReportPage() {
     const [searchTerm, setSearchTerm] = useState('');
 
     const groupedReportData: GroupedReport = useMemo(() => {
-        if (!isLoaded || !machines.length) return {};
+        if (!isLoaded || !machines.length || !dateRange?.from) return {};
 
-        const from = dateRange?.from ? startOfDay(dateRange.from) : startOfDay(new Date());
-        const to = dateRange?.to ? endOfDay(dateRange.to) : endOfDay(from);
+        const from = startOfDay(dateRange.from);
+        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
 
         const result: GroupedReport = {};
 

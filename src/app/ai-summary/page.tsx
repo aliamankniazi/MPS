@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition, useMemo } from 'react';
@@ -17,7 +18,7 @@ export default function AiSummaryPage() {
   const [isPending, startTransition] = useTransition();
 
   const dataForSummary = useMemo(() => {
-    if (!isLoaded) return [];
+    if (!isLoaded || !dateRange?.from) return [];
 
     const combinedData = [
       ...transactions.map(t => ({...t, type: 'Sale'})),
@@ -27,17 +28,12 @@ export default function AiSummaryPage() {
       ...cashAdvances.map(ca => ({...ca, type: 'Cash Advance'}))
     ];
 
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-        return combinedData.filter(item => {
-            const itemDate = new Date(item.timestamp);
-            return isValid(itemDate) && itemDate >= from && itemDate <= to;
-        });
-    }
-
-    // Default to today if no range is selected
-    return combinedData.filter(item => isValid(new Date(item.timestamp)) && isToday(new Date(item.timestamp)));
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+    return combinedData.filter(item => {
+        const itemDate = new Date(item.timestamp);
+        return isValid(itemDate) && itemDate >= from && itemDate <= to;
+    });
 
   }, [isLoaded, transactions, purchases, expenses, customerPayments, cashAdvances, dateRange]);
 

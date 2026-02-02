@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -47,10 +48,10 @@ export default function AllInvoicesPage() {
   const [typeFilter, setTypeFilter] = useState('all');
 
   const allInvoicesForExport = useMemo(() => {
-    if (!isLoaded) return [];
+    if (!isLoaded || !dateRange?.from) return [];
 
-    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
-    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
 
     const filterByDate = (items: any[]) => items.filter(item => {
         const itemDate = new Date(item.timestamp);

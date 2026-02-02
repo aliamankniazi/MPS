@@ -239,8 +239,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         },
         isLoaded: false,
     });
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     
+    useEffect(() => {
+        // This effect runs only on the client, after the initial render, to prevent hydration mismatch.
+        setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
+    }, []);
+
     useEffect(() => {
         if (isAuthLoading) {
             return; // Wait for authentication state to be resolved.

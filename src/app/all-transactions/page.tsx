@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -216,8 +217,10 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
   const filteredEntries = useMemo(() => {
-    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
-    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+    if (!dateRange?.from) return [];
+    
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -252,17 +255,15 @@ export default function AllTransactionsPage() {
   const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
 
   const topCustomers = useMemo(() => {
-    if (!isLoaded) return [];
+    if (!isLoaded || !dateRange?.from) return [];
 
     let currentTransactions = transactions;
-    if (dateRange?.from) {
-        const from = startOfDay(dateRange.from);
-        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-        currentTransactions = transactions.filter(tx => {
-            const txDate = new Date(tx.timestamp);
-            return isValid(txDate) && txDate >= from && txDate <= to;
-        });
-    }
+    const from = startOfDay(dateRange.from);
+    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+    currentTransactions = transactions.filter(tx => {
+        const txDate = new Date(tx.timestamp);
+        return isValid(txDate) && txDate >= from && txDate <= to;
+    });
     
     const customerTotals = currentTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
