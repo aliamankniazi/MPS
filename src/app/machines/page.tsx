@@ -95,7 +95,7 @@ export default function MachineManagementPage() {
 
   const dailyDispensedTotals = useMemo(() => {
     if (!isLoaded) return {};
-    
+
     const { from, to } = dateRange || {};
     const startDate = from ? startOfDay(from) : startOfDay(new Date());
     const endDate = to ? endOfDay(to) : endOfDay(startDate);
@@ -103,36 +103,50 @@ export default function MachineManagementPage() {
     const totals: Record<string, number> = {};
 
     machines.forEach(machine => {
-      const allReadingsForMachine = machineReadings
+      const readingsForMachine = machineReadings
         .filter(r => r.machineId === machine.id)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      const endReading = [...allReadingsForMachine]
-        .reverse()
-        .find(r => new Date(r.timestamp) <= endDate);
-
-      let startReading = [...allReadingsForMachine]
-        .reverse()
-        .find(r => new Date(r.timestamp) < startDate);
-
-      if (!startReading) {
-        // If no reading before the start date, find the first reading on or after the start date
-        startReading = allReadingsForMachine.find(r => new Date(r.timestamp) >= startDate);
+      if (readingsForMachine.length === 0) {
+        return; // No readings for this machine, so no dispensed volume
       }
 
-      if (endReading && startReading && endReading.id !== startReading.id) {
-        const dispensed = endReading.volume - startReading.volume;
-        if (dispensed > 0) {
-          if (!totals[machine.fuelType]) {
-            totals[machine.fuelType] = 0;
+      // Find the last reading on or before the end of the period
+      const endReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
+
+      // Find the last reading strictly before the start of the period
+      const startReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+
+      let dispensed = 0;
+      if (endReading) {
+          if (startReading) {
+              // We have a reading before the period and one at/before the end of the period
+              if (endReading.volume > startReading.volume) {
+                dispensed = endReading.volume - startReading.volume;
+              }
+          } else {
+              // No reading before the period. Find the first reading within the period.
+              const firstReadingInPeriod = readingsForMachine.find(r => new Date(r.timestamp) >= startDate && new Date(r.timestamp) <= endDate);
+              if (firstReadingInPeriod && endReading.id !== firstReadingInPeriod.id) {
+                  if (endReading.volume > firstReadingInPeriod.volume) {
+                    dispensed = endReading.volume - firstReadingInPeriod.volume;
+                  }
+              }
+              // If only one reading in the period and none before, dispensed is 0, which is correct.
           }
-          totals[machine.fuelType] += dispensed;
+      }
+
+      if (dispensed > 0) {
+        if (!totals[machine.fuelType]) {
+          totals[machine.fuelType] = 0;
         }
+        totals[machine.fuelType] += dispensed;
       }
     });
 
     return totals;
   }, [machines, machineReadings, isLoaded, dateRange]);
+
 
   const machinesByFuelType = useMemo(() => {
     return machines.reduce((acc, machine) => {
