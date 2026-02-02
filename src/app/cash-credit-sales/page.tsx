@@ -42,12 +42,18 @@ interface ComparisonSummary {
     difference: number;
 }
 
+interface ProcessedReading extends MachineReading {
+    previousReadingVolume?: number;
+    previousReadingTimestamp?: string;
+    dispensed: number;
+}
+
 
 type GroupedReport = {
     [dateKey: string]: {
         rows: ReportRow[];
         totals: SalesSummary;
-        machineReadings?: (MachineReading & { previousReadingVolume?: number, dispensed: number })[];
+        machineReadings?: ProcessedReading[];
         comparisonSummary?: ComparisonSummary[];
     }
 };
@@ -72,7 +78,7 @@ export default function CashCreditSalesReportPage() {
         if (!isLoaded || !products.length) return {};
 
         const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
-        const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+        const to = dateRange?.to ? endOfDay(dateRange.to) : endOfMonth(new Date());
 
         const filterByDate = (items: any[]) => items.filter(item => {
             const itemDate = new Date(item.timestamp);
@@ -209,12 +215,14 @@ export default function CashCreditSalesReportPage() {
                 (readingsByDate[dateKey] || []).map(r => r.machineName)
             )];
 
-            const processedReadings = uniqueMachineNamesForDay.map(machineName => {
+            const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
                 const latestReadingForDay = (readingsByDate[dateKey] || [])
                     .filter(r => r.machineName === machineName)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
-                let previousReading = machineReadings // use unfiltered list
+                if (!latestReadingForDay) return null;
+
+                let previousReading: MachineReading | undefined = machineReadings // use unfiltered list
                     .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
@@ -223,7 +231,6 @@ export default function CashCreditSalesReportPage() {
                 if (previousReading) {
                     dispensed = latestReadingForDay.volume - previousReading.volume;
                 } else {
-                    // No previous day reading. Try to find a reading from the same day.
                     const readingsOnSameDay = (readingsByDate[dateKey] || [])
                         .filter(r => r.machineName === machineName)
                         .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // ASC
@@ -237,9 +244,10 @@ export default function CashCreditSalesReportPage() {
                 return {
                     ...latestReadingForDay,
                     previousReadingVolume: previousReading?.volume,
+                    previousReadingTimestamp: previousReading?.timestamp,
                     dispensed: dispensed > 0 ? dispensed : 0,
                 };
-            }).filter(r => r && r.id);
+            }).filter((r): r is ProcessedReading => r !== null);
 
             const salesSummaryByFuel = rows.reduce((acc, row) => {
                 acc[row.fuelType] = (acc[row.fuelType] || 0) + row.cashSalesVolume + row.creditSalesVolume;
@@ -424,8 +432,18 @@ export default function CashCreditSalesReportPage() {
                                                             {dayData.machineReadings.map(reading => (
                                                                 <TableRow key={reading.id}>
                                                                     <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
-                                                                    <TableCell className="text-right font-mono">{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</TableCell>
-                                                                    <TableCell className="text-right font-mono">{reading.volume.toFixed(2)}</TableCell>
+                                                                    <TableCell className="text-right font-mono">
+                                                                        <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
+                                                                        {reading.previousReadingTimestamp && (
+                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.previousReadingTimestamp), 'hh:mm a')}</div>
+                                                                        )}
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right font-mono">
+                                                                        <div>{reading.volume.toFixed(2)}</div>
+                                                                        {reading.timestamp && (
+                                                                            <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'hh:mm a')}</div>
+                                                                        )}
+                                                                    </TableCell>
                                                                 </TableRow>
                                                             ))}
                                                         </TableBody>
@@ -451,4 +469,5 @@ export default function CashCreditSalesReportPage() {
             </Card>
         </div>
     );
-}
+
+    
