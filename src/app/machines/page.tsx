@@ -93,14 +93,18 @@ export default function MachineManagementPage() {
       setNewReadings(prev => ({ ...prev, [machineId]: '' }));
   };
 
-  const dailyDispensedTotals = useMemo(() => {
+  const dispensedTotalsByFuel = useMemo(() => {
     if (!isLoaded) return {};
 
     const { from, to } = dateRange || {};
     const startDate = from ? startOfDay(from) : startOfDay(new Date());
     const endDate = to ? endOfDay(to) : endOfDay(startDate);
 
-    const totals: Record<string, number> = {};
+    const totals: Record<string, {
+        dispensed: number;
+        startReading: number;
+        endReading: number;
+    }> = {};
 
     machines.forEach(machine => {
       const readingsForMachine = machineReadings
@@ -108,40 +112,40 @@ export default function MachineManagementPage() {
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
       if (readingsForMachine.length === 0) {
-        return; // No readings for this machine, so no dispensed volume
+        return;
       }
 
-      // Find the last reading on or before the end of the period
       const endReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-
-      // Find the last reading strictly before the start of the period
-      const startReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+      const startReadingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
 
       let dispensed = 0;
+      let startVolumeForMachine = 0;
+      let endVolumeForMachine = endReading ? endReading.volume : 0;
+
       if (endReading) {
-          if (startReading) {
-              // We have a reading before the period and one at/before the end of the period
-              if (endReading.volume > startReading.volume) {
-                dispensed = endReading.volume - startReading.volume;
+          if (startReadingBeforePeriod) {
+              startVolumeForMachine = startReadingBeforePeriod.volume;
+              if (endReading.volume > startReadingBeforePeriod.volume) {
+                dispensed = endReading.volume - startReadingBeforePeriod.volume;
               }
           } else {
-              // No reading before the period. Find the first reading within the period.
               const firstReadingInPeriod = readingsForMachine.find(r => new Date(r.timestamp) >= startDate && new Date(r.timestamp) <= endDate);
               if (firstReadingInPeriod && endReading.id !== firstReadingInPeriod.id) {
+                  startVolumeForMachine = firstReadingInPeriod.volume;
                   if (endReading.volume > firstReadingInPeriod.volume) {
                     dispensed = endReading.volume - firstReadingInPeriod.volume;
                   }
               }
-              // If only one reading in the period and none before, dispensed is 0, which is correct.
           }
       }
 
-      if (dispensed > 0) {
-        if (!totals[machine.fuelType]) {
-          totals[machine.fuelType] = 0;
-        }
-        totals[machine.fuelType] += dispensed;
+      if (!totals[machine.fuelType]) {
+        totals[machine.fuelType] = { dispensed: 0, startReading: 0, endReading: 0 };
       }
+
+      totals[machine.fuelType].dispensed += dispensed;
+      totals[machine.fuelType].startReading += startVolumeForMachine;
+      totals[machine.fuelType].endReading += endVolumeForMachine;
     });
 
     return totals;
@@ -215,11 +219,23 @@ export default function MachineManagementPage() {
                                 )
                             })}
                         </div>
-                        <div className="mt-4 p-3 border-t-2 border-primary flex justify-end items-center">
+                        <div className="mt-4 p-3 border-t-2 border-primary flex justify-end items-center space-x-8">
+                            <div className="text-right">
+                                <p className="font-semibold text-muted-foreground">Total Start Reading</p>
+                                <p className="text-lg font-bold">
+                                    {(dispensedTotalsByFuel[fuelType]?.startReading || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="font-semibold text-muted-foreground">Total End Reading</p>
+                                <p className="text-lg font-bold">
+                                    {(dispensedTotalsByFuel[fuelType]?.endReading || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </p>
+                            </div>
                             <div className="text-right">
                                 <p className="font-semibold">Dispensed Total ({fuelType})</p>
                                 <p className="text-xl font-bold text-green-600">
-                                    {(dailyDispensedTotals[fuelType] || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
+                                    {(dispensedTotalsByFuel[fuelType]?.dispensed || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
                                 </p>
                             </div>
                         </div>
