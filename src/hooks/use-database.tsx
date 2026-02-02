@@ -239,7 +239,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         },
         isLoaded: false,
     });
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     
     useEffect(() => {
         // This effect runs only on the client, after the initial render, to prevent hydration mismatch.
