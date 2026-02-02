@@ -22,15 +22,15 @@ import { useDatabase } from '@/hooks/use-database';
 const navItems = [
   { href: '/machines', label: 'Machine Reading', icon: Fuel, colorKey: 'Sale' },
   { href: '/sales', label: 'Sale', icon: ShoppingCart, colorKey: 'Sale' },
-  { href: '/purchases', label: 'Purchase', icon: Truck, colorKey: 'Purchase' },
   { href: '/customer-payments', label: 'Customer Payment', icon: Wallet, colorKey: 'Customer Payment' },
-  { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo, colorKey: 'Supplier Payment' },
   { href: '/cash-advances', label: 'Cash Advance', icon: DollarSign, colorKey: 'Cash Advance' },
-  { href: '/employees', label: 'Salary Payment', icon: User, colorKey: 'Salary' },
   { href: '/expenses', label: 'Expenses', icon: DollarSign, colorKey: 'Expense' },
+  { href: '/purchases', label: 'Purchase', icon: Truck, colorKey: 'Purchase' },
+  { href: '/supplier-payments', label: 'Supplier Payment', icon: Redo, colorKey: 'Supplier Payment' },
   { href: '/sale-returns', label: 'Sale Return', icon: Undo, colorKey: 'Sale Return' },
   { href: '/purchase-returns', label: 'Purchase Return', icon: Undo2, colorKey: 'Purchase Return' },
   { href: '/stock-adjustment', label: 'Stock Adjustment', icon: Wrench, colorKey: 'Investment' },
+  { href: '/employees', label: 'Salary Payment', icon: User, colorKey: 'Salary' },
 ];
 
 export function TransactionNav() {
