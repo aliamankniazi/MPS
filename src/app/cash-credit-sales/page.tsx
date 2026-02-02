@@ -469,5 +469,4 @@ export default function CashCreditSalesReportPage() {
             </Card>
         </div>
     );
-
-    
+}
