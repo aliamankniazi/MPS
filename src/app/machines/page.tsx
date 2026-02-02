@@ -12,7 +12,7 @@ import { useDatabase } from '@/hooks/use-database';
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TransactionNav } from '@/components/transaction-nav';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, isValid } from 'date-fns';
 import { DateRangePicker } from '@/components/date-range-picker';
 
 
@@ -49,7 +49,7 @@ function PageHeader() {
 }
 
 export default function MachineManagementPage() {
-  const { machines, machineReadings, addMachineReading, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { machines, machineReadings, addMachineReading, isLoaded, dateRange, setDateRange, transactions } = useDatabase();
   const { toast } = useToast();
   const [newReadings, setNewReadings] = React.useState<Record<string, string>>({});
   
@@ -93,63 +93,91 @@ export default function MachineManagementPage() {
       setNewReadings(prev => ({ ...prev, [machineId]: '' }));
   };
 
-  const dispensedTotalsByFuel = useMemo(() => {
+  const fuelReportByFuelType = useMemo(() => {
     if (!isLoaded) return {};
 
     const { from, to } = dateRange || {};
     const startDate = from ? startOfDay(from) : startOfDay(new Date());
     const endDate = to ? endOfDay(to) : endOfDay(startDate);
 
-    const totals: Record<string, {
+    const report: Record<string, {
         dispensed: number;
         startReading: number;
         endReading: number;
+        sales: number;
+        variance: number;
     }> = {};
 
-    machines.forEach(machine => {
-      const readingsForMachine = machineReadings
-        .filter(r => r.machineId === machine.id)
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    const fuelTypes = [...new Set(machines.map(m => m.fuelType))];
 
-      if (readingsForMachine.length === 0) {
-        return;
-      }
+    fuelTypes.forEach(fuelType => {
+        // --- Dispensed Calculation ---
+        let totalDispensed = 0;
+        let totalStartReading = 0;
+        let totalEndReading = 0;
 
-      const endReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-      const startReadingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+        const machinesForFuelType = machines.filter(m => m.fuelType === fuelType);
+        machinesForFuelType.forEach(machine => {
+            const readingsForMachine = machineReadings
+                .filter(r => r.machineId === machine.id)
+                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      let dispensed = 0;
-      let startVolumeForMachine = 0;
-      let endVolumeForMachine = endReading ? endReading.volume : 0;
+            if (readingsForMachine.length > 0) {
+                const endReadingInPeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
+                const startReadingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+                
+                let dispensed = 0;
+                let startVolumeForMachine = 0;
+                
+                if (endReadingInPeriod) {
+                    if (startReadingBeforePeriod) {
+                        startVolumeForMachine = startReadingBeforePeriod.volume;
+                        dispensed = endReadingInPeriod.volume - startVolumeForMachine;
+                    } else {
+                        // If no reading before, try to find the first reading within the period.
+                        const startReadingInPeriod = readingsForMachine.find(r => {
+                            const readingDate = new Date(r.timestamp);
+                            return isValid(readingDate) && readingDate >= startDate && readingDate <= endDate;
+                        });
+                        if(startReadingInPeriod && endReadingInPeriod.id !== startReadingInPeriod.id) {
+                            startVolumeForMachine = startReadingInPeriod.volume;
+                            dispensed = endReadingInPeriod.volume - startVolumeForMachine;
+                        }
+                    }
+                }
+                
+                totalDispensed += dispensed > 0 ? dispensed : 0;
+                totalStartReading += startVolumeForMachine;
+                totalEndReading += endReadingInPeriod ? endReadingInPeriod.volume : 0;
+            }
+        });
 
-      if (endReading) {
-          if (startReadingBeforePeriod) {
-              startVolumeForMachine = startReadingBeforePeriod.volume;
-              if (endReading.volume > startReadingBeforePeriod.volume) {
-                dispensed = endReading.volume - startReadingBeforePeriod.volume;
-              }
-          } else {
-              const firstReadingInPeriod = readingsForMachine.find(r => new Date(r.timestamp) >= startDate && new Date(r.timestamp) <= endDate);
-              if (firstReadingInPeriod && endReading.id !== firstReadingInPeriod.id) {
-                  startVolumeForMachine = firstReadingInPeriod.volume;
-                  if (endReading.volume > firstReadingInPeriod.volume) {
-                    dispensed = endReading.volume - firstReadingInPeriod.volume;
-                  }
-              }
-          }
-      }
+        // Sales Calculation
+        const filteredTransactions = transactions.filter(tx => {
+            const txDate = new Date(tx.timestamp);
+            return isValid(txDate) && txDate >= startDate && txDate <= endDate;
+        });
 
-      if (!totals[machine.fuelType]) {
-        totals[machine.fuelType] = { dispensed: 0, startReading: 0, endReading: 0 };
-      }
+        const totalSales = filteredTransactions
+            .filter(tx => tx.fuelType === fuelType && tx.volume)
+            .reduce((sum, tx) => sum + (tx.volume || 0), 0);
+            
+        // Variance
+        const variance = totalDispensed - totalSales;
 
-      totals[machine.fuelType].dispensed += dispensed;
-      totals[machine.fuelType].startReading += startVolumeForMachine;
-      totals[machine.fuelType].endReading += endVolumeForMachine;
+        report[fuelType] = {
+            dispensed: totalDispensed,
+            startReading: totalStartReading,
+            endReading: totalEndReading,
+            sales: totalSales,
+            variance: variance,
+        };
     });
 
-    return totals;
-  }, [machines, machineReadings, isLoaded, dateRange]);
+    return report;
+
+  }, [machines, machineReadings, transactions, isLoaded, dateRange]);
+
 
 
   const machinesByFuelType = useMemo(() => {
@@ -180,67 +208,84 @@ export default function MachineManagementPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
-                {Object.keys(machinesByFuelType).map(fuelType => (
-                    <div key={fuelType}>
-                        <h3 className="text-lg font-semibold mb-2 text-primary">{fuelType}</h3>
-                        <div className="space-y-4">
-                            {machinesByFuelType[fuelType].map(machine => {
-                                const latestReading = getLatestReading(machine.id);
-                                const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
-                                const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
-                                return (
-                                    <div key={machine.id} className="p-3 border rounded-lg space-y-2">
-                                        <h4 className="font-semibold">{machine.name}</h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
-                                            <div className="space-y-1">
-                                                <Label className="text-xs">Last Reading</Label>
-                                                <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
-                                                <Input 
-                                                    id={`reading-${machine.id}`}
-                                                    type="number"
-                                                    step="any"
-                                                    value={newReadings[machine.id] || ''}
-                                                    onChange={(e) => handleReadingChange(machine.id, e.target.value)}
-                                                    placeholder="Enter reading"
-                                                />
-                                            </div>
-                                            <div className="space-y-1">
-                                                <Label className="text-xs">Dispensed</Label>
-                                                <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
-                                            </div>
-                                            <div>
-                                                <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                {Object.keys(machinesByFuelType).map(fuelType => {
+                    const report = fuelReportByFuelType[fuelType];
+                    return (
+                        <div key={fuelType}>
+                            <h3 className="text-lg font-semibold mb-2 text-primary">{fuelType}</h3>
+                            <div className="space-y-4">
+                                {machinesByFuelType[fuelType].map(machine => {
+                                    const latestReading = getLatestReading(machine.id);
+                                    const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
+                                    const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
+                                    return (
+                                        <div key={machine.id} className="p-3 border rounded-lg space-y-2">
+                                            <h4 className="font-semibold">{machine.name}</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Last Reading</Label>
+                                                    <Input value={latestReading ? latestReading.volume.toFixed(2) : 'N/A'} readOnly disabled />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label htmlFor={`reading-${machine.id}`} className="text-xs">New Reading</Label>
+                                                    <Input 
+                                                        id={`reading-${machine.id}`}
+                                                        type="number"
+                                                        step="any"
+                                                        value={newReadings[machine.id] || ''}
+                                                        onChange={(e) => handleReadingChange(machine.id, e.target.value)}
+                                                        placeholder="Enter reading"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs">Dispensed (Live)</Label>
+                                                    <Input value={dispensed.toFixed(2) + ' Ltr'} readOnly disabled className="font-bold text-green-600" />
+                                                </div>
+                                                <div>
+                                                    <Button onClick={() => handleSaveReading(machine.id)} className="w-full">Save</Button>
+                                                </div>
                                             </div>
                                         </div>
+                                    )
+                                })}
+                            </div>
+                            {report && (
+                                <div className="mt-4 p-3 border-t-2 border-primary grid grid-cols-1 md:grid-cols-5 gap-4 items-center text-right">
+                                    <div>
+                                        <p className="font-semibold text-muted-foreground text-sm">Total Start Reading</p>
+                                        <p className="text-base font-bold">
+                                            {report.startReading.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
                                     </div>
-                                )
-                            })}
+                                    <div>
+                                        <p className="font-semibold text-muted-foreground text-sm">Total End Reading</p>
+                                        <p className="text-base font-bold">
+                                            {report.endReading.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-sm">Dispensed Total</p>
+                                        <p className="text-lg font-bold text-green-600">
+                                            {report.dispensed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
+                                        </p>
+                                    </div>
+                                     <div>
+                                        <p className="font-semibold text-sm">Sales Total</p>
+                                        <p className="text-lg font-bold text-blue-600">
+                                            {report.sales.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <p className="font-semibold text-sm">Variance</p>
+                                        <p className={`text-lg font-bold ${report.variance >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                            {report.variance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div className="mt-4 p-3 border-t-2 border-primary flex justify-end items-center space-x-8">
-                            <div className="text-right">
-                                <p className="font-semibold text-muted-foreground">Total Start Reading</p>
-                                <p className="text-lg font-bold">
-                                    {(dispensedTotalsByFuel[fuelType]?.startReading || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-semibold text-muted-foreground">Total End Reading</p>
-                                <p className="text-lg font-bold">
-                                    {(dispensedTotalsByFuel[fuelType]?.endReading || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </p>
-                            </div>
-                            <div className="text-right">
-                                <p className="font-semibold">Dispensed Total ({fuelType})</p>
-                                <p className="text-xl font-bold text-green-600">
-                                    {(dispensedTotalsByFuel[fuelType]?.dispensed || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Ltr
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                    )
+                })}
                 {machines.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center p-4">No machines configured. Please add them in the <Link href="/settings" className="underline">Settings</Link> page.</p>
               )}
