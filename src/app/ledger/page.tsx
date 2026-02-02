@@ -124,8 +124,10 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
+    deleteMachineReading,
   } = useDatabase();
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
+  const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
@@ -790,6 +792,16 @@ export default function LedgerPage() {
     setSelectedEntries([]);
     setShowDeleteSelectedDialog(false);
   };
+  
+  const handleDeleteReading = () => {
+    if (!readingToDelete) return;
+    deleteMachineReading(readingToDelete.id);
+    toast({
+        title: 'Reading Deleted',
+        description: `The reading for ${readingToDelete.machineName} has been deleted.`,
+    });
+    setReadingToDelete(null);
+  }
 
   const clearFilters = () => {
     setSearchTerm('');
@@ -1030,6 +1042,7 @@ export default function LedgerPage() {
                                                             <TableHead>Machine Name</TableHead>
                                                             <TableHead className="text-right">Previous Reading</TableHead>
                                                             <TableHead className="text-right">Closing Reading</TableHead>
+                                                            <TableHead className="text-center">Actions</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
                                                     <TableBody>
@@ -1047,6 +1060,11 @@ export default function LedgerPage() {
                                                                     {reading.timestamp && (
                                                                         <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'dd-MMM-yy hh:mm a')}</div>
                                                                     )}
+                                                                </TableCell>
+                                                                <TableCell className="text-center">
+                                                                    <Button variant="ghost" size="icon" title="Delete" onClick={() => setReadingToDelete(reading)}>
+                                                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                                                    </Button>
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))}
@@ -1203,6 +1221,23 @@ export default function LedgerPage() {
               Yes, delete {selectedEntries.length} entries
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={!!readingToDelete} onOpenChange={(isOpen) => !isOpen && setReadingToDelete(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+                This will move the machine reading to the recycle bin.
+            </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteReading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Yes, delete reading
+            </AlertDialogAction>
+            </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </>
