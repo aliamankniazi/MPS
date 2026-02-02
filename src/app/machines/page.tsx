@@ -20,31 +20,18 @@ function PageHeader() {
     const [currentTime, setCurrentTime] = useState('');
     
     useEffect(() => {
-      const updateClock = () => {
-        setCurrentTime(new Date().toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-        }));
-      };
-      updateClock();
-      const timer = setInterval(updateClock, 1000);
-      return () => clearInterval(timer);
+        const timer = setInterval(() => {
+            setCurrentTime(new Date().toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true,
+            }));
+        }, 1000);
+        return () => clearInterval(timer);
     }, []);
-
-    if (!currentTime) {
-      return (
-        <header className="bg-background shadow-sm sticky top-0 z-20">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <p className="text-sm font-medium">Loading time...</p>
-          </div>
-        </header>
-      );
-    }
-
 
     return (
       <header className="bg-background shadow-sm sticky top-0 z-20">
