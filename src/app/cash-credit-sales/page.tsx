@@ -467,7 +467,7 @@ export default function CashCreditSalesReportPage() {
                                         </div>
                                          {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
                                             <div>
-                                                <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification</h4>
+                                                <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification for {format(new Date(dateKey), 'dd-MMM-yyyy')}</h4>
                                                 <div className="border rounded-md">
                                                     <Table>
                                                         <TableHeader>
@@ -496,7 +496,7 @@ export default function CashCreditSalesReportPage() {
                                         )}
                                         {dayData.machineReadings && dayData.machineReadings.length > 0 && (
                                             <div>
-                                                <h4 className="font-semibold text-md mb-2">Machine Reading Details</h4>
+                                                <h4 className="font-semibold text-md mb-2">Machine Reading Details for {format(new Date(dateKey), 'dd-MMM-yyyy')}</h4>
                                                 <div className="border rounded-md">
                                                     <Table>
                                                         <TableHeader>
