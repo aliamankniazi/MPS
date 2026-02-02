@@ -32,73 +32,99 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     </svg>
 );
 
+const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-11
+  const day = date.getDate();
+
+  // Based on Bikrami calendar for Punjab
+  const monthData = [
+      { name: 'ਚੇਤ', length: 31, start: { m: 2, d: 14 } },
+      { name: 'ਵਸਾਖ', length: 31, start: { m: 3, d: 14 } },
+      { name: 'ਜੇਠ', length: 31, start: { m: 4, d: 15 } },
+      { name: 'ਹਾੜ', length: 31, start: { m: 5, d: 15 } },
+      { name: 'ਸਾਵਣ', length: 31, start: { m: 6, d: 16 } },
+      { name: 'ਭਾਦੋਂ', length: 30, start: { m: 7, d: 16 } },
+      { name: 'Աਸੂ', length: 30, start: { m: 8, d: 15 } },
+      { name: 'ਕੱਤਕ', length: 30, start: { m: 9, d: 15 } },
+      { name: 'ਮੱਘਰ', length: 30, start: { m: 10, d: 14 } },
+      { name: 'ਪੋਹ', length: 30, start: { m: 11, d: 14 } },
+      { name: 'ਮਾਘ', length: 30, start: { m: 0, d: 13 } },
+      { name: 'ਫੱਗਣ', length: 30, start: { m: 1, d: 12 } }
+  ];
+
+  let bikramiYear = year + 57;
+  let desiDay = 0;
+  let desiMonth = '';
+
+  let gregorianYearForBikramiStart = year;
+  if (month < 2 || (month === 2 && day < 14)) {
+      gregorianYearForBikramiStart--;
+      bikramiYear--; 
+  }
+
+  const monthStarts = monthData.map(m => ({
+      ...m,
+      startDate: new Date(m.start.m >= 2 ? gregorianYearForBikramiStart : gregorianYearForBikramiStart + 1, m.start.m, m.start.d)
+  })).sort((a,b) => a.startDate.getTime() - b.startDate.getTime());
+  
+  let foundMonth = false;
+  for (let i = monthStarts.length - 1; i >= 0; i--) {
+      if (date >= monthStarts[i].startDate) {
+          desiMonth = monthStarts[i].name;
+          desiDay = differenceInDays(date, monthStarts[i].startDate) + 1;
+          foundMonth = true;
+          break;
+      }
+  }
+
+  if (!foundMonth) {
+      const lastMonthOfPreviousYear = monthStarts[monthStarts.length -1];
+      desiMonth = lastMonthOfPreviousYear.name;
+      desiDay = differenceInDays(date, new Date(gregorianYearForBikramiStart, lastMonthOfPreviousYear.start.m, lastMonthOfPreviousYear.start.d)) + 1;
+  }
+  
+  return { day: desiDay, month: desiMonth, year: bikramiYear };
+};
+
+const getNextRamadanInfo = (currentDate: Date) => {
+    const ramadanPeriods = [
+        { start: new Date('2025-02-28'), end: new Date('2025-03-29') },
+        { start: new Date('2026-02-17'), end: new Date('2026-03-18') },
+        { start: new Date('2027-02-07'), end: new Date('2027-03-08') },
+        { start: new Date('2028-01-27'), end: new Date('2028-02-25') },
+    ];
+
+    const today = startOfDay(currentDate);
+
+    for (const period of ramadanPeriods) {
+        if (today >= startOfDay(period.start) && today <= startOfDay(period.end)) {
+            return { daysRemaining: 0, isDuring: true };
+        }
+    }
+
+    const nextRamadanDate = ramadanPeriods.find(period => startOfDay(period.start) > today)?.start;
+
+    if (!nextRamadanDate) {
+        return { daysRemaining: null, isDuring: false };
+    }
+
+    const daysRemaining = differenceInDays(startOfDay(nextRamadanDate), today);
+    return { daysRemaining, isDuring: false };
+};
+
 
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
+  const [islamicDateString, setIslamicDateString] = useState('');
+  const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
 
   useEffect(() => {
     setChartEndDate(new Date());
   }, []);
 
-  const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
-    const year = date.getFullYear();
-    const month = date.getMonth(); // 0-11
-    const day = date.getDate();
-  
-    // Based on Bikrami calendar for Punjab
-    const monthData = [
-        { name: 'ਚੇਤ', length: 31, start: { m: 2, d: 14 } },
-        { name: 'ਵਸਾਖ', length: 31, start: { m: 3, d: 14 } },
-        { name: 'ਜੇਠ', length: 31, start: { m: 4, d: 15 } },
-        { name: 'ਹਾੜ', length: 31, start: { m: 5, d: 15 } },
-        { name: 'ਸਾਵਣ', length: 31, start: { m: 6, d: 16 } },
-        { name: 'ਭਾਦੋਂ', length: 30, start: { m: 7, d: 16 } },
-        { name: 'Աਸੂ', length: 30, start: { m: 8, d: 15 } },
-        { name: 'ਕੱਤਕ', length: 30, start: { m: 9, d: 15 } },
-        { name: 'ਮੱਘਰ', length: 30, start: { m: 10, d: 14 } },
-        { name: 'ਪੋਹ', length: 30, start: { m: 11, d: 14 } },
-        { name: 'ਮਾਘ', length: 30, start: { m: 0, d: 13 } },
-        { name: 'ਫੱਗਣ', length: 30, start: { m: 1, d: 12 } }
-    ];
-
-    let bikramiYear = year + 57;
-    let desiDay = 0;
-    let desiMonth = '';
-
-    let gregorianYearForBikramiStart = year;
-    if (month < 2 || (month === 2 && day < 14)) {
-        gregorianYearForBikramiStart--;
-        bikramiYear--; 
-    }
-
-    const monthStarts = monthData.map(m => ({
-        ...m,
-        startDate: new Date(m.start.m >= 2 ? gregorianYearForBikramiStart : gregorianYearForBikramiStart + 1, m.start.m, m.start.d)
-    })).sort((a,b) => a.startDate.getTime() - b.startDate.getTime());
-    
-    let foundMonth = false;
-    for (let i = monthStarts.length - 1; i >= 0; i--) {
-        if (date >= monthStarts[i].startDate) {
-            desiMonth = monthStarts[i].name;
-            desiDay = differenceInDays(date, monthStarts[i].startDate) + 1;
-            foundMonth = true;
-            break;
-        }
-    }
-
-    if (!foundMonth) {
-        // Handle dates before the first defined month start (e.g. early January)
-        const lastMonthOfPreviousYear = monthStarts[monthStarts.length -1];
-        desiMonth = lastMonthOfPreviousYear.name;
-        // This is an approximation, real logic might be more complex
-        desiDay = differenceInDays(date, new Date(gregorianYearForBikramiStart, lastMonthOfPreviousYear.start.m, lastMonthOfPreviousYear.start.d)) + 1;
-    }
-    
-    return { day: desiDay, month: desiMonth, year: bikramiYear };
-  };
-    
   useEffect(() => {
     const timer = setInterval(() => {
         const now = new Date();
@@ -108,14 +134,6 @@ export default function DashboardPage() {
             month: 'long',
             day: 'numeric',
         });
-        const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        }).format(now);
-        
-        const desiDate = getPunjabiDate(now);
-        const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
 
         const time = now.toLocaleString('en-US', {
             hour: '2-digit',
@@ -124,7 +142,30 @@ export default function DashboardPage() {
             hour12: true,
         });
 
-        setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate} | ${time}`);
+        setCurrentTime(`${gregorianDate} | ${time}`);
+        
+        const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(now);
+        
+        const desiDate = getPunjabiDate(now);
+        const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
+
+        setIslamicDateString(`${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate}`);
+
+        const ramadanInfo = getNextRamadanInfo(now);
+        if (ramadanInfo.isDuring) {
+            setRamadanCountdown("Ramadan Mubarak!");
+        } else if (ramadanInfo.daysRemaining !== null && ramadanInfo.daysRemaining > 0) {
+            setRamadanCountdown(`${ramadanInfo.daysRemaining} days remaining for Ramadan`);
+        } else if (ramadanInfo.daysRemaining === 0) {
+            setRamadanCountdown("Ramadan starts today!");
+        } else {
+            setRamadanCountdown('');
+        }
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -471,6 +512,10 @@ export default function DashboardPage() {
               <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
               <p className="text-xl font-medium text-muted-foreground">{currentTime}</p>
             </div>
+             <div className="flex items-baseline gap-4 flex-wrap mt-1">
+                <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p>
+                {ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
+            </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
       </div>
@@ -555,7 +600,7 @@ export default function DashboardPage() {
                 )}>
                     PKR {financialSummary ? Math.abs(financialSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '...'}
                 </div>
-                <p className="text-xs text-muted-foreground">Net value of stock adjustments</p>
+                <p className="text-xs text-muted-foreground">Net value from stock adjustments</p>
               </CardContent>
             </Card>
              <Card>
