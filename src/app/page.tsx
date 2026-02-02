@@ -36,6 +36,11 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 export default function DashboardPage() {
   const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
+  const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setChartEndDate(new Date());
+  }, []);
 
   const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
     const year = date.getFullYear();
@@ -331,9 +336,9 @@ export default function DashboardPage() {
   }, [isLoaded, products, fuelStock, filteredData, purchases]);
 
   const salesChartData = useMemo(() => {
-    if (!isLoaded) return [];
+    if (!isLoaded || !chartEndDate) return [];
     
-    const endDate = new Date();
+    const endDate = chartEndDate;
     
     const dailySales = transactions.reduce((acc, tx) => {
         const txDate = new Date(tx.timestamp);
@@ -354,7 +359,7 @@ export default function DashboardPage() {
         };
     });
 
-  }, [isLoaded, transactions]);
+  }, [isLoaded, transactions, chartEndDate]);
   
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
