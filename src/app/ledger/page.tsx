@@ -1005,7 +1005,7 @@ export default function LedgerPage() {
                                 <div className="space-y-4 mb-4">
                                      {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
                                         <div>
-                                            <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification</h4>
+                                            <h4 className="font-semibold text-md mb-2">Show Date Wise Reeding</h4>
                                             <div className="border rounded-md">
                                                 <Table>
                                                     <TableHeader>
