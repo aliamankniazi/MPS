@@ -419,10 +419,10 @@ export default function CashCreditSalesReportPage() {
                                 if (!dayData) return null;
 
                                 return (
-                                <AccordionItem value={dateKey} key={dateKey} className="border-2 border-red-500 rounded-lg overflow-hidden bg-background shadow-sm">
+                                <AccordionItem value={dateKey} key={dateKey} className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
                                     <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
-                                            <span className="font-semibold text-red-500">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
+                                            <span className="font-semibold text-primary">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
                                             <div className="flex gap-4 text-sm font-normal">
                                                 <span className="text-green-600">Cash: PKR {dayData.totals.cashSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
                                                 <span className="text-blue-600">Credit: PKR {dayData.totals.creditSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
@@ -430,45 +430,52 @@ export default function CashCreditSalesReportPage() {
                                             </div>
                                         </div>
                                     </AccordionTrigger>
-                                    <AccordionContent className="px-4 pb-4 bg-background space-y-4">
-                                        <div className="border rounded-md">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Fuel Type / Opening Stock</TableHead>
-                                                        <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
-                                                        <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
-                                                        <TableHead className="text-right">Total Sales (Liters)</TableHead>
-                                                        <TableHead className="text-right">Remaining Stock</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {dayData.rows.map(row => (
-                                                        <TableRow key={row.fuelType}>
-                                                            <TableCell className="font-medium">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Fuel size={16}/>
-                                                                    <div>
-                                                                        {row.fuelType}
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            Opening: {row.openingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
+                                    <AccordionContent className="p-4 bg-muted/20 space-y-6">
+                                        <Card>
+                                            <CardHeader>
+                                                <CardTitle>Daily Sales Summary</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="p-0">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow>
+                                                            <TableHead>Fuel Type / Opening Stock</TableHead>
+                                                            <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
+                                                            <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
+                                                            <TableHead className="text-right">Total Sales (Liters)</TableHead>
+                                                            <TableHead className="text-right">Remaining Stock</TableHead>
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {dayData.rows.map(row => (
+                                                            <TableRow key={row.fuelType}>
+                                                                <TableCell className="font-medium">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Fuel size={16}/>
+                                                                        <div>
+                                                                            {row.fuelType}
+                                                                            <div className="text-xs text-muted-foreground">
+                                                                                Opening: {row.openingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
+                                                                            </div>
                                                                         </div>
                                                                     </div>
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono text-green-600">{row.cashSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                            <TableCell className="text-right font-mono text-blue-600">{row.creditSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                            <TableCell className="text-right font-mono font-bold">{(row.cashSalesVolume + row.creditSalesVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                            <TableCell className="text-right font-mono font-semibold">{row.closingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-right font-mono text-green-600">{row.cashSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell className="text-right font-mono text-blue-600">{row.creditSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell className="text-right font-mono font-bold">{(row.cashSalesVolume + row.creditSalesVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell className="text-right font-mono font-semibold">{row.closingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                    </TableBody>
+                                                </Table>
+                                            </CardContent>
+                                        </Card>
                                          {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
-                                            <div>
-                                                <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification for {format(new Date(dateKey), 'dd-MMM-yyyy')}</h4>
-                                                <div className="border rounded-md">
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Sales vs. Dispensed Volume Verification for {format(new Date(dateKey), 'dd-MMM-yyyy')}</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-0">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
@@ -491,13 +498,15 @@ export default function CashCreditSalesReportPage() {
                                                             ))}
                                                         </TableBody>
                                                     </Table>
-                                                </div>
-                                            </div>
+                                                </CardContent>
+                                            </Card>
                                         )}
                                         {dayData.machineReadings && dayData.machineReadings.length > 0 && (
-                                            <div>
-                                                <h4 className="font-semibold text-md mb-2">Machine Reading Details for {format(new Date(dateKey), 'dd-MMM-yyyy')}</h4>
-                                                <div className="border rounded-md">
+                                            <Card>
+                                                <CardHeader>
+                                                    <CardTitle>Machine Reading Details for {format(new Date(dateKey), 'dd-MMM-yyyy')}</CardTitle>
+                                                </CardHeader>
+                                                <CardContent className="p-0">
                                                     <Table>
                                                         <TableHeader>
                                                             <TableRow>
@@ -535,8 +544,8 @@ export default function CashCreditSalesReportPage() {
                                                             ))}
                                                         </TableBody>
                                                     </Table>
-                                                </div>
-                                            </div>
+                                                </CardContent>
+                                            </Card>
                                         )}
                                     </AccordionContent>
                                 </AccordionItem>
