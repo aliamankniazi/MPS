@@ -97,8 +97,8 @@ export default function MachineManagementPage() {
     if (!isLoaded) return {};
 
     const { from, to } = dateRange || {};
-    const startDate = from ? startOfDay(from) : startOfDay(new Date());
-    const endDate = to ? endOfDay(to) : endOfDay(startDate);
+    const startDate = from ? startOfDay(from) : null;
+    const endDate = to ? endOfDay(to) : (from ? endOfDay(from) : null);
 
     const report: Record<string, {
         dispensed: number;
@@ -111,6 +111,17 @@ export default function MachineManagementPage() {
     const fuelTypes = [...new Set(machines.map(m => m.fuelType))];
 
     fuelTypes.forEach(fuelType => {
+        // --- Sales Calculation ---
+        const filteredTransactions = transactions.filter(tx => {
+            if (!startDate || !endDate) return true;
+            const txDate = new Date(tx.timestamp);
+            return isValid(txDate) && txDate >= startDate && txDate <= endDate;
+        });
+
+        const totalSales = filteredTransactions
+            .filter(tx => tx.fuelType === fuelType && tx.volume)
+            .reduce((sum, tx) => sum + (tx.volume || 0), 0);
+
         // --- Dispensed Calculation ---
         let totalDispensed = 0;
         let totalStartReading = 0;
@@ -123,46 +134,36 @@ export default function MachineManagementPage() {
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
             if (readingsForMachine.length > 0) {
-                const endReadingInPeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-                const startReadingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
-                
-                let dispensed = 0;
-                let startVolumeForMachine = 0;
-                
-                if (endReadingInPeriod) {
-                    if (startReadingBeforePeriod) {
-                        startVolumeForMachine = startReadingBeforePeriod.volume;
-                        dispensed = endReadingInPeriod.volume - startVolumeForMachine;
-                    } else {
-                        // If no reading before, try to find the first reading within the period.
-                        const startReadingInPeriod = readingsForMachine.find(r => {
-                            const readingDate = new Date(r.timestamp);
-                            return isValid(readingDate) && readingDate >= startDate && readingDate <= endDate;
-                        });
-                        if(startReadingInPeriod && endReadingInPeriod.id !== startReadingInPeriod.id) {
-                            startVolumeForMachine = startReadingInPeriod.volume;
-                            dispensed = endReadingInPeriod.volume - startVolumeForMachine;
-                        }
+                let startReadingObj, endReadingObj;
+
+                if (startDate && endDate) { // Date range is selected
+                    endReadingObj = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
+                    startReadingObj = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+                    
+                    if (!startReadingObj) {
+                         const firstReadingInPeriod = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
+                         if (endReadingObj && firstReadingInPeriod && endReadingObj.id !== firstReadingInPeriod.id) {
+                            startReadingObj = firstReadingInPeriod;
+                         } else {
+                            startReadingObj = endReadingObj;
+                         }
                     }
+
+                } else { // No date range (all time)
+                    startReadingObj = readingsForMachine[0];
+                    endReadingObj = readingsForMachine[readingsForMachine.length - 1];
+                }
+
+                if (startReadingObj && endReadingObj && startReadingObj.id !== endReadingObj.id) {
+                    const dispensed = endReadingObj.volume - startReadingObj.volume;
+                    totalDispensed += dispensed > 0 ? dispensed : 0;
                 }
                 
-                totalDispensed += dispensed > 0 ? dispensed : 0;
-                totalStartReading += startVolumeForMachine;
-                totalEndReading += endReadingInPeriod ? endReadingInPeriod.volume : 0;
+                totalStartReading += startReadingObj?.volume || 0;
+                totalEndReading += endReadingObj?.volume || 0;
             }
         });
 
-        // Sales Calculation
-        const filteredTransactions = transactions.filter(tx => {
-            const txDate = new Date(tx.timestamp);
-            return isValid(txDate) && txDate >= startDate && txDate <= endDate;
-        });
-
-        const totalSales = filteredTransactions
-            .filter(tx => tx.fuelType === fuelType && tx.volume)
-            .reduce((sum, tx) => sum + (tx.volume || 0), 0);
-            
-        // Variance
         const variance = totalDispensed - totalSales;
 
         report[fuelType] = {
