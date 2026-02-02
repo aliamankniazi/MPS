@@ -214,18 +214,32 @@ export default function CashCreditSalesReportPage() {
                     .filter(r => r.machineName === machineName)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
-                const previousReading = machineReadings // use unfiltered list
+                let previousReading = machineReadings // use unfiltered list
                     .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
-                const dispensed = previousReading ? latestReadingForDay.volume - previousReading.volume : 0;
+                let dispensed = 0;
+
+                if (previousReading) {
+                    dispensed = latestReadingForDay.volume - previousReading.volume;
+                } else {
+                    // No previous day reading. Try to find a reading from the same day.
+                    const readingsOnSameDay = (readingsByDate[dateKey] || [])
+                        .filter(r => r.machineName === machineName)
+                        .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // ASC
+                    
+                    if (readingsOnSameDay.length > 1) {
+                        previousReading = readingsOnSameDay[0];
+                        dispensed = latestReadingForDay.volume - previousReading.volume;
+                    }
+                }
 
                 return {
                     ...latestReadingForDay,
                     previousReadingVolume: previousReading?.volume,
                     dispensed: dispensed > 0 ? dispensed : 0,
                 };
-            }).filter(r => r.id);
+            }).filter(r => r && r.id);
 
             const salesSummaryByFuel = rows.reduce((acc, row) => {
                 acc[row.fuelType] = (acc[row.fuelType] || 0) + row.cashSalesVolume + row.creditSalesVolume;
