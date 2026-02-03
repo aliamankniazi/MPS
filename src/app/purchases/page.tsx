@@ -98,9 +98,11 @@ export default function PurchasesPage() {
 
 
   useEffect(() => {
-    reset({
-      date: dateRange?.from || new Date(),
-    });
+    if (dateRange?.from) {
+      reset({
+        date: dateRange.from,
+      });
+    }
   }, [reset, dateRange]);
 
   // Effect to auto-fill price based on last purchase of the same fuel type

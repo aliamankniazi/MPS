@@ -78,10 +78,12 @@ export default function SupplierPaymentsPage() {
   });
 
   useEffect(() => {
-    reset({
-      date: dateRange?.from || new Date(),
-      paymentMethod: 'Bank Transfer',
-    });
+    if (dateRange?.from) {
+      reset({
+        date: dateRange.from,
+        paymentMethod: 'Bank Transfer',
+      });
+    }
   }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {

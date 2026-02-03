@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -81,10 +82,12 @@ export default function ExpensesPage() {
   });
 
   useEffect(() => {
-    reset({
-        category: 'Utilities',
-        date: dateRange?.from || new Date(),
-    });
+    if (dateRange?.from) {
+      reset({
+          category: 'Utilities',
+          date: dateRange.from,
+      });
+    }
   }, [reset, dateRange]);
 
   const filteredExpenses = useMemo(() => {

@@ -99,13 +99,15 @@ export default function SalesPage() {
   });
 
   useEffect(() => {
-    reset({
-        customerId: 'walkin',
-        paymentMethod: 'Cash',
-        invoiceDate: dateRange?.from || new Date(),
-        notes: '',
-        vehicleNumber: '',
-    });
+    if (dateRange?.from) {
+      reset({
+          customerId: 'walkin',
+          paymentMethod: 'Cash',
+          invoiceDate: dateRange.from,
+          notes: '',
+          vehicleNumber: '',
+      });
+    }
   }, [reset, dateRange]);
 
   const allUnits = useMemo(() => {

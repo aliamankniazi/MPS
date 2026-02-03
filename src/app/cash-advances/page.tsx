@@ -74,9 +74,11 @@ export default function CashAdvancesPage() {
   });
 
   useEffect(() => {
-    reset({
-      date: dateRange?.from || new Date(),
-    });
+    if (dateRange?.from) {
+      reset({
+        date: dateRange.from,
+      });
+    }
   }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {

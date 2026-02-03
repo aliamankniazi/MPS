@@ -100,10 +100,12 @@ export default function StockAdjustmentPage() {
   });
 
   React.useEffect(() => {
-    reset({
-        adjustment: 0,
-        date: dateRange?.from || new Date(),
-    });
+    if (dateRange?.from) {
+      reset({
+          adjustment: 0,
+          date: dateRange.from,
+      });
+    }
   }, [reset, dateRange]);
 
   const selectedFuelType = watch('fuelType');

@@ -77,10 +77,12 @@ export default function CustomerPaymentsPage() {
   });
 
   useEffect(() => {
-    reset({
-      date: dateRange?.from || new Date(),
-      paymentMethod: 'Cash',
-    });
+    if (dateRange?.from) {
+      reset({
+        date: dateRange.from,
+        paymentMethod: 'Cash',
+      });
+    }
   }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
