@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
-import type { PaymentMethod, Transaction, Product, Purchase } from '@/lib/types';
+import type { PaymentMethod, Transaction, Product, Purchase, FuelType } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings, machines, machineReadings, addMachineReading } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings, machines, machineReadings, addMachineReading, fuelStock } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -120,7 +120,25 @@ export default function SalesPage() {
   }, [products]);
 
   const { customerId } = watch();
-  const { quantity, price, totalAmount } = watchItem();
+  const { productId, quantity, price, totalAmount } = watchItem();
+
+  const selectedProduct = useMemo(() => {
+    if (!productId) return null;
+    return products.find(p => p.id === productId);
+  }, [productId, products]);
+
+  const currentStock = useMemo(() => {
+    if (!selectedProduct) return 0;
+    return fuelStock[selectedProduct.name as FuelType] || 0;
+  }, [selectedProduct, fuelStock]);
+
+  const stockAfterSale = useMemo(() => {
+    if (!selectedProduct) return 0;
+    const itemQuantity = Number(quantity) || 0;
+    const cartQuantity = cart.filter(item => item.productId === selectedProduct.id).reduce((sum, item) => sum + item.quantity, 0);
+    return currentStock - cartQuantity - itemQuantity;
+  }, [currentStock, quantity, selectedProduct, cart]);
+
 
   useEffect(() => {
     const qty = Number(quantity) || 0;
@@ -307,7 +325,7 @@ export default function SalesPage() {
                   </CardHeader>
                   <CardContent>
                       <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
                               <div className="md:col-span-2 space-y-2">
                                   <Label htmlFor="product">Product</Label>
                                    <Controller
@@ -361,6 +379,18 @@ export default function SalesPage() {
                                     )}
                                   />
                                   {itemErrors.productId && <p className="text-sm text-destructive">{itemErrors.productId.message}</p>}
+                                  {selectedProduct && (
+                                    <div className="grid grid-cols-2 gap-2 pt-1">
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">Current Stock</p>
+                                            <p className="text-sm font-semibold">{currentStock.toFixed(2)}</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-muted-foreground">After Sale</p>
+                                            <p className={cn("text-sm font-semibold", stockAfterSale < 0 && 'text-destructive')}>{stockAfterSale.toFixed(2)}</p>
+                                        </div>
+                                    </div>
+                                  )}
                               </div>
                               <div className="space-y-2">
                                   <Label htmlFor="unit">Unit</Label>
@@ -678,5 +708,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
-    
