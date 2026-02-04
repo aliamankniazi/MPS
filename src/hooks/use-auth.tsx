@@ -66,7 +66,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
-  const { isLoaded: isDatabaseLoaded } = useDatabase();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -251,7 +250,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const isLoading = authLoading || rolesLoading || (user && !isAuthPage && !isDatabaseLoaded);
+  const isLoading = authLoading || rolesLoading;
 
   useEffect(() => {
     if (authLoading || rolesLoading) return; // Wait until auth state is resolved
