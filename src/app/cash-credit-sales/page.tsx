@@ -285,7 +285,7 @@ export default function CashCreditSalesReportPage() {
                     cashSalesVolume: salesSummary.cashSalesVolume,
                     creditSalesVolume: salesSummary.creditSalesVolume,
                 };
-            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0 || row.openingStock > 0).sort((a,b) => a.fuelType.localeCompare(b.fuelType));
+            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0 || row.openingStock > 0).sort((a, b) => (b.cashSalesVolume + b.creditSalesVolume) - (a.cashSalesVolume + a.creditSalesVolume));
 
 
             if (searchTerm) {
