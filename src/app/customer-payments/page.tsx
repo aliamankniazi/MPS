@@ -95,6 +95,7 @@ export default function CustomerPaymentsPage() {
       amount: data.amount,
       paymentMethod: data.paymentMethod,
       timestamp: data.date.toISOString(),
+      notes: data.notes,
     });
     
     toast({
