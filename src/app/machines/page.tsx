@@ -88,6 +88,7 @@ export default function MachineManagementPage() {
       }
 
       const readingTimestamp = dateRange?.to || dateRange?.from || new Date();
+      localStorage.setItem('global_lastTransactionDate', readingTimestamp.toISOString());
 
       addMachineReading({
           machineId: machine.id,

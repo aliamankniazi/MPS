@@ -77,7 +77,7 @@ export default function CustomerPaymentsPage() {
   });
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('customerPayment_lastDate');
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
       date: initialDate,
@@ -103,7 +103,7 @@ export default function CustomerPaymentsPage() {
       description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
     });
 
-    localStorage.setItem('customerPayment_lastDate', data.date.toISOString());
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     reset({
         date: data.date,

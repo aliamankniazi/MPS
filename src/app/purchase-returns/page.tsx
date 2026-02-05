@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -70,7 +70,7 @@ function PageHeader() {
 }
 
 export default function PurchaseReturnsPage() {
-  const { addPurchaseReturn, suppliers, isLoaded, dateRange } = useDatabase();
+  const { addPurchaseReturn, suppliers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
@@ -80,16 +80,18 @@ export default function PurchaseReturnsPage() {
   });
   
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-          date: dateRange.from,
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+      date: initialDate,
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
+
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addPurchaseReturn({ 
         ...data, 
@@ -100,7 +102,15 @@ export default function PurchaseReturnsPage() {
       title: 'Purchase Return Recorded',
       description: `Return to ${supplier.name} has been logged.`,
     });
-    reset();
+    
+    reset({
+      date: data.date,
+      supplierId: '',
+      fuelType: undefined,
+      volume: undefined,
+      totalRefund: undefined,
+      reason: ''
+    });
   };
 
   return (
@@ -234,6 +244,7 @@ export default function PurchaseReturnsPage() {
                                 key="purchase-returns-calendar"
                                 mode="single"
                                 selected={field.value}
+                                defaultMonth={field.value}
                                 onSelect={(date) => {
                                     field.onChange(date);
                                     setReturnDateCalendarOpen(false);

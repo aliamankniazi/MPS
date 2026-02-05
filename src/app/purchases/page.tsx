@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
 import type { Purchase } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, purchases, products, isLoaded, dateRange, colorSettings } = useDatabase();
+  const { addPurchase, suppliers, purchases, products, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [purchaseDateCalendarOpen, setPurchaseDateCalendarOpen] = useState(false);
@@ -77,7 +77,6 @@ export default function PurchasesPage() {
 
   const { volume, pricePerLitre, totalCost, fuelType } = watch();
 
-  // Effect 1: Calculate totalCost when volume or price changes
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
       const newTotal = (Number(volume) || 0) * (Number(pricePerLitre) || 0);
@@ -85,7 +84,6 @@ export default function PurchasesPage() {
     }
   }, [volume, pricePerLitre, setValue]);
 
-  // Effect 2: Calculate volume when totalCost or pricePerLitre changes, prioritizing volume calculation
   useEffect(() => {
     if (lastUserEditedField.current === 'total') {
       const numPrice = Number(pricePerLitre) || 0;
@@ -96,16 +94,14 @@ export default function PurchasesPage() {
     }
   }, [totalCost, pricePerLitre, setValue]);
 
-
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-        date: dateRange.from,
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+      date: initialDate,
+    });
+  }, [reset]);
 
-  // Effect to auto-fill price based on last purchase of the same fuel type
   useEffect(() => {
       if (fuelType && purchases.length > 0) {
           const lastPurchaseOfSameType = purchases
@@ -128,6 +124,8 @@ export default function PurchasesPage() {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+
     const purchaseData: Omit<Purchase, 'id' | 'supplier'> = {
         supplierId: data.supplierId,
         fuelType: data.fuelType,
@@ -138,13 +136,22 @@ export default function PurchasesPage() {
 
     addPurchase({
       ...purchaseData,
-      supplier: supplier.name, // Pass the name for display purposes
+      supplier: supplier.name, 
     });
+
     toast({
       title: 'Purchase Recorded',
       description: `Delivery from ${supplier.name} has been logged.`,
     });
-    reset();
+
+    reset({
+        date: data.date,
+        supplierId: '',
+        fuelType: '',
+        volume: undefined,
+        pricePerLitre: undefined,
+        totalCost: undefined,
+    });
   };
 
   return (
@@ -277,6 +284,7 @@ export default function PurchasesPage() {
                                 key="purchases-calendar"
                                 mode="single"
                                 selected={field.value}
+                                defaultMonth={field.value}
                                 onSelect={(date) => {
                                     field.onChange(date);
                                     setPurchaseDateCalendarOpen(false);

@@ -101,7 +101,7 @@ function PageHeader() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, dateRange, attendance } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, attendance } = useDatabase();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
   const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentConfirmation[] | null>(null);
@@ -117,12 +117,14 @@ export default function SalaryPaymentPage() {
   }, [employees]);
 
   useEffect(() => {
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
       salaryMonth: format(new Date(), 'MMMM'),
       salaryYear: new Date().getFullYear().toString(),
-      postingDate: dateRange?.from || new Date(),
+      postingDate: initialDate,
     });
-  }, [reset, dateRange]);
+  }, [reset]);
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
     const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
@@ -343,6 +345,7 @@ export default function SalaryPaymentPage() {
         }
     }
 
+    localStorage.setItem('global_lastTransactionDate', paymentToConfirm[0].postingDate.toISOString());
 
     toast({
       title: `${paymentToConfirm.length} Salaries Paid`,
@@ -350,7 +353,18 @@ export default function SalaryPaymentPage() {
     });
     
     setPaymentToConfirm(null);
-    reset();
+
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+
+    reset({
+      postingDate: initialDate,
+      salaryMonth: format(new Date(), 'MMMM'),
+      salaryYear: new Date().getFullYear().toString(),
+      employeeId: '',
+      notes: '',
+      manualPresentDays: undefined,
+    });
   };
   
   const totalBulkSalary = useMemo(() => {
@@ -496,7 +510,7 @@ export default function SalaryPaymentPage() {
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} defaultMonth={field.value} initialFocus />
                                     </PopoverContent>
                                 </Popover>
                             )}

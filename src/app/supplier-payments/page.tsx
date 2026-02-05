@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Landmark } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, addSupplierPayment, isLoaded, dateRange, colorSettings } = useDatabase();
+  const { suppliers, addSupplierPayment, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
@@ -78,17 +78,19 @@ export default function SupplierPaymentsPage() {
   });
 
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-        date: dateRange.from,
-        paymentMethod: 'Bank Transfer',
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+      date: initialDate,
+      paymentMethod: 'Bank Transfer',
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
+
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addSupplierPayment({
       supplierId: data.supplierId,
@@ -102,7 +104,14 @@ export default function SupplierPaymentsPage() {
       title: 'Payment Recorded',
       description: `Payment of PKR ${data.amount} to ${supplier.name} has been logged.`,
     });
-    reset();
+
+    reset({
+      date: data.date,
+      supplierId: '',
+      amount: undefined,
+      paymentMethod: 'Bank Transfer',
+      notes: '',
+    });
   };
 
   return (
@@ -230,6 +239,7 @@ export default function SupplierPaymentsPage() {
                             key="supplier-payments-calendar"
                             mode="single"
                             selected={field.value}
+                            defaultMonth={field.value}
                             onSelect={(date) => {
                                 field.onChange(date);
                                 setPaymentDateCalendarOpen(false);

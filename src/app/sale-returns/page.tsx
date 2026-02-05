@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -68,7 +68,7 @@ function PageHeader() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded, dateRange } = useDatabase();
+  const { addSaleReturn, customers, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
@@ -78,14 +78,18 @@ export default function SaleReturnsPage() {
   });
   
   useEffect(() => {
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
-        date: dateRange?.from || new Date(),
+        date: initialDate,
     });
-  }, [reset, dateRange]);
+  }, [reset]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
+
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addSaleReturn({ 
         ...data, 
@@ -96,7 +100,14 @@ export default function SaleReturnsPage() {
       title: 'Sale Return Recorded',
       description: `Return from ${customer.name} has been logged.`,
     });
-    reset();
+    reset({
+      date: data.date,
+      customerId: '',
+      fuelType: undefined,
+      volume: undefined,
+      totalRefund: undefined,
+      reason: ''
+    });
   };
 
   return (
@@ -230,6 +241,7 @@ export default function SaleReturnsPage() {
                                 key="sale-returns-calendar"
                                 mode="single"
                                 selected={field.value}
+                                defaultMonth={field.value}
                                 onSelect={(date) => {
                                     field.onChange(date);
                                     setReturnDateCalendarOpen(false);

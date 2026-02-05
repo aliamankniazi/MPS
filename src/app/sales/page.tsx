@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, purchases, transactions, dateRange, colorSettings, machines, machineReadings, addMachineReading, fuelStock } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, purchases, transactions, colorSettings, machines, machineReadings, addMachineReading, fuelStock } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -99,16 +99,16 @@ export default function SalesPage() {
   });
 
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-          customerId: 'walkin',
-          paymentMethod: 'Cash',
-          invoiceDate: dateRange.from,
-          notes: '',
-          vehicleNumber: '',
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+        customerId: 'walkin',
+        paymentMethod: 'Cash',
+        invoiceDate: initialDate,
+        notes: '',
+        vehicleNumber: '',
+    });
+  }, [reset]);
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
@@ -209,9 +209,9 @@ export default function SalesPage() {
   const dispensedTotals = useMemo(() => {
     if (!isLoaded || !machines.length) return {};
     
-    const { from, to } = dateRange || {};
-    const startDate = from ? startOfDay(from) : startOfDay(new Date());
-    const endDate = to ? endOfDay(to) : endOfDay(startDate);
+    const today = new Date();
+    const startDate = startOfDay(today);
+    const endDate = endOfDay(today);
 
     const totals: Record<string, number> = {};
 
@@ -245,7 +245,7 @@ export default function SalesPage() {
     });
 
     return totals;
-  }, [machines, machineReadings, isLoaded, dateRange]);
+  }, [machines, machineReadings, isLoaded]);
 
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
@@ -264,6 +264,8 @@ export default function SalesPage() {
       return;
     }
     
+    localStorage.setItem('global_lastTransactionDate', data.invoiceDate.toISOString());
+
     let finalNotes = data.notes || '';
     if (data.vehicleNumber) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
@@ -310,7 +312,13 @@ export default function SalesPage() {
       description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
     });
     
-    reset();
+    reset({
+        customerId: 'walkin',
+        paymentMethod: 'Cash',
+        invoiceDate: data.invoiceDate,
+        notes: '',
+        vehicleNumber: '',
+    });
     resetItem();
     setCart([]);
   };
@@ -478,7 +486,7 @@ export default function SalesPage() {
                 <CardHeader>
                     <CardTitle>Dispensed Fuel Totals</CardTitle>
                     <CardDescription>
-                        Total volume dispensed from machines for the selected period.
+                        Total volume dispensed from machines for today.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -658,6 +666,7 @@ export default function SalesPage() {
                                         key="sales-calendar"
                                         mode="single"
                                         selected={field.value}
+                                        defaultMonth={field.value}
                                         onSelect={(date) => {
                                             field.onChange(date);
                                             setInvoiceDateCalendarOpen(false);

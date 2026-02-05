@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded, dateRange } = useDatabase();
+  const { customers, addCashAdvance, isLoaded } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
@@ -74,16 +74,18 @@ export default function CashAdvancesPage() {
   });
 
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-        date: dateRange.from,
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+      date: initialDate,
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
+
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addCashAdvance({ 
       customerId: data.customerId,
@@ -97,7 +99,13 @@ export default function CashAdvancesPage() {
       title: 'Cash Advance Recorded',
       description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
     });
-    reset();
+
+    reset({
+        date: data.date,
+        customerId: '',
+        amount: undefined,
+        notes: '',
+    });
   };
 
   return (
@@ -200,6 +208,7 @@ export default function CashAdvancesPage() {
                                     mode="single"
                                     selected={field.value}
                                     onSelect={field.onChange}
+                                    defaultMonth={field.value}
                                     initialFocus
                                 />
                                 </PopoverContent>

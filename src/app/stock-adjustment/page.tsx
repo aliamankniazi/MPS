@@ -101,13 +101,13 @@ export default function StockAdjustmentPage() {
   });
 
   React.useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-          adjustment: 0,
-          date: dateRange.from,
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+        adjustment: 0,
+        date: initialDate,
+    });
+  }, [reset]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
@@ -142,6 +142,8 @@ export default function StockAdjustmentPage() {
     }
 
     const supplier = data.supplierId ? suppliers.find(s => s.id === data.supplierId) : null;
+    
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addStockAdjustment({
         fuelType: data.fuelType as FuelType,
@@ -160,7 +162,7 @@ export default function StockAdjustmentPage() {
         fuelType: undefined,
         supplierId: undefined,
         adjustment: 0,
-        date: dateRange?.from || new Date()
+        date: data.date,
     });
   };
   
@@ -299,6 +301,7 @@ export default function StockAdjustmentPage() {
                                         mode="single"
                                         selected={field.value}
                                         onSelect={field.onChange}
+                                        defaultMonth={field.value}
                                         initialFocus
                                     />
                                     </PopoverContent>

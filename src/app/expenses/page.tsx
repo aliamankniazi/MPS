@@ -84,13 +84,13 @@ export default function ExpensesPage() {
   });
 
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-          category: 'Utilities',
-          date: dateRange.from,
-      });
-    }
-  }, [reset, dateRange]);
+    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+        category: 'Utilities',
+        date: initialDate,
+    });
+  }, [reset]);
 
   const filteredExpenses = useMemo(() => {
     let currentExpenses = expenses;
@@ -119,19 +119,23 @@ export default function ExpensesPage() {
   };
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    
     addExpense({
       ...data,
       timestamp: data.date.toISOString(),
     });
+
     toast({
       title: 'Expense Recorded',
       description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
+
     reset({
         description: '',
         category: 'Utilities',
         amount: 0,
-        date: dateRange?.from || new Date(),
+        date: data.date,
     });
   };
   
@@ -238,6 +242,7 @@ export default function ExpensesPage() {
                                     mode="single"
                                     selected={field.value}
                                     onSelect={field.onChange}
+                                    defaultMonth={field.value}
                                     initialFocus
                                 />
                                 </PopoverContent>
