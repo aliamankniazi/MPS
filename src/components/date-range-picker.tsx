@@ -1,7 +1,8 @@
+
 'use client';
 
 import * as React from 'react';
-import { format, startOfMonth, endOfMonth, subDays, startOfToday, endOfToday, subMonths } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subDays, startOfToday, endOfToday, subMonths, startOfWeek, endOfWeek, startOfYear, endOfYear } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import type { DateRange } from '@/lib/types';
 
@@ -26,7 +27,7 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
-  const handlePreset = (preset: 'today' | 'last7' | 'last30' | 'thisMonth' | 'lastMonth') => {
+  const handlePreset = (preset: 'today' | 'thisWeek' | 'thisMonth' | 'thisYear' | 'last7' | 'last30' | 'lastMonth') => {
     const now = new Date();
     let range: DateRange | undefined;
 
@@ -34,14 +35,20 @@ export function DateRangePicker({
       case 'today':
         range = { from: startOfToday(), to: endOfToday() };
         break;
+      case 'thisWeek':
+        range = { from: startOfWeek(now), to: endOfWeek(now) };
+        break;
+      case 'thisMonth':
+        range = { from: startOfMonth(now), to: endOfMonth(now) };
+        break;
+      case 'thisYear':
+        range = { from: startOfYear(now), to: endOfYear(now) };
+        break;
       case 'last7':
         range = { from: subDays(now, 6), to: now };
         break;
       case 'last30':
         range = { from: subDays(now, 29), to: now };
-        break;
-      case 'thisMonth':
-        range = { from: startOfMonth(now), to: endOfMonth(now) };
         break;
       case 'lastMonth':
         const lastMonth = subMonths(now, 1);
@@ -84,9 +91,11 @@ export function DateRangePicker({
         <PopoverContent className="flex w-auto p-0" align="end">
           <div className="flex flex-col space-y-2 border-r p-4">
               <Button variant="ghost" className="justify-start" onClick={() => handlePreset('today')}>Today</Button>
-              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('last7')}>Last 7 days</Button>
-              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('last30')}>Last 30 days</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('thisWeek')}>This Week</Button>
               <Button variant="ghost" className="justify-start" onClick={() => handlePreset('thisMonth')}>This Month</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('thisYear')}>This Year</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('last7')}>Last 7 Days</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => handlePreset('last30')}>Last 30 Days</Button>
               <Button variant="ghost" className="justify-start" onClick={() => handlePreset('lastMonth')}>Last Month</Button>
               <Button variant="outline" className="mt-4" onClick={() => onDateChange(undefined)}>Clear</Button>
           </div>
