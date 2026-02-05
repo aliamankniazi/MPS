@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -132,8 +132,6 @@ export default function LedgerPage() {
     machineReadings,
     colorSettings,
     isLoaded,
-    dateRange, 
-    setDateRange,
     deleteTransaction,
     deletePurchase,
     deleteExpense,
@@ -154,6 +152,8 @@ export default function LedgerPage() {
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
   const { toast } = useToast();
+  const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
+  const initialDateSet = useRef(false);
 
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
@@ -451,6 +451,22 @@ export default function LedgerPage() {
     return finalEntries;
 
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
+    
+    useEffect(() => {
+        if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
+            const latestEntry = allEntries[allEntries.length - 1]; // allEntries is sorted ascending
+            if (latestEntry && isValid(new Date(latestEntry.timestamp))) {
+                const latestDate = new Date(latestEntry.timestamp);
+                setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
+            } else {
+                 setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+            }
+            initialDateSet.current = true;
+        } else if (isLoaded && !initialDateSet.current) {
+            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+            initialDateSet.current = true;
+        }
+    }, [isLoaded, allEntries]);
 
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
@@ -488,8 +504,10 @@ export default function LedgerPage() {
 
 
   const filteredEntries = useMemo(() => {
-    const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
-    const to = dateRange?.to ? endOfDay(dateRange.to) : (dateRange?.from ? endOfDay(dateRange.from) : endOfMonth(new Date()));
+    if (!localDateRange?.from) return [];
+
+    const from = startOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(from);
 
     let entries = allEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -510,10 +528,11 @@ export default function LedgerPage() {
     }
     
     return entries;
-  }, [allEntries, searchTerm, dateRange, selectedType]);
+  }, [allEntries, searchTerm, localDateRange, selectedType]);
 
   const groupedEntries: GroupedEntries = useMemo(() => {
-    const rangeStart = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
+    if (!localDateRange?.from) return {};
+    const rangeStart = startOfDay(localDateRange.from);
     
     const openingBalanceForRange = rangeStart
       ? allEntries
@@ -636,7 +655,7 @@ export default function LedgerPage() {
     
     return result;
 
-  }, [filteredEntries, allEntries, dateRange, machineReadings]);
+  }, [filteredEntries, allEntries, localDateRange, machineReadings]);
   
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
@@ -853,11 +872,11 @@ export default function LedgerPage() {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setDateRange(undefined);
+    setLocalDateRange(undefined);
     setSelectedType('');
   }
 
-  const hasActiveFilters = searchTerm || dateRange?.from || selectedType;
+  const hasActiveFilters = searchTerm || localDateRange?.from || selectedType;
   const currentDayKey = format(new Date(), 'yyyy-MM-dd');
 
   let runningEntryCount = filteredEntries.length;
@@ -907,7 +926,7 @@ export default function LedgerPage() {
                     {TRANSACTION_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                 </SelectContent>
             </Select>
-            <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+            <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
             <Button variant="outline" onClick={() => setShowJournal(!showJournal)}>{showJournal ? 'Show Business Report' : 'Show Full Journal'}</Button>
             <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
             <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>

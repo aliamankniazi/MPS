@@ -1,13 +1,13 @@
 
 'use client';
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
-import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment } from '@/lib/types';
+import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment, DateRange } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -98,8 +98,6 @@ export default function CashCreditSalesReportPage() {
         machineReadings, 
         machines,
         isLoaded, 
-        dateRange, 
-        setDateRange,
         purchases,
         purchaseReturns,
         saleReturns,
@@ -112,6 +110,24 @@ export default function CashCreditSalesReportPage() {
     const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
     const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
     const { toast } = useToast();
+    const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
+    const isInitialDateSet = useRef(false);
+
+    useEffect(() => {
+      if (isLoaded && transactions.length > 0 && !isInitialDateSet.current) {
+        const latestTransaction = [...transactions].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+        if (latestTransaction && isValid(new Date(latestTransaction.timestamp))) {
+          const latestDate = new Date(latestTransaction.timestamp);
+          setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
+        } else {
+          setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        }
+        isInitialDateSet.current = true;
+      } else if (isLoaded && !isInitialDateSet.current) {
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        isInitialDateSet.current = true;
+      }
+    }, [isLoaded, transactions]);
 
      const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
         resolver: zodResolver(machineReadingEditSchema),
@@ -150,10 +166,10 @@ export default function CashCreditSalesReportPage() {
     }
 
     const groupedReportData: GroupedReport = useMemo(() => {
-        if (!isLoaded || !products.length || !machines) return {};
+        if (!isLoaded || !products.length || !machines || !localDateRange?.from) return {};
 
-        const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
-        const to = dateRange?.to ? endOfDay(dateRange.to) : endOfMonth(new Date());
+        const from = startOfDay(localDateRange.from);
+        const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(from);
 
         const filterByDate = (items: any[]) => items.filter(item => {
             const itemDate = new Date(item.timestamp);
@@ -358,7 +374,7 @@ export default function CashCreditSalesReportPage() {
 
         return result;
 
-    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm, purchases, purchaseReturns, saleReturns, stockAdjustments, initialFuelStock, machines]);
+    }, [isLoaded, transactions, products, machineReadings, localDateRange, searchTerm, purchases, purchaseReturns, saleReturns, stockAdjustments, initialFuelStock, machines]);
     
     const sortedDateKeys = useMemo(() => {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
@@ -409,7 +425,7 @@ export default function CashCreditSalesReportPage() {
                                     className="pl-10 w-full sm:w-auto"
                                 />
                             </div>
-                           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                           <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
                            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
                            <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
                         </div>
