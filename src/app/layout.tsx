@@ -3,11 +3,9 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/hooks/use-auth';
-import { PrintStyles } from '@/components/print-styles';
 import { DatabaseProvider } from '@/hooks/use-database';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { FirebaseClientProvider } from '@/firebase';
-import { AppLayout } from '@/components/app-layout';
+import { AuthGuard } from '@/components/auth-guard';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -26,31 +24,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
-      <body className="font-body antialiased">
+      <body>
         <FirebaseClientProvider>
           <DatabaseProvider>
             <AuthProvider>
-              {(user, isAuthPage, isLoading) => {
-                if (isLoading && !isAuthPage) {
-                  return (
-                    <div className="flex h-screen w-full items-center justify-center">
-                      <p>Loading application...</p>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <>
-                    <PrintStyles />
-                    <FirebaseErrorListener />
-                    {user && !isAuthPage ? (
-                      <AppLayout>{children}</AppLayout>
-                    ) : (
-                      children
-                    )}
-                  </>
-                );
-              }}
+              <AuthGuard>{children}</AuthGuard>
             </AuthProvider>
           </DatabaseProvider>
         </FirebaseClientProvider>

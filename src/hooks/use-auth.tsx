@@ -61,15 +61,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: (user: User | null, isAuthPage: boolean, isLoading: boolean) => ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const { user, isUserLoading: authLoading, auth, firestore } = useFirebase();
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
-
-  const router = useRouter();
-  const pathname = usePathname();
-  const isAuthPage = pathname === '/login' || pathname === '/signup';
 
   // Effect for fetching roles from Firestore
   useEffect(() => {
@@ -252,18 +248,6 @@ export function AuthProvider({ children }: { children: (user: User | null, isAut
   
   const isLoading = authLoading || rolesLoading;
 
-  useEffect(() => {
-    if (isLoading) return; // Don't redirect while loading
-
-    if (!user && !isAuthPage) {
-        router.push('/login');
-    }
-    if (user && isAuthPage) {
-        router.push('/');
-    }
-  }, [user, isLoading, isAuthPage, router, authLoading, rolesLoading]);
-
-
   const value = {
     user,
     loading: isLoading,
@@ -282,7 +266,7 @@ export function AuthProvider({ children }: { children: (user: User | null, isAut
 
   return (
       <AuthContext.Provider value={value}>
-        {children(user, isAuthPage, isLoading)}
+        {children}
       </AuthContext.Provider>
   );
 }
