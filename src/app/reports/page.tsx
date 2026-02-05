@@ -162,6 +162,13 @@ const reportList: ReportCardProps[] = [
     isFrequentlyUsed: true,
   },
   {
+    title: 'Product Rate History',
+    description: 'Track the date-wise changes in purchase and sale rates for each product.',
+    href: '/product-rate-history',
+    icon: TrendingUp,
+    permission: 'view_summary',
+  },
+  {
     title: 'Product Profit Margin Report',
     description: 'Analyze profit margins for each product.',
     href: '/summary',
