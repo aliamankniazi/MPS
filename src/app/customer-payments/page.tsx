@@ -73,9 +73,17 @@ export default function CustomerPaymentsPage() {
     resolver: zodResolver(customerPaymentSchema),
     defaultValues: {
         paymentMethod: 'Cash',
-        date: new Date(),
     }
   });
+
+  useEffect(() => {
+    const savedDate = localStorage.getItem('customerPayment_lastDate');
+    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+    reset({
+      date: initialDate,
+      paymentMethod: 'Cash'
+    });
+  }, [reset]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
@@ -94,7 +102,16 @@ export default function CustomerPaymentsPage() {
       title: 'Payment Recorded',
       description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
     });
-    reset();
+
+    localStorage.setItem('customerPayment_lastDate', data.date.toISOString());
+
+    reset({
+        date: data.date,
+        paymentMethod: data.paymentMethod,
+        customerId: '',
+        amount: undefined,
+        notes: ''
+    });
   };
 
   return (
@@ -217,6 +234,7 @@ export default function CustomerPaymentsPage() {
                             <Calendar
                                 mode="single"
                                 selected={field.value}
+                                defaultMonth={field.value}
                                 onSelect={field.onChange}
                                 initialFocus
                             />
