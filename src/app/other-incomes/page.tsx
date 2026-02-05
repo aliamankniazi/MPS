@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
 import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -122,58 +122,27 @@ export default function OtherIncomesPage() {
                   <Controller
                     name="date"
                     control={control}
-                    render={({ field }) => {
-                        const handleDateChange = (part: 'day' | 'month' | 'year', value: string) => {
-                            const currentDate = field.value || new Date();
-                            let newDate = new Date(currentDate);
-            
-                            if (part === 'year') newDate.setFullYear(parseInt(value, 10));
-                            if (part === 'month') newDate.setMonth(parseInt(value, 10));
-                            if (part === 'day') newDate.setDate(parseInt(value, 10));
-                            
-                            const daysInNewMonth = getDaysInMonth(newDate);
-                            if (newDate.getDate() > daysInNewMonth) {
-                                newDate.setDate(daysInNewMonth);
-                            }
-            
-                            if (isValid(newDate)) {
-                                field.onChange(newDate);
-                            }
-                        };
-                        
-                        const selectedDate = field.value || new Date();
-                        const currentDay = getDate(selectedDate).toString();
-                        const currentMonth = getMonth(selectedDate).toString();
-                        const currentYear = getYear(selectedDate).toString();
-            
-                        const years = Array.from({ length: 20 }, (_, i) => (new Date().getFullYear() - 10 + i).toString());
-                        const months = Array.from({ length: 12 }, (_, i) => ({ value: i.toString(), label: format(new Date(0, i), 'MMMM') }));
-                        const daysInMonth = getDaysInMonth(selectedDate);
-                        const days = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
-            
-                        return (
-                            <div className="flex gap-2">
-                                <Select value={currentDay} onValueChange={(val) => handleDateChange('day', val)}>
-                                    <SelectTrigger className="w-[80px]"><SelectValue placeholder="Day" /></SelectTrigger>
-                                    <SelectContent>
-                                        {days.map(d => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentMonth} onValueChange={(val) => handleDateChange('month', val)}>
-                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Month" /></SelectTrigger>
-                                    <SelectContent>
-                                        {months.map(m => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                                <Select value={currentYear} onValueChange={(val) => handleDateChange('year', val)}>
-                                    <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
-                                    <SelectContent>
-                                        {years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        );
-                    }}
+                    render={({ field }) => (
+                        <Popover>
+                            <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
+                            </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                            />
+                            </PopoverContent>
+                        </Popover>
+                    )}
                   />
                   {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>

@@ -6,14 +6,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { Fuel, Sun } from 'lucide-react';
+import { Fuel, Sun, List, PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
 import type { FuelType } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { TransactionNav } from '@/components/transaction-nav';
-import { startOfDay, endOfDay, isValid } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format } from 'date-fns';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 
 function PageHeader() {
