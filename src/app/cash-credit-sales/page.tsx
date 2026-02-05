@@ -457,7 +457,12 @@ export default function CashCreditSalesReportPage() {
                                                                     <div className="flex items-center gap-2">
                                                                         <Fuel size={16}/>
                                                                         <div>
-                                                                            {row.fuelType}
+                                                                            <span className={cn(
+                                                                                row.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                                (row.fuelType.toLowerCase().includes('unleaded') || row.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                            )}>
+                                                                                {row.fuelType}
+                                                                            </span>
                                                                             <div className="text-xs text-muted-foreground">
                                                                                 Opening: {row.openingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} L
                                                                             </div>
@@ -492,7 +497,14 @@ export default function CashCreditSalesReportPage() {
                                                         <TableBody>
                                                             {dayData.comparisonSummary.map(summary => (
                                                                 <TableRow key={summary.fuelType}>
-                                                                    <TableCell className="font-medium">{summary.fuelType}</TableCell>
+                                                                    <TableCell className="font-medium">
+                                                                        <span className={cn(
+                                                                            summary.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                            (summary.fuelType.toLowerCase().includes('unleaded') || summary.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                        )}>
+                                                                            {summary.fuelType}
+                                                                        </span>
+                                                                    </TableCell>
                                                                     <TableCell className="text-right font-mono">{summary.sales.toFixed(2)}</TableCell>
                                                                     <TableCell className="text-right font-mono">{summary.dispensed.toFixed(2)}</TableCell>
                                                                     <TableCell className={`text-right font-mono font-semibold ${summary.difference > 0.01 ? 'text-green-600' : summary.difference < -0.01 ? 'text-destructive' : ''}`}>
@@ -523,7 +535,10 @@ export default function CashCreditSalesReportPage() {
                                                         <TableBody>
                                                             {dayData.machineReadings.map(reading => (
                                                                 <TableRow key={reading.id}>
-                                                                    <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
+                                                                    <TableCell>{reading.machineName} (<span className={cn(
+                                                                        reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                        (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                    )}>{reading.fuelType}</span>)</TableCell>
                                                                     <TableCell className="text-right font-mono">
                                                                         <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
                                                                         {reading.previousReadingTimestamp && (

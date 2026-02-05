@@ -9,6 +9,7 @@ import { format, isValid } from 'date-fns';
 import { TrendingUp, Package } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface RateHistoryEntry {
   date: string;
@@ -107,7 +108,12 @@ export default function ProductRateHistoryPage() {
                                     <AccordionTrigger className="text-lg font-semibold bg-muted/50 px-4 rounded-md">
                                         <div className="flex items-center gap-2">
                                             <Package />
-                                            {productName}
+                                            <span className={cn(
+                                                productName.toLowerCase().includes('diesel') && 'text-green-600',
+                                                (productName.toLowerCase().includes('unleaded') || productName.toLowerCase().includes('premium')) && 'text-destructive'
+                                            )}>
+                                                {productName}
+                                            </span>
                                         </div>
                                     </AccordionTrigger>
                                     <AccordionContent className="p-2">

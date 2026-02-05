@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/accordion";
 import * as XLSX from 'xlsx';
 import type { MachineReading, Transaction } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 
 interface ProcessedReading extends MachineReading {
@@ -265,7 +266,14 @@ export default function MachineReadingReportPage() {
                                                     {dayData.machineReadings.map(reading => (
                                                         <TableRow key={reading.id}>
                                                             <TableCell>{reading.machineName}</TableCell>
-                                                            <TableCell>{reading.fuelType}</TableCell>
+                                                            <TableCell>
+                                                                <span className={cn(
+                                                                    reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                    (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                )}>
+                                                                    {reading.fuelType}
+                                                                </span>
+                                                            </TableCell>
                                                             <TableCell className="text-right font-mono">
                                                                 <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
                                                                 {reading.previousReadingTimestamp && (
@@ -300,7 +308,14 @@ export default function MachineReadingReportPage() {
                                                 <TableBody>
                                                     {dayData.comparisonSummary.map(summary => (
                                                         <TableRow key={summary.fuelType}>
-                                                            <TableCell className="font-medium">{summary.fuelType}</TableCell>
+                                                            <TableCell className="font-medium">
+                                                                <span className={cn(
+                                                                    summary.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                    (summary.fuelType.toLowerCase().includes('unleaded') || summary.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                )}>
+                                                                    {summary.fuelType}
+                                                                </span>
+                                                            </TableCell>
                                                             <TableCell className="text-right font-mono">{summary.sales.toFixed(2)}</TableCell>
                                                             <TableCell className="text-right font-mono">{summary.dispensed.toFixed(2)}</TableCell>
                                                             <TableCell className={`text-right font-mono font-semibold ${summary.difference > 0.01 ? 'text-green-600' : summary.difference < -0.01 ? 'text-destructive' : ''}`}>

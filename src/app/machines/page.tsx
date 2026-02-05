@@ -223,7 +223,10 @@ export default function MachineManagementPage() {
                     const report = fuelReportByFuelType[fuelType];
                     return (
                         <div key={fuelType}>
-                            <h3 className="text-lg font-semibold mb-2 text-primary">{fuelType}</h3>
+                            <h3 className={cn("text-lg font-semibold mb-2", 
+                                fuelType.toLowerCase().includes('diesel') ? 'text-green-600' :
+                                (fuelType.toLowerCase().includes('unleaded') || fuelType.toLowerCase().includes('premium')) ? 'text-destructive' : 'text-primary'
+                            )}>{fuelType}</h3>
                             <div className="space-y-4">
                                 {machinesByFuelType[fuelType].map(machine => {
                                     const latestReading = getLatestReading(machine.id);

@@ -21,6 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 
 
 const MAX_CAPACITY: Record<string, number> = {
@@ -151,7 +152,13 @@ export default function InventoryPage() {
                         <Card key={product.id} className="flex flex-col">
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2">
-                                <Droplets className="w-6 h-6 text-primary" /> {product.name}
+                                <Droplets className="w-6 h-6 text-primary" />
+                                <span className={cn(
+                                    product.name.toLowerCase().includes('diesel') && 'text-green-600',
+                                    (product.name.toLowerCase().includes('unleaded') || product.name.toLowerCase().includes('premium')) && 'text-destructive'
+                                )}>
+                                {product.name}
+                                </span>
                             </CardTitle>
                         </CardHeader>
                             <CardContent className="flex-grow space-y-4">
