@@ -65,7 +65,7 @@ function PageHeader() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded, dateRange, colorSettings } = useDatabase();
+  const { customers, addCustomerPayment, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
 
@@ -73,17 +73,9 @@ export default function CustomerPaymentsPage() {
     resolver: zodResolver(customerPaymentSchema),
     defaultValues: {
         paymentMethod: 'Cash',
+        date: new Date(),
     }
   });
-
-  useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-        date: dateRange.from,
-        paymentMethod: 'Cash',
-      });
-    }
-  }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
