@@ -426,7 +426,7 @@ export default function CashCreditSalesReportPage() {
                                 <AccordionItem value={dateKey} key={dateKey} className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
                                     <AccordionTrigger className="p-4 text-lg hover:no-underline data-[state=open]:bg-muted/50">
                                         <div className="flex justify-between w-full pr-4 items-center">
-                                            <span className="font-semibold text-primary">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
+                                            <span className="font-semibold text-destructive">{format(new Date(dateKey), 'EEEE, dd MMMM yyyy')}</span>
                                             <div className="flex gap-4 text-sm font-normal">
                                                 <span className="text-green-600">Cash: PKR {dayData.totals.cashSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
                                                 <span className="text-blue-600">Credit: PKR {dayData.totals.creditSalesAmount.toLocaleString(undefined, {minimumFractionDigits: 0})}</span>
@@ -437,7 +437,7 @@ export default function CashCreditSalesReportPage() {
                                     <AccordionContent className="p-4 bg-muted/20 space-y-6">
                                         <Card>
                                             <CardHeader>
-                                                <CardTitle>Daily Sales Summary</CardTitle>
+                                                <CardTitle className="text-destructive">Daily Sales Summary</CardTitle>
                                             </CardHeader>
                                             <CardContent className="p-0">
                                                 <Table>
