@@ -96,6 +96,7 @@ export default function CashCreditSalesReportPage() {
         transactions, 
         products, 
         machineReadings, 
+        machines,
         isLoaded, 
         dateRange, 
         setDateRange,
@@ -149,7 +150,7 @@ export default function CashCreditSalesReportPage() {
     }
 
     const groupedReportData: GroupedReport = useMemo(() => {
-        if (!isLoaded || !products.length) return {};
+        if (!isLoaded || !products.length || !machines) return {};
 
         const from = dateRange?.from ? startOfDay(dateRange.from) : startOfMonth(new Date());
         const to = dateRange?.to ? endOfDay(dateRange.to) : endOfMonth(new Date());
@@ -336,7 +337,10 @@ export default function CashCreditSalesReportPage() {
                 return acc;
             }, {} as Record<string, number>);
 
-            const allFuelTypesInDay = [...new Set([...Object.keys(salesSummaryByFuel), ...Object.keys(dispensedSummaryByFuel)])];
+            const fuelTypesWithMachines = [...new Set(machines.map(m => m.fuelType))];
+
+            const allFuelTypesInDay = [...new Set([...Object.keys(salesSummaryByFuel), ...Object.keys(dispensedSummaryByFuel)])]
+                .filter(fuelType => fuelTypesWithMachines.includes(fuelType));
 
             const comparisonSummary = allFuelTypesInDay.map(fuelType => {
                 const sales = salesSummaryByFuel[fuelType] || 0;
@@ -354,7 +358,7 @@ export default function CashCreditSalesReportPage() {
 
         return result;
 
-    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm, purchases, purchaseReturns, saleReturns, stockAdjustments, initialFuelStock]);
+    }, [isLoaded, transactions, products, machineReadings, dateRange, searchTerm, purchases, purchaseReturns, saleReturns, stockAdjustments, initialFuelStock, machines]);
     
     const sortedDateKeys = useMemo(() => {
         return Object.keys(groupedReportData).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
