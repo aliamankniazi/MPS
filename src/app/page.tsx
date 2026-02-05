@@ -122,11 +122,18 @@ export default function DashboardPage() {
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [summaryDateRange, setSummaryDateRange] = useState<DateRange | undefined>(undefined);
 
   useEffect(() => {
     // This effect runs only on the client, after the initial render.
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    if (dateRange && !summaryDateRange) {
+        setSummaryDateRange(dateRange);
+    }
+  }, [dateRange, summaryDateRange]);
 
   useEffect(() => {
     if (!isClient) return;
@@ -178,10 +185,10 @@ export default function DashboardPage() {
   }, [isClient]);
 
   const filteredData = useMemo(() => {
-    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
+    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [], customerPayments: [], cashAdvances: [] };
 
     if (!dateRange || !dateRange.from) {
-      return { transactions, purchases, expenses, otherIncomes, stockAdjustments };
+      return { transactions, purchases, expenses, otherIncomes, stockAdjustments, customerPayments, cashAdvances };
     }
 
     const from = startOfDay(dateRange.from);
@@ -198,14 +205,40 @@ export default function DashboardPage() {
       expenses: filterByDate(expenses),
       otherIncomes: filterByDate(otherIncomes),
       stockAdjustments: filterByDate(stockAdjustments),
+      customerPayments: filterByDate(customerPayments),
+      cashAdvances: filterByDate(cashAdvances),
     };
-  }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, dateRange]);
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, customerPayments, cashAdvances, dateRange]);
+  
+  const summaryFilteredData = useMemo(() => {
+    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
+
+    if (!summaryDateRange || !summaryDateRange.from) {
+      return { transactions, purchases, expenses, otherIncomes, stockAdjustments };
+    }
+
+    const from = startOfDay(summaryDateRange.from);
+    const to = summaryDateRange.to ? endOfDay(summaryDateRange.to) : endOfDay(from);
+
+    const filterByDate = (items: any[]) => items.filter(item => {
+      const itemDate = new Date(item.timestamp);
+      return isValid(itemDate) && itemDate >= from && itemDate <= to;
+    });
+
+    return {
+      transactions: filterByDate(transactions),
+      purchases: filterByDate(purchases),
+      expenses: filterByDate(expenses),
+      otherIncomes: filterByDate(otherIncomes),
+      stockAdjustments: filterByDate(stockAdjustments),
+    };
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, summaryDateRange]);
 
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
 
-    const { transactions: filteredTransactions, purchases: filteredPurchases, expenses: filteredExpenses, otherIncomes: filteredOtherIncomes, stockAdjustments: filteredStockAdjustments } = filteredData;
+    const { transactions: filteredTransactions, purchases: filteredPurchases, expenses: filteredExpenses, otherIncomes: filteredOtherIncomes, stockAdjustments: filteredStockAdjustments } = summaryFilteredData;
     
     const costOfGoodsSold = filteredTransactions.reduce((totalCost, sale) => {
         const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
@@ -300,11 +333,13 @@ export default function DashboardPage() {
       costOfGoodsSold,
       totalSoldVolume,
     };
-  }, [isLoaded, filteredData, products, purchases]);
+  }, [isLoaded, summaryFilteredData, products, purchases]);
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
   
+    const { transactions: filteredTransactions } = filteredData;
+
     const mainProducts = products.filter(p => p.category === 'Main Product');
   
     const sortedProducts = mainProducts.sort((a, b) => {
@@ -314,7 +349,7 @@ export default function DashboardPage() {
     });
   
     return sortedProducts.map(product => {
-      const salesForProduct = filteredData.transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+      const salesForProduct = filteredTransactions.filter(t => (t.fuelType === product.name || t.product === product.name));
       const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
   
       const lastSale = [...salesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -412,7 +447,9 @@ export default function DashboardPage() {
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
 
-    const customerTotals = filteredData.transactions.reduce((acc, tx) => {
+    const { transactions: filteredTransactions } = filteredData;
+
+    const customerTotals = filteredTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
                 id: tx.customerId,
@@ -427,7 +464,7 @@ export default function DashboardPage() {
         .sort((a,b) => b.total - a.total)
         .slice(0, 5);
 
-  }, [isLoaded, filteredData.transactions]);
+  }, [isLoaded, filteredData]);
 
   const blacklistedCustomersWithBalance = useMemo(() => {
     if (!isLoaded || !customers || !transactions || !customerPayments || !cashAdvances) return [];
@@ -447,18 +484,11 @@ export default function DashboardPage() {
   }, [isLoaded, customers, transactions, customerPayments, cashAdvances]);
 
   const dailyProductSales = useMemo(() => {
-    if (!isLoaded || !transactions || !products) return {};
+    if (!isLoaded || !products) return {};
 
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const monthEnd = endOfMonth(now);
+    const { transactions: filteredTransactions } = filteredData;
 
-    const currentMonthTransactions = transactions.filter(tx => {
-        const txDate = new Date(tx.timestamp);
-        return isValid(txDate) && txDate >= monthStart && txDate <= monthEnd;
-    });
-    
-    const salesByDayAndProduct = currentMonthTransactions.reduce((acc, tx) => {
+    const salesByDayAndProduct = filteredTransactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
             if (!acc[date]) {
@@ -481,7 +511,7 @@ export default function DashboardPage() {
     }, {} as Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>>);
 
     return salesByDayAndProduct;
-  }, [isLoaded, transactions, products]);
+  }, [isLoaded, filteredData, products]);
 
     const sortedDailySalesKeys = useMemo(() => {
         if (!dailyProductSales || Object.keys(dailyProductSales).length === 0) return [];
@@ -536,97 +566,110 @@ export default function DashboardPage() {
        <div className="grid gap-6 lg:grid-cols-5">
          <div className="lg:col-span-3 space-y-6">
           {/* Stat Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-sm font-medium text-muted-foreground">
-                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">
-                    Cost of Goods Sold
-                </CardTitle>
-                <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
-                    PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                <div>
+                  <CardTitle>Financial Summary</CardTitle>
+                  <CardDescription>Key financial metrics for the selected period.</CardDescription>
                 </div>
-                <p className="text-sm font-medium text-muted-foreground">
-                    For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">For selected period</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Other Income</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[hsl(var(--chart-3))]">PKR {financialSummary?.totalOtherIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">From other sources</p>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">
-                    {financialSummary && financialSummary.netStockAdjustment >= 0 ? 'Stock Surplus' : 'Stock Loss'}
-                </CardTitle>
-                {financialSummary && financialSummary.netStockAdjustment >= 0 ? (
+                <DateRangePicker date={summaryDateRange} onDateChange={setSummaryDateRange} />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Total Revenue</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                        For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">
+                        Cost of Goods Sold
+                    </CardTitle>
+                    <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
+                        PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
+                    </div>
+                    <p className="text-sm font-medium text-muted-foreground">
+                        For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                    <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </CardHeader>
-              <CardContent>
-                <div className={cn(
-                    "text-2xl font-bold",
-                    financialSummary && financialSummary.netStockAdjustment >= 0 ? 'text-[hsl(var(--chart-2))]' : 'text-destructive'
-                )}>
-                    PKR {financialSummary ? Math.abs(financialSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '...'}
-                </div>
-                <p className="text-xs text-muted-foreground">Net value from stock adjustments</p>
-              </CardContent>
-            </Card>
-             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                <p className="text-xs text-muted-foreground">After all costs & expenses</p>
-              </CardContent>
-            </Card>
-          </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
+                    <Receipt className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-xs text-muted-foreground">For selected period</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Other Income</CardTitle>
+                    <DollarSign className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-[hsl(var(--chart-3))]">PKR {financialSummary?.totalOtherIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-xs text-muted-foreground">From other sources</p>
+                  </CardContent>
+                </Card>
+                 <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">
+                        {financialSummary && financialSummary.netStockAdjustment >= 0 ? 'Stock Surplus' : 'Stock Loss'}
+                    </CardTitle>
+                    {financialSummary && financialSummary.netStockAdjustment >= 0 ? (
+                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                        <TrendingDown className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div className={cn(
+                        "text-2xl font-bold",
+                        financialSummary && financialSummary.netStockAdjustment >= 0 ? 'text-[hsl(var(--chart-2))]' : 'text-destructive'
+                    )}>
+                        PKR {financialSummary ? Math.abs(financialSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '...'}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Net value from stock adjustments</p>
+                  </CardContent>
+                </Card>
+                 <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-2xl font-bold ${financialSummary && financialSummary.netProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.netProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-xs text-muted-foreground">After all costs & expenses</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
            <Card>
             <CardHeader>
               <CardTitle className="text-primary">Sales Chart</CardTitle>
