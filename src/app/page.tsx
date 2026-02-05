@@ -122,18 +122,15 @@ export default function DashboardPage() {
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [summaryDateRange, setSummaryDateRange] = useState<DateRange | undefined>(undefined);
+  const [summaryDateRange, setSummaryDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
 
   useEffect(() => {
     // This effect runs only on the client, after the initial render.
     setIsClient(true);
   }, []);
-
-  useEffect(() => {
-    if (dateRange && !summaryDateRange) {
-        setSummaryDateRange(dateRange);
-    }
-  }, [dateRange, summaryDateRange]);
 
   useEffect(() => {
     if (!isClient) return;
