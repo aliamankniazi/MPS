@@ -53,7 +53,7 @@ import {
     setDoc,
     writeBatch
 } from 'firebase/firestore';
-import { isValid, startOfMonth, endOfMonth } from 'date-fns';
+import { isValid, startOfMonth, endOfMonth, startOfDay, endOfToday } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
@@ -240,11 +240,39 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: false,
     });
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [initialDateRangeSet, setInitialDateRangeSet] = useState(false);
     
     useEffect(() => {
-        // This effect runs only on the client, after the initial render, to prevent hydration mismatch.
-        setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
-    }, []);
+        if (state.isLoaded && !initialDateRangeSet) {
+            const allEntries: any[] = [
+                ...state.transactions,
+                ...state.purchases,
+                ...state.purchaseReturns,
+                ...state.saleReturns,
+                ...state.expenses,
+                ...state.otherIncomes,
+                ...state.customerPayments,
+                ...state.supplierPayments,
+                ...state.cashAdvances,
+                ...state.investments,
+            ];
+    
+            const allTimestamps = allEntries
+                .map(entry => new Date(entry.timestamp))
+                .filter(date => isValid(date));
+            
+            if (allTimestamps.length > 0) {
+                const firstDate = allTimestamps.reduce((min, d) => (d < min ? d : min), new Date());
+                setDateRange({ from: startOfDay(firstDate), to: endOfToday() });
+            } else {
+                 setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
+            }
+            setInitialDateRangeSet(true);
+        } else if (!state.isLoaded && !initialDateRangeSet) {
+            // Set a default while loading to avoid undefined state for date picker
+            setDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) });
+        }
+      }, [state.isLoaded, initialDateRangeSet, state.transactions, state.purchases, state.purchaseReturns, state.saleReturns, state.expenses, state.otherIncomes, state.customerPayments, state.supplierPayments, state.cashAdvances, state.investments]);
 
     useEffect(() => {
         if (isAuthLoading) {
