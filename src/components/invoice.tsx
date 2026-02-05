@@ -1,10 +1,11 @@
 
-
 'use client';
 
 import { format, differenceInDays } from 'date-fns';
 import numWords from 'num-words';
 import { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
+
 
 interface InvoiceItem {
   name: string;
@@ -198,7 +199,10 @@ export function Invoice({ data }: { data: InvoiceData }) {
                 {data.items.map((item, index) => (
                     <tr key={index} className="border-b">
                         <td className="p-2">{index + 1}</td>
-                        <td className="p-2">{item.name}</td>
+                        <td className={cn("p-2",
+                            item.name.toLowerCase().includes('diesel') && 'text-green-600',
+                            (item.name.toLowerCase().includes('unleaded') || item.name.toLowerCase().includes('premium')) && 'text-destructive'
+                        )}>{item.name}</td>
                         <td className="p-2">{item.group}</td>
                         <td className="p-2 text-right">{item.quantity.toFixed(3)} LTR</td>
                         <td className="p-2 text-right">{item.price.toFixed(2)}</td>

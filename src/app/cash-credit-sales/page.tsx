@@ -535,10 +535,19 @@ export default function CashCreditSalesReportPage() {
                                                         <TableBody>
                                                             {dayData.machineReadings.map(reading => (
                                                                 <TableRow key={reading.id}>
-                                                                    <TableCell>{reading.machineName} (<span className={cn(
-                                                                        reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
-                                                                        (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
-                                                                    )}>{reading.fuelType}</span>)</TableCell>
+                                                                    <TableCell>
+                                                                        <span className={cn(
+                                                                            reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                            (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                        )}>
+                                                                            {reading.machineName}
+                                                                        </span>
+                                                                        {' '}
+                                                                        (<span className={cn(
+                                                                            reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                            (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                        )}>{reading.fuelType}</span>)
+                                                                    </TableCell>
                                                                     <TableCell className="text-right font-mono">
                                                                         <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
                                                                         {reading.previousReadingTimestamp && (

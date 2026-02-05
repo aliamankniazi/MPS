@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -411,7 +410,10 @@ export default function AllTransactionsPage() {
                                                     >{typeLabel}</Badge>
                                                     </TableCell>
                                                     <TableCell className="font-medium">{entry.partner}</TableCell>
-                                                    <TableCell>{entry.details}</TableCell>
+                                                    <TableCell className={cn(
+                                                        entry.details.toLowerCase().includes('diesel') && 'text-green-600',
+                                                        (entry.details.toLowerCase().includes('unleaded') || entry.details.toLowerCase().includes('premium')) && 'text-destructive'
+                                                    )}>{entry.details}</TableCell>
                                                     <TableCell className="text-right font-semibold font-mono" style={{ color }}>
                                                         {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </TableCell>

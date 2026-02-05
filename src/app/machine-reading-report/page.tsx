@@ -265,7 +265,14 @@ export default function MachineReadingReportPage() {
                                                 <TableBody>
                                                     {dayData.machineReadings.map(reading => (
                                                         <TableRow key={reading.id}>
-                                                            <TableCell>{reading.machineName}</TableCell>
+                                                            <TableCell>
+                                                                <span className={cn(
+                                                                    reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                                    (reading.fuelType.toLowerCase().includes('unleaded') || reading.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                                                )}>
+                                                                    {reading.machineName}
+                                                                </span>
+                                                            </TableCell>
                                                             <TableCell>
                                                                 <span className={cn(
                                                                     reading.fuelType.toLowerCase().includes('diesel') && 'text-green-600',

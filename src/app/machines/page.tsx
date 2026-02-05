@@ -234,7 +234,10 @@ export default function MachineManagementPage() {
                                     const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
                                     return (
                                         <div key={machine.id} className="p-3 border rounded-lg space-y-2">
-                                            <h4 className="font-semibold">{machine.name}</h4>
+                                            <h4 className={cn("font-semibold",
+                                                machine.fuelType.toLowerCase().includes('diesel') && 'text-green-600',
+                                                (machine.fuelType.toLowerCase().includes('unleaded') || machine.fuelType.toLowerCase().includes('premium')) && 'text-destructive'
+                                            )}>{machine.name}</h4>
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 items-end">
                                                 <div className="space-y-1">
                                                     <Label className="text-xs">Last Reading</Label>

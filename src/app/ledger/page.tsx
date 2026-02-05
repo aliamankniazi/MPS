@@ -1183,7 +1183,7 @@ export default function LedgerPage() {
                                                             )}
                                                         </TableCell>
                                                         <TableCell>{entry.notes || ''}</TableCell>
-                                                        <TableCell className="font-medium" style={{ color }}>
+                                                        <TableCell style={{ color }}>
                                                             {entry.description}
                                                         </TableCell>
                                                         <TableCell>

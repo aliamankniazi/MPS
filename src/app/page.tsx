@@ -703,7 +703,13 @@ export default function DashboardPage() {
             {productStats.map(stat => (
                 <Card key={stat.name}>
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-medium flex items-center gap-2 text-primary"><Fuel size={16} />{stat.name}</CardTitle>
+                        <CardTitle className="text-base font-medium flex items-center gap-2 text-primary">
+                          <Fuel size={16} />
+                          <span className={cn(
+                            stat.name.toLowerCase().includes('diesel') && 'text-green-600',
+                            (stat.name.toLowerCase().includes('unleaded') || stat.name.toLowerCase().includes('premium')) && 'text-destructive'
+                          )}>{stat.name}</span>
+                        </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-1 text-sm">
                         <div className="flex justify-between">

@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -279,7 +278,10 @@ export default function AllInvoicesPage() {
                                         >{typeLabel}</Badge>
                                       </TableCell>
                                       <TableCell className={cn(invoice.isCreditSale && 'font-medium')}>{invoice.partner}</TableCell>
-                                      <TableCell>{invoice.details}</TableCell>
+                                      <TableCell className={cn(
+                                        invoice.details.toLowerCase().includes('diesel') && 'text-green-600',
+                                        (invoice.details.toLowerCase().includes('unleaded') || invoice.details.toLowerCase().includes('premium')) && 'text-destructive'
+                                      )}>{invoice.details}</TableCell>
                                       <TableCell className={cn("text-right font-semibold font-mono", getAmountClass(invoice))}>
                                         {invoice.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                       </TableCell>
