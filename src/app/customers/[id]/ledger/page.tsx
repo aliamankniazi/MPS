@@ -28,6 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from '@/lib/types';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 
 type LedgerEntry = {
@@ -61,9 +62,10 @@ export default function CustomerLedgerPage() {
     deleteSupplierPayment, 
     deleteInvestment,
     isLoaded,
-    dateRange,
+    dateRange: globalDateRange,
   } = useDatabase();
   
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(globalDateRange);
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -364,10 +366,7 @@ export default function CustomerLedgerPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
                 </div>
-                 <div className={cn("w-full sm:w-auto justify-start text-left font-normal border border-input rounded-md px-3 py-2 flex items-center bg-muted/50 text-sm", !dateRange && "text-muted-foreground")}>
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "dd-MMM-yyyy")} - {format(dateRange.to, "dd-MMM-yyyy")}</>) : (format(dateRange.from, "dd-MMM-yyyy"))) : (<span>All Time</span>)}
-                </div>
+                 <DateRangePicker date={dateRange} onDateChange={setDateRange} />
                  <Button asChild variant="outline">
                     <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
                  </Button>
@@ -503,5 +502,4 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-
     
