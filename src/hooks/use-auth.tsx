@@ -61,7 +61,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: (user: User | null, isAuthPage: boolean, isLoading: boolean) => ReactNode }) {
   const { user, isUserLoading: authLoading, auth, firestore } = useFirebase();
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -253,7 +253,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const isLoading = authLoading || rolesLoading;
 
   useEffect(() => {
-    if (authLoading || rolesLoading) return; // Wait until auth state is resolved
+    if (isLoading) return; // Don't redirect while loading
 
     if (!user && !isAuthPage) {
         router.push('/login');
@@ -261,7 +261,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user && isAuthPage) {
         router.push('/');
     }
-  }, [user, authLoading, rolesLoading, isAuthPage, router]);
+  }, [user, isLoading, isAuthPage, router, authLoading, rolesLoading]);
 
 
   const value = {
@@ -280,17 +280,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword,
   };
 
-  if (isLoading && !isAuthPage) {
-     return (
-        <div className="flex h-screen w-full items-center justify-center">
-            <p>Loading user permissions...</p>
-        </div>
-    );
-  }
-  
   return (
       <AuthContext.Provider value={value}>
-        {user && !isAuthPage ? <AppLayout>{children}</AppLayout> : children}
+        {children(user, isAuthPage, isLoading)}
       </AuthContext.Provider>
   );
 }

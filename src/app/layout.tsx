@@ -1,4 +1,3 @@
-
 import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -8,6 +7,7 @@ import { PrintStyles } from '@/components/print-styles';
 import { DatabaseProvider } from '@/hooks/use-database';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { FirebaseClientProvider } from '@/firebase';
+import { AppLayout } from '@/components/app-layout';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -30,9 +30,27 @@ export default function RootLayout({
         <FirebaseClientProvider>
           <DatabaseProvider>
             <AuthProvider>
-              <PrintStyles />
-              <FirebaseErrorListener />
-              {children}
+              {(user, isAuthPage, isLoading) => {
+                if (isLoading && !isAuthPage) {
+                  return (
+                    <div className="flex h-screen w-full items-center justify-center">
+                      <p>Loading application...</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <>
+                    <PrintStyles />
+                    <FirebaseErrorListener />
+                    {user && !isAuthPage ? (
+                      <AppLayout>{children}</AppLayout>
+                    ) : (
+                      children
+                    )}
+                  </>
+                );
+              }}
             </AuthProvider>
           </DatabaseProvider>
         </FirebaseClientProvider>
