@@ -1,7 +1,6 @@
-
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -11,7 +10,7 @@ import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment } from '@/lib/types';
+import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment, DateRange } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +27,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 
 type CombinedEntry = {
@@ -72,31 +72,12 @@ export default function AllTransactionsPage() {
     deleteExpense,
     deleteCashAdvance,
     isLoaded,
-    dateRange,
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
   const { toast } = useToast();
-
-  const handleExportExcel = () => {
-    const dataToExport = filteredEntries.map(entry => {
-        const date = new Date(entry.timestamp);
-        const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
-        return {
-            'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
-            'Type': typeLabel,
-            'Partner': entry.partner,
-            'Details': entry.details,
-            'Amount (PKR)': entry.amount.toFixed(2),
-            'Profit (PKR)': entry.type === 'Sale' && entry.profit ? entry.profit.toFixed(2) : '-'
-        };
-    });
-    
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
-    XLSX.writeFile(workbook, 'AllTransactions.xlsx');
-  };
+  const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
+  const isInitialDateSet = useRef(false);
 
   const combinedEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -215,11 +196,47 @@ export default function AllTransactionsPage() {
     });
   }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
-  const filteredEntries = useMemo(() => {
-    if (!dateRange?.from) return [];
+  useEffect(() => {
+    if (isLoaded && combinedEntries.length > 0 && !isInitialDateSet.current) {
+        const latestEntry = combinedEntries[0];
+        if (latestEntry && isValid(new Date(latestEntry.timestamp))) {
+            const latestDate = new Date(latestEntry.timestamp);
+            setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
+        } else {
+            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        }
+        isInitialDateSet.current = true;
+    } else if (isLoaded && !isInitialDateSet.current) {
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        isInitialDateSet.current = true;
+    }
+  }, [isLoaded, combinedEntries]);
+
+  const handleExportExcel = () => {
+    const dataToExport = filteredEntries.map(entry => {
+        const date = new Date(entry.timestamp);
+        const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        return {
+            'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
+            'Type': typeLabel,
+            'Partner': entry.partner,
+            'Details': entry.details,
+            'Amount (PKR)': entry.amount.toFixed(2),
+            'Profit (PKR)': entry.type === 'Sale' && entry.profit ? entry.profit.toFixed(2) : '-'
+        };
+    });
     
-    const from = startOfDay(dateRange.from);
-    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+    XLSX.writeFile(workbook, 'AllTransactions.xlsx');
+  };
+
+  const filteredEntries = useMemo(() => {
+    if (!localDateRange?.from) return [];
+    
+    const from = startOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(localDateRange.from);
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -233,7 +250,7 @@ export default function AllTransactionsPage() {
       (entry.type && entry.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase()))
     );
-  }, [combinedEntries, searchTerm, dateRange]);
+  }, [combinedEntries, searchTerm, localDateRange]);
 
   const groupedEntries = useMemo(() => {
     const groups = filteredEntries.reduce((acc, entry) => {
@@ -254,11 +271,11 @@ export default function AllTransactionsPage() {
   const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
 
   const topCustomers = useMemo(() => {
-    if (!isLoaded || !dateRange?.from) return [];
+    if (!isLoaded || !localDateRange?.from) return [];
 
     let currentTransactions = transactions;
-    const from = startOfDay(dateRange.from);
-    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
+    const from = startOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(localDateRange.from);
     currentTransactions = transactions.filter(tx => {
         const txDate = new Date(tx.timestamp);
         return isValid(txDate) && txDate >= from && txDate <= to;
@@ -279,7 +296,7 @@ export default function AllTransactionsPage() {
         .sort((a,b) => b.total - a.total)
         .slice(0, 5);
 
-  }, [isLoaded, transactions, dateRange]);
+  }, [isLoaded, transactions, localDateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
@@ -349,7 +366,8 @@ export default function AllTransactionsPage() {
                     </CardTitle>
                     <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
                 </div>
-                 <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2 flex-wrap">
+                    <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
                     <Input 
                         placeholder="Search..."
                         value={searchTerm}
@@ -541,5 +559,3 @@ export default function AllTransactionsPage() {
     </>
   );
 }
-
-    
