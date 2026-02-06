@@ -1,4 +1,3 @@
-
 'use client';
 
 import { format, differenceInDays } from 'date-fns';
@@ -33,11 +32,12 @@ interface InvoiceData {
     name: string;
     number: string;
   }
+  notes?: string;
 }
 
 const companyDetails = {
     name: 'Mianwali Petroleum Service',
-    branch: 'Mianwali',
+    branch: 'Ballo Khel Road Opposite Assistant Commisioner House Mianwali',
     mobile1: '03335425401',
     mobile2: '03335425401',
     dealsIn: 'HSD, PREMIER, EURO 5',
@@ -155,7 +155,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <InvoiceLogo />
             <div>
                 <h1 className="text-xl font-bold text-gray-900">{companyDetails.name}</h1>
-                <p>Branch: {companyDetails.branch}</p>
+                <p>{companyDetails.branch}</p>
                 <p>Mobile No1: {companyDetails.mobile1}</p>
                 <p>Mobile No2: {companyDetails.mobile2}</p>
                 <p className="font-semibold">Deals in: {companyDetails.dealsIn}</p>
@@ -180,6 +180,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
              {data.bankDetails && (
                 <p>Bank: {data.bankDetails.name} ({data.bankDetails.number})</p>
              )}
+             {data.notes && <p className="text-sm mt-1">Notes: {data.notes}</p>}
         </div>
         <div className="text-right">
             <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
