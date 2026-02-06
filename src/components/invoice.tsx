@@ -23,6 +23,8 @@ interface InvoiceData {
     name: string;
     contact: string;
     balance: number;
+    openingBalance?: number;
+    closingBalance?: number;
   };
   items: InvoiceItem[];
   totalAmount: number;
@@ -246,10 +248,20 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     <span className="font-bold">0</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">RS {data.totalAmount.toFixed(2)}</span>
-                    <span className="font-semibold">Paid:</span>
-                    <span className="font-bold">RS 0.00</span>
-                    <span className="font-semibold">Invoice Balance:</span>
-                    <span className="font-bold">RS {data.totalAmount.toFixed(2)}</span>
+                    
+                    {data.partner.openingBalance !== undefined && (
+                        <>
+                            <span className="font-semibold">Previous Balance:</span>
+                            <span className="font-bold">RS {data.partner.openingBalance.toFixed(2)}</span>
+                        </>
+                    )}
+                    {data.partner.closingBalance !== undefined && (
+                        <>
+                            <span className="font-semibold text-lg">New Balance:</span>
+                            <span className="font-bold text-lg">RS {data.partner.closingBalance.toFixed(2)}</span>
+                        </>
+                    )}
+
                     <span className="font-semibold">Payment Mode:</span>
                     <span className="font-bold">{data.paymentMethod}</span>
                 </div>

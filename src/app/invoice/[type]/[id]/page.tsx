@@ -10,7 +10,7 @@ import React, { useMemo } from 'react';
 
 export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
   const { type, id } = params;
-  const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded, customerPayments, cashAdvances } = useDatabase();
+  const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded, customerPayments, cashAdvances, supplierPayments } = useDatabase();
 
   const invoiceData = useMemo(() => {
     if (!isLoaded) return null;
@@ -20,6 +20,30 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
       if (transaction) {
         const customer = transaction.customerId ? customers.find(c => c.id === transaction.customerId) : null;
         const bankAccount = transaction.bankAccountId ? bankAccounts.find(b => b.id === transaction.bankAccountId) : null;
+        
+        let openingBalance = 0;
+        let closingBalance = 0;
+
+        if (customer) {
+            const customerOpening = customer.openingBalance || 0;
+            const transactionTimestamp = new Date(transaction.timestamp).getTime();
+
+            const previousTransactions = transactions
+                .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < transactionTimestamp)
+                .reduce((sum, tx) => sum + tx.totalAmount, 0);
+
+            const previousPayments = customerPayments
+                .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < transactionTimestamp)
+                .reduce((sum, p) => sum + p.amount, 0);
+            
+            const previousCashAdvances = cashAdvances
+                .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < transactionTimestamp)
+                .reduce((sum, ca) => sum + ca.amount, 0);
+
+            openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
+            closingBalance = openingBalance + transaction.totalAmount;
+        }
+
         return {
           type: 'Sale',
           id: transaction.id,
@@ -27,7 +51,9 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
           partner: {
             name: transaction.customerName || 'Walk-in Customer',
             contact: customer?.contact || 'N/A',
-            balance: 0, // Note: Balance calculation would be complex here, so keeping it simple.
+            balance: 0,
+            openingBalance: openingBalance,
+            closingBalance: closingBalance,
           },
           items: [
             {
@@ -47,6 +73,26 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
       const purchase = purchases.find(p => p.id === id);
       if (purchase) {
         const supplier = suppliers.find(s => s.id === purchase.supplierId);
+        
+        let openingBalance = 0;
+        let closingBalance = 0;
+
+        if (supplier) {
+            const supplierOpening = supplier.openingBalance || 0;
+            const purchaseTimestamp = new Date(purchase.timestamp).getTime();
+
+            const previousPurchases = purchases
+                .filter(p => p.supplierId === supplier.id && new Date(p.timestamp).getTime() < purchaseTimestamp)
+                .reduce((sum, p) => sum + p.totalCost, 0);
+            
+            const previousPayments = supplierPayments
+                .filter(p => p.supplierId === supplier.id && new Date(p.timestamp).getTime() < purchaseTimestamp)
+                .reduce((sum, p) => sum + p.amount, 0);
+            
+            openingBalance = supplierOpening + previousPurchases - previousPayments;
+            closingBalance = openingBalance + purchase.totalCost;
+        }
+
         return {
           type: 'Purchase',
           id: purchase.id,
@@ -55,6 +101,8 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
             name: purchase.supplier,
             contact: supplier?.contact || 'N/A',
             balance: 0,
+            openingBalance,
+            closingBalance,
           },
           items: [
             {
@@ -66,64 +114,116 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
             },
           ],
           totalAmount: purchase.totalCost,
-          paymentMethod: 'Credit', // Purchases are assumed to be on credit
+          paymentMethod: 'Credit',
         };
       }
     } else if (type === 'customerpayment') {
       const payment = customerPayments.find(p => p.id === id);
       if (payment) {
           const customer = customers.find(c => c.id === payment.customerId);
+          
+          let openingBalance = 0;
+          let closingBalance = 0;
+
+          if (customer) {
+              const customerOpening = customer.openingBalance || 0;
+              const paymentTimestamp = new Date(payment.timestamp).getTime();
+
+              const previousTransactions = transactions
+                  .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < paymentTimestamp)
+                  .reduce((sum, tx) => sum + tx.totalAmount, 0);
+
+              const previousPayments = customerPayments
+                  .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < paymentTimestamp)
+                  .reduce((sum, p) => sum + p.amount, 0);
+              
+              const previousCashAdvances = cashAdvances
+                  .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < paymentTimestamp)
+                  .reduce((sum, ca) => sum + ca.amount, 0);
+
+              openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
+              closingBalance = openingBalance - payment.amount;
+          }
+
           return {
-          type: 'Customer Payment',
-          id: payment.id,
-          date: payment.timestamp,
-          partner: {
-              name: payment.customerName,
-              contact: customer?.contact || 'N/A',
-              balance: 0,
-          },
-          items: [
+            type: 'Customer Payment',
+            id: payment.id,
+            date: payment.timestamp,
+            partner: {
+                name: payment.customerName,
+                contact: customer?.contact || 'N/A',
+                balance: 0,
+                openingBalance: openingBalance,
+                closingBalance: closingBalance,
+            },
+            items: [
               {
-              name: `Payment Received (${payment.paymentMethod})`,
-              group: 'Payment',
-              quantity: 1,
-              price: payment.amount,
-              amount: payment.amount,
+                name: `Payment Received (${payment.paymentMethod})`,
+                group: 'Payment',
+                quantity: 1,
+                price: payment.amount,
+                amount: payment.amount,
               },
-          ],
-          totalAmount: payment.amount,
-          paymentMethod: payment.paymentMethod,
+            ],
+            totalAmount: payment.amount,
+            paymentMethod: payment.paymentMethod,
           };
       }
     } else if (type === 'cashadvance') {
         const advance = cashAdvances.find(a => a.id === id);
         if (advance) {
             const customer = customers.find(c => c.id === advance.customerId);
+            
+            let openingBalance = 0;
+            let closingBalance = 0;
+
+            if (customer) {
+                const customerOpening = customer.openingBalance || 0;
+                const advanceTimestamp = new Date(advance.timestamp).getTime();
+
+                const previousTransactions = transactions
+                    .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < advanceTimestamp)
+                    .reduce((sum, tx) => sum + tx.totalAmount, 0);
+
+                const previousPayments = customerPayments
+                    .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < advanceTimestamp)
+                    .reduce((sum, p) => sum + p.amount, 0);
+                
+                const previousCashAdvances = cashAdvances
+                    .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < advanceTimestamp)
+                    .reduce((sum, ca) => sum + ca.amount, 0);
+
+                openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
+                closingBalance = openingBalance + advance.amount;
+            }
+
             return {
-            type: 'Cash Advance',
-            id: advance.id,
-            date: advance.timestamp,
-            partner: {
-                name: advance.customerName,
-                contact: customer?.contact || 'N/A',
-                balance: 0,
-            },
-            items: [
+              type: 'Cash Advance',
+              id: advance.id,
+              date: advance.timestamp,
+              partner: {
+                  name: advance.customerName,
+                  contact: customer?.contact || 'N/A',
+                  balance: 0,
+                  openingBalance: openingBalance,
+                  closingBalance: closingBalance,
+              },
+              items: [
                 {
-                name: `Cash Advance`,
-                group: 'Cash',
-                quantity: 1,
-                price: advance.amount,
-                amount: advance.amount,
+                  name: `Cash Advance`,
+                  group: 'Cash',
+                  quantity: 1,
+                  price: advance.amount,
+                  amount: advance.amount,
                 },
-            ],
-            totalAmount: advance.amount,
-            paymentMethod: 'Cash',
+              ],
+              totalAmount: advance.amount,
+              paymentMethod: 'Cash',
             };
         }
     }
     return null;
-  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts, customerPayments, cashAdvances]);
+  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts, customerPayments, cashAdvances, supplierPayments]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">
