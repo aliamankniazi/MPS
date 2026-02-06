@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -11,12 +11,13 @@ import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Transaction, Purchase } from '@/lib/types';
+import type { Transaction, Purchase, DateRange } from '@/lib/types';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DateRangePicker } from '@/components/date-range-picker';
 
 
 type CombinedInvoice = {
@@ -42,15 +43,35 @@ type GroupedInvoices = {
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings, dateRange } = useDatabase();
+  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
+  const isInitialDateSet = useRef(false);
+
+  useEffect(() => {
+    if (isLoaded && (transactions.length > 0 || purchases.length > 0) && !isInitialDateSet.current) {
+      const allItems = [...transactions, ...purchases];
+      const latestItem = allItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      if (latestItem && isValid(new Date(latestItem.timestamp))) {
+        const latestDate = new Date(latestItem.timestamp);
+        setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
+      } else {
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+      }
+      isInitialDateSet.current = true;
+    } else if (isLoaded && !isInitialDateSet.current) {
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        isInitialDateSet.current = true;
+    }
+  }, [isLoaded, transactions, purchases]);
+
 
   const allInvoicesForExport = useMemo(() => {
-    if (!isLoaded || !dateRange?.from) return [];
+    if (!isLoaded || !localDateRange?.from) return [];
 
-    const from = startOfDay(dateRange.from);
-    const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+    const from = startOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(localDateRange.from);
 
     const filterByDate = (items: any[]) => items.filter(item => {
         const itemDate = new Date(item.timestamp);
@@ -124,7 +145,7 @@ export default function AllInvoicesPage() {
         return dateB.getTime() - dateA.getTime();
       });
 
-  }, [isLoaded, transactions, purchases, dateRange]);
+  }, [isLoaded, transactions, purchases, localDateRange]);
 
   const groupedInvoices = useMemo(() => {
     let filtered = allInvoicesForExport;
@@ -198,9 +219,10 @@ export default function AllInvoicesPage() {
               <CardTitle className="flex items-center gap-2">
                 <FileText /> All Invoices
               </CardTitle>
-              <CardDescription>A list of all sales and purchase invoices, filtered by the global date range.</CardDescription>
+              <CardDescription>A list of all sales and purchase invoices for the selected period.</CardDescription>
             </div>
              <div className="flex items-center gap-2 flex-wrap">
+                <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
                 <Select value={typeFilter} onValueChange={setTypeFilter}>
                     <SelectTrigger className="w-[180px]">
                         <SelectValue placeholder="Filter by type..." />
