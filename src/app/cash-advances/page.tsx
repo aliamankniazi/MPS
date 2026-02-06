@@ -69,25 +69,28 @@ export default function CashAdvancesPage() {
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CashAdvanceFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CashAdvanceFormValues>({
     resolver: zodResolver(cashAdvanceSchema),
   });
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-    
-    const defaultValues: Partial<CashAdvanceFormValues> = {
+    reset({
         date: initialDate,
-    };
+    });
+  }, [reset]);
 
-    if (isLoaded && savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
-        defaultValues.customerId = savedCustomerId;
+  useEffect(() => {
+    if (isLoaded) {
+      const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+        setValue('customerId', savedCustomerId);
+      }
     }
-    
-    reset(defaultValues);
-  }, [reset, isLoaded, customers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, setValue]);
+
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
