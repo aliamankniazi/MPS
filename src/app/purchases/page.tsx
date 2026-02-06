@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -116,21 +115,18 @@ export default function PurchasesPage() {
   }, [reset, suppliers, products]);
 
   useEffect(() => {
-      if (fuelType && purchases.length > 0) {
-          const lastPurchaseOfSameType = purchases
-              .filter(p => p.fuelType === fuelType)
-              .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-          
-          if (lastPurchaseOfSameType && lastPurchaseOfSameType.volume > 0) {
-              const lastPrice = lastPurchaseOfSameType.totalCost / lastPurchaseOfSameType.volume;
-              setValue('pricePerLitre', lastPrice);
-              lastUserEditedField.current = 'price';
-              if (volume) {
-                  setValue('totalCost', volume * lastPrice, { shouldValidate: true });
-              }
-          }
+    if (fuelType && purchases.length > 0) {
+      const lastPurchaseOfSameType = purchases
+        .filter((p) => p.fuelType === fuelType)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+      if (lastPurchaseOfSameType && lastPurchaseOfSameType.volume > 0) {
+        const lastPrice = lastPurchaseOfSameType.totalCost / lastPurchaseOfSameType.volume;
+        setValue('pricePerLitre', lastPrice);
+        lastUserEditedField.current = 'price';
       }
-  }, [fuelType, purchases, setValue, volume]);
+    }
+  }, [fuelType, purchases, setValue]);
 
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
