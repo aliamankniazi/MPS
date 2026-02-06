@@ -16,7 +16,7 @@ interface InvoiceItem {
 }
 
 interface InvoiceData {
-  type: 'Sale' | 'Purchase';
+  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance';
   id: string;
   date: string;
   partner: {
@@ -161,7 +161,11 @@ export function Invoice({ data }: { data: InvoiceData }) {
             </div>
         </div>
         <div className="text-right flex-shrink-0">
-            <h2 className="text-2xl font-bold text-blue-600 mb-2">{data.type.toUpperCase()} INVOICE</h2>
+            <h2 className="text-2xl font-bold text-blue-600 mb-2">
+                {data.type === 'Customer Payment' ? 'PAYMENT RECEIPT'
+                : data.type === 'Cash Advance' ? 'CASH ADVANCE VOUCHER'
+                : `${data.type.toUpperCase()} INVOICE`}
+            </h2>
             <p className="font-semibold">NTN NO: {companyDetails.ntn}</p>
         </div>
       </header>
@@ -204,7 +208,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                             (item.name.toLowerCase().includes('unleaded') || item.name.toLowerCase().includes('premium')) && 'text-destructive'
                         )}>{item.name}</td>
                         <td className="p-2">{item.group}</td>
-                        <td className="p-2 text-right">{item.quantity.toFixed(3)} LTR</td>
+                        <td className="p-2 text-right">{item.group === 'Fuel' ? `${item.quantity.toFixed(3)} LTR` : item.quantity}</td>
                         <td className="p-2 text-right">{item.price.toFixed(2)}</td>
                         <td className="p-2 text-right">0.00%</td>
                         <td className="p-2 text-right">{item.amount.toFixed(2)}</td>
@@ -214,7 +218,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <tfoot className="font-bold">
                 <tr className="border-b-2 border-gray-300">
                     <td colSpan={3} className="p-2 text-left">Total</td>
-                    <td className="p-2 text-right">{totalQuantity.toFixed(3)}</td>
+                    <td className="p-2 text-right">{data.type === 'Sale' || data.type === 'Purchase' ? totalQuantity.toFixed(3) : ''}</td>
                     <td colSpan={2}></td>
                     <td className="p-2 text-right">{data.totalAmount.toFixed(2)}</td>
                 </tr>

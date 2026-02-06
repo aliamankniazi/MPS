@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -407,7 +408,7 @@ export default function AllTransactionsPage() {
                                         <TableBody>
                                             {dayEntries.map(entry => {
                                                 const customer = getCustomerForEntry(entry);
-                                                const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase';
+                                                const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase' || entry.type === 'Customer Payment' || entry.type === 'Cash Advance';
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;

@@ -10,7 +10,7 @@ import React, { useMemo } from 'react';
 
 export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
   const { type, id } = params;
-  const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded } = useDatabase();
+  const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded, customerPayments, cashAdvances } = useDatabase();
 
   const invoiceData = useMemo(() => {
     if (!isLoaded) return null;
@@ -69,9 +69,61 @@ export default function InvoicePage({ params }: { params: { type: string, id: st
           paymentMethod: 'Credit', // Purchases are assumed to be on credit
         };
       }
+    } else if (type === 'customerpayment') {
+      const payment = customerPayments.find(p => p.id === id);
+      if (payment) {
+          const customer = customers.find(c => c.id === payment.customerId);
+          return {
+          type: 'Customer Payment',
+          id: payment.id,
+          date: payment.timestamp,
+          partner: {
+              name: payment.customerName,
+              contact: customer?.contact || 'N/A',
+              balance: 0,
+          },
+          items: [
+              {
+              name: `Payment Received (${payment.paymentMethod})`,
+              group: 'Payment',
+              quantity: 1,
+              price: payment.amount,
+              amount: payment.amount,
+              },
+          ],
+          totalAmount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          };
+      }
+    } else if (type === 'cashadvance') {
+        const advance = cashAdvances.find(a => a.id === id);
+        if (advance) {
+            const customer = customers.find(c => c.id === advance.customerId);
+            return {
+            type: 'Cash Advance',
+            id: advance.id,
+            date: advance.timestamp,
+            partner: {
+                name: advance.customerName,
+                contact: customer?.contact || 'N/A',
+                balance: 0,
+            },
+            items: [
+                {
+                name: `Cash Advance`,
+                group: 'Cash',
+                quantity: 1,
+                price: advance.amount,
+                amount: advance.amount,
+                },
+            ],
+            totalAmount: advance.amount,
+            paymentMethod: 'Cash',
+            };
+        }
     }
     return null;
-  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts]);
+  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts, customerPayments, cashAdvances]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">
