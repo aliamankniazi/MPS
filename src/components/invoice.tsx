@@ -1,3 +1,4 @@
+
 'use client';
 
 import { format, differenceInDays } from 'date-fns';
@@ -44,9 +45,10 @@ const companyDetails = {
     saleTaxNo: '0400046568661',
     ntn: '04656866',
     bank: {
-        name: 'Bank Name Here',
-        accountNo: 'Account Number Here',
-        code: 'Bank Code Here'
+        title: 'Mianwali Petroleum Service',
+        name: 'UBL',
+        accountNo: '0327337274268',
+        iban: 'PK26UNIL0109000337274268',
     }
 }
 
@@ -273,9 +275,10 @@ export function Invoice({ data }: { data: InvoiceData }) {
       <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300">
         <div>
             <h3 className="font-bold">Pay To:</h3>
+            <p>Account Title: {companyDetails.bank.title}</p>
             <p>Bank Name: {companyDetails.bank.name}</p>
-            <p>Bank Account No.: {companyDetails.bank.accountNo}</p>
-            <p>Bank code: {companyDetails.bank.code}</p>
+            <p>Account No: {companyDetails.bank.accountNo}</p>
+            <p>IBAN: {companyDetails.bank.iban}</p>
         </div>
         <div className="text-center">
             <div className="w-48 h-16 border mx-auto mb-1"></div>
