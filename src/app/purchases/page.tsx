@@ -97,10 +97,18 @@ export default function PurchasesPage() {
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
+    const savedSupplierId = localStorage.getItem('global_lastSupplierId');
+
+    const defaultValues: Partial<PurchaseFormValues> = {
       date: initialDate,
-    });
-  }, [reset]);
+    };
+    
+    if (savedSupplierId && suppliers.find(s => s.id === savedSupplierId)) {
+        defaultValues.supplierId = savedSupplierId;
+    }
+
+    reset(defaultValues);
+  }, [reset, suppliers]);
 
   useEffect(() => {
       if (fuelType && purchases.length > 0) {
@@ -125,6 +133,7 @@ export default function PurchasesPage() {
     if (!supplier) return;
 
     localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    localStorage.setItem('global_lastSupplierId', data.supplierId);
 
     const purchaseData: Omit<Purchase, 'id' | 'supplier'> = {
         supplierId: data.supplierId,
@@ -146,7 +155,7 @@ export default function PurchasesPage() {
 
     reset({
         date: data.date,
-        supplierId: '',
+        supplierId: data.supplierId,
         fuelType: '',
         volume: undefined,
         pricePerLitre: undefined,
