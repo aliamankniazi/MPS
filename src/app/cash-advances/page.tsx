@@ -76,16 +76,25 @@ export default function CashAdvancesPage() {
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-      date: initialDate,
-    });
-  }, [reset]);
+    const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+    
+    const defaultValues: Partial<CashAdvanceFormValues> = {
+        date: initialDate,
+    };
+
+    if (isLoaded && savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+        defaultValues.customerId = savedCustomerId;
+    }
+    
+    reset(defaultValues);
+  }, [reset, isLoaded, customers]);
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
 
     localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    localStorage.setItem('global_lastCustomerId', data.customerId);
 
     addCashAdvance({ 
       customerId: data.customerId,
@@ -102,7 +111,7 @@ export default function CashAdvancesPage() {
 
     reset({
         date: data.date,
-        customerId: '',
+        customerId: data.customerId,
         amount: undefined,
         notes: '',
     });
