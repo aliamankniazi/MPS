@@ -98,6 +98,7 @@ export default function PurchasesPage() {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     const savedSupplierId = localStorage.getItem('global_lastSupplierId');
+    const savedProductId = localStorage.getItem('global_lastPurchaseProductId');
 
     const defaultValues: Partial<PurchaseFormValues> = {
       date: initialDate,
@@ -106,9 +107,13 @@ export default function PurchasesPage() {
     if (savedSupplierId && suppliers.find(s => s.id === savedSupplierId)) {
         defaultValues.supplierId = savedSupplierId;
     }
+    
+    if (savedProductId && products.find(p => p.name === savedProductId)) {
+        defaultValues.fuelType = savedProductId;
+    }
 
     reset(defaultValues);
-  }, [reset, suppliers]);
+  }, [reset, suppliers, products]);
 
   useEffect(() => {
       if (fuelType && purchases.length > 0) {
@@ -134,6 +139,7 @@ export default function PurchasesPage() {
 
     localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
     localStorage.setItem('global_lastSupplierId', data.supplierId);
+    localStorage.setItem('global_lastPurchaseProductId', data.fuelType);
 
     const purchaseData: Omit<Purchase, 'id' | 'supplier'> = {
         supplierId: data.supplierId,
@@ -156,9 +162,9 @@ export default function PurchasesPage() {
     reset({
         date: data.date,
         supplierId: data.supplierId,
-        fuelType: '',
+        fuelType: data.fuelType,
         volume: undefined,
-        pricePerLitre: undefined,
+        pricePerLitre: data.pricePerLitre,
         totalCost: undefined,
     });
   };
