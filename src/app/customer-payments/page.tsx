@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -79,15 +78,26 @@ export default function CustomerPaymentsPage() {
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-      date: initialDate,
-      paymentMethod: 'Cash'
-    });
-  }, [reset]);
+    const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+    
+    const defaultValues: Partial<CustomerPaymentFormValues> = {
+        date: initialDate,
+        paymentMethod: 'Cash'
+    };
+
+    if (isLoaded && savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+        defaultValues.customerId = savedCustomerId;
+    }
+    
+    reset(defaultValues);
+  }, [reset, isLoaded, customers]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
+
+    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    localStorage.setItem('global_lastCustomerId', data.customerId);
 
     addCustomerPayment({
       customerId: data.customerId,
@@ -103,12 +113,10 @@ export default function CustomerPaymentsPage() {
       description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
     });
 
-    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
-
     reset({
         date: data.date,
         paymentMethod: data.paymentMethod,
-        customerId: '',
+        customerId: data.customerId,
         amount: undefined,
         notes: ''
     });
