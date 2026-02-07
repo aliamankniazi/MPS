@@ -92,26 +92,6 @@ export default function SalesPage() {
   
   const [sessionPrices, setSessionPrices] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    const savedPrices = localStorage.getItem('session_product_prices');
-    if (savedPrices) {
-        try {
-            setSessionPrices(JSON.parse(savedPrices));
-        } catch (e) {
-            console.error("Failed to parse session prices from localStorage", e);
-        }
-    }
-  }, []);
-
-  const updateSessionPrice = useCallback((productId: string, price: number) => {
-    setSessionPrices(prevPrices => {
-        const newPrices = { ...prevPrices, [productId]: price };
-        localStorage.setItem('session_product_prices', JSON.stringify(newPrices));
-        return newPrices;
-    });
-  }, []);
-
-
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
   });
@@ -124,7 +104,20 @@ export default function SalesPage() {
         vehicleNumber: '',
     },
   });
+
+  const { customerId } = watch();
+  const { productId, quantity, price, totalAmount } = watchItem();
   
+  const isWalkIn = !customerId || customerId === 'walkin';
+
+  const updateSessionPrice = useCallback((productId: string, price: number) => {
+    setSessionPrices(prevPrices => {
+        const newPrices = { ...prevPrices, [productId]: price };
+        localStorage.setItem('session_product_prices', JSON.stringify(newPrices));
+        return newPrices;
+    });
+  }, []);
+
   const handleProductSelect = useCallback((product: Product) => {
     const lastTransactionForProduct = transactions
         .filter(t => t.product === product.name)
@@ -138,6 +131,16 @@ export default function SalesPage() {
     setItemValue('productName', product.name);
   }, [transactions, setItemValue, sessionPrices]);
 
+  useEffect(() => {
+    const savedPrices = localStorage.getItem('session_product_prices');
+    if (savedPrices) {
+        try {
+            setSessionPrices(JSON.parse(savedPrices));
+        } catch (e) {
+            console.error("Failed to parse session prices from localStorage", e);
+        }
+    }
+  }, []);
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
@@ -169,6 +172,14 @@ export default function SalesPage() {
     }
   }, [isLoaded, products, setItemValue, handleProductSelect]);
 
+  useEffect(() => {
+    if (isWalkIn) {
+      setValue('paymentMethod', 'Cash');
+    } else {
+      setValue('paymentMethod', 'Credit');
+    }
+    setValue('vehicleNumber', ''); 
+  }, [isWalkIn, setValue]);
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
@@ -180,18 +191,6 @@ export default function SalesPage() {
         return originalCasing || lowerUnit;
     }).filter(Boolean);
   }, [products]);
-
-  const { customerId } = watch();
-  const { productId, quantity, price, totalAmount } = watchItem();
-  
-  useEffect(() => {
-    if (!customerId || customerId === 'walkin') {
-      setValue('paymentMethod', 'Cash');
-    } else {
-      setValue('paymentMethod', 'Credit');
-    }
-    setValue('vehicleNumber', ''); 
-  }, [customerId, setValue]);
 
   const selectedProduct = useMemo(() => {
     if (!productId) return null;
@@ -367,7 +366,7 @@ export default function SalesPage() {
     
     reset({
         customerId: data.customerId,
-        paymentMethod: 'Cash',
+        paymentMethod: isWalkIn ? 'Cash' : 'Credit',
         invoiceDate: data.invoiceDate,
         notes: '',
         vehicleNumber: '',
@@ -375,8 +374,6 @@ export default function SalesPage() {
     resetItem();
     setCart([]);
   };
-
-  const isWalkIn = !customerId || customerId === 'walkin';
 
   return (
     <div className="bg-muted/30 min-h-screen">
@@ -683,7 +680,7 @@ export default function SalesPage() {
                             name="paymentMethod"
                             control={control}
                             render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value}>
+                              <Select onValueChange={field.onChange} value={field.value} key={isWalkIn ? 'walkin' : 'credit'}>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>
