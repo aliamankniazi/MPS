@@ -140,7 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return role.permissions.includes(permission);
   }, [userRole, roles]);
 
-  const addRole = (role: Omit<Role, 'id'>) => {
+  const addRole = useCallback((role: Omit<Role, 'id'>) => {
     if (!firestore) return;
     const newRoleRef = doc(collection(firestore, ROLES_COLLECTION));
     setDoc(newRoleRef, role).catch(error => {
@@ -150,9 +150,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             requestResourceData: role,
         }));
     });
-  };
+  }, [firestore]);
 
-  const updateRole = (id: RoleId, updatedRole: Omit<Role, 'id'>) => {
+  const updateRole = useCallback((id: RoleId, updatedRole: Omit<Role, 'id'>) => {
     if (!firestore) return;
     const roleRef = doc(firestore, ROLES_COLLECTION, id);
     updateDoc(roleRef, updatedRole).catch(error => {
@@ -162,9 +162,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             requestResourceData: updatedRole,
         }));
     });
-  };
+  }, [firestore]);
 
-  const deleteRole = (id: RoleId) => {
+  const deleteRole = useCallback((id: RoleId) => {
     if (!firestore || id === 'admin') return;
     const roleRef = doc(firestore, ROLES_COLLECTION, id);
     deleteDoc(roleRef).catch(error => {
@@ -173,9 +173,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             operation: 'delete',
         }));
     });
-  };
+  }, [firestore]);
 
-  const assignRoleToUser = (userId: string, roleId: RoleId, email: string) => {
+  const assignRoleToUser = useCallback((userId: string, roleId: RoleId, email: string) => {
     if (!firestore) return;
     const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
     const roleData = { roleId, email };
@@ -186,9 +186,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             requestResourceData: roleData,
         }));
     });
-  };
+  }, [firestore]);
 
-  const updateUserRole = (userId: string, roleId: RoleId) => {
+  const updateUserRole = useCallback((userId: string, roleId: RoleId) => {
     if (!firestore) return;
     const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
     updateDoc(userRoleRef, { roleId }).catch(error => {
@@ -198,19 +198,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             requestResourceData: { roleId },
         }));
     });
-  };
+  }, [firestore]);
 
-  const resetPassword = (email: string) => {
+  const resetPassword = useCallback((email: string) => {
     if (!auth) return Promise.reject(new Error("Firebase Auth is not configured."));
     return sendPasswordResetEmail(auth, email);
-  };
+  }, [auth]);
 
-  const signIn = (data: AuthFormValues) => {
+  const signIn = useCallback((data: AuthFormValues) => {
     if (!auth) return Promise.reject(new Error("Firebase is not configured."));
     return signInWithEmailAndPassword(auth, data.email, data.password);
-  };
+  }, [auth]);
 
-  const signUp = async (data: AuthFormValues) => {
+  const signUp = useCallback(async (data: AuthFormValues) => {
     if (!auth || !firestore) throw new Error("Firebase is not configured.");
 
     const userRolesCollectionRef = collection(firestore, USER_ROLES_COLLECTION);
@@ -238,13 +238,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     
     return userCredential;
-  };
+  }, [auth, firestore, assignRoleToUser]);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     if (auth) {
       await firebaseSignOut(auth);
     }
-  };
+  }, [auth]);
   
   const isLoading = authLoading || rolesLoading;
 
