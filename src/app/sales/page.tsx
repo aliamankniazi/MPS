@@ -98,6 +98,18 @@ export default function SalesPage() {
     resolver: zodResolver(transactionSchema),
   });
 
+  const handleProductSelect = useCallback((product: Product) => {
+    const lastTransactionForProduct = transactions
+        .filter(t => t.product === product.name)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
+
+    setItemValue('price', priceToSet);
+    setItemValue('unit', product.unit);
+    setItemValue('productName', product.name);
+  }, [transactions, setItemValue]);
+
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
@@ -117,9 +129,18 @@ export default function SalesPage() {
       } else {
         setValue('customerId', 'walkin');
       }
+
+      const savedProductId = localStorage.getItem('global_lastSaleProductId');
+      if (savedProductId) {
+        const product = products.find(p => p.id === savedProductId);
+        if (product) {
+            setItemValue('productId', product.id);
+            handleProductSelect(product);
+        }
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, setValue]);
+  }, [isLoaded, setValue, setItemValue]);
 
 
   const allUnits = useMemo(() => {
@@ -178,18 +199,6 @@ export default function SalesPage() {
       }
     }
   }, [quantity, price, totalAmount, setItemValue]);
-
-  const handleProductSelect = useCallback((product: Product) => {
-    const lastTransactionForProduct = transactions
-        .filter(t => t.product === product.name)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
-
-    setItemValue('price', priceToSet);
-    setItemValue('unit', product.unit);
-    setItemValue('productName', product.name);
-  }, [transactions, setItemValue]);
 
   useEffect(() => {
     if (!customerId || customerId === 'walkin') {
@@ -279,6 +288,9 @@ export default function SalesPage() {
     localStorage.setItem('global_lastTransactionDate', data.invoiceDate.toISOString());
     if (data.customerId) {
         localStorage.setItem('global_lastCustomerId', data.customerId);
+    }
+    if (cart[0]?.productId) {
+      localStorage.setItem('global_lastSaleProductId', cart[0].productId);
     }
 
     let finalNotes = data.notes || '';
