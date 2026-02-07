@@ -370,6 +370,8 @@ export default function SalesPage() {
     setCart([]);
   };
 
+  const isWalkIn = !customerId || customerId === 'walkin';
+
   return (
     <div className="bg-muted/30 min-h-screen">
       <PageHeader />
@@ -680,10 +682,15 @@ export default function SalesPage() {
                                   <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="Cash">Cash</SelectItem>
-                                  <SelectItem value="Card">Card</SelectItem>
-                                  <SelectItem value="Mobile">Mobile Wallet</SelectItem>
-                                  <SelectItem value="Credit">Credit</SelectItem>
+                                  {isWalkIn ? (
+                                    <>
+                                      <SelectItem value="Cash">Cash</SelectItem>
+                                      <SelectItem value="Card">Card</SelectItem>
+                                      <SelectItem value="Mobile">Mobile Wallet</SelectItem>
+                                    </>
+                                  ) : (
+                                    <SelectItem value="Credit">Credit</SelectItem>
+                                  )}
                                 </SelectContent>
                               </Select>
                             )}
