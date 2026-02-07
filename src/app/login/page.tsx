@@ -194,10 +194,10 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4 flex-col gap-4">
       {isClient && (
           <div className="text-center">
-              <p className="text-xl font-bold text-red-500">{currentTime}</p>
+              <p className="text-xl font-extrabold text-red-500">{currentTime}</p>
               <div className="flex items-baseline justify-center gap-4 flex-wrap mt-1">
-                  <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p>
-                  {ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
+                  <p className="text-xl font-medium text-muted-foreground">{islamicDateString}</p>
+                  {ramadanCountdown && <p className="text-xl font-semibold text-green-600">{ramadanCountdown}</p>}
               </div>
           </div>
       )}
