@@ -118,8 +118,13 @@ export default function SalesPage() {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
+    defaultValues: {
+        paymentMethod: 'Cash',
+        notes: '',
+        vehicleNumber: '',
+    },
   });
-
+  
   const handleProductSelect = useCallback((product: Product) => {
     const lastTransactionForProduct = transactions
         .filter(t => t.product === product.name)
@@ -133,35 +138,36 @@ export default function SalesPage() {
     setItemValue('productName', product.name);
   }, [transactions, setItemValue, sessionPrices]);
 
+
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-        paymentMethod: 'Cash',
-        invoiceDate: initialDate,
-        notes: '',
-        vehicleNumber: '',
-    });
-  }, [reset]);
-
+    setValue('invoiceDate', initialDate);
+  }, [setValue]);
+  
   useEffect(() => {
-    if (!isLoaded) return;
-    const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-    if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
-      setValue('customerId', savedCustomerId);
-    } else {
-      setValue('customerId', 'walkin');
-    }
-
-    const savedProductId = localStorage.getItem('global_lastSaleProductId');
-    if (savedProductId) {
-      const product = products.find(p => p.id === savedProductId);
-      if (product) {
-          setItemValue('productId', product.id);
-          handleProductSelect(product);
+    if (isLoaded) {
+      const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+        setValue('customerId', savedCustomerId);
+      } else {
+        setValue('customerId', 'walkin');
       }
     }
-  }, [isLoaded, customers, products, setValue, setItemValue, handleProductSelect]);
+  }, [isLoaded, customers, setValue]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      const savedProductId = localStorage.getItem('global_lastSaleProductId');
+      if (savedProductId) {
+        const product = products.find(p => p.id === savedProductId);
+        if (product) {
+          setItemValue('productId', product.id);
+          handleProductSelect(product);
+        }
+      }
+    }
+  }, [isLoaded, products, setItemValue, handleProductSelect]);
 
 
   const allUnits = useMemo(() => {
@@ -177,6 +183,15 @@ export default function SalesPage() {
 
   const { customerId } = watch();
   const { productId, quantity, price, totalAmount } = watchItem();
+  
+  useEffect(() => {
+    if (!customerId || customerId === 'walkin') {
+      setValue('paymentMethod', 'Cash');
+    } else {
+      setValue('paymentMethod', 'Credit');
+    }
+    setValue('vehicleNumber', ''); 
+  }, [customerId, setValue]);
 
   const selectedProduct = useMemo(() => {
     if (!productId) return null;
@@ -220,15 +235,6 @@ export default function SalesPage() {
       }
     }
   }, [quantity, price, totalAmount, setItemValue]);
-
-  useEffect(() => {
-    if (!customerId || customerId === 'walkin') {
-      setValue('paymentMethod', 'Cash');
-    } else {
-      setValue('paymentMethod', 'Credit');
-    }
-    setValue('vehicleNumber', ''); // Clear vehicle selection when customer changes
-  }, [customerId, setValue]);
 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
