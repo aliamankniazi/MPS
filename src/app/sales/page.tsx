@@ -368,7 +368,7 @@ export default function SalesPage() {
     });
     resetItem();
     setCart([]);
-  }
+  };
 
   return (
     <div className="bg-muted/30 min-h-screen">
@@ -754,7 +754,7 @@ export default function SalesPage() {
                               </div>
                           </div>
                       )}
-                  </CardFooter>
+                  </CardContent>
                   <CardFooter className="flex flex-col gap-2">
                       <Button type="submit" size="lg" className="w-full">Complete &amp; Print Invoice</Button>
                       <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
