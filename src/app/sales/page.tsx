@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -88,14 +89,28 @@ export default function SalesPage() {
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
+  
   const [sessionPrices, setSessionPrices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const savedPrices = localStorage.getItem('session_product_prices');
     if (savedPrices) {
-        setSessionPrices(JSON.parse(savedPrices));
+        try {
+            setSessionPrices(JSON.parse(savedPrices));
+        } catch (e) {
+            console.error("Failed to parse session prices from localStorage", e);
+        }
     }
   }, []);
+
+  const updateSessionPrice = useCallback((productId: string, price: number) => {
+    setSessionPrices(prevPrices => {
+        const newPrices = { ...prevPrices, [productId]: price };
+        localStorage.setItem('session_product_prices', JSON.stringify(newPrices));
+        return newPrices;
+    });
+  }, []);
+
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -130,25 +145,23 @@ export default function SalesPage() {
   }, [reset]);
 
   useEffect(() => {
-    if (isLoaded) {
-      const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
-        setValue('customerId', savedCustomerId);
-      } else {
-        setValue('customerId', 'walkin');
-      }
+    if (!isLoaded) return;
+    const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+    if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+      setValue('customerId', savedCustomerId);
+    } else {
+      setValue('customerId', 'walkin');
+    }
 
-      const savedProductId = localStorage.getItem('global_lastSaleProductId');
-      if (savedProductId) {
-        const product = products.find(p => p.id === savedProductId);
-        if (product) {
-            setItemValue('productId', product.id);
-            handleProductSelect(product);
-        }
+    const savedProductId = localStorage.getItem('global_lastSaleProductId');
+    if (savedProductId) {
+      const product = products.find(p => p.id === savedProductId);
+      if (product) {
+          setItemValue('productId', product.id);
+          handleProductSelect(product);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, setValue, setItemValue]);
+  }, [isLoaded, customers, products, setValue, setItemValue, handleProductSelect]);
 
 
   const allUnits = useMemo(() => {
@@ -276,18 +289,12 @@ export default function SalesPage() {
     return totals;
   }, [machines, machineReadings, isLoaded]);
 
-
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
-
-    const newSessionPrices = { ...sessionPrices, [data.productId]: data.price };
-    setSessionPrices(newSessionPrices);
-    localStorage.setItem('session_product_prices', JSON.stringify(newSessionPrices));
-
-    // Reset form for next item
+    updateSessionPrice(data.productId, data.price);
     resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
   };
-
+  
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
     if (cart.length === 0) {
       toast({
@@ -297,7 +304,7 @@ export default function SalesPage() {
       });
       return;
     }
-    
+
     localStorage.setItem('global_lastTransactionDate', data.invoiceDate.toISOString());
     if (data.customerId) {
         localStorage.setItem('global_lastCustomerId', data.customerId);
@@ -361,7 +368,7 @@ export default function SalesPage() {
     });
     resetItem();
     setCart([]);
-  };
+  }
 
   return (
     <div className="bg-muted/30 min-h-screen">
