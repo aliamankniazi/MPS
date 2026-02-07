@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -89,6 +88,14 @@ export default function SalesPage() {
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
+  const [sessionPrices, setSessionPrices] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const savedPrices = localStorage.getItem('session_product_prices');
+    if (savedPrices) {
+        setSessionPrices(JSON.parse(savedPrices));
+    }
+  }, []);
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
     resolver: zodResolver(saleItemSchema),
@@ -103,12 +110,13 @@ export default function SalesPage() {
         .filter(t => t.product === product.name)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
-    const priceToSet = lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
+    const sessionPrice = sessionPrices[product.id];
+    const priceToSet = sessionPrice ?? lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
 
     setItemValue('price', priceToSet);
     setItemValue('unit', product.unit);
     setItemValue('productName', product.name);
-  }, [transactions, setItemValue]);
+  }, [transactions, setItemValue, sessionPrices]);
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
@@ -271,6 +279,11 @@ export default function SalesPage() {
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
+
+    const newSessionPrices = { ...sessionPrices, [data.productId]: data.price };
+    setSessionPrices(newSessionPrices);
+    localStorage.setItem('session_product_prices', JSON.stringify(newSessionPrices));
+
     // Reset form for next item
     resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
   };
@@ -734,7 +747,7 @@ export default function SalesPage() {
                               </div>
                           </div>
                       )}
-                  </CardContent>
+                  </CardFooter>
                   <CardFooter className="flex flex-col gap-2">
                       <Button type="submit" size="lg" className="w-full">Complete &amp; Print Invoice</Button>
                       <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
