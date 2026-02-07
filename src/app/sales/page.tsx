@@ -178,7 +178,6 @@ export default function SalesPage() {
     } else {
       setValue('paymentMethod', 'Credit');
     }
-    setValue('vehicleNumber', ''); 
   }, [isWalkIn, setValue]);
 
   const allUnits = useMemo(() => {
@@ -680,7 +679,7 @@ export default function SalesPage() {
                             name="paymentMethod"
                             control={control}
                             render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value} key={isWalkIn ? 'walkin' : 'credit'}>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={!isWalkIn}>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>
