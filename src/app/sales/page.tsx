@@ -102,13 +102,25 @@ export default function SalesPage() {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
-        customerId: 'walkin',
         paymentMethod: 'Cash',
         invoiceDate: initialDate,
         notes: '',
         vehicleNumber: '',
     });
   }, [reset]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      const savedCustomerId = localStorage.getItem('global_lastCustomerId');
+      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
+        setValue('customerId', savedCustomerId);
+      } else {
+        setValue('customerId', 'walkin');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, setValue]);
+
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
@@ -265,6 +277,9 @@ export default function SalesPage() {
     }
     
     localStorage.setItem('global_lastTransactionDate', data.invoiceDate.toISOString());
+    if (data.customerId) {
+        localStorage.setItem('global_lastCustomerId', data.customerId);
+    }
 
     let finalNotes = data.notes || '';
     if (data.vehicleNumber) {
@@ -313,7 +328,7 @@ export default function SalesPage() {
     });
     
     reset({
-        customerId: 'walkin',
+        customerId: data.customerId,
         paymentMethod: 'Cash',
         invoiceDate: data.invoiceDate,
         notes: '',
