@@ -128,9 +128,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     const resetTimer = () => {
       clearTimeout(activityTimer);
       activityTimer = setTimeout(() => {
-        // signOut user after 10 minutes of inactivity
+        // signOut user after 30 minutes of inactivity
         signOut();
-      }, 10 * 60 * 1000); // 10 minutes
+      }, 30 * 60 * 1000); // 30 minutes
     };
 
     const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll'];
