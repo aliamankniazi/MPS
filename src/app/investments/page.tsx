@@ -10,14 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone, ArrowUp, ArrowDown, Banknote, TrendingUp, TrendingDown, Clock, Download, Upload, Search } from 'lucide-react';
+import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone, ArrowUp, ArrowDown, Banknote, TrendingUp, TrendingDown, Clock, Download, Upload, Search, Mic } from 'lucide-react';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -59,11 +59,14 @@ export default function InvestmentsPage() {
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
   const [transactionPartner, setTransactionPartner] = useState<BusinessPartner | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [language, setLanguage] = useState('en-US');
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const { toast } = useToast();
   
   // Form for new investments/withdrawals
-  const { register: registerInvestment, handleSubmit: handleSubmitInvestment, reset: resetInvestment, control: controlInvestment, formState: { errors: investmentErrors } } = useForm<InvestmentFormValues>({
+  const { register: registerInvestment, handleSubmit: handleSubmitInvestment, reset: resetInvestment, control: controlInvestment, getValues: getValuesInvestment, setValue: setValueInvestment, formState: { errors: investmentErrors } } = useForm<InvestmentFormValues>({
     resolver: zodResolver(investmentSchema),
   });
 
@@ -75,6 +78,59 @@ export default function InvestmentsPage() {
   const { register: registerPartner, handleSubmit: handleSubmitPartner, reset: resetPartner, setValue: setPartnerValue, formState: { errors: partnerErrors } } = useForm<PartnerFormValues>({
     resolver: zodResolver(partnerSchema),
   });
+
+   useEffect(() => {
+    // SpeechRecognition is a browser-only API
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = language;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const currentNotes = getValuesInvestment('notes') || '';
+      setValueInvestment('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      toast({
+          variant: 'destructive',
+          title: 'Voice Error',
+          description: `Speech recognition error: ${event.error}`,
+      });
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+        setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+  }, [language, getValuesInvestment, setValueInvestment, toast]);
+
+  const handleToggleListening = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
+    }
+  };
   
   const onInvestmentSubmit: SubmitHandler<InvestmentFormValues> = (data) => {
     const partner = businessPartners.find(p => p.id === data.partnerId);
@@ -371,7 +427,31 @@ export default function InvestmentsPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea id="notes" {...registerInvestment('notes')} placeholder="e.g., Initial capital" />
+                 <div className="relative">
+                    <Textarea id="notes" {...registerInvestment('notes')} placeholder="e.g., Initial capital" className="pr-12"/>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant={isListening ? "destructive" : "ghost"}
+                        className="absolute right-1 top-1 h-8 w-8"
+                        onClick={handleToggleListening}
+                        title="Toggle voice input"
+                    >
+                        <Mic className="h-4 w-4" />
+                    </Button>
+                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="language">Voice Language</Label>
+                <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger id="language">
+                        <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="en-US">English (US)</SelectItem>
+                        <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                    </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">

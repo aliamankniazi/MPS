@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Mic } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { PaymentMethod } from '@/lib/types';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 
@@ -68,13 +68,69 @@ export default function CustomerPaymentsPage() {
   const { customers, addCustomerPayment, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [language, setLanguage] = useState('en-US');
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<CustomerPaymentFormValues>({
+  const { register, handleSubmit, reset, control, setValue, getValues, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),
     defaultValues: {
         paymentMethod: 'Cash',
     }
   });
+
+  useEffect(() => {
+    // SpeechRecognition is a browser-only API
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = language;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const currentNotes = getValues('notes') || '';
+      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      toast({
+          variant: 'destructive',
+          title: 'Voice Error',
+          description: `Speech recognition error: ${event.error}`,
+      });
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+        setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+  }, [language, getValues, setValue, toast]);
+
+  const handleToggleListening = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
+    }
+  };
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
@@ -222,9 +278,33 @@ export default function CustomerPaymentsPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea id="notes" {...register('notes')} placeholder="e.g., Payment for last week's fuel" />
+                <div className="relative">
+                  <Textarea id="notes" {...register('notes')} placeholder="e.g., Payment for last week's fuel" className="pr-12"/>
+                  <Button
+                      type="button"
+                      size="icon"
+                      variant={isListening ? "destructive" : "ghost"}
+                      className="absolute right-1 top-1 h-8 w-8"
+                      onClick={handleToggleListening}
+                      title="Toggle voice input"
+                  >
+                      <Mic className="h-4 w-4" />
+                  </Button>
+                </div>
                 {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
               </div>
+              <div className="space-y-2">
+                    <Label htmlFor="language">Voice Language</Label>
+                    <Select value={language} onValueChange={setLanguage}>
+                        <SelectTrigger id="language">
+                            <SelectValue placeholder="Select language" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="en-US">English (US)</SelectItem>
+                            <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
               
               <div className="space-y-2">
                 <Label>Date</Label>

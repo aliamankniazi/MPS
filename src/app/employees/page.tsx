@@ -10,14 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle, Mic } from 'lucide-react';
 import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, subDays, isBefore, isEqual } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import {
@@ -106,8 +106,11 @@ export default function SalaryPaymentPage() {
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
   const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentConfirmation[] | null>(null);
   const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
+  const [isListening, setIsListening] = useState(false);
+  const [language, setLanguage] = useState('en-US');
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SalaryPaymentFormValues>({
+  const { register, handleSubmit, reset, control, getValues, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
   });
 
@@ -125,6 +128,59 @@ export default function SalaryPaymentPage() {
       postingDate: initialDate,
     });
   }, [reset]);
+
+  useEffect(() => {
+    // SpeechRecognition is a browser-only API
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = language;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const currentNotes = getValues('notes') || '';
+      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      toast({
+          variant: 'destructive',
+          title: 'Voice Error',
+          description: `Speech recognition error: ${event.error}`,
+      });
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+        setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+  }, [language, getValues, setValue, toast]);
+
+  const handleToggleListening = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
+    }
+  };
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
     const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
@@ -520,7 +576,31 @@ export default function SalaryPaymentPage() {
 
                     <div className="space-y-2">
                         <Label htmlFor="notes">Notes (Optional)</Label>
-                        <Textarea id="notes" {...register('notes')} placeholder="e.g., Including overtime payment" />
+                        <div className="relative">
+                            <Textarea id="notes" {...register('notes')} placeholder="e.g., Including overtime payment" className="pr-12"/>
+                             <Button
+                                type="button"
+                                size="icon"
+                                variant={isListening ? "destructive" : "ghost"}
+                                className="absolute right-1 top-1 h-8 w-8"
+                                onClick={handleToggleListening}
+                                title="Toggle voice input"
+                            >
+                                <Mic className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="language">Voice Language</Label>
+                        <Select value={language} onValueChange={setLanguage}>
+                            <SelectTrigger id="language">
+                                <SelectValue placeholder="Select language" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="en-US">English (US)</SelectItem>
+                                <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
                     <Separator />
