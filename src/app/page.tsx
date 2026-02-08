@@ -346,10 +346,13 @@ export default function DashboardPage() {
     });
   
     return sortedProducts.map(product => {
-      const salesForProduct = filteredTransactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+      const salesForProductInPeriod = filteredTransactions.filter(t => (t.fuelType === product.name || t.product === product.name));
       const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
   
-      const lastSale = [...salesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      // Find the last sale from *all* transactions, not just the filtered ones
+      const lastSale = [...transactions]
+        .filter(t => (t.fuelType === product.name || t.product === product.name) && t.pricePerLitre > 0)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       
       // New logic for stock purchase rate
       let remainingStock = fuelStock[product.name as FuelType] || 0;
@@ -376,7 +379,8 @@ export default function DashboardPage() {
   
       const profitPerUnit = lastSaleRate > 0 && stockPurchaseRate > 0 ? lastSaleRate - stockPurchaseRate : 0;
   
-      const totalProfit = salesForProduct
+      // totalProfit should be calculated based on the selected period
+      const totalProfit = salesForProductInPeriod
         .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
         .reduce((sum, t) => {
           const saleTime = new Date(t.timestamp).getTime();
@@ -413,7 +417,7 @@ export default function DashboardPage() {
         lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
       };
     });
-  }, [isLoaded, products, fuelStock, filteredData, purchases]);
+  }, [isLoaded, products, fuelStock, filteredData, purchases, transactions]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded || !chartEndDate) return [];
@@ -919,3 +923,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
