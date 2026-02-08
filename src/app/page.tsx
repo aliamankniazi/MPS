@@ -354,7 +354,6 @@ export default function DashboardPage() {
         .filter(t => (t.fuelType === product.name || t.product === product.name) && t.pricePerLitre > 0)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       
-      // New logic for stock purchase rate
       let remainingStock = fuelStock[product.name as FuelType] || 0;
       const sortedPurchases = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
@@ -373,7 +372,6 @@ export default function DashboardPage() {
       
       const stockPurchaseRate = (fuelStock[product.name as FuelType] || 0) > 0 ? totalCostOfStock / (fuelStock[product.name as FuelType] || 1) : 0;
       const lastPurchase = sortedPurchases[0];
-      // End new logic
 
       const lastSaleRate = lastSale?.pricePerLitre ?? product.salePrice ?? 0;
   
@@ -410,7 +408,7 @@ export default function DashboardPage() {
         name: product.name,
         stock: fuelStock[product.name as FuelType] || 0,
         lastSaleRate: lastSaleRate,
-        lastPurchaseRate: stockPurchaseRate,
+        avgStockCost: stockPurchaseRate,
         profitPerUnit: profitPerUnit,
         totalProfit: totalProfit,
         lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
@@ -726,7 +724,7 @@ export default function DashboardPage() {
                         </div>
                          <div className="flex justify-between">
                             <span className="text-[hsl(var(--chart-3))]">Avg. Stock Cost</span>
-                            <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
+                            <span className="font-mono font-semibold">PKR {stat.avgStockCost.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-[hsl(var(--chart-4))]">Profit / Unit</span>
