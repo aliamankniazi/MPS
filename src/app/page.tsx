@@ -349,35 +349,19 @@ export default function DashboardPage() {
       const salesForProductInPeriod = filteredTransactions.filter(t => (t.fuelType === product.name || t.product === product.name));
       const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
   
-      // Find the last sale from *all* transactions, not just the filtered ones
       const lastSale = [...transactions]
         .filter(t => (t.fuelType === product.name || t.product === product.name) && t.pricePerLitre > 0)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       
-      let remainingStock = fuelStock[product.name as FuelType] || 0;
       const sortedPurchases = [...allPurchasesForProduct].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
-      let totalCostOfStock = 0;
-      
-      for (const purchase of sortedPurchases) {
-        if (remainingStock <= 0) break;
-
-        const volumeFromThisPurchase = Math.min(remainingStock, purchase.volume);
-        if (purchase.volume > 0) {
-            const rate = purchase.totalCost / purchase.volume;
-            totalCostOfStock += volumeFromThisPurchase * rate;
-        }
-        remainingStock -= volumeFromThisPurchase;
-      }
-      
-      const stockPurchaseRate = (fuelStock[product.name as FuelType] || 0) > 0 ? totalCostOfStock / (fuelStock[product.name as FuelType] || 1) : 0;
       const lastPurchase = sortedPurchases[0];
-
+      const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
+      
       const lastSaleRate = lastSale?.pricePerLitre ?? product.salePrice ?? 0;
   
-      const profitPerUnit = lastSaleRate > 0 && stockPurchaseRate > 0 ? lastSaleRate - stockPurchaseRate : 0;
+      const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
-      // totalProfit should be calculated based on the selected period
       const totalProfit = salesForProductInPeriod
         .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
         .reduce((sum, t) => {
@@ -408,7 +392,7 @@ export default function DashboardPage() {
         name: product.name,
         stock: fuelStock[product.name as FuelType] || 0,
         lastSaleRate: lastSaleRate,
-        avgStockCost: stockPurchaseRate,
+        lastPurchaseRate: lastPurchaseRate,
         profitPerUnit: profitPerUnit,
         totalProfit: totalProfit,
         lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
@@ -723,8 +707,8 @@ export default function DashboardPage() {
                             <span className="font-mono font-semibold">PKR {(stat.lastSaleRate || 0).toFixed(2)}</span>
                         </div>
                          <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-3))]">Avg. Stock Cost</span>
-                            <span className="font-mono font-semibold">PKR {stat.avgStockCost.toFixed(2)}</span>
+                            <span className="text-[hsl(var(--chart-3))]">Last Purchase Rate</span>
+                            <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span className="text-[hsl(var(--chart-4))]">Profit / Unit</span>
@@ -921,5 +905,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
