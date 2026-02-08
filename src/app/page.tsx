@@ -334,8 +334,6 @@ export default function DashboardPage() {
   
   const productStats = useMemo(() => {
     if (!isLoaded || !products || !fuelStock) return [];
-  
-    const { transactions: filteredTransactions } = filteredData;
 
     const mainProducts = products.filter(p => p.category === 'Main Product');
   
@@ -346,7 +344,7 @@ export default function DashboardPage() {
     });
   
     return sortedProducts.map(product => {
-      const salesForProductInPeriod = filteredTransactions.filter(t => (t.fuelType === product.name || t.product === product.name));
+      const allSalesForProduct = transactions.filter(t => (t.fuelType === product.name || t.product === product.name));
       const allPurchasesForProduct = purchases.filter(p => p.fuelType === product.name);
   
       const lastSale = [...transactions]
@@ -362,7 +360,7 @@ export default function DashboardPage() {
   
       const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
-      const totalProfit = salesForProductInPeriod
+      const totalProfit = allSalesForProduct
         .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
         .reduce((sum, t) => {
           const saleTime = new Date(t.timestamp).getTime();
@@ -399,7 +397,7 @@ export default function DashboardPage() {
         lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
       };
     });
-  }, [isLoaded, products, fuelStock, filteredData, purchases, transactions]);
+  }, [isLoaded, products, fuelStock, purchases, transactions]);
 
   const salesChartData = useMemo(() => {
     if (!isLoaded || !chartEndDate) return [];
