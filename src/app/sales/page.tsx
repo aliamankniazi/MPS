@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, Mic } from 'lucide-react';
 import type { PaymentMethod, Transaction, Product, Purchase, FuelType } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -89,6 +89,9 @@ export default function SalesPage() {
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [language, setLanguage] = useState('en-US');
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
   
   const [sessionPrices, setSessionPrices] = useState<Record<string, number>>({});
 
@@ -191,6 +194,24 @@ export default function SalesPage() {
     }).filter(Boolean);
   }, [products]);
 
+  const sortedProducts = useMemo(() => {
+    if (!products || !transactions) return [];
+
+    const salesCounts = transactions.reduce<Record<string, number>>((acc, tx) => {
+        const productName = tx.product || tx.fuelType;
+        if (productName) {
+            acc[productName] = (acc[productName] || 0) + 1;
+        }
+        return acc;
+    }, {});
+
+    return [...products].sort((a, b) => {
+        const countA = salesCounts[a.name] || 0;
+        const countB = salesCounts[b.name] || 0;
+        return countB - countA;
+    });
+  }, [products, transactions]);
+
   const selectedProduct = useMemo(() => {
     if (!productId) return null;
     return products.find(p => p.id === productId);
@@ -216,23 +237,76 @@ export default function SalesPage() {
 
     if (lastUserEditedField.current === 'quantity' || lastUserEditedField.current === 'price') {
       const newTotal = qty * prc;
-      if (total !== newTotal) {
+      if (total.toFixed(2) !== newTotal.toFixed(2)) {
         setItemValue('totalAmount', newTotal, { shouldValidate: true });
       }
     } else if (lastUserEditedField.current === 'totalAmount') {
       if (prc > 0) {
         const newQuantity = total / prc;
-        if (quantity !== newQuantity) {
+        if (quantity.toFixed(4) !== newQuantity.toFixed(4)) {
           setItemValue('quantity', newQuantity, { shouldValidate: true });
         }
       } else if (qty > 0) {
         const newPrice = total / qty;
-        if (price !== newPrice) {
+        if (price.toFixed(2) !== newPrice.toFixed(2)) {
           setItemValue('price', newPrice, { shouldValidate: true });
         }
       }
     }
   }, [quantity, price, totalAmount, setItemValue]);
+  
+  useEffect(() => {
+    // SpeechRecognition is a browser-only API
+    if (typeof window === 'undefined') return;
+
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error("Speech Recognition API not supported in this browser.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = language;
+
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      const currentNotes = watch('notes') || '';
+      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setIsListening(false);
+    };
+
+    recognition.onerror = (event) => {
+      console.error('Speech recognition error', event.error);
+      toast({
+          variant: 'destructive',
+          title: 'Voice Error',
+          description: `Speech recognition error: ${event.error}`,
+      });
+      setIsListening(false);
+    };
+    
+    recognition.onend = () => {
+        setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+
+  }, [language, watch, setValue, toast]);
+
+  const handleToggleListening = () => {
+    const recognition = recognitionRef.current;
+    if (!recognition) return;
+
+    if (isListening) {
+      recognition.stop();
+      setIsListening(false);
+    } else {
+      recognition.start();
+      setIsListening(true);
+    }
+  };
 
   const selectedCustomer = useMemo(() => {
     return customers.find(c => c.id === customerId);
@@ -413,7 +487,7 @@ export default function SalesPage() {
                                             <CommandList>
                                               <CommandEmpty>No product found.</CommandEmpty>
                                               <CommandGroup>
-                                                {isLoaded && products ? products.map(p => (
+                                                {isLoaded && sortedProducts ? sortedProducts.map(p => (
                                                   <CommandItem
                                                     key={p.id}
                                                     value={p.name}
@@ -737,8 +811,32 @@ export default function SalesPage() {
                       </div>
                       <div className="space-y-2">
                           <Label htmlFor="notes">Notes</Label>
-                          <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..."/>
+                          <div className="relative">
+                            <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..." className="pr-12"/>
+                             <Button
+                                type="button"
+                                size="icon"
+                                variant={isListening ? "destructive" : "ghost"}
+                                className="absolute right-1 top-1 h-8 w-8"
+                                onClick={handleToggleListening}
+                                title="Toggle voice input"
+                            >
+                                <Mic className="h-4 w-4" />
+                            </Button>
+                          </div>
                       </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="language">Voice Language</Label>
+                            <Select value={language} onValueChange={setLanguage}>
+                                <SelectTrigger id="language">
+                                    <SelectValue placeholder="Select language" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="en-US">English (US)</SelectItem>
+                                    <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
                       <div className="space-y-1 text-sm">
                           <div className="flex justify-between font-semibold text-lg">
                               <span>Total</span>
@@ -775,3 +873,5 @@ export default function SalesPage() {
     </div>
   );
 }
+
+    
