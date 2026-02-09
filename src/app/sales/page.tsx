@@ -243,12 +243,12 @@ export default function SalesPage() {
     } else if (lastUserEditedField.current === 'totalAmount') {
       if (prc > 0) {
         const newQuantity = total / prc;
-        if (quantity.toFixed(4) !== newQuantity.toFixed(4)) {
+        if (qty.toFixed(4) !== newQuantity.toFixed(4)) {
           setItemValue('quantity', newQuantity, { shouldValidate: true });
         }
       } else if (qty > 0) {
         const newPrice = total / qty;
-        if (price.toFixed(2) !== newPrice.toFixed(2)) {
+        if (prc.toFixed(2) !== newPrice.toFixed(2)) {
           setItemValue('price', newPrice, { shouldValidate: true });
         }
       }
@@ -736,7 +736,7 @@ export default function SalesPage() {
                                             <SelectValue placeholder="Select vehicle..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {selectedCustomer.vehicleNumber.split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
+                                            {String(selectedCustomer.vehicleNumber).split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
                                                 <SelectItem key={v} value={v}>{v}</SelectItem>
                                             ))}
                                         </SelectContent>
