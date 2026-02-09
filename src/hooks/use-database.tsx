@@ -157,42 +157,42 @@ interface ProcessedDatabaseState extends Omit<DatabaseState, 'isLoaded' | 'setti
 }
 
 interface DatabaseActions {
-    addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction>;
+    addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction | null>;
     deleteTransaction: (id: string) => void;
-    addPurchase: (purchase: Omit<Purchase, 'id'>) => Promise<Purchase>;
+    addPurchase: (purchase: Omit<Purchase, 'id'>) => Promise<Purchase | null>;
     deletePurchase: (id: string) => void;
-    addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id'>) => Promise<PurchaseReturn>;
+    addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id'>) => Promise<PurchaseReturn | null>;
     deletePurchaseReturn: (id: string) => void;
-    addSaleReturn: (sr: Omit<SaleReturn, 'id'>) => Promise<SaleReturn>;
+    addSaleReturn: (sr: Omit<SaleReturn, 'id'>) => Promise<SaleReturn | null>;
     deleteSaleReturn: (id: string) => void;
-    addExpense: (expense: Omit<Expense, 'id'>) => Promise<Expense>;
+    addExpense: (expense: Omit<Expense, 'id'>) => Promise<Expense | null>;
     deleteExpense: (id: string) => void;
-    addOtherIncome: (income: Omit<OtherIncome, 'id'>) => Promise<OtherIncome>;
+    addOtherIncome: (income: Omit<OtherIncome, 'id'>) => Promise<OtherIncome | null>;
     deleteOtherIncome: (id: string) => void;
-    addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer>;
+    addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer | null>;
     updateCustomer: (id: string, updates: Partial<Customer>) => void;
     deleteCustomer: (id: string) => void;
-    addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<Supplier>;
+    addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<Supplier | null>;
     updateSupplier: (id: string, updates: Partial<Supplier>) => void;
     deleteSupplier: (id: string) => void;
-    addBankAccount: (account: Omit<BankAccount, 'id'>) => Promise<BankAccount>;
+    addBankAccount: (account: Omit<BankAccount, 'id'>) => Promise<BankAccount | null>;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
-    addEmployee: (employee: Omit<Employee, 'id'>) => Promise<Employee>;
+    addEmployee: (employee: Omit<Employee, 'id'>) => Promise<Employee | null>;
     updateEmployee: (id: string, updates: Partial<Employee> & { terminationDate?: string | null }) => void;
     deleteEmployee: (id: string) => void;
-    addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => Promise<CustomerPayment>;
+    addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => Promise<CustomerPayment | null>;
     deleteCustomerPayment: (id: string) => void;
-    addSupplierPayment: (payment: Omit<SupplierPayment, 'id'>) => Promise<SupplierPayment>;
+    addSupplierPayment: (payment: Omit<SupplierPayment, 'id'>) => Promise<SupplierPayment | null>;
     deleteSupplierPayment: (id: string) => void;
-    addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => Promise<CashAdvance>;
+    addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => Promise<CashAdvance | null>;
     deleteCashAdvance: (id: string) => void;
-    addMachine: (machine: Omit<Machine, 'id'>) => Promise<Machine>;
+    addMachine: (machine: Omit<Machine, 'id'>) => Promise<Machine | null>;
     deleteMachine: (id: string) => void;
-    addMachineReading: (reading: Omit<MachineReading, 'id'>) => Promise<MachineReading>;
+    addMachineReading: (reading: Omit<MachineReading, 'id'>) => Promise<MachineReading | null>;
     updateMachineReading: (id: string, updates: Partial<MachineReading>) => void;
     deleteMachineReading: (id: string) => void;
-    addInvestment: (investment: Omit<Investment, 'id'>) => Promise<Investment>;
+    addInvestment: (investment: Omit<Investment, 'id'>) => Promise<Investment | null>;
     deleteInvestment: (id: string) => void;
     addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => Promise<void>;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
@@ -203,11 +203,12 @@ interface DatabaseActions {
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     updateInitialStock: (fuelType: FuelType, newStock: number) => void;
+    updateInitialStockSettings: (newStockSettings: Record<FuelType, number>, oldName?: string) => Promise<void>;
     updateColorSetting: (key: string, color: string) => void;
-    addProduct: (product: Omit<Product, 'id' | 'currentStock' | 'createdAt'>) => Promise<Product>;
+    addProduct: (product: Omit<Product, 'id' | 'currentStock' | 'createdAt'>) => Promise<Product | null>;
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
-    addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => Promise<DictionaryEntry>;
+    addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => Promise<DictionaryEntry | null>;
     updateDictionaryEntry: (id: string, updates: Partial<DictionaryEntry>) => void;
     deleteDictionaryEntry: (id: string) => void;
     clearAllData: () => void;
@@ -442,24 +443,23 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T> => {
-        if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
+    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T | null> => {
+        if (!firestore) {
+            console.error("Firestore is not initialized.");
+            return Promise.resolve(null);
+        }
         
         const dataToSend: { [key: string]: any } = { ...entity };
         
-        // If a timestamp is provided as a string, convert it to a Date object so Firestore saves it as a Timestamp.
-        // Otherwise, use the server's timestamp.
         if (typeof (entity as any).timestamp === 'string' && isValid(new Date((entity as any).timestamp))) {
             dataToSend.timestamp = new Date((entity as any).timestamp);
         } else {
             dataToSend.timestamp = serverTimestamp();
         }
         
-        return new Promise<T>((resolve, reject) => {
+        return new Promise<T | null>((resolve) => {
             addDoc(collection(firestore, path), dataToSend)
                 .then(docRef => {
-                    // For optimistic UI updates, we construct what the object will likely look like.
-                    // The `onSnapshot` listener will provide the source-of-truth update shortly.
                     const optimisticTimestamp = (entity as any).timestamp || new Date().toISOString();
                     resolve({ ...entity, id: docRef.id, timestamp: optimisticTimestamp } as T);
                 })
@@ -469,13 +469,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                         operation: 'create',
                         requestResourceData: dataToSend,
                     }));
-                    reject(error);
+                    resolve(null);
                 });
         });
     }, [firestore]);
 
     const updateEntity = useCallback(<T,>(path: string, id: string, updates: Partial<T>): Promise<void> => {
-        if (!firestore) return Promise.reject(new Error("Firestore is not initialized."));
+        if (!firestore) {
+            console.error("Firestore is not initialized.");
+            return Promise.resolve();
+        }
         const docRef = doc(firestore, path, id);
         return updateDoc(docRef, updates).catch(error => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -483,7 +486,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                 operation: 'update',
                 requestResourceData: updates,
             }));
-            throw error;
+            // Do not throw the error to prevent unhandled promise rejections
         });
     }, [firestore]);
 
@@ -643,27 +646,20 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
           unit: productData.unit,
           category: productData.category,
           openingStock: Number(productData.openingStock || 0),
-          currentStock: Number(productData.openingStock || 0), // As per user instruction
+          currentStock: Number(productData.openingStock || 0),
           createdAt: serverTimestamp()
         };
     
-        try {
-            const docRef = await addDoc(collection(firestore, FIRESTORE_PATHS.products), dataToSend);
-            // Optimistic response
-            return {
-                ...productData,
-                id: docRef.id,
-                currentStock: dataToSend.currentStock,
-                createdAt: new Date().toISOString()
-            } as Product;
-        } catch (error) {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: FIRESTORE_PATHS.products,
-                operation: 'create',
-                requestResourceData: dataToSend,
-            }));
-            throw error;
+        const docRef = await addEntity<Product>(FIRESTORE_PATHS.products, dataToSend as any);
+        if (docRef) {
+          return {
+            ...productData,
+            id: docRef.id,
+            currentStock: dataToSend.currentStock,
+            createdAt: new Date().toISOString()
+          } as Product;
         }
+        return null;
     };
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(FIRESTORE_PATHS.products, id, u);
     const deleteProduct = (id: string) => deleteEntity(FIRESTORE_PATHS.products, id);
@@ -692,9 +688,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             timestamp: new Date().toISOString(),
         });
 
-        if (firestore) {
+        if (firestore && customerRecord) {
             const partnerRef = doc(firestore, FIRESTORE_PATHS.businessPartners, customerRecord.id);
-            await setDoc(partnerRef, { ...partner, timestamp: serverTimestamp() });
+            await setDoc(partnerRef, { ...partner, timestamp: serverTimestamp() }).catch(error => {
+                errorEmitter.emit('permission-error', new FirestorePermissionError({
+                    path: partnerRef.path,
+                    operation: 'create',
+                    requestResourceData: partner,
+                }));
+            });
         }
     };
     
@@ -731,7 +733,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
         if (!firestore || isNaN(newPrice) || newPrice < 0) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
-        updateDoc(settingsRef, { [`fuelPrices.${fuelType}`]: newPrice });
+        updateDoc(settingsRef, { [`fuelPrices.${fuelType}`]: newPrice }).catch(error => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'update',
+                requestResourceData: { [`fuelPrices.${fuelType}`]: newPrice },
+            }));
+        });
     };
 
     const updateInitialStock = useCallback((fuelType: FuelType, newStock: number) => {
@@ -745,11 +753,41 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             }));
         });
     }, [firestore]);
+    
+    const updateInitialStockSettings = async (newStockSettings: Record<FuelType, number>, oldName?: string) => {
+        if (!firestore) return;
+        const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        
+        try {
+            const docSnap = await getDoc(settingsRef);
+            const currentSettings = docSnap.exists() ? docSnap.data() as AppSettings : { initialFuelStock: {} };
+            
+            const updatedInitialStock = { ...(currentSettings.initialFuelStock || {}), ...newStockSettings };
+
+            if (oldName && updatedInitialStock[oldName] !== undefined) {
+                delete updatedInitialStock[oldName];
+            }
+            
+            await updateDoc(settingsRef, { initialFuelStock: updatedInitialStock });
+        } catch (error) {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'write', 
+            }));
+        }
+    };
+
 
     const updateColorSetting = (key: string, color: string) => {
         if (!firestore) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
-        updateDoc(settingsRef, { [`colorSettings.${key}`]: color });
+        updateDoc(settingsRef, { [`colorSettings.${key}`]: color }).catch(error => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: settingsRef.path,
+                operation: 'update',
+                requestResourceData: { [`colorSettings.${key}`]: color },
+            }));
+        });
     };
     
     const clearAllData = async () => {
@@ -831,6 +869,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         setFuelStock,
         updateFuelPrice,
         updateInitialStock,
+        updateInitialStockSettings,
         updateColorSetting,
         addProduct,
         updateProduct,

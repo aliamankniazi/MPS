@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -386,7 +387,9 @@ export default function SalaryPaymentPage() {
                 isPartner: false,
                 timestamp: new Date().toISOString(),
             });
-            customerId = newCustomer.id;
+            if (newCustomer) {
+                customerId = newCustomer.id;
+            }
         }
 
         if (customerId) {
