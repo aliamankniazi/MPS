@@ -157,7 +157,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
         <div className="flex items-start gap-4">
             <InvoiceLogo />
             <div>
-                <h1 className="text-xl font-bold text-gray-900">{companyDetails.name}</h1>
+                <h1 className="text-xl font-bold text-red-600">{companyDetails.name}</h1>
                 <p>{companyDetails.branch}</p>
                 <p>Mobile No1: {companyDetails.mobile1}</p>
                 <p>Mobile No2: {companyDetails.mobile2}</p>
@@ -250,7 +250,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     <span className="font-semibold">Sub Total:</span>
                     <span className="font-bold text-red-600">RS {data.totalAmount.toFixed(2)}</span>
                     <span className="font-semibold">Discount:</span>
-                    <span className="font-bold">RS 0 (0%)</span>
+                    <span className="font-bold text-red-600">RS 0 (0%)</span>
                     <span className="font-semibold">GST@:</span>
                     <span className="font-bold">0</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
