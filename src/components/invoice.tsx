@@ -186,8 +186,8 @@ export function Invoice({ data }: { data: InvoiceData }) {
         </div>
         <div className="text-right">
             <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
-            <p><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MMM-yyyy')}</p>
-            <p className="font-semibold">{currentTime}</p>
+            <p className="text-red-600"><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MMM-yyyy')}</p>
+            <p className="font-semibold text-blue-600">{currentTime}</p>
         </div>
       </section>
 
