@@ -279,9 +279,9 @@ export function Invoice({ data }: { data: InvoiceData }) {
       <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300 text-green-600">
         <div>
             <h3 className="font-bold">Pay To:</h3>
-            <p>Title Of Account: {companyDetails.bank.title}</p>
-            <p>Bank Name: {companyDetails.bank.name}</p>
-            <p>Account Number: {companyDetails.bank.iban}</p>
+            <p><span className="font-bold">Title Of Account:</span> {companyDetails.bank.title}</p>
+            <p><span className="font-bold">Bank Name:</span> {companyDetails.bank.name}</p>
+            <p><span className="font-bold">Account Number:</span> {companyDetails.bank.iban}</p>
             <p className="font-semibold">And Also Use Account Number As A Raast ID</p>
         </div>
         <div className="text-center self-end">
