@@ -172,7 +172,7 @@ Your Previous Amount: ${formatCurrency(row.previousBalance)}
 New Sale Amount: ${formatCurrency(row.sale)}
 Paid Amount: ${formatCurrency(row.recovery)}
 Now your balance is: ${formatCurrency(row.currentBalance)}
-Thank You,
+Thank You, If You want to Transfer Money Online Please Send Through QR Payment. 
 Mianwali Petroleum Service`;
 
         return encodeURIComponent(message);

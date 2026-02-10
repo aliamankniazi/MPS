@@ -5,6 +5,7 @@ import { format, differenceInDays } from 'date-fns';
 import numWords from 'num-words';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 
 interface InvoiceItem {
@@ -279,10 +280,15 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <p>Bank Name: {companyDetails.bank.name}</p>
             <p>Account No: {companyDetails.bank.accountNo}</p>
             <p>IBAN: {companyDetails.bank.iban}</p>
+            <div className="mt-4">
+                <h3 className="font-bold">Online Payment (HBL)</h3>
+                <Image src="https://placehold.co/150x150/166534/FFFFFF/png?text=QR" alt="QR Code for HBL Payment" width={150} height={150} />
+                <p className="font-semibold mt-1 w-[150px] text-center">ZIA ULLAH KHAN - 1503</p>
+            </div>
         </div>
-        <div className="text-center">
-            <div className="w-48 h-16 border mx-auto mb-1"></div>
-            <p className="border-t border-gray-800 pt-1">Authorized Signatory</p>
+        <div className="text-center self-end">
+            <div className="w-48 h-12 border-b-2 border-gray-600 mx-auto mb-1"></div>
+            <p className="pt-1 text-sm">Authorized Signatory</p>
         </div>
       </footer>
     </div>
