@@ -252,7 +252,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     <span className="font-semibold">Discount:</span>
                     <span className="font-bold text-red-600">RS 0 (0%)</span>
                     <span className="font-semibold">GST@:</span>
-                    <span className="font-bold">0</span>
+                    <span className="font-bold text-red-600">0</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1 text-red-600">RS {data.totalAmount.toFixed(2)}</span>
                     
@@ -276,7 +276,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
         </div>
       </section>
 
-      <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300">
+      <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300 text-green-600">
         <div>
             <h3 className="font-bold">Pay To:</h3>
             <p>Title Of Account: {companyDetails.bank.title}</p>
