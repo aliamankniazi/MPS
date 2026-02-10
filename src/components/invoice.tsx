@@ -276,14 +276,13 @@ export function Invoice({ data }: { data: InvoiceData }) {
       <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300">
         <div>
             <h3 className="font-bold">Pay To:</h3>
-            <p>Account Title: {companyDetails.bank.title}</p>
+            <p>Title Of Account: {companyDetails.bank.title}</p>
             <p>Bank Name: {companyDetails.bank.name}</p>
-            <p>Account No: {companyDetails.bank.accountNo}</p>
-            <p>IBAN: {companyDetails.bank.iban}</p>
+            <p>Account Number: {companyDetails.bank.iban}</p>
+            <p className="font-semibold">And Also Use Account Number As A Raast ID</p>
             <div className="mt-4">
-                <h3 className="font-bold">Online Payment (HBL)</h3>
-                <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${companyDetails.bank.iban}`} alt="QR Code for HBL Payment" width={150} height={150} />
-                <p className="font-semibold mt-1 w-[150px] text-center">ZIA ULLAH KHAN - 1503</p>
+                <h3 className="font-bold">Online Payment</h3>
+                <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${companyDetails.bank.iban}`} alt="QR Code for Online Payment" width={150} height={150} />
             </div>
         </div>
         <div className="text-center self-end">
