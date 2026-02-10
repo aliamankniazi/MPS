@@ -54,18 +54,12 @@ const companyDetails = {
 }
 
 const InvoiceLogo = () => (
-    <div className="flex items-center justify-center w-16 h-16 bg-blue-600 text-white rounded-full">
+    <div className="flex items-center justify-center w-16 h-16 bg-red-600 text-white rounded-full">
         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 8h.01"></path>
-            <path d="M6 8h.01"></path>
-            <path d="M10 4h.01"></path>
-            <path d="M18 8h.01"></path>
-            <path d="m3 22 1.3-1.3a1.5 1.5 0 0 0 0-2.1L3 17"></path>
-            <path d="m19 17-1.3 1.3a1.5 1.5 0 0 0 0 2.1L19 22"></path>
-            <path d="M10 18h4"></path>
-            <path d="M12 14v4"></path>
-            <path d="M10 10h.01"></path>
-            <path d="M14 10h.01"></path>
+            <line x1="3" x2="15" y1="22" y2="22"></line>
+            <line x1="4" x2="14" y1="9" y2="9"></line>
+            <path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"></path>
+            <path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2h0a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 4h-2"></path>
         </svg>
     </div>
 );
@@ -190,8 +184,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
              {data.notes && <p className="text-sm mt-1">Notes: {data.notes}</p>}
         </div>
         <div className="text-right">
-            <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
-            <p className="text-red-600"><span className="font-semibold">Date:</span> {isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Invalid Date'}</p>
+            <p><span className="font-semibold text-red-600">Date:</span> <span className="text-red-600">{isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Invalid Date'}</span></p>
             <p className="font-semibold text-blue-600">{currentTime}</p>
         </div>
       </section>
