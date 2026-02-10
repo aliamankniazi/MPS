@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Invoice } from '@/components/invoice';
@@ -7,9 +6,12 @@ import { Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
 import React, { useMemo } from 'react';
+import { useParams } from 'next/navigation';
 
-export default function InvoicePage({ params }: { params: { type: string, id: string } }) {
-  const { type, id } = params;
+export default function InvoicePage() {
+  const params = useParams();
+  const type = params.type as string;
+  const id = params.id as string;
   const { transactions, purchases, customers, suppliers, bankAccounts, isLoaded, customerPayments, cashAdvances, supplierPayments } = useDatabase();
 
   const invoiceData = useMemo(() => {
