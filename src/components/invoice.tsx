@@ -1,6 +1,6 @@
 'use client';
 
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInDays, isValid } from 'date-fns';
 import numWords from 'num-words';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
@@ -75,6 +75,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
   const totalQuantity = data.items.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmountInWords = numWords(Math.floor(data.totalAmount));
   const [currentTime, setCurrentTime] = useState('');
+  const isValidInvoiceDate = data.date && isValid(new Date(data.date));
 
   const getDesiDate = (date: Date): { day: number; month: string; year: number } => {
     const year = date.getFullYear();
@@ -186,7 +187,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
         </div>
         <div className="text-right">
             <p><span className="font-semibold">Invoice No.:</span> {data.id.slice(0, 8)}</p>
-            <p className="text-red-600"><span className="font-semibold">Date:</span> {format(new Date(data.date), 'dd-MMM-yyyy')}</p>
+            <p className="text-red-600"><span className="font-semibold">Date:</span> {isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Invalid Date'}</p>
             <p className="font-semibold text-blue-600">{currentTime}</p>
         </div>
       </section>
