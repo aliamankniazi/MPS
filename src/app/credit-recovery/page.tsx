@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
-import { format, startOfDay, endOfDay, isValid } from 'date-fns';
+import { format, startOfDay, endOfDay, isValid, isSameDay } from 'date-fns';
 import { UserX, Printer, Search, Pencil, CreditCard, Download } from 'lucide-react';
 import type { Customer } from '@/lib/types';
 import Link from 'next/link';
@@ -160,20 +160,15 @@ export default function CreditRecoveryPage() {
     };
 
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const formatCurrency = (amount: number) => `PKR ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
         
         const period = dateRange?.from 
-            ? (dateRange.to ? `${format(dateRange.from, 'MMM dd, yyyy')} to ${format(dateRange.to, 'MMM dd, yyyy')}` : format(dateRange.from, 'MMM dd, yyyy'))
+            ? (dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? `${format(dateRange.from, 'dd MMMM yyyy')} to ${format(dateRange.to, 'dd MMMM yyyy')}` : format(dateRange.from, 'dd MMMM yyyy'))
             : 'all time';
 
-        const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
-For Period: ${period}
-Your Previous Amount: ${formatCurrency(row.previousBalance)}
-New Sale Amount: ${formatCurrency(row.sale)}
-Paid Amount: ${formatCurrency(row.recovery)}
-Now your balance is: ${formatCurrency(row.currentBalance)}
-Thank You, If You want to Transfer Money Online Please Send Through QR Payment. 
-Mianwali Petroleum Service`;
+        const balanceStatus = row.currentBalance > 0 ? '(Payable)' : '';
+
+        const message = `As-Salaam-Alaikum Dear ${row.customer.name} (Customer ID: ${row.id})\n\nBilling Period: ${period}\nPrevious Balance: ${formatCurrency(row.previousBalance)}\nNew Sale Amount: ${formatCurrency(row.sale)}\nAmount Paid: ${formatCurrency(row.recovery)}\n\nCurrent Balance: ${formatCurrency(row.currentBalance)} ${balanceStatus}\n\nPlease verify the transaction.\nScan the QR code above to pay online.\n\nMianwali Petroleum Service`;
 
         return encodeURIComponent(message);
     }
