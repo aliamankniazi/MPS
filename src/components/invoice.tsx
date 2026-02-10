@@ -216,7 +216,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                         <td className="p-2 text-right">{item.group === 'Fuel' ? `${item.quantity.toFixed(3)} LTR` : item.quantity}</td>
                         <td className="p-2 text-right">{item.price.toFixed(2)}</td>
                         <td className="p-2 text-right">0.00%</td>
-                        <td className="p-2 text-right">{item.amount.toFixed(2)}</td>
+                        <td className="p-2 text-right text-red-600">{item.amount.toFixed(2)}</td>
                     </tr>
                 ))}
             </tbody>
@@ -225,7 +225,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     <td colSpan={3} className="p-2 text-left">Total</td>
                     <td className="p-2 text-right">{data.type === 'Sale' || data.type === 'Purchase' ? totalQuantity.toFixed(3) : ''}</td>
                     <td colSpan={2}></td>
-                    <td className="p-2 text-right">{data.totalAmount.toFixed(2)}</td>
+                    <td className="p-2 text-right text-red-600">{data.totalAmount.toFixed(2)}</td>
                 </tr>
             </tfoot>
         </table>
@@ -244,13 +244,13 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <div className="inline-block text-left">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <span className="font-semibold">Sub Total:</span>
-                    <span className="font-bold">RS {data.totalAmount.toFixed(2)}</span>
+                    <span className="font-bold text-red-600">RS {data.totalAmount.toFixed(2)}</span>
                     <span className="font-semibold">Discount:</span>
                     <span className="font-bold">RS 0 (0%)</span>
                     <span className="font-semibold">GST@:</span>
                     <span className="font-bold">0</span>
                     <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
-                    <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">RS {data.totalAmount.toFixed(2)}</span>
+                    <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1 text-red-600">RS {data.totalAmount.toFixed(2)}</span>
                     
                     {data.partner.openingBalance !== undefined && (
                         <>
