@@ -1,3 +1,4 @@
+
 'use client';
 
 import { format, differenceInDays, isValid } from 'date-fns';
@@ -270,7 +271,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     )}
 
                     <span className="font-semibold">Payment Mode:</span>
-                    <span className="font-bold">{data.paymentMethod}</span>
+                    <span className="font-bold text-blue-600">{data.paymentMethod}</span>
                 </div>
             </div>
         </div>
