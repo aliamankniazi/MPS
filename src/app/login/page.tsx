@@ -200,7 +200,7 @@ export default function LoginPage() {
               </div>
           </div>
       )}
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-4 border-double border-red-500">
         <CardHeader className="text-center">
             <div className="flex justify-center items-center gap-2 mb-2">
                 <Fuel className="h-8 w-8 text-primary" />
@@ -239,3 +239,4 @@ export default function LoginPage() {
     </div>
   );
 }
+    
