@@ -167,8 +167,10 @@ export default function CreditRecoveryPage() {
             : 'all time';
 
         const balanceStatus = row.currentBalance > 0 ? '(Payable)' : '';
+        
+        const qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PK26UNIL0109000337274268";
 
-        const message = `As-Salaam-Alaikum Dear ${row.customer.name} (Customer ID: ${row.id})\n\nBilling Period: ${period}\nPrevious Balance: ${formatCurrency(row.previousBalance)}\nNew Sale Amount: ${formatCurrency(row.sale)}\nAmount Paid: ${formatCurrency(row.recovery)}\n\nCurrent Balance: ${formatCurrency(row.currentBalance)} ${balanceStatus}\n\nPlease verify the transaction.\nScan the QR code above to pay online.\n\nMianwali Petroleum Service`;
+        const message = `As-Salaam-Alaikum Dear ${row.customer.name} (Customer ID: ${row.id})\n\nBilling Period: ${period}\nPrevious Balance: ${formatCurrency(row.previousBalance)}\nNew Sale Amount: ${formatCurrency(row.sale)}\nAmount Paid: ${formatCurrency(row.recovery)}\n\nCurrent Balance: ${formatCurrency(row.currentBalance)} ${balanceStatus}\n\nPlease verify the transaction.\n\nTo pay online, please use this QR Code:\n${qrCodeUrl}\n\nMianwali Petroleum Service`;
 
         return encodeURIComponent(message);
     }

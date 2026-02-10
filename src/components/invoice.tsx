@@ -282,7 +282,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <p>IBAN: {companyDetails.bank.iban}</p>
             <div className="mt-4">
                 <h3 className="font-bold">Online Payment (HBL)</h3>
-                <Image src="https://placehold.co/150x150/166534/FFFFFF/png?text=QR" alt="QR Code for HBL Payment" width={150} height={150} />
+                <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${companyDetails.bank.iban}`} alt="QR Code for HBL Payment" width={150} height={150} />
                 <p className="font-semibold mt-1 w-[150px] text-center">ZIA ULLAH KHAN - 1503</p>
             </div>
         </div>
