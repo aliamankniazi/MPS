@@ -160,17 +160,24 @@ export default function CreditRecoveryPage() {
     };
 
     const generateWhatsAppMessage = (row: ReportRow) => {
-        const formatCurrency = (amount: number) => `PKR ${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        const formatCurrency = (amount: number) => amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
         const period = dateRange?.from 
-            ? (dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? `${format(dateRange.from, 'dd MMMM yyyy')} to ${format(dateRange.to, 'dd MMMM yyyy')}` : format(dateRange.from, 'dd MMMM yyyy'))
+            ? (dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? `${format(dateRange.from, 'dd MMM, yyyy')} to ${format(dateRange.to, 'dd MMM, yyyy')}` : format(dateRange.from, 'dd MMM, yyyy'))
             : 'all time';
 
-        const balanceStatus = row.currentBalance > 0 ? '(Payable)' : '';
-        
-        const qrCodeUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=PK26UNIL0109000337274268";
-
-        const message = `As-Salaam-Alaikum Dear ${row.customer.name} (Customer ID: ${row.id})\n\nBilling Period: ${period}\nPrevious Balance: ${formatCurrency(row.previousBalance)}\nNew Sale Amount: ${formatCurrency(row.sale)}\nAmount Paid: ${formatCurrency(row.recovery)}\n\nCurrent Balance: ${formatCurrency(row.currentBalance)} ${balanceStatus}\n\nPlease verify the transaction.\n\nTo pay online, please use this QR Code:\n${qrCodeUrl}\n\nMianwali Petroleum Service`;
+        const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
+For Period: ${period}
+Your Previous Amount: ${formatCurrency(row.previousBalance)}
+New Sale Amount: ${formatCurrency(row.sale)}
+Paid Amount: ${formatCurrency(row.recovery)}
+Now your balance is: ${formatCurrency(row.currentBalance)}
+Thank You,
+Mianwali Petroleum Service
+Account Number:- PK26UNIL0109000337274268
+Title Of Account:- Mianwali Petroleum Service 
+Bank Name:- UBL 
+And Also Use Account Number As A Raast ID`;
 
         return encodeURIComponent(message);
     }
