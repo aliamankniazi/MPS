@@ -1,4 +1,3 @@
-
 'use client';
 
 import { format, differenceInDays } from 'date-fns';
@@ -256,13 +255,13 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     {data.partner.openingBalance !== undefined && (
                         <>
                             <span className="font-semibold">Previous Balance:</span>
-                            <span className="font-bold">RS {data.partner.openingBalance.toFixed(2)}</span>
+                            <span className={cn("font-bold", data.partner.openingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.openingBalance.toFixed(2)}</span>
                         </>
                     )}
                     {data.partner.closingBalance !== undefined && (
                         <>
                             <span className="font-semibold text-lg">New Balance:</span>
-                            <span className="font-bold text-lg">RS {data.partner.closingBalance.toFixed(2)}</span>
+                            <span className={cn("font-bold text-lg", data.partner.closingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.closingBalance.toFixed(2)}</span>
                         </>
                     )}
 
