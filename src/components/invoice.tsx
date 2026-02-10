@@ -175,7 +175,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
       </header>
 
       <section className="grid grid-cols-2 gap-4 py-4">
-        <div>
+        <div className="text-blue-600">
             <h3 className="font-bold mb-1">Bill To:</h3>
             <p className="font-semibold">{data.partner.name}</p>
             <p>Contact No.: {data.partner.contact}</p>
