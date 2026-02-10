@@ -163,7 +163,11 @@ export function Invoice({ data }: { data: InvoiceData }) {
         <div className="text-right flex-shrink-0">
             <h2 className={cn(
                 "text-2xl font-bold mb-2",
-                data.type === 'Sale' ? 'text-red-600' : 'text-blue-600'
+                {
+                    'text-red-600': data.type === 'Sale' || data.type === 'Cash Advance',
+                    'text-green-600': data.type === 'Customer Payment',
+                    'text-blue-600': data.type === 'Purchase',
+                }
             )}>
                 {data.type === 'Customer Payment' ? 'PAYMENT RECEIPT'
                 : data.type === 'Cash Advance' ? 'CASH ADVANCE VOUCHER'
