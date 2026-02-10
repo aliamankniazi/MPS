@@ -1,4 +1,3 @@
-
 'use client';
 
 import { format, differenceInDays } from 'date-fns';
@@ -280,10 +279,6 @@ export function Invoice({ data }: { data: InvoiceData }) {
             <p>Bank Name: {companyDetails.bank.name}</p>
             <p>Account Number: {companyDetails.bank.iban}</p>
             <p className="font-semibold">And Also Use Account Number As A Raast ID</p>
-            <div className="mt-4">
-                <h3 className="font-bold">Online Payment</h3>
-                <Image src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${companyDetails.bank.iban}`} alt="QR Code for Online Payment" width={150} height={150} />
-            </div>
         </div>
         <div className="text-center self-end">
             <div className="w-48 h-12 border-b-2 border-gray-600 mx-auto mb-1"></div>
