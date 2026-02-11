@@ -30,10 +30,6 @@ export default function ProductRateHistoryPage() {
         const history: GroupedHistory = {};
 
         mainProducts.forEach(product => {
-            const productHistory: RateHistoryEntry[] = [];
-            let lastSaleRate = -1;
-            let lastPurchaseRate = -1;
-
             const productSales = transactions
                 .filter(t => t.fuelType === product.name && t.pricePerLitre > 0)
                 .map(t => ({
@@ -51,13 +47,21 @@ export default function ProductRateHistoryPage() {
                     rate: p.totalCost / p.volume,
                     id: `purchase-${p.id}`
                 }));
+            
+            const allTransactionsForProduct = [...productSales, ...productPurchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-            const combined = [...productSales, ...productPurchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            if (allTransactionsForProduct.length === 0) {
+                return;
+            }
 
-            combined.forEach(entry => {
+            // 1. Get all actual rate changes
+            const actualChanges: RateHistoryEntry[] = [];
+            let lastSaleRate = -1;
+            let lastPurchaseRate = -1;
+            allTransactionsForProduct.forEach(entry => {
                 if (entry.type === 'Sale') {
                     if (entry.rate !== lastSaleRate) {
-                        productHistory.push({
+                        actualChanges.push({
                             date: entry.date,
                             type: 'Sale',
                             rate: entry.rate,
@@ -67,7 +71,7 @@ export default function ProductRateHistoryPage() {
                     }
                 } else { // Purchase
                     if (entry.rate !== lastPurchaseRate) {
-                         productHistory.push({
+                         actualChanges.push({
                             date: entry.date,
                             type: 'Purchase',
                             rate: entry.rate,
@@ -77,9 +81,64 @@ export default function ProductRateHistoryPage() {
                     }
                 }
             });
+
+            // 2. Get dates of interest (1st and 16th)
+            const artificialEntries: RateHistoryEntry[] = [];
+            const firstDate = new Date(allTransactionsForProduct[0].date);
+            const lastDate = new Date();
+            let currentDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+
+            while (currentDate <= lastDate) {
+                const datesToCheck = [
+                    new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
+                    new Date(currentDate.getFullYear(), currentDate.getMonth(), 16)
+                ];
+                
+                for (const targetDate of datesToCheck) {
+                    if (targetDate > lastDate) continue;
+                    
+                    const lastSale = [...allTransactionsForProduct].reverse().find(t => t.type === 'Sale' && new Date(t.date) <= targetDate);
+                    if(lastSale) {
+                        artificialEntries.push({
+                            date: targetDate.toISOString(),
+                            type: 'Sale',
+                            rate: lastSale.rate,
+                            transactionId: `derived-sale-${targetDate.toISOString()}`
+                        });
+                    }
+                    
+                    const lastPurchase = [...allTransactionsForProduct].reverse().find(t => t.type === 'Purchase' && new Date(t.date) <= targetDate);
+                    if(lastPurchase) {
+                        artificialEntries.push({
+                            date: targetDate.toISOString(),
+                            type: 'Purchase',
+                            rate: lastPurchase.rate,
+                            transactionId: `derived-purchase-${targetDate.toISOString()}`
+                        });
+                    }
+                }
+                currentDate.setMonth(currentDate.getMonth() + 1);
+            }
             
-            if (productHistory.length > 0) {
-                 history[product.name] = productHistory.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            // 3. Combine and de-duplicate
+            const combinedHistory = [...actualChanges, ...artificialEntries];
+            const finalHistoryMap = new Map<string, RateHistoryEntry>();
+
+            combinedHistory.forEach(item => {
+                const itemDateStr = new Date(item.date).toISOString().split('T')[0];
+                const key = `${itemDateStr}-${item.type}`;
+                
+                const existingEntry = finalHistoryMap.get(key);
+
+                if (!existingEntry || (existingEntry.transactionId.startsWith('derived-') && !item.transactionId.startsWith('derived-'))) {
+                    finalHistoryMap.set(key, item);
+                }
+            });
+
+            const finalHistory = Array.from(finalHistoryMap.values());
+            
+            if (finalHistory.length > 0) {
+                 history[product.name] = finalHistory.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
             }
 
         });
@@ -121,9 +180,9 @@ export default function ProductRateHistoryPage() {
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead>Date Changed</TableHead>
+                                                        <TableHead>Date</TableHead>
                                                         <TableHead>Type</TableHead>
-                                                        <TableHead className="text-right">New Rate (PKR)</TableHead>
+                                                        <TableHead className="text-right">Rate (PKR)</TableHead>
                                                     </TableRow>
                                                 </TableHeader>
                                                 <TableBody>
