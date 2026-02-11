@@ -24,6 +24,7 @@ import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 
 const customerSchema = z.object({
@@ -344,7 +345,9 @@ export default function CustomersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredCustomers.map(c => (
+                  {filteredCustomers.map(c => {
+                    const balance = balances.get(c.id) ?? 0;
+                    return (
                       <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
                           <div className="font-medium flex items-center gap-2 text-red-500">
@@ -364,8 +367,11 @@ export default function CustomersPage() {
                             ))}
                           </div>
                           <div className="text-xs text-muted-foreground">Last Activity: {lastActivityMap.get(c.id) ? format(new Date(lastActivityMap.get(c.id)!), 'dd-MMM-yyyy') : 'N/A'}</div>
-                          <div className="font-bold mt-1">
-                            Balance: PKR {balances.get(c.id)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
+                          <div className={cn(
+                              "font-bold mt-1",
+                              balance > 0 ? "text-destructive" : balance < 0 ? "text-green-600" : ""
+                          )}>
+                            Balance: PKR {balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </div>
                         </TableCell>
                         <TableCell>
@@ -399,7 +405,8 @@ export default function CustomersPage() {
                            </Button>
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )
+                  })}
                 </TableBody>
               </Table>
             ) : (
