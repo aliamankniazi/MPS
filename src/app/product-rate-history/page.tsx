@@ -84,7 +84,7 @@ export default function ProductRateHistoryPage() {
                                     {productRateSummary.map(product => (
                                         <TableRow key={product.id}>
                                             <TableCell>
-                                                <div className="font-medium flex items-center gap-2">
+                                                <div className="font-bold flex items-center gap-2">
                                                     <Package className="w-4 h-4" />
                                                     <span className={cn(
                                                         product.name.toLowerCase().includes('diesel') && 'text-green-600',
