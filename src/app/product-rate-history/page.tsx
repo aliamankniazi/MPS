@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfMonth } from 'date-fns';
 import { TrendingUp, Package, Percent, CalendarDays, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -38,10 +38,9 @@ export default function ProductRateHistoryPage() {
         });
 
         const validTimestamps = [...allRateChangeDates];
-        if (validTimestamps.length === 0) return {};
-
-        const minDate = new Date(Math.min(...validTimestamps));
+        
         const maxDate = new Date();
+        const minDate = validTimestamps.length > 0 ? new Date(Math.min(...validTimestamps)) : startOfMonth(maxDate);
 
         if (!isValid(minDate)) return {};
 
