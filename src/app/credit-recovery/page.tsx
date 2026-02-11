@@ -175,6 +175,8 @@ Paid Amount: ${formatCurrency(row.recovery)}
 Now your balance is: ${formatCurrency(row.currentBalance)}
 Thank You,
 Mianwali Petroleum Service
+Ballo Khel Road Mianwali
+And Contact Us Through Whatsapp on +971569178225
 Account Number:- PK26UNIL0109000337274268
 Title Of Account:- Mianwali Petroleum Service 
 Bank Name:- UBL 
