@@ -137,10 +137,10 @@ export default function CreditRecoveryPage() {
         );
     }, [reportData, searchTerm]);
 
-    const formatPhoneNumberForWhatsApp = (phone: string | number) => {
-        if (typeof phone !== 'string') return '';
+    const formatPhoneNumberForWhatsApp = (phone: string) => {
+        if (!phone) return '';
         return phone.replace(/[^0-9]/g, '');
-    }
+    };
     
     const handleExportExcel = () => {
         const dataToExport = filteredReportData.map(row => ({
@@ -268,17 +268,29 @@ And Also Use Account Number As A Raast ID`;
                                                     <Pencil className="w-4 h-4" />
                                                 </Link>
                                             </Button>
-                                            {row.customer.contact && (
-                                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${row.customer.name} on WhatsApp`}>
-                                                    <a 
-                                                        href={`https://wa.me/${formatPhoneNumberForWhatsApp(row.customer.contact)}?text=${generateWhatsAppMessage(row)}`}
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
+                                            {row.customer.contact &&
+                                                String(row.customer.contact)
+                                                .split(/[,\n]/)
+                                                .map((phone) => phone.trim())
+                                                .filter(Boolean)
+                                                .map((phone, index) => (
+                                                    <Button
+                                                        asChild
+                                                        key={index}
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-green-500 hover:text-green-600"
+                                                        title={`Message on WhatsApp: ${phone}`}
                                                     >
-                                                        <WhatsAppIcon className="w-5 h-5" />
-                                                    </a>
-                                                </Button>
-                                            )}
+                                                        <a
+                                                            href={`https://wa.me/${formatPhoneNumberForWhatsApp(phone)}?text=${generateWhatsAppMessage(row)}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <WhatsAppIcon className="w-5 h-5" />
+                                                        </a>
+                                                    </Button>
+                                                ))}
                                         </TableCell>
                                     </TableRow>
                                 ))}
