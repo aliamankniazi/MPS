@@ -137,7 +137,21 @@ export default function CustomersPage() {
     
     const peopleArray = Array.from(peopleMap.values());
     
-    peopleArray.sort((a,b) => {
+    peopleArray.sort((a, b) => {
+        const balanceA = balances.get(a.id) ?? 0;
+        const balanceB = balances.get(b.id) ?? 0;
+
+        const isZeroA = Math.abs(balanceA) < 0.01;
+        const isZeroB = Math.abs(balanceB) < 0.01;
+
+        if (isZeroA && !isZeroB) {
+            return 1; // a (zero balance) comes after b (non-zero)
+        }
+        if (!isZeroA && isZeroB) {
+            return -1; // a (non-zero balance) comes before b (zero)
+        }
+
+        // Both are zero or both are non-zero, sort by last activity
         const dateA = lastActivityMap.get(a.id);
         const dateB = lastActivityMap.get(b.id);
         if(dateA && dateB) {
@@ -149,7 +163,7 @@ export default function CustomersPage() {
     });
 
     return peopleArray;
-  }, [customers, businessPartners, lastActivityMap]);
+  }, [customers, businessPartners, lastActivityMap, balances]);
   
   const filteredCustomers = useMemo(() => {
     if (!searchTerm) return allPeople;
