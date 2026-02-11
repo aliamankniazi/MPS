@@ -5,212 +5,123 @@ import { useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { format, isValid } from 'date-fns';
-import { TrendingUp, Package } from 'lucide-react';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from '@/components/ui/badge';
+import { format, isValid, formatDistanceToNow } from 'date-fns';
+import { TrendingUp, Package, Percent, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface RateHistoryEntry {
-  date: string;
-  type: 'Sale' | 'Purchase';
-  rate: number;
-  transactionId: string;
-}
-
-type GroupedHistory = Record<string, RateHistoryEntry[]>;
 
 export default function ProductRateHistoryPage() {
     const { products, transactions, purchases, isLoaded } = useDatabase();
 
-    const rateHistory = useMemo(() => {
-        if (!isLoaded) return {};
+    const productRateSummary = useMemo(() => {
+        if (!isLoaded) return [];
 
         const mainProducts = products.filter(p => p.category === 'Main Product');
-        const history: GroupedHistory = {};
 
-        mainProducts.forEach(product => {
-            const productSales = transactions
+        return mainProducts.map(product => {
+            const salesForProduct = transactions
                 .filter(t => t.fuelType === product.name && t.pricePerLitre > 0)
-                .map(t => ({
-                    date: t.timestamp,
-                    type: 'Sale' as const,
-                    rate: t.pricePerLitre,
-                    id: `sale-${t.id}`
-                }));
-
-            const productPurchases = purchases
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            
+            const purchasesForProduct = purchases
                 .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0)
-                .map(p => ({
-                    date: p.timestamp,
-                    type: 'Purchase' as const,
-                    rate: p.totalCost / p.volume,
-                    id: `purchase-${p.id}`
-                }));
+                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+            const lastSale = salesForProduct[0];
+            const lastPurchase = purchasesForProduct[0];
+
+            const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.salePrice || 0;
+            const lastPurchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : product.purchasePrice || 0;
             
-            const allTransactionsForProduct = [...productSales, ...productPurchases].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            const lastActivityTs = Math.max(
+                lastSale ? new Date(lastSale.timestamp).getTime() : 0,
+                lastPurchase ? new Date(lastPurchase.timestamp).getTime() : 0
+            );
+            const lastActivityDate = lastActivityTs > 0 ? new Date(lastActivityTs) : null;
 
-            if (allTransactionsForProduct.length === 0) {
-                return;
-            }
-
-            // 1. Get all actual rate changes
-            const actualChanges: RateHistoryEntry[] = [];
-            let lastSaleRate = -1;
-            let lastPurchaseRate = -1;
-            allTransactionsForProduct.forEach(entry => {
-                if (entry.type === 'Sale') {
-                    if (entry.rate !== lastSaleRate) {
-                        actualChanges.push({
-                            date: entry.date,
-                            type: 'Sale',
-                            rate: entry.rate,
-                            transactionId: entry.id,
-                        });
-                        lastSaleRate = entry.rate;
-                    }
-                } else { // Purchase
-                    if (entry.rate !== lastPurchaseRate) {
-                         actualChanges.push({
-                            date: entry.date,
-                            type: 'Purchase',
-                            rate: entry.rate,
-                            transactionId: entry.id,
-                        });
-                        lastPurchaseRate = entry.rate;
-                    }
-                }
-            });
-
-            // 2. Get dates of interest (1st and 16th)
-            const artificialEntries: RateHistoryEntry[] = [];
-            const firstDate = new Date(allTransactionsForProduct[0].date);
-            const lastDate = new Date();
-            let currentDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-
-            while (currentDate <= lastDate) {
-                const datesToCheck = [
-                    new Date(currentDate.getFullYear(), currentDate.getMonth(), 1),
-                    new Date(currentDate.getFullYear(), currentDate.getMonth(), 16)
-                ];
-                
-                for (const targetDate of datesToCheck) {
-                    if (targetDate > lastDate) continue;
-                    
-                    const lastSale = [...allTransactionsForProduct].reverse().find(t => t.type === 'Sale' && new Date(t.date) <= targetDate);
-                    if(lastSale) {
-                        artificialEntries.push({
-                            date: targetDate.toISOString(),
-                            type: 'Sale',
-                            rate: lastSale.rate,
-                            transactionId: `derived-sale-${targetDate.toISOString()}`
-                        });
-                    }
-                    
-                    const lastPurchase = [...allTransactionsForProduct].reverse().find(t => t.type === 'Purchase' && new Date(t.date) <= targetDate);
-                    if(lastPurchase) {
-                        artificialEntries.push({
-                            date: targetDate.toISOString(),
-                            type: 'Purchase',
-                            rate: lastPurchase.rate,
-                            transactionId: `derived-purchase-${targetDate.toISOString()}`
-                        });
-                    }
-                }
-                currentDate.setMonth(currentDate.getMonth() + 1);
-            }
-            
-            // 3. Combine and de-duplicate
-            const combinedHistory = [...actualChanges, ...artificialEntries];
-            const finalHistoryMap = new Map<string, RateHistoryEntry>();
-
-            combinedHistory.forEach(item => {
-                const itemDateStr = new Date(item.date).toISOString().split('T')[0];
-                const key = `${itemDateStr}-${item.type}`;
-                
-                const existingEntry = finalHistoryMap.get(key);
-
-                if (!existingEntry || (existingEntry.transactionId.startsWith('derived-') && !item.transactionId.startsWith('derived-'))) {
-                    finalHistoryMap.set(key, item);
-                }
-            });
-
-            const finalHistory = Array.from(finalHistoryMap.values());
-            
-            if (finalHistory.length > 0) {
-                 history[product.name] = finalHistory.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-            }
-
+            return {
+                id: product.id,
+                name: product.name,
+                lastSaleRate: lastSaleRate,
+                lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
+                lastPurchaseRate: lastPurchaseRate,
+                lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
+                margin: lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0,
+                lastActivityDate: lastActivityDate
+            };
+        }).sort((a, b) => {
+            const timeA = a.lastActivityDate ? a.lastActivityDate.getTime() : 0;
+            const timeB = b.lastActivityDate ? b.lastActivityDate.getTime() : 0;
+            return timeB - timeA;
         });
 
-        return history;
     }, [isLoaded, products, transactions, purchases]);
-    
-    const productNames = Object.keys(rateHistory);
 
     return (
         <div className="p-4 md:p-8">
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <TrendingUp /> Product Rate History
+                        <TrendingUp /> Product Rate & Margin Summary
                     </CardTitle>
                     <CardDescription>
-                        A log of all purchase and sale rate changes for main products.
+                        A summary of the latest sale rate, purchase rate, and profit margin for each main product.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                   {isLoaded && productNames.length > 0 ? (
-                        <Accordion type="multiple" className="w-full space-y-4">
-                           {productNames.map(productName => (
-                                <AccordionItem value={productName} key={productName}>
-                                    <AccordionTrigger className="text-lg font-semibold bg-muted/50 px-4 rounded-md">
-                                        <div className="flex items-center gap-2">
-                                            <Package />
-                                            <span className={cn(
-                                                productName.toLowerCase().includes('diesel') && 'text-green-600',
-                                                (productName.toLowerCase().includes('unleaded') || productName.toLowerCase().includes('premium')) && 'text-destructive'
-                                            )}>
-                                                {productName}
-                                            </span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent className="p-2">
-                                        <div className="border rounded-md">
-                                            <Table>
-                                                <TableHeader>
-                                                    <TableRow>
-                                                        <TableHead>Date</TableHead>
-                                                        <TableHead>Type</TableHead>
-                                                        <TableHead className="text-right">Rate (PKR)</TableHead>
-                                                    </TableRow>
-                                                </TableHeader>
-                                                <TableBody>
-                                                    {rateHistory[productName].map(entry => (
-                                                        <TableRow key={entry.transactionId}>
-                                                            <TableCell className="font-medium">
-                                                                {isValid(new Date(entry.date)) ? format(new Date(entry.date), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Badge variant={entry.type === 'Sale' ? 'destructive' : 'default'}>
-                                                                    {entry.type}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono font-semibold">
-                                                                {entry.rate.toFixed(2)}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))}
-                                                </TableBody>
-                                            </Table>
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                           ))}
-                        </Accordion>
+                   {isLoaded && productRateSummary.length > 0 ? (
+                        <div className="border rounded-md">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Product</TableHead>
+                                        <TableHead className="text-right">Last Sale Rate</TableHead>
+                                        <TableHead className="text-right">Last Purchase Rate</TableHead>
+                                        <TableHead className="text-right">Profit Margin</TableHead>
+                                        <TableHead>Last Update</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {productRateSummary.map(product => (
+                                        <TableRow key={product.id}>
+                                            <TableCell>
+                                                <div className="font-medium flex items-center gap-2">
+                                                    <Package className="w-4 h-4" />
+                                                    <span className={cn(
+                                                        product.name.toLowerCase().includes('diesel') && 'text-green-600',
+                                                        (product.name.toLowerCase().includes('unleaded') || product.name.toLowerCase().includes('premium')) && 'text-destructive'
+                                                    )}>
+                                                        {product.name}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono">
+                                                {product.lastSaleRate > 0 ? `PKR ${product.lastSaleRate.toFixed(2)}` : 'N/A'}
+                                                {product.lastSaleDate && <div className="text-xs text-muted-foreground">{format(product.lastSaleDate, 'dd-MMM-yy')}</div>}
+                                            </TableCell>
+                                             <TableCell className="text-right font-mono">
+                                                {product.lastPurchaseRate > 0 ? `PKR ${product.lastPurchaseRate.toFixed(2)}` : 'N/A'}
+                                                {product.lastPurchaseDate && <div className="text-xs text-muted-foreground">{format(product.lastPurchaseDate, 'dd-MMM-yy')}</div>}
+                                            </TableCell>
+                                            <TableCell className={cn("text-right font-mono font-semibold", product.margin > 0 ? 'text-green-600' : 'text-destructive')}>
+                                                 <div className="flex items-center justify-end gap-1">
+                                                    <Percent className="w-3 h-3" />
+                                                    <span>{product.margin > 0 ? `PKR ${product.margin.toFixed(2)}` : 'N/A'}</span>
+                                                 </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <CalendarDays className="w-4 h-4" />
+                                                    <span>{product.lastActivityDate ? formatDistanceToNow(product.lastActivityDate, { addSuffix: true }) : 'Never'}</span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                    ) : (
                         <div className="text-center p-8 text-muted-foreground">
-                            {isLoaded ? 'No rate changes recorded.' : 'Loading data...'}
+                            {isLoaded ? 'No rate data available.' : 'Loading data...'}
                         </div>
                    )}
                 </CardContent>
