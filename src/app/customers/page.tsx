@@ -350,7 +350,7 @@ export default function CustomersPage() {
                     return (
                       <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
-                          <div className="font-medium flex items-center gap-2 text-red-500">
+                          <div className="font-bold text-lg flex items-center gap-2 text-red-500">
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
                             {c.isBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
