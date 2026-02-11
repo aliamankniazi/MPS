@@ -259,7 +259,7 @@ And Also Use Account Number As A Raast ID`;
                                         <TableCell>{row.customer.contact}</TableCell>
                                         <TableCell className={cn("text-right font-mono", row.previousBalance > 0 ? 'text-destructive' : 'text-green-600')}>{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className="text-right font-mono text-destructive">{row.sale.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-destructive">{row.recovery.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className="text-right font-mono text-green-600">{row.recovery.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className={`text-right font-bold font-mono ${row.currentBalance < 0 ? 'text-green-600' : 'text-destructive'}`}>
                                             {row.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </TableCell>
