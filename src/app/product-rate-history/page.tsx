@@ -5,70 +5,93 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { format, isValid, formatDistanceToNow, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { TrendingUp, Package, Percent, CalendarDays, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
 import type { DateRange } from '@/lib/types';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 export default function ProductRateHistoryPage() {
     const { products, transactions, purchases, isLoaded, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
-    const productRateSummary = useMemo(() => {
-        if (!isLoaded) return [];
+    const productRateHistory = useMemo(() => {
+        if (!isLoaded) return {};
 
-        let filteredProducts = products.filter(p => p.category === 'Main Product');
+        let mainProducts = products.filter(p => p.category === 'Main Product');
         if (searchTerm) {
-            filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+            mainProducts = mainProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
         }
 
-        const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
+        if (mainProducts.length === 0) return {};
 
-        return filteredProducts.map(product => {
-            const salesForProduct = transactions
-                .filter(t => t.fuelType === product.name && t.pricePerLitre > 0 && new Date(t.timestamp) <= toDate)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-            const purchasesForProduct = purchases
-                .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0 && new Date(p.timestamp) <= toDate)
-                .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-            const lastSale = salesForProduct[0];
-            const lastPurchase = purchasesForProduct[0];
-
-            const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.salePrice || 0;
-            const lastPurchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : product.purchasePrice || 0;
-
-            const lastActivityTs = Math.max(
-                lastSale ? new Date(lastSale.timestamp).getTime() : 0,
-                lastPurchase ? new Date(lastPurchase.timestamp).getTime() : 0
-            );
-            const lastActivityDate = lastActivityTs > 0 ? new Date(lastActivityTs) : null;
-            
-            if (dateRange?.from && lastActivityDate && lastActivityDate < startOfDay(dateRange.from)) {
-                return null;
-            }
-
-            return {
-                id: product.id,
-                name: product.name,
-                lastSaleRate: lastSaleRate,
-                lastSaleDate: lastSale ? new Date(lastSale.timestamp) : null,
-                lastPurchaseRate: lastPurchaseRate,
-                lastPurchaseDate: lastPurchase ? new Date(lastPurchase.timestamp) : null,
-                margin: lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0,
-                lastActivityDate: lastActivityDate
-            };
-        }).filter((p): p is NonNullable<typeof p> => p !== null).sort((a, b) => {
-            const timeA = a.lastActivityDate ? a.lastActivityDate.getTime() : 0;
-            const timeB = b.lastActivityDate ? b.lastActivityDate.getTime() : 0;
-            return timeB - timeA;
+        const allRateChangeDates = new Set<number>();
+        
+        transactions.forEach(t => {
+            if(t.pricePerLitre > 0 && isValid(new Date(t.timestamp))) allRateChangeDates.add(startOfDay(new Date(t.timestamp)).getTime());
+        });
+        purchases.forEach(p => {
+            if(p.volume > 0 && p.totalCost > 0 && isValid(new Date(p.timestamp))) allRateChangeDates.add(startOfDay(new Date(p.timestamp)).getTime());
         });
 
-    }, [isLoaded, products, transactions, purchases, dateRange, searchTerm]);
+        const validTimestamps = [...allRateChangeDates];
+        if (validTimestamps.length === 0) return {};
+
+        const minDate = new Date(Math.min(...validTimestamps));
+        const maxDate = new Date();
+
+        if (!isValid(minDate)) return {};
+
+        // Add 1st and 16th of each month in the range
+        let currentDate = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+        while(currentDate <= maxDate) {
+            allRateChangeDates.add(startOfDay(new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)).getTime());
+            allRateChangeDates.add(startOfDay(new Date(currentDate.getFullYear(), currentDate.getMonth(), 16)).getTime());
+            currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+
+        const sortedUniqueDates = Array.from(allRateChangeDates).map(t => new Date(t)).sort((a, b) => a.getTime() - b.getTime());
+
+        const history: Record<string, { date: string; saleRate: number; purchaseRate: number }[]> = {};
+
+        mainProducts.forEach(product => {
+            const productHistory: { date: string; saleRate: number; purchaseRate: number }[] = [];
+            
+            let lastSaleRate = -1;
+            let lastPurchaseRate = -1;
+
+            sortedUniqueDates.forEach(date => {
+                const saleOnDate = transactions
+                    .filter(t => t.fuelType === product.name && t.pricePerLitre > 0 && new Date(t.timestamp) <= endOfDay(date))
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                
+                const purchaseOnDate = purchases
+                    .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0 && new Date(p.timestamp) <= endOfDay(date))
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+                const currentSaleRate = saleOnDate ? saleOnDate.pricePerLitre : 0;
+                const currentPurchaseRate = purchaseOnDate && purchaseOnDate.volume > 0 ? purchaseOnDate.totalCost / purchaseOnDate.volume : 0;
+
+                if (currentSaleRate.toFixed(2) !== lastSaleRate.toFixed(2) || currentPurchaseRate.toFixed(2) !== lastPurchaseRate.toFixed(2)) {
+                    productHistory.push({
+                        date: format(date, 'yyyy-MM-dd'),
+                        saleRate: currentSaleRate,
+                        purchaseRate: currentPurchaseRate,
+                    });
+                    lastSaleRate = currentSaleRate;
+                    lastPurchaseRate = currentPurchaseRate;
+                }
+            });
+            history[product.name] = productHistory;
+        });
+
+        return history;
+    }, [isLoaded, products, transactions, purchases, searchTerm]);
+    
+    const productNames = Object.keys(productRateHistory);
 
     return (
         <div className="p-4 md:p-8">
@@ -77,10 +100,10 @@ export default function ProductRateHistoryPage() {
                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
                         <div>
                             <CardTitle className="flex items-center gap-2">
-                                <TrendingUp /> Product Rate & Margin Summary
+                                <TrendingUp /> Product Rate History
                             </CardTitle>
                             <CardDescription>
-                                A summary of the latest sale rate, purchase rate, and profit margin for each main product.
+                                A log of all purchase and sale rate changes for main products.
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -98,57 +121,61 @@ export default function ProductRateHistoryPage() {
                     </div>
                 </CardHeader>
                 <CardContent>
-                   {isLoaded && productRateSummary.length > 0 ? (
-                        <div className="border rounded-md">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Product</TableHead>
-                                        <TableHead className="text-right">Last Sale Rate</TableHead>
-                                        <TableHead className="text-right">Last Purchase Rate</TableHead>
-                                        <TableHead className="text-right">Profit Margin</TableHead>
-                                        <TableHead>Last Update</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {productRateSummary.map(product => (
-                                        <TableRow key={product.id}>
-                                            <TableCell>
-                                                <div className="font-bold flex items-center gap-2">
-                                                    <Package className="w-4 h-4" />
-                                                    <span className={cn(
-                                                        product.name.toLowerCase().includes('diesel') && 'text-green-600',
-                                                        (product.name.toLowerCase().includes('unleaded') || product.name.toLowerCase().includes('premium')) && 'text-destructive'
-                                                    )}>
-                                                        {product.name}
-                                                    </span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono font-bold text-blue-600">
-                                                {product.lastSaleRate > 0 ? `PKR ${product.lastSaleRate.toFixed(2)}` : 'N/A'}
-                                                {product.lastSaleDate && <div className="text-xs text-muted-foreground">{format(product.lastSaleDate, 'dd-MMM-yy')}</div>}
-                                            </TableCell>
-                                             <TableCell className="text-right font-mono font-bold text-destructive">
-                                                {product.lastPurchaseRate > 0 ? `PKR ${product.lastPurchaseRate.toFixed(2)}` : 'N/A'}
-                                                {product.lastPurchaseDate && <div className="text-xs text-muted-foreground">{format(product.lastPurchaseDate, 'dd-MMM-yy')}</div>}
-                                            </TableCell>
-                                            <TableCell className={cn("text-right font-mono font-semibold", product.margin > 0 ? 'text-green-600' : 'text-destructive')}>
-                                                 <div className="flex items-center justify-end gap-1">
-                                                    <Percent className="w-3 h-3" />
-                                                    <span>{product.margin > 0 ? `PKR ${product.margin.toFixed(2)}` : 'N/A'}</span>
-                                                 </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                                    <CalendarDays className="w-4 h-4" />
-                                                    <span>{product.lastActivityDate ? formatDistanceToNow(product.lastActivityDate, { addSuffix: true }) : 'Never'}</span>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                   {isLoaded && productNames.length > 0 ? (
+                        <Accordion type="multiple" className="w-full space-y-4">
+                            {productNames.map(productName => {
+                                const historyEntries = productRateHistory[productName];
+                                if (!historyEntries) return null;
+                                
+                                const filteredHistory = dateRange?.from 
+                                    ? historyEntries.filter(entry => {
+                                        const entryDate = new Date(entry.date);
+                                        const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from!);
+                                        return entryDate >= startOfDay(dateRange.from!) && entryDate <= to;
+                                    })
+                                    : historyEntries;
+
+                                if (filteredHistory.length === 0 && searchTerm) return null;
+
+                                return (
+                                <AccordionItem value={productName} key={productName} className="border rounded-lg">
+                                    <AccordionTrigger className="p-4 hover:no-underline">
+                                        <span className="font-semibold text-lg">{productName}</span>
+                                    </AccordionTrigger>
+                                    <AccordionContent className="p-0">
+                                        {filteredHistory.length > 0 ? (
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead>Date</TableHead>
+                                                        <TableHead className="text-right">Sale Rate</TableHead>
+                                                        <TableHead className="text-right">Purchase Rate</TableHead>
+                                                        <TableHead className="text-right">Margin</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {filteredHistory.slice().reverse().map((entry, index) => {
+                                                        const margin = entry.saleRate - entry.purchaseRate;
+                                                        return (
+                                                        <TableRow key={`${entry.date}-${index}`}>
+                                                            <TableCell className="font-medium">{format(new Date(entry.date), 'dd-MMM-yyyy')}</TableCell>
+                                                            <TableCell className="text-right font-mono text-blue-600 font-bold">{entry.saleRate > 0 ? entry.saleRate.toFixed(2) : '-'}</TableCell>
+                                                            <TableCell className="text-right font-mono text-red-600 font-bold">{entry.purchaseRate > 0 ? entry.purchaseRate.toFixed(2) : '-'}</TableCell>
+                                                            <TableCell className={cn("text-right font-mono font-semibold", margin > 0 ? 'text-green-600' : 'text-destructive')}>
+                                                                {entry.saleRate > 0 && entry.purchaseRate > 0 ? margin.toFixed(2) : '-'}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )})}
+                                                </TableBody>
+                                            </Table>
+                                        ) : (
+                                            <div className="p-4 text-center text-sm text-muted-foreground">No rate history for this product in the selected period.</div>
+                                        )}
+                                    </AccordionContent>
+                                </AccordionItem>
+                            )})
+                        }
+                        </Accordion>
                    ) : (
                         <div className="text-center p-8 text-muted-foreground">
                             {isLoaded ? 'No rate data available.' : 'Loading data...'}
