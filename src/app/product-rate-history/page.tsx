@@ -1,29 +1,39 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { format, isValid, formatDistanceToNow } from 'date-fns';
-import { TrendingUp, Package, Percent, CalendarDays } from 'lucide-react';
+import { format, isValid, formatDistanceToNow, startOfDay, endOfDay } from 'date-fns';
+import { TrendingUp, Package, Percent, CalendarDays, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { DateRangePicker } from '@/components/date-range-picker';
+import { Input } from '@/components/ui/input';
+import type { DateRange } from '@/lib/types';
+
 
 export default function ProductRateHistoryPage() {
-    const { products, transactions, purchases, isLoaded } = useDatabase();
+    const { products, transactions, purchases, isLoaded, dateRange, setDateRange } = useDatabase();
+    const [searchTerm, setSearchTerm] = useState('');
 
     const productRateSummary = useMemo(() => {
         if (!isLoaded) return [];
 
-        const mainProducts = products.filter(p => p.category === 'Main Product');
+        let filteredProducts = products.filter(p => p.category === 'Main Product');
+        if (searchTerm) {
+            filteredProducts = filteredProducts.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        }
 
-        return mainProducts.map(product => {
+        const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
+
+        return filteredProducts.map(product => {
             const salesForProduct = transactions
-                .filter(t => t.fuelType === product.name && t.pricePerLitre > 0)
+                .filter(t => t.fuelType === product.name && t.pricePerLitre > 0 && new Date(t.timestamp) <= toDate)
                 .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-            
+
             const purchasesForProduct = purchases
-                .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0)
+                .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0 && new Date(p.timestamp) <= toDate)
                 .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
             const lastSale = salesForProduct[0];
@@ -31,12 +41,16 @@ export default function ProductRateHistoryPage() {
 
             const lastSaleRate = lastSale ? lastSale.pricePerLitre : product.salePrice || 0;
             const lastPurchaseRate = lastPurchase ? lastPurchase.totalCost / lastPurchase.volume : product.purchasePrice || 0;
-            
+
             const lastActivityTs = Math.max(
                 lastSale ? new Date(lastSale.timestamp).getTime() : 0,
                 lastPurchase ? new Date(lastPurchase.timestamp).getTime() : 0
             );
             const lastActivityDate = lastActivityTs > 0 ? new Date(lastActivityTs) : null;
+            
+            if (dateRange?.from && lastActivityDate && lastActivityDate < startOfDay(dateRange.from)) {
+                return null;
+            }
 
             return {
                 id: product.id,
@@ -48,24 +62,40 @@ export default function ProductRateHistoryPage() {
                 margin: lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0,
                 lastActivityDate: lastActivityDate
             };
-        }).sort((a, b) => {
+        }).filter((p): p is NonNullable<typeof p> => p !== null).sort((a, b) => {
             const timeA = a.lastActivityDate ? a.lastActivityDate.getTime() : 0;
             const timeB = b.lastActivityDate ? b.lastActivityDate.getTime() : 0;
             return timeB - timeA;
         });
 
-    }, [isLoaded, products, transactions, purchases]);
+    }, [isLoaded, products, transactions, purchases, dateRange, searchTerm]);
 
     return (
         <div className="p-4 md:p-8">
             <Card>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <TrendingUp /> Product Rate & Margin Summary
-                    </CardTitle>
-                    <CardDescription>
-                        A summary of the latest sale rate, purchase rate, and profit margin for each main product.
-                    </CardDescription>
+                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <TrendingUp /> Product Rate & Margin Summary
+                            </CardTitle>
+                            <CardDescription>
+                                A summary of the latest sale rate, purchase rate, and profit margin for each main product.
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="Search product..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-10"
+                                />
+                            </div>
+                           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                    {isLoaded && productRateSummary.length > 0 ? (
