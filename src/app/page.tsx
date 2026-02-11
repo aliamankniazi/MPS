@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -122,6 +123,7 @@ export default function DashboardPage() {
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [chartEndDate, setChartEndDate] = useState<Date | null>(null);
   const [isClient, setIsClient] = useState(false);
+  const [now, setNow] = useState(new Date());
   const [summaryDateRange, setSummaryDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -130,6 +132,8 @@ export default function DashboardPage() {
   useEffect(() => {
     // This effect runs only on the client, after the initial render.
     setIsClient(true);
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000); // update every minute
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -447,22 +451,49 @@ export default function DashboardPage() {
 
   }, [isLoaded, filteredData]);
 
-  const blacklistedCustomersWithBalance = useMemo(() => {
+  const defaulterAndBlacklistedCustomers = useMemo(() => {
     if (!isLoaded || !customers || !transactions || !customerPayments || !cashAdvances) return [];
-    return customers
-      .filter(c => c.isBlacklisted)
-      .map(customer => {
+    
+    const thirtyDaysAgo = subDays(now, 30);
+
+    const allCustomersWithDetails = customers.map(customer => {
+        // Calculate balance
         const openingBalance = customer.openingBalance || 0;
         const totalSales = transactions.filter(tx => tx.customerId === customer.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
         const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === customer.id).reduce((sum, ca) => sum + ca.amount, 0);
         const totalPayments = customerPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
         const balance = openingBalance + totalSales + totalCashAdvances - totalPayments;
-        return {
-          ...customer,
-          balance,
-        };
-      });
-  }, [isLoaded, customers, transactions, customerPayments, cashAdvances]);
+
+        if (balance <= 0 && !customer.isBlacklisted) {
+            return null; // Don't care about customers with zero or credit balance unless they are blacklisted
+        }
+
+        // Find last activity date
+        const allTimestamps = [
+            ...transactions.filter(tx => tx.customerId === customer.id).map(tx => new Date(tx.timestamp)),
+            ...cashAdvances.filter(ca => ca.customerId === customer.id).map(ca => new Date(ca.timestamp)),
+            ...customerPayments.filter(p => p.customerId === customer.id).map(p => new Date(p.timestamp)),
+        ].filter(d => isValid(d));
+
+        const lastActivityDate = allTimestamps.length > 0 ? new Date(Math.max.apply(null, allTimestamps as any)) : null;
+        
+        const isDefaulter = balance > 0 && lastActivityDate && lastActivityDate < thirtyDaysAgo;
+
+        if (customer.isBlacklisted || isDefaulter) {
+            return {
+                ...customer,
+                balance,
+                lastActivityDate,
+                isDefaulter: isDefaulter,
+                isTrulyBlacklisted: customer.isBlacklisted,
+            };
+        }
+        return null;
+    });
+
+    return allCustomersWithDetails.filter((c): c is NonNullable<typeof c> => c !== null);
+
+  }, [isLoaded, customers, transactions, customerPayments, cashAdvances, now]);
 
   const dailyProductSales = useMemo(() => {
     if (!isLoaded || !products) return {};
@@ -496,7 +527,7 @@ export default function DashboardPage() {
 
     const sortedDailySalesKeys = useMemo(() => {
         if (!dailyProductSales || Object.keys(dailyProductSales).length === 0) return [];
-        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
+        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a.getTime()))
     }, [dailyProductSales]);
   
     const formatPhoneNumberForWhatsApp = (phone: string | number | undefined) => {
@@ -761,32 +792,40 @@ export default function DashboardPage() {
             </div>
             <Card className="border-destructive">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted And Defaulter Customers</CardTitle>
-                    <CardDescription>Customers who are currently marked as blacklisted.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted & Defaulter Customers</CardTitle>
+                    <CardDescription>Customers who are blacklisted or have not had a transaction in over 30 days and have an outstanding balance.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {blacklistedCustomersWithBalance.length > 0 ? (
+                    {defaulterAndBlacklistedCustomers.length > 0 ? (
                         <Table>
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Customer</TableHead>
+                                    <TableHead>Last Activity</TableHead>
                                     <TableHead className="text-right">Balance</TableHead>
                                     <TableHead className="text-center">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {blacklistedCustomersWithBalance.map((customer) => (
+                                {defaulterAndBlacklistedCustomers.map((customer) => (
                                     <TableRow key={customer.id}>
                                         <TableCell>
                                             <div className="font-medium flex items-center gap-2">
                                                 {customer.name}
+                                                {customer.isTrulyBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
+                                                {customer.isDefaulter && !customer.isTrulyBlacklisted && <Badge variant="outline">Defaulter</Badge>}
+                                            </div>
+                                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                                {customer.contact}
                                                 {customer.contact && (
                                                     <a href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}?text=${generateWhatsAppMessage(customer)}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
                                                         <WhatsAppIcon className="w-4 h-4" />
                                                     </a>
                                                 )}
                                             </div>
-                                            <div className="text-sm text-muted-foreground">{customer.contact}</div>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground">
+                                            {customer.lastActivityDate ? format(customer.lastActivityDate, 'dd-MMM-yyyy') : 'N/A'}
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-destructive">
                                             {customer.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -803,7 +842,7 @@ export default function DashboardPage() {
                             </TableBody>
                         </Table>
                     ) : (
-                        <p className="text-center p-4 text-muted-foreground">No blacklisted customers with a balance.</p>
+                        <p className="text-center p-4 text-muted-foreground">No blacklisted or defaulter customers found.</p>
                     )}
                 </CardContent>
             </Card>
@@ -903,3 +942,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
