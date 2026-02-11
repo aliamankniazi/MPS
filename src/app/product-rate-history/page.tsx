@@ -98,7 +98,7 @@ export default function ProductRateHistoryPage() {
                                                 {product.lastSaleRate > 0 ? `PKR ${product.lastSaleRate.toFixed(2)}` : 'N/A'}
                                                 {product.lastSaleDate && <div className="text-xs text-muted-foreground">{format(product.lastSaleDate, 'dd-MMM-yy')}</div>}
                                             </TableCell>
-                                             <TableCell className="text-right font-mono">
+                                             <TableCell className="text-right font-mono font-bold text-destructive">
                                                 {product.lastPurchaseRate > 0 ? `PKR ${product.lastPurchaseRate.toFixed(2)}` : 'N/A'}
                                                 {product.lastPurchaseDate && <div className="text-xs text-muted-foreground">{format(product.lastPurchaseDate, 'dd-MMM-yy')}</div>}
                                             </TableCell>
