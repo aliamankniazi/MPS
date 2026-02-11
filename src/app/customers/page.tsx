@@ -54,7 +54,7 @@ const contactDisplay = (contact: any): string => {
   if (!contact) return '';
   if (Array.isArray(contact)) return contact.join(', ');
   if (typeof contact === 'object' && contact !== null) return Object.values(contact).join(', ');
-  return String(contact);
+  return String(contact).replace(/[\n,]+/g, ', ');
 };
 
 export default function CustomersPage() {
@@ -220,16 +220,10 @@ export default function CustomersPage() {
 
   const formatPhoneNumberForWhatsApp = (phone: any) => {
     let primaryPhone = '';
-    if (Array.isArray(phone)) {
-      primaryPhone = phone[0] || '';
-    } else if (typeof phone === 'object' && phone !== null) {
-      primaryPhone = Object.values(phone)[0] as string || '';
-    } else if (phone) {
-      primaryPhone = String(phone);
+    if (phone) {
+        primaryPhone = String(phone).split(/[,\n]/)[0].trim();
     }
-    
     if (!primaryPhone) return '';
-    
     return String(primaryPhone).replace(/[^0-9]/g, '');
   }
   
@@ -287,8 +281,8 @@ export default function CustomersPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="contact">Contact Info (Phone Number)</Label>
-                <Input id="contact" {...register('contact')} placeholder="e.g., 923001234567" />
+                <Label htmlFor="contact">Contact Info (Phone Number, comma/new-line separated)</Label>
+                <Textarea id="contact" {...register('contact')} placeholder="e.g., 923001234567, 923338765432" />
                 {errors.contact && <p className="text-sm text-destructive">{errors.contact.message}</p>}
               </div>
 
@@ -353,14 +347,22 @@ export default function CustomersPage() {
                   {filteredCustomers.map(c => (
                       <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
-                          <div className="font-medium flex items-center gap-2">
+                          <div className="font-medium flex items-center gap-2 text-red-500">
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
                             {c.isBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
                           </div>
-                          <div className="text-sm text-muted-foreground">{contactDisplay(c.contact)}</div>
+                          <div className="text-sm text-muted-foreground">
+                            {c.contact && String(c.contact).split(/[,\n]/).map((contact, i) => (
+                                <div key={i}>{contact.trim()}</div>
+                            ))}
+                          </div>
                            <div className="text-xs text-muted-foreground">{c.area || 'N/A'}</div>
-                          <div className="text-xs text-muted-foreground">{c.vehicleNumber || 'N/A'}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {c.vehicleNumber && String(c.vehicleNumber).split(/[,\n]/).map((vehicle, i) => (
+                                <div key={i}>{vehicle.trim()}</div>
+                            ))}
+                          </div>
                           <div className="text-xs text-muted-foreground">Last Activity: {lastActivityMap.get(c.id) ? format(new Date(lastActivityMap.get(c.id)!), 'dd-MMM-yyyy') : 'N/A'}</div>
                           <div className="font-bold mt-1">
                             Balance: PKR {balances.get(c.id)?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) ?? '0.00'}
@@ -428,8 +430,8 @@ export default function CustomersPage() {
                         {editErrors.name && <p className="text-sm text-destructive">{editErrors.name.message}</p>}
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="edit-contact">Contact Info</Label>
-                        <Input id="edit-contact" {...registerEdit('contact')} />
+                        <Label htmlFor="edit-contact">Contact Info (comma/new-line separated)</Label>
+                        <Textarea id="edit-contact" {...registerEdit('contact')} />
                         {editErrors.contact && <p className="text-sm text-destructive">{editErrors.contact.message}</p>}
                     </div>
                     <div className="space-y-2">
