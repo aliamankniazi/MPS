@@ -224,26 +224,26 @@ const reportList: ReportCardProps[] = [
 
 
 const ReportCard = ({ title, description, href, icon: Icon, isFrequentlyUsed }: ReportCardProps) => (
-  <Card className={cn("flex flex-col hover:shadow-lg transition-shadow rounded-2xl", isFrequentlyUsed ? "border-red-500" : "border-blue-500")}>
-    <CardHeader className="flex-row items-center gap-4 space-y-0">
-      <div className="p-3 bg-muted rounded-full">
-        <Icon className={cn("w-6 h-6", isFrequentlyUsed ? "text-red-500" : "text-blue-500")} />
-      </div>
-      <div>
-        <CardTitle className={cn(isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>{title}</CardTitle>
-      </div>
-    </CardHeader>
-    <CardContent className="flex-grow">
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </CardContent>
-    <CardContent>
-      <Button asChild variant="link" className={cn("p-0 h-auto", isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>
-        <Link href={href}>
+  <Link href={href} className="flex h-full">
+    <Card className={cn("flex flex-col hover:shadow-lg transition-shadow rounded-2xl w-full", isFrequentlyUsed ? "border-red-500" : "border-blue-500")}>
+      <CardHeader className="flex-row items-center gap-4 space-y-0">
+        <div className="p-3 bg-muted rounded-full">
+          <Icon className={cn("w-6 h-6", isFrequentlyUsed ? "text-red-500" : "text-blue-500")} />
+        </div>
+        <div>
+          <CardTitle className={cn(isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>{title}</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-grow">
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </CardContent>
+      <CardContent>
+        <div className={cn("flex items-center p-0 h-auto text-sm font-medium", isFrequentlyUsed ? "text-red-500" : "text-blue-500")}>
           View Report <ArrowRight className="ml-2 w-4 h-4" />
-        </Link>
-      </Button>
-    </CardContent>
-  </Card>
+        </div>
+      </CardContent>
+    </Card>
+  </Link>
 );
 
 export default function ReportsPage() {
