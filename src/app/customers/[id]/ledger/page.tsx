@@ -329,7 +329,7 @@ export default function CustomerLedgerPage() {
         <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
                 <User className="w-4 h-4 text-muted-foreground"/>
-                <strong>Name:</strong> {entity.name}
+                <strong>Name:</strong> <span className={cn(balanceColorClass())}>{entity.name}</span>
             </div>
             {'contact' in entity && (
                 <div className="flex items-center gap-2">
@@ -357,7 +357,7 @@ export default function CustomerLedgerPage() {
           <div className="flex flex-col md:flex-row justify-between items-start gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <BookUser /> {entityType} Ledger: {entity.name}
+                <BookUser /> {entityType} Ledger: <span className={cn(balanceColorClass())}>{entity.name}</span>
               </CardTitle>
               <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
             </div>

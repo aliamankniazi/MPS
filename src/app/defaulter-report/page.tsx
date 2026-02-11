@@ -140,7 +140,7 @@ export default function DefaulterReportPage() {
                                                     <AvatarFallback>{defaulter.name.charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <div>
-                                                    <p className="font-medium">{defaulter.name}</p>
+                                                    <p className="font-medium text-destructive">{defaulter.name}</p>
                                                     <p className="text-xs text-muted-foreground">{defaulter.contact || 'No contact'}</p>
                                                 </div>
                                             </div>
