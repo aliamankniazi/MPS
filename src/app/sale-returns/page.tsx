@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -11,22 +10,19 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
-import type { FuelType } from '@/lib/types';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 
-const FUEL_TYPES: FuelType[] = ['Unleaded', 'Premium', 'Diesel'];
-
 const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
-  fuelType: z.enum(FUEL_TYPES, { required_error: 'Please select a fuel type.' }),
+  fuelType: z.string({ required_error: 'Please select a fuel type.' }).min(1, 'Fuel type is required.'),
   volume: z.coerce.number().min(0.01, 'Volume must be greater than 0'),
   totalRefund: z.coerce.number().min(0.01, 'Total refund must be greater than 0'),
   reason: z.string().min(1, 'Reason for return is required'),
@@ -68,14 +64,21 @@ function PageHeader() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded } = useDatabase();
+  const { addSaleReturn, customers, isLoaded, products, fuelStock } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SaleReturnFormValues>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
   });
+
+  const selectedFuelType = watch('fuelType');
+
+  const mainProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter(p => p.category === 'Main Product');
+  }, [products]);
   
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
@@ -188,14 +191,19 @@ export default function SaleReturnsPage() {
                             <SelectValue placeholder="Select a fuel type" />
                         </SelectTrigger>
                         <SelectContent>
-                            {FUEL_TYPES.map(fuel => (
-                            <SelectItem key={fuel} value={fuel}>{fuel}</SelectItem>
+                            {mainProducts.map(fuel => (
+                            <SelectItem key={fuel.id} value={fuel.name}>{fuel.name}</SelectItem>
                             ))}
                         </SelectContent>
                         </Select>
                     )}
                     />
                     {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
+                    {selectedFuelType && (
+                        <p className="text-xs text-muted-foreground pt-1">
+                            Current Stock: {(fuelStock[selectedFuelType] || 0).toLocaleString(undefined, {maximumFractionDigits: 2})} Ltr
+                        </p>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
