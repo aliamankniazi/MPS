@@ -16,9 +16,10 @@ import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useSupplierBalance } from '@/hooks/use-supplier-balance';
 
 const purchaseSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -74,7 +75,10 @@ export default function PurchasesPage() {
     resolver: zodResolver(purchaseSchema),
   });
 
-  const { volume, pricePerLitre, totalCost, fuelType } = watch();
+  const { volume, pricePerLitre, totalCost, fuelType, supplierId } = watch();
+  
+  const { balance: supplierBalance } = useSupplierBalance(supplierId);
+  const newBalance = useMemo(() => supplierBalance + (Number(totalCost) || 0), [supplierBalance, totalCost]);
 
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
@@ -308,6 +312,20 @@ export default function PurchasesPage() {
                     />
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                     </div>
+                
+                {supplierId && (
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                        <h4 className="font-semibold mb-2">Supplier Account</h4>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Previous Balance</span>
+                            <span>{supplierBalance.toFixed(2)} PKR</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>New Account Balance</span>
+                            <span className={cn(newBalance > 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                        </div>
+                    </div>
+                )}
 
                 <Button type="submit" className="w-full">Record Purchase</Button>
                 </form>

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -20,6 +19,7 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useCustomerBalance } from '@/hooks/use-customer-balance';
 
 const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -75,6 +75,11 @@ export default function SaleReturnsPage() {
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
   });
+
+  const selectedCustomerId = watch('customerId');
+  const refundAmount = watch('totalRefund');
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId === 'walkin' ? null : selectedCustomerId);
+  const newBalance = useMemo(() => customerBalance - (Number(refundAmount) || 0), [customerBalance, refundAmount]);
 
   const selectedFuelType = watch('fuelType');
   const { volume, pricePerLitre, totalRefund } = watch();
@@ -319,6 +324,20 @@ export default function SaleReturnsPage() {
                     />
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                     </div>
+
+                {selectedCustomerId && selectedCustomerId !== 'walkin' && (
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                        <h4 className="font-semibold mb-2">Customer Account</h4>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Previous Balance</span>
+                            <span>{customerBalance.toFixed(2)} PKR</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>New Account Balance</span>
+                            <span className={cn(newBalance < 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                        </div>
+                    </div>
+                )}
 
                 <Button type="submit" className="w-full">Record Return</Button>
                 </form>

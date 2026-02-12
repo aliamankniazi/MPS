@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useSupplierBalance } from '@/hooks/use-supplier-balance';
 
 const purchaseReturnSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -73,6 +74,11 @@ export default function PurchaseReturnsPage() {
   const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
   });
+  
+  const supplierId = watch('supplierId');
+  const refundAmount = watch('totalRefund');
+  const { balance: supplierBalance } = useSupplierBalance(supplierId);
+  const newBalance = useMemo(() => supplierBalance - (Number(refundAmount) || 0), [supplierBalance, refundAmount]);
 
   const selectedFuelType = watch('fuelType');
 
@@ -264,6 +270,21 @@ export default function PurchaseReturnsPage() {
                     />
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                     </div>
+                
+                {supplierId && (
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                        <h4 className="font-semibold mb-2">Supplier Account</h4>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Previous Balance</span>
+                            <span>{supplierBalance.toFixed(2)} PKR</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>New Account Balance</span>
+                            <span className={cn(newBalance > 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                        </div>
+                    </div>
+                )}
+
 
                 <Button type="submit" className="w-full">Record Return</Button>
                 </form>

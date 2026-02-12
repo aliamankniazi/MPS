@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -18,9 +17,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { PaymentMethod } from '@/lib/types';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useSupplierBalance } from '@/hooks/use-supplier-balance';
 
 const supplierPaymentSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -70,12 +70,17 @@ export default function SupplierPaymentsPage() {
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<SupplierPaymentFormValues>({
+  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
     defaultValues: {
         paymentMethod: 'Bank Transfer'
     }
   });
+
+  const supplierId = watch('supplierId');
+  const paymentAmount = watch('amount');
+  const { balance: supplierBalance } = useSupplierBalance(supplierId);
+  const newBalance = useMemo(() => supplierBalance - (Number(paymentAmount) || 0), [supplierBalance, paymentAmount]);
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
@@ -252,6 +257,20 @@ export default function SupplierPaymentsPage() {
                   />
                   {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
+
+                {supplierId && (
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                        <h4 className="font-semibold mb-2">Supplier Account</h4>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Previous Balance</span>
+                            <span>{supplierBalance.toFixed(2)} PKR</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>New Account Balance</span>
+                            <span className={cn(newBalance > 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                        </div>
+                    </div>
+                )}
 
                 <Button type="submit" className="w-full">Record Payment</Button>
               </form>

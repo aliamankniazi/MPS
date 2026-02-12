@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -18,9 +17,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import type { PaymentMethod } from '@/lib/types';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useCustomerBalance } from '@/hooks/use-customer-balance';
 
 const customerPaymentSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -72,12 +72,17 @@ export default function CustomerPaymentsPage() {
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { register, handleSubmit, reset, control, setValue, getValues, formState: { errors } } = useForm<CustomerPaymentFormValues>({
+  const { register, handleSubmit, reset, control, setValue, getValues, watch, formState: { errors } } = useForm<CustomerPaymentFormValues>({
     resolver: zodResolver(customerPaymentSchema),
     defaultValues: {
         paymentMethod: 'Cash',
     }
   });
+
+  const selectedCustomerId = watch('customerId');
+  const paymentAmount = watch('amount');
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
+  const newBalance = useMemo(() => customerBalance - (Number(paymentAmount) || 0), [customerBalance, paymentAmount]);
 
   useEffect(() => {
     // SpeechRecognition is a browser-only API
@@ -336,6 +341,21 @@ export default function CustomerPaymentsPage() {
                 />
                 {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
               </div>
+              
+                {selectedCustomerId && (
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
+                        <h4 className="font-semibold mb-2">Customer Account</h4>
+                        <div className="flex justify-between">
+                            <span className="text-muted-foreground">Previous Balance</span>
+                            <span>{customerBalance.toFixed(2)} PKR</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg">
+                            <span>New Account Balance</span>
+                            <span className={cn(newBalance < 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                        </div>
+                    </div>
+                )}
+
 
               <Button type="submit" className="w-full">Record Payment</Button>
             </form>
