@@ -130,7 +130,6 @@ export default function DashboardPage() {
   });
 
   useEffect(() => {
-    // This effect runs only on the client, after the initial render.
     setIsClient(true);
     const timer = setInterval(() => setNow(new Date()), 60 * 1000); // update every minute
     return () => clearInterval(timer);
@@ -138,52 +137,55 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!isClient) return;
-    
-    setChartEndDate(new Date());
 
-    const timer = setInterval(() => {
-        const now = new Date();
-        const gregorianDate = now.toLocaleString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-        });
-
-        const time = now.toLocaleString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-        });
-
-        setCurrentTime(`${gregorianDate} | ${time}`);
-        
-        const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            year: 'numeric'
-        }).format(now);
-        
-        const desiDate = getPunjabiDate(now);
-        const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
-
-        setIslamicDateString(`${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate}`);
-
-        const ramadanInfo = getNextRamadanInfo(now);
-        if (ramadanInfo.isDuring) {
-            setRamadanCountdown("Ramadan Mubarak!");
-        } else if (ramadanInfo.daysRemaining !== null && ramadanInfo.daysRemaining > 0) {
-            setRamadanCountdown(`${ramadanInfo.daysRemaining} days remaining for Ramadan`);
-        } else if (ramadanInfo.daysRemaining === 0) {
-            setRamadanCountdown("Ramadan starts today!");
-        } else {
-            setRamadanCountdown('');
-        }
+    // This effect handles the live-updating clock.
+    const timeTimer = setInterval(() => {
+      const date = new Date();
+      const gregorianDate = date.toLocaleString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      });
+      const time = date.toLocaleString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+      setCurrentTime(`${gregorianDate} | ${time}`);
     }, 1000);
-    return () => clearInterval(timer);
+    
+    return () => clearInterval(timeTimer);
   }, [isClient]);
+  
+  useEffect(() => {
+    if(!isClient) return;
+
+    const islamicDate = new Intl.DateTimeFormat('ur-PK-u-ca-islamic', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    }).format(now);
+    
+    const desiDate = getPunjabiDate(now);
+    const punjabiDate = `${desiDate.day} ${desiDate.month} ${desiDate.year}`;
+    setIslamicDateString(`${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate}`);
+
+    const ramadanInfo = getNextRamadanInfo(now);
+    if (ramadanInfo.isDuring) {
+        setRamadanCountdown("Ramadan Mubarak!");
+    } else if (ramadanInfo.daysRemaining !== null && ramadanInfo.daysRemaining > 0) {
+        setRamadanCountdown(`${ramadanInfo.daysRemaining} days remaining for Ramadan`);
+    } else if (ramadanInfo.daysRemaining === 0) {
+        setRamadanCountdown("Ramadan starts today!");
+    } else {
+        setRamadanCountdown('');
+    }
+
+    setChartEndDate(new Date());
+  }, [isClient, now]);
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [], customerPayments: [], cashAdvances: [] };
