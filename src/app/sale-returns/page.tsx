@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -16,7 +17,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 
@@ -24,6 +25,7 @@ const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
   fuelType: z.string({ required_error: 'Please select a fuel type.' }).min(1, 'Fuel type is required.'),
   volume: z.coerce.number().min(0.01, 'Volume must be greater than 0'),
+  pricePerLitre: z.coerce.number().min(0.01, 'Price must be greater than 0'),
   totalRefund: z.coerce.number().min(0.01, 'Total refund must be greater than 0'),
   reason: z.string().min(1, 'Reason for return is required'),
   date: z.date({ required_error: "A date is required."}),
@@ -68,12 +70,31 @@ export default function SaleReturnsPage() {
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
+  const lastUserEditedField = useRef<'volume' | 'price' | 'total' | null>(null);
   
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<SaleReturnFormValues>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<SaleReturnFormValues>({
     resolver: zodResolver(saleReturnSchema),
   });
 
   const selectedFuelType = watch('fuelType');
+  const { volume, pricePerLitre, totalRefund } = watch();
+
+  useEffect(() => {
+    if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
+      const newTotal = (Number(volume) || 0) * (Number(pricePerLitre) || 0);
+      setValue('totalRefund', newTotal, { shouldValidate: true });
+    }
+  }, [volume, pricePerLitre, setValue]);
+
+  useEffect(() => {
+    if (lastUserEditedField.current === 'total') {
+      const numPrice = Number(pricePerLitre) || 0;
+      if (numPrice > 0) {
+        const newVolume = (Number(totalRefund) || 0) / numPrice;
+        setValue('volume', newVolume, { shouldValidate: true });
+      }
+    }
+  }, [totalRefund, pricePerLitre, setValue]);
 
   const mainProducts = useMemo(() => {
     if (!products) return [];
@@ -105,9 +126,12 @@ export default function SaleReturnsPage() {
     localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addSaleReturn({ 
-        ...data, 
         customerId: isWalkin ? 'walkin' : data.customerId,
         customerName: customerName,
+        fuelType: data.fuelType,
+        volume: data.volume,
+        totalRefund: data.totalRefund,
+        reason: data.reason,
         timestamp: data.date.toISOString() 
     });
     toast({
@@ -119,6 +143,7 @@ export default function SaleReturnsPage() {
       customerId: '',
       fuelType: undefined,
       volume: undefined,
+      pricePerLitre: undefined,
       totalRefund: undefined,
       reason: ''
     });
@@ -233,16 +258,21 @@ export default function SaleReturnsPage() {
                     )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                    <Label htmlFor="volume">Volume (Litres)</Label>
-                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 50" step="0.01" />
-                    {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
+                        <Label htmlFor="volume">Volume (Litres)</Label>
+                        <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 50" step="any" onChangeCapture={() => lastUserEditedField.current = 'volume'}/>
+                        {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
                     </div>
                     <div className="space-y-2">
-                    <Label htmlFor="totalRefund">Total Refund (PKR)</Label>
-                    <Input id="totalRefund" type="number" {...register('totalRefund')} placeholder="e.g., 10000" step="0.01" />
-                    {errors.totalRefund && <p className="text-sm text-destructive">{errors.totalRefund.message}</p>}
+                        <Label htmlFor="pricePerLitre">Price / Litre</Label>
+                        <Input id="pricePerLitre" type="number" {...register('pricePerLitre')} placeholder="e.g., 250" step="any" onChangeCapture={() => lastUserEditedField.current = 'price'} />
+                        {errors.pricePerLitre && <p className="text-sm text-destructive">{errors.pricePerLitre.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="totalRefund">Total Refund (PKR)</Label>
+                        <Input id="totalRefund" type="number" {...register('totalRefund')} placeholder="e.g., 12500" step="any" onChangeCapture={() => lastUserEditedField.current = 'total'} />
+                        {errors.totalRefund && <p className="text-sm text-destructive">{errors.totalRefund.message}</p>}
                     </div>
                 </div>
 
