@@ -89,19 +89,30 @@ export default function SaleReturnsPage() {
   }, [reset]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
-    const customer = customers.find(c => c.id === data.customerId);
-    if (!customer) return;
+    const isWalkin = data.customerId === 'walkin';
+    const customer = !isWalkin ? customers.find(c => c.id === data.customerId) : null;
+    const customerName = isWalkin ? 'Walk-in Customer' : customer?.name;
+
+    if (!customerName) {
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Could not determine customer name.",
+        });
+        return;
+    }
 
     localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
 
     addSaleReturn({ 
         ...data, 
-        customerName: customer.name,
+        customerId: isWalkin ? 'walkin' : data.customerId,
+        customerName: customerName,
         timestamp: data.date.toISOString() 
     });
     toast({
       title: 'Sale Return Recorded',
-      description: `Return from ${customer.name} has been logged.`,
+      description: `Return from ${customerName} has been logged.`,
     });
     reset({
       date: data.date,
@@ -140,9 +151,9 @@ export default function SaleReturnsPage() {
                             aria-expanded={customerComboboxOpen}
                             className="w-full justify-between"
                           >
-                            {field.value
+                            {field.value && field.value !== 'walkin'
                               ? customers.find((c) => c.id === field.value)?.name
-                              : "Select a customer..."}
+                              : "Walk-in Customer"}
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                           </Button>
                         </PopoverTrigger>
@@ -152,6 +163,22 @@ export default function SaleReturnsPage() {
                             <CommandList>
                               <CommandEmpty>No customer found.</CommandEmpty>
                               <CommandGroup>
+                                <CommandItem
+                                    key="walkin"
+                                    value="Walk-in Customer"
+                                    onSelect={() => {
+                                      field.onChange('walkin');
+                                      setCustomerComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    Walk-in Customer
+                                </CommandItem>
                                 {isLoaded ? customers.map(c => (
                                   <CommandItem
                                     key={c.id}
