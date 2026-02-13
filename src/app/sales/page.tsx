@@ -154,8 +154,18 @@ export default function SalesPage() {
   useEffect(() => {
     if (isLoaded) {
       const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
-        setValue('customerId', savedCustomerId);
+      if (savedCustomerId) {
+        const customer = customers.find(c => c.id === savedCustomerId);
+        if (customer) {
+          setValue('customerId', customer.id);
+          // Safely set vehicle number
+          if (customer.vehicleNumber && typeof customer.vehicleNumber === 'string') {
+            const vehicle = customer.vehicleNumber.split(/[,\n]/)[0].trim();
+            setValue('vehicleNumber', vehicle);
+          }
+        } else {
+          setValue('customerId', 'walkin');
+        }
       } else {
         setValue('customerId', 'walkin');
       }
@@ -276,7 +286,7 @@ export default function SalesPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = watch('notes') || '';
-      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
+      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
       setIsListening(false);
     };
 

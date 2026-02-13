@@ -103,7 +103,7 @@ export default function CustomerPaymentsPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValues('notes') || '';
-      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
+      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
       setIsListening(false);
     };
 
@@ -151,12 +151,14 @@ export default function CustomerPaymentsPage() {
   useEffect(() => {
     if (isLoaded) {
       const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-      if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
-        setValue('customerId', savedCustomerId);
+      if (savedCustomerId) {
+        const customer = customers.find(c => c.id === savedCustomerId);
+        if (customer) {
+          setValue('customerId', customer.id);
+        }
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, setValue]);
+  }, [isLoaded, customers, setValue]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     const customer = customers.find(c => c.id === data.customerId);
