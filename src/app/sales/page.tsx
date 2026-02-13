@@ -146,7 +146,7 @@ export default function SalesPage() {
   }, []);
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     setValue('invoiceDate', initialDate);
   }, [setValue]);
@@ -274,7 +274,6 @@ export default function SalesPage() {
 
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      console.error("Speech Recognition API not supported in this browser.");
       return;
     }
 
@@ -396,7 +395,9 @@ export default function SalesPage() {
       return;
     }
 
-    localStorage.setItem('global_lastTransactionDate', data.invoiceDate.toISOString());
+    const isoDate = data.invoiceDate.toISOString();
+    localStorage.setItem('global_date_from', isoDate);
+    localStorage.setItem('global_date_to', isoDate);
     if (data.customerId) {
         localStorage.setItem('global_lastCustomerId', data.customerId);
     }
@@ -826,30 +827,34 @@ export default function SalesPage() {
                           <Label htmlFor="notes">Notes</Label>
                           <div className="relative">
                             <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..." className="pr-12"/>
-                             <Button
-                                type="button"
-                                size="icon"
-                                variant={isListening ? "destructive" : "ghost"}
-                                className="absolute right-1 top-1 h-8 w-8"
-                                onClick={handleToggleListening}
-                                title="Toggle voice input"
-                            >
-                                <Mic className="h-4 w-4" />
-                            </Button>
+                             {recognitionRef.current && (
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant={isListening ? "destructive" : "ghost"}
+                                    className="absolute right-1 top-1 h-8 w-8"
+                                    onClick={handleToggleListening}
+                                    title="Toggle voice input"
+                                >
+                                    <Mic className="h-4 w-4" />
+                                </Button>
+                             )}
                           </div>
                       </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="language">Voice Language</Label>
-                            <Select value={language} onValueChange={setLanguage}>
-                                <SelectTrigger id="language">
-                                    <SelectValue placeholder="Select language" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="en-US">English (US)</SelectItem>
-                                    <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
+                        {recognitionRef.current && (
+                            <div className="space-y-2">
+                                <Label htmlFor="language">Voice Language</Label>
+                                <Select value={language} onValueChange={setLanguage}>
+                                    <SelectTrigger id="language">
+                                        <SelectValue placeholder="Select language" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="en-US">English (US)</SelectItem>
+                                        <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
                       <div className="space-y-1 text-sm">
                           <div className="flex justify-between font-semibold text-lg">
                               <span>Total</span>

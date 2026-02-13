@@ -101,7 +101,7 @@ export default function StockAdjustmentPage() {
   });
 
   React.useEffect(() => {
-    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
         adjustment: 0,
@@ -143,7 +143,9 @@ export default function StockAdjustmentPage() {
 
     const supplier = data.supplierId ? suppliers.find(s => s.id === data.supplierId) : null;
     
-    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    const isoDate = data.date.toISOString();
+    localStorage.setItem('global_date_from', isoDate);
+    localStorage.setItem('global_date_to', isoDate);
 
     addStockAdjustment({
         fuelType: data.fuelType as FuelType,

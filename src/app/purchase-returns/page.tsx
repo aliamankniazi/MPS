@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -88,7 +89,7 @@ export default function PurchaseReturnsPage() {
   }, [products]);
   
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
       date: initialDate,
@@ -99,7 +100,9 @@ export default function PurchaseReturnsPage() {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
-    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    const isoDate = data.date.toISOString();
+    localStorage.setItem('global_date_from', isoDate);
+    localStorage.setItem('global_date_to', isoDate);
 
     addPurchaseReturn({ 
         ...data, 

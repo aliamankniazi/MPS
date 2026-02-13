@@ -138,7 +138,7 @@ export default function CustomerPaymentsPage() {
   };
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     
     reset({
@@ -163,7 +163,9 @@ export default function CustomerPaymentsPage() {
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
 
-    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    const isoDate = data.date.toISOString();
+    localStorage.setItem('global_date_from', isoDate);
+    localStorage.setItem('global_date_to', isoDate);
     localStorage.setItem('global_lastCustomerId', data.customerId);
 
     addCustomerPayment({

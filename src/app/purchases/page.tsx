@@ -99,7 +99,7 @@ export default function PurchasesPage() {
   }, [totalCost, pricePerLitre, setValue]);
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_lastTransactionDate');
+    const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     const savedSupplierId = localStorage.getItem('global_lastSupplierId');
     const savedProductId = localStorage.getItem('global_lastPurchaseProductId');
@@ -138,7 +138,9 @@ export default function PurchasesPage() {
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
-    localStorage.setItem('global_lastTransactionDate', data.date.toISOString());
+    const isoDate = data.date.toISOString();
+    localStorage.setItem('global_date_from', isoDate);
+    localStorage.setItem('global_date_to', isoDate);
     localStorage.setItem('global_lastSupplierId', data.supplierId);
     localStorage.setItem('global_lastPurchaseProductId', data.fuelType);
 

@@ -245,7 +245,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     
     useEffect(() => {
         if (state.isLoaded && !initialDateRangeSet) {
-            setDateRange({ from: startOfToday(), to: endOfToday() });
+            const savedFrom = localStorage.getItem('global_date_from');
+            const savedTo = localStorage.getItem('global_date_to');
+            if (savedFrom && isValid(new Date(savedFrom))) {
+                setDateRange({
+                    from: new Date(savedFrom),
+                    to: savedTo && isValid(new Date(savedTo)) ? new Date(savedTo) : new Date(savedFrom),
+                });
+            } else {
+                setDateRange({ from: startOfToday(), to: endOfToday() });
+            }
             setInitialDateRangeSet(true);
         } else if (!state.isLoaded && !initialDateRangeSet) {
             // Set a default while loading to avoid undefined state for date picker
@@ -880,7 +889,19 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         clearAllData,
         restoreFromRecycleBin,
         deletePermanently,
-        setDateRange,
+        setDateRange: (newDateRange: DateRange | undefined) => {
+            if (newDateRange?.from) {
+                if (!newDateRange.to) {
+                    newDateRange.to = newDateRange.from;
+                }
+                localStorage.setItem('global_date_from', newDateRange.from.toISOString());
+                localStorage.setItem('global_date_to', newDateRange.to.toISOString());
+            } else {
+                localStorage.removeItem('global_date_from');
+                localStorage.removeItem('global_date_to');
+            }
+            setDateRange(newDateRange);
+        },
     };
 
     return (
