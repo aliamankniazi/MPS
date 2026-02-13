@@ -69,6 +69,7 @@ export default function CustomerPaymentsPage() {
   const { customers, addCustomerPayment, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
+  const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -87,13 +88,11 @@ export default function CustomerPaymentsPage() {
 
   useEffect(() => {
     // SpeechRecognition is a browser-only API
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+        return;
+    }
 
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.error("Speech Recognition API not supported in this browser.");
-      return;
-    }
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -288,31 +287,35 @@ export default function CustomerPaymentsPage() {
                 <Label htmlFor="notes">Notes (Optional)</Label>
                 <div className="relative">
                   <Textarea id="notes" {...register('notes')} placeholder="e.g., Payment for last week's fuel" className="pr-12"/>
-                  <Button
-                      type="button"
-                      size="icon"
-                      variant={isListening ? "destructive" : "ghost"}
-                      className="absolute right-1 top-1 h-8 w-8"
-                      onClick={handleToggleListening}
-                      title="Toggle voice input"
-                  >
-                      <Mic className="h-4 w-4" />
-                  </Button>
+                  {recognitionRef.current && (
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant={isListening ? "destructive" : "ghost"}
+                        className="absolute right-1 top-1 h-8 w-8"
+                        onClick={handleToggleListening}
+                        title="Toggle voice input"
+                    >
+                        <Mic className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 {errors.notes && <p className="text-sm text-destructive">{errors.notes.message}</p>}
               </div>
-              <div className="space-y-2">
-                    <Label htmlFor="language">Voice Language</Label>
-                    <Select value={language} onValueChange={setLanguage}>
-                        <SelectTrigger id="language">
-                            <SelectValue placeholder="Select language" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="en-US">English (US)</SelectItem>
-                            <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+              {recognitionRef.current && (
+                <div className="space-y-2">
+                      <Label htmlFor="language">Voice Language</Label>
+                      <Select value={language} onValueChange={setLanguage}>
+                          <SelectTrigger id="language">
+                              <SelectValue placeholder="Select language" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="en-US">English (US)</SelectItem>
+                              <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
+                          </SelectContent>
+                      </Select>
+                  </div>
+              )}
               
               <div className="space-y-2">
                 <Label>Date</Label>
@@ -320,7 +323,7 @@ export default function CustomerPaymentsPage() {
                     name="date"
                     control={control}
                     render={({ field }) => (
-                        <Popover>
+                        <Popover open={paymentDateCalendarOpen} onOpenChange={setPaymentDateCalendarOpen}>
                             <PopoverTrigger asChild>
                             <Button
                                 variant={"outline"}
@@ -335,7 +338,10 @@ export default function CustomerPaymentsPage() {
                                 mode="single"
                                 selected={field.value}
                                 defaultMonth={field.value}
-                                onSelect={field.onChange}
+                                onSelect={(date) => {
+                                  field.onChange(date);
+                                  setPaymentDateCalendarOpen(false);
+                                }}
                                 initialFocus
                             />
                             </PopoverContent>

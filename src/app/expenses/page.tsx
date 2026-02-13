@@ -75,6 +75,7 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
+  const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -227,7 +228,7 @@ export default function ExpensesPage() {
                           name="date"
                           control={control}
                           render={({ field }) => (
-                            <Popover>
+                            <Popover open={dateCalendarOpen} onOpenChange={setDateCalendarOpen}>
                                 <PopoverTrigger asChild>
                                 <Button
                                     variant={"outline"}
@@ -241,7 +242,10 @@ export default function ExpensesPage() {
                                 <Calendar
                                     mode="single"
                                     selected={field.value}
-                                    onSelect={field.onChange}
+                                    onSelect={(date) => {
+                                      field.onChange(date);
+                                      setDateCalendarOpen(false);
+                                    }}
                                     defaultMonth={field.value}
                                     initialFocus
                                 />
