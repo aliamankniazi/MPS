@@ -529,7 +529,7 @@ export default function DashboardPage() {
 
     const sortedDailySalesKeys = useMemo(() => {
         if (!dailyProductSales || Object.keys(dailyProductSales).length === 0) return [];
-        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a.getTime()))
+        return Object.keys(dailyProductSales).sort((a,b) => new Date(b).getTime() - new Date(a).getTime())
     }, [dailyProductSales]);
   
     const formatPhoneNumberForWhatsApp = (phone: string | number | undefined) => {
