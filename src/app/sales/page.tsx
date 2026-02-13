@@ -234,21 +234,24 @@ export default function SalesPage() {
     const qty = Number(quantity) || 0;
     const prc = Number(price) || 0;
     const total = Number(totalAmount) || 0;
-
+  
+    // Use a small epsilon for floating point comparisons to prevent infinite loops
+    const epsilon = 0.001;
+  
     if (lastUserEditedField.current === 'quantity' || lastUserEditedField.current === 'price') {
       const newTotal = qty * prc;
-      if (total.toFixed(2) !== newTotal.toFixed(2)) {
+      if (Math.abs(total - newTotal) > epsilon) {
         setItemValue('totalAmount', newTotal, { shouldValidate: true });
       }
     } else if (lastUserEditedField.current === 'totalAmount') {
       if (prc > 0) {
         const newQuantity = total / prc;
-        if (qty.toFixed(4) !== newQuantity.toFixed(4)) {
+        if (Math.abs(qty - newQuantity) > epsilon / prc) {
           setItemValue('quantity', newQuantity, { shouldValidate: true });
         }
       } else if (qty > 0) {
         const newPrice = total / qty;
-        if (prc.toFixed(2) !== newPrice.toFixed(2)) {
+        if (Math.abs(prc - newPrice) > epsilon) {
           setItemValue('price', newPrice, { shouldValidate: true });
         }
       }
@@ -273,7 +276,7 @@ export default function SalesPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = watch('notes') || '';
-      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
@@ -873,5 +876,3 @@ export default function SalesPage() {
     </div>
   );
 }
-
-    

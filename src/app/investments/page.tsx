@@ -97,7 +97,7 @@ export default function InvestmentsPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValuesInvestment('notes') || '';
-      setValueInvestment('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setValueInvestment('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 

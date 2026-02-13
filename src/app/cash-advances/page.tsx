@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -100,7 +101,7 @@ export default function CashAdvancesPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValues('notes') || '';
-      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
