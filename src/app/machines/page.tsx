@@ -64,26 +64,39 @@ export default function MachineManagementPage() {
       setNewReadings(prev => ({ ...prev, [machineId]: value }));
   };
 
-  const getLatestReading = useCallback((machineId: string) => {
+  const getAbsoluteLatestReading = useCallback((machineId: string) => {
     if (!machineReadings) return undefined;
     return machineReadings
         .filter(r => r.machineId === machineId)
         .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [machineReadings]);
+  
+  const getLatestReadingForDisplay = useCallback((machineId: string) => {
+    if (!machineReadings) return undefined;
+    const readingsForMachine = machineReadings.filter(r => r.machineId === machineId);
+    const sortedReadings = readingsForMachine.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    if (dateRange?.from) {
+        const endDate = endOfDay(dateRange.to || dateRange.from);
+        return sortedReadings.find(r => new Date(r.timestamp) <= endDate);
+    }
+
+    return sortedReadings[0];
+  }, [machineReadings, dateRange]);
 
 
   const handleSaveReading = (machineId: string) => {
       const machine = machines.find(m => m.id === machineId);
       const newReadingValue = parseFloat(newReadings[machineId]);
-      const latestReading = getLatestReading(machineId);
+      const absoluteLatestReading = getAbsoluteLatestReading(machineId);
       
       if (!machine || isNaN(newReadingValue)) {
           toast({ variant: 'destructive', title: 'Invalid input', description: 'Please enter a valid number for the reading.' });
           return;
       }
 
-      if (latestReading && newReadingValue < latestReading.volume) {
-           toast({ variant: 'destructive', title: 'Invalid Reading', description: 'New reading cannot be less than the last reading.' });
+      if (absoluteLatestReading && newReadingValue < absoluteLatestReading.volume) {
+           toast({ variant: 'destructive', title: 'Invalid Reading', description: 'New reading cannot be less than the absolute latest reading.' });
           return;
       }
 
@@ -229,7 +242,7 @@ export default function MachineManagementPage() {
                             )}>{fuelType}</h3>
                             <div className="space-y-4">
                                 {machinesByFuelType[fuelType].map(machine => {
-                                    const latestReading = getLatestReading(machine.id);
+                                    const latestReading = getLatestReadingForDisplay(machine.id);
                                     const newReading = newReadings[machine.id] ? parseFloat(newReadings[machine.id]) : null;
                                     const dispensed = latestReading && newReading !== null && newReading > latestReading.volume ? newReading - latestReading.volume : 0;
                                     return (
