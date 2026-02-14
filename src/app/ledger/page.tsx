@@ -228,9 +228,9 @@ export default function LedgerPage() {
         const customer = customers.find(c => c.id === tx.customerId);
         const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
 
-        const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}`: (tx.product || 'General Sale');
+        const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
         
-        const isCreditSale = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+        const isCreditSale = tx.paymentMethod === 'Credit';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -444,7 +444,7 @@ export default function LedgerPage() {
 
     let runningBalance = 0;
     const finalEntries = combined.map(entry => {
-        runningBalance += entry.credit - entry.debit;
+        runningBalance += entry.debit - entry.credit;
         return { ...entry, balance: runningBalance };
     });
 
@@ -537,7 +537,7 @@ export default function LedgerPage() {
     const openingBalanceForRange = rangeStart
       ? allEntries
           .filter(e => isValid(new Date(e.timestamp)) && new Date(e.timestamp) < rangeStart)
-          .reduce((bal, item) => bal + item.credit - item.debit, 0)
+          .reduce((bal, item) => bal + item.debit - item.credit, 0)
       : 0;
 
     let lastDayClosingBalance = openingBalanceForRange;
@@ -557,7 +557,7 @@ export default function LedgerPage() {
       const dayDebit = dayEntries.reduce((sum, e) => sum + e.debit, 0);
       const dayCredit = dayEntries.reduce((sum, e) => sum + e.credit, 0);
 
-      lastDayClosingBalance = dayOpeningBalance + dayCredit - dayDebit;
+      lastDayClosingBalance = dayOpeningBalance + dayDebit - dayCredit;
       
        // --- Machine Reading Logic ---
         const readingsOnDay = machineReadings.filter(r => {
@@ -663,7 +663,7 @@ export default function LedgerPage() {
   dayKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
-        runningBalance += entry.credit - entry.debit;
+        runningBalance += entry.debit - entry.credit;
         entry.balance = runningBalance;
     });
   });
