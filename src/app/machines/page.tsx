@@ -67,13 +67,13 @@ export default function MachineManagementPage() {
   const getAbsoluteLatestReading = useCallback((machineId: string) => {
     if (!machineReadings) return undefined;
     return machineReadings
-        .filter(r => r.machineId === machineId)
+        .filter(r => r.machineId === machineId && r.timestamp && isValid(new Date(r.timestamp)))
         .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
   }, [machineReadings]);
   
   const getLatestReadingForDisplay = useCallback((machineId: string) => {
     if (!machineReadings) return undefined;
-    const readingsForMachine = machineReadings.filter(r => r.machineId === machineId);
+    const readingsForMachine = machineReadings.filter(r => r.machineId === machineId && r.timestamp && isValid(new Date(r.timestamp)));
     const sortedReadings = readingsForMachine.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     if (dateRange?.from) {
@@ -117,7 +117,7 @@ export default function MachineManagementPage() {
   };
 
   const fuelReportByFuelType = useMemo(() => {
-    if (!isLoaded) return {};
+    if (!isLoaded || !machines.length) return {};
 
     const { from, to } = dateRange || {};
     const startDate = from ? startOfDay(from) : null;
@@ -130,70 +130,68 @@ export default function MachineManagementPage() {
         sales: number;
         variance: number;
     }> = {};
+    
+    const filteredTransactions = transactions.filter(tx => {
+        if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return false;
+        if (!startDate || !endDate) return true;
+        const txDate = new Date(tx.timestamp);
+        return txDate >= startDate && txDate <= endDate;
+    });
 
     const fuelTypes = [...new Set(machines.map(m => m.fuelType))];
 
     fuelTypes.forEach(fuelType => {
-        // --- Sales Calculation ---
-        const filteredTransactions = transactions.filter(tx => {
-            if (!startDate || !endDate) return true;
-            const txDate = new Date(tx.timestamp);
-            return isValid(txDate) && txDate >= startDate && txDate <= endDate;
-        });
-
         const totalSales = filteredTransactions
             .filter(tx => tx.fuelType === fuelType && tx.volume)
             .reduce((sum, tx) => sum + (tx.volume || 0), 0);
 
-        // --- Dispensed Calculation ---
         let totalDispensed = 0;
-        let totalStartReading = 0;
-        let totalEndReading = 0;
+        let totalStartReadingValue = 0;
+        let totalEndReadingValue = 0;
 
         const machinesForFuelType = machines.filter(m => m.fuelType === fuelType);
+
         machinesForFuelType.forEach(machine => {
             const readingsForMachine = machineReadings
-                .filter(r => r.machineId === machine.id)
+                .filter(r => r.machineId === machine.id && r.timestamp && isValid(new Date(r.timestamp)))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-            if (readingsForMachine.length > 0) {
-                let startReadingObj, endReadingObj;
+            if (readingsForMachine.length === 0) return;
 
-                if (startDate && endDate) { // Date range is selected
-                    endReadingObj = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-                    
-                    const readingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+            let startReading: (typeof machineReadings[0]) | undefined;
+            let endReading: (typeof machineReadings[0]) | undefined;
 
-                    if (readingBeforePeriod) {
-                        startReadingObj = readingBeforePeriod;
-                    } else {
-                        // If no reading before, use the first reading inside the period as the start.
-                        startReadingObj = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
-                    }
-
-                } else { // No date range (all time)
-                    startReadingObj = readingsForMachine[0];
-                    endReadingObj = readingsForMachine[readingsForMachine.length - 1];
-                }
-
-                if (startReadingObj && endReadingObj && startReadingObj.id !== endReadingObj.id) {
-                    const dispensed = endReadingObj.volume - startReadingObj.volume;
-                    totalDispensed += dispensed > 0 ? dispensed : 0;
-                }
+            if (startDate && endDate) {
+                endReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
                 
-                totalStartReading += startReadingObj?.volume || 0;
-                totalEndReading += endReadingObj?.volume || 0;
-            }
-        });
+                const readingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
 
-        const variance = totalDispensed - totalSales;
+                if (readingBeforePeriod) {
+                    startReading = readingBeforePeriod;
+                } else {
+                    startReading = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
+                }
+
+            } else {
+                startReading = readingsForMachine[0];
+                endReading = readingsForMachine[readingsForMachine.length - 1];
+            }
+
+            if (startReading && endReading && startReading.id !== endReading.id) {
+                const dispensed = endReading.volume - startReading.volume;
+                if(dispensed > 0) totalDispensed += dispensed;
+            }
+            
+            totalStartReadingValue += startReading?.volume || 0;
+            totalEndReadingValue += endReading?.volume || 0;
+        });
 
         report[fuelType] = {
             dispensed: totalDispensed,
-            startReading: totalStartReading,
-            endReading: totalEndReading,
+            startReading: totalStartReadingValue,
+            endReading: totalEndReadingValue,
             sales: totalSales,
-            variance: variance,
+            variance: totalDispensed - totalSales,
         };
     });
 
