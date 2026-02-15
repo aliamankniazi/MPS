@@ -161,15 +161,14 @@ export default function MachineManagementPage() {
 
                 if (startDate && endDate) { // Date range is selected
                     endReadingObj = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-                    startReadingObj = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
                     
-                    if (!startReadingObj) {
-                         const firstReadingInPeriod = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
-                         if (endReadingObj && firstReadingInPeriod && endReadingObj.id !== firstReadingInPeriod.id) {
-                            startReadingObj = firstReadingInPeriod;
-                         } else {
-                            startReadingObj = endReadingObj;
-                         }
+                    const readingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+
+                    if (readingBeforePeriod) {
+                        startReadingObj = readingBeforePeriod;
+                    } else {
+                        // If no reading before, use the first reading inside the period as the start.
+                        startReadingObj = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
                     }
 
                 } else { // No date range (all time)
