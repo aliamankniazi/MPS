@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,7 +77,7 @@ export default function MachineManagementPage() {
 
     if (dateRange?.from) {
         const endDate = endOfDay(dateRange.to || dateRange.from);
-        return sortedReadings.find(r => new Date(r.timestamp) <= endDate);
+        return sortedReadings.find(r => isValid(new Date(r.timestamp)) && new Date(r.timestamp) <= endDate);
     }
 
     return sortedReadings[0];
@@ -117,11 +116,11 @@ export default function MachineManagementPage() {
   };
 
   const fuelReportByFuelType = useMemo(() => {
-    if (!isLoaded || !machines.length) return {};
+    if (!isLoaded || !machines.length || !dateRange?.from) return {};
 
-    const { from, to } = dateRange || {};
-    const startDate = from ? startOfDay(from) : null;
-    const endDate = to ? endOfDay(to) : (from ? endOfDay(from) : null);
+    const startDate = startOfDay(dateRange.from);
+    const endDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+
 
     const report: Record<string, {
         dispensed: number;
@@ -133,7 +132,6 @@ export default function MachineManagementPage() {
     
     const filteredTransactions = transactions.filter(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return false;
-        if (!startDate || !endDate) return true;
         const txDate = new Date(tx.timestamp);
         return txDate >= startDate && txDate <= endDate;
     });
@@ -156,34 +154,45 @@ export default function MachineManagementPage() {
                 .filter(r => r.machineId === machine.id && r.timestamp && isValid(new Date(r.timestamp)))
                 .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-            if (readingsForMachine.length === 0) return;
+            if (readingsForMachine.length < 1) return;
 
-            let startReading: (typeof machineReadings[0]) | undefined;
-            let endReading: (typeof machineReadings[0]) | undefined;
+            const latestReadingInOrBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
+            if (!latestReadingInOrBeforePeriod) return;
 
-            if (startDate && endDate) {
-                endReading = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) <= endDate);
-                
-                const readingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
+            let dispensedForMachine = 0;
+            let startReadingForDisplay: number | undefined;
+            let endReadingForDisplay: number | undefined = latestReadingInOrBeforePeriod.volume;
 
-                if (readingBeforePeriod) {
-                    startReading = readingBeforePeriod;
-                } else {
-                    startReading = readingsForMachine.find(r => new Date(r.timestamp) >= startDate);
-                }
+            const readingBeforePeriod = [...readingsForMachine].reverse().find(r => new Date(r.timestamp) < startDate);
 
+            if (readingBeforePeriod) {
+                // Case 1: We have a reading from a prior day.
+                startReadingForDisplay = readingBeforePeriod.volume;
+                dispensedForMachine = latestReadingInOrBeforePeriod.volume - readingBeforePeriod.volume;
             } else {
-                startReading = readingsForMachine[0];
-                endReading = readingsForMachine[readingsForMachine.length - 1];
+                // Case 2: No prior reading. Calculate dispensed within the period.
+                const readingsWithinPeriod = readingsForMachine.filter(r => {
+                    const d = new Date(r.timestamp);
+                    return d >= startDate && d <= endDate;
+                });
+                
+                if (readingsWithinPeriod.length > 1) {
+                    const firstInPeriod = readingsWithinPeriod[0];
+                    const lastInPeriod = readingsWithinPeriod[readingsWithinPeriod.length - 1];
+                    startReadingForDisplay = firstInPeriod.volume;
+                    dispensedForMachine = lastInPeriod.volume - firstInPeriod.volume;
+                } else if (readingsWithinPeriod.length === 1) {
+                    // Only one reading in the period, and none before. Dispensed is 0.
+                    startReadingForDisplay = readingsWithinPeriod[0].volume;
+                }
             }
 
-            if (startReading && endReading && startReading.id !== endReading.id) {
-                const dispensed = endReading.volume - startReading.volume;
-                if(dispensed > 0) totalDispensed += dispensed;
+            if (dispensedForMachine > 0) {
+                totalDispensed += dispensedForMachine;
             }
-            
-            totalStartReadingValue += startReading?.volume || 0;
-            totalEndReadingValue += endReading?.volume || 0;
+
+            totalStartReadingValue += startReadingForDisplay || 0;
+            totalEndReadingValue += endReadingForDisplay || 0;
         });
 
         report[fuelType] = {
