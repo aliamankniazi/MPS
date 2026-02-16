@@ -62,6 +62,7 @@ export default function InvestmentsPage() {
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const [password, setPassword] = useState('');
 
   const { toast } = useToast();
   
@@ -171,9 +172,17 @@ export default function InvestmentsPage() {
 
   const handleDeletePartner = () => {
     if (!partnerToDelete) return;
+    
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
+
     deleteBusinessPartner(partnerToDelete.id);
     toast({ title: 'Partner Deleted', description: `${partnerToDelete.name} has been removed.`});
     setPartnerToDelete(null);
+    setPassword('');
   }
 
   const openTransactionDialog = (partner: BusinessPartner, type: 'Investment' | 'Withdrawal') => {
@@ -483,7 +492,7 @@ export default function InvestmentsPage() {
       </Dialog>
       
       {/* Dialog for Delete Confirmation */}
-      <AlertDialog open={!!partnerToDelete} onOpenChange={(isOpen) => !isOpen && setPartnerToDelete(null)}>
+      <AlertDialog open={!!partnerToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setPartnerToDelete(null); setPassword(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -491,10 +500,20 @@ export default function InvestmentsPage() {
               This action cannot be undone. This will permanently delete the partner: <br />
               <strong className="font-medium text-foreground">{partnerToDelete?.name}</strong>.
               All associated investment transactions will remain but will no longer be linked to a permanent partner.
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-password-partner">Enter password to confirm deletion:</Label>
+                <Input
+                  id="delete-password-partner"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password required"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeletePartner} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete partner
             </AlertDialogAction>

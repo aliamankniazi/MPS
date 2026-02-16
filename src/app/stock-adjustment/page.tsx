@@ -89,6 +89,7 @@ export default function StockAdjustmentPage() {
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
   const [supplierComboboxOpen, setSupplierComboboxOpen] = React.useState(false);
+  const [password, setPassword] = React.useState('');
 
 
   const mainProducts = React.useMemo(() => {
@@ -170,12 +171,20 @@ export default function StockAdjustmentPage() {
   
   const handleDeleteAdjustment = () => {
     if (!adjustmentToDelete) return;
+
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
+
     deleteStockAdjustment(adjustmentToDelete.id);
     toast({
       title: 'Adjustment Deleted',
       description: `The stock adjustment has been moved to the recycle bin.`,
     });
     setAdjustmentToDelete(null);
+    setPassword('');
   };
 
 
@@ -376,17 +385,27 @@ export default function StockAdjustmentPage() {
       </main>
     </div>
 
-      <AlertDialog open={!!adjustmentToDelete} onOpenChange={(isOpen) => !isOpen && setAdjustmentToDelete(null)}>
+      <AlertDialog open={!!adjustmentToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAdjustmentToDelete(null); setPassword(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will move the stock adjustment entry to the recycle bin: <br/>
               <strong className="font-medium text-foreground">{adjustmentToDelete?.adjustment.toFixed(2)}L of {adjustmentToDelete?.fuelType} on {adjustmentToDelete && format(new Date(adjustmentToDelete.timestamp), 'dd-MMM-yyyy')}</strong>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-password-adj">Enter password to confirm deletion:</Label>
+                <Input
+                  id="delete-password-adj"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password required"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAdjustment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>

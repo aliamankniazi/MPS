@@ -29,6 +29,7 @@ import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { Label } from '@/components/ui/label';
 
 
 type CombinedEntry = {
@@ -76,6 +77,7 @@ export default function AllTransactionsPage() {
   } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
+  const [password, setPassword] = useState('');
   const { toast } = useToast();
   const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
   const isInitialDateSet = useRef(false);
@@ -237,7 +239,7 @@ export default function AllTransactionsPage() {
     if (!localDateRange?.from) return [];
     
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(from);
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -324,6 +326,16 @@ export default function AllTransactionsPage() {
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
+
+    if (password !== '03006555459') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect Password',
+        description: 'The password to delete is incorrect.',
+      });
+      setPassword('');
+      return;
+    }
     
     try {
         switch(entryToDelete.type) {
@@ -350,6 +362,7 @@ export default function AllTransactionsPage() {
         });
     } finally {
         setEntryToDelete(null);
+        setPassword('');
     }
   };
 
@@ -540,17 +553,27 @@ export default function AllTransactionsPage() {
       </div>
     </div>
 
-    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
+    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => {if(!isOpen) { setEntryToDelete(null); setPassword(''); }}}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the entry: <br />
               <strong className="font-medium text-foreground">{entryToDelete?.type} for {entryToDelete?.partner} - {entryToDelete?.details}</strong>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-password">Enter password to confirm deletion:</Label>
+                <Input
+                  id="delete-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password required"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>

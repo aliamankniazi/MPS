@@ -33,6 +33,7 @@ export default function BankManagementPage() {
   const [accountToEdit, setAccountToEdit] = useState<BankAccount | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<BankAccount | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [password, setPassword] = useState('');
 
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<BankAccountFormValues>({
@@ -72,12 +73,24 @@ export default function BankManagementPage() {
 
   const handleDeleteAccount = () => {
     if (!accountToDelete) return;
+
+    if (password !== '03006555459') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect Password',
+        description: 'The password to delete is incorrect.',
+      });
+      setPassword('');
+      return;
+    }
+
     deleteBankAccount(accountToDelete.id);
     toast({
         title: 'Account Deleted',
         description: `${accountToDelete.bankName} account has been removed.`,
     });
     setAccountToDelete(null);
+    setPassword('');
   };
 
   useEffect(() => {
@@ -231,17 +244,27 @@ export default function BankManagementPage() {
         </DialogContent>
     </Dialog>
 
-    <AlertDialog open={!!accountToDelete} onOpenChange={(isOpen) => !isOpen && setAccountToDelete(null)}>
+    <AlertDialog open={!!accountToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAccountToDelete(null); setPassword(''); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
             This action cannot be undone. This will permanently delete the account: <br />
             <strong className="font-medium text-foreground">{accountToDelete?.bankName} ({accountToDelete?.accountNumber})</strong>.
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="delete-password-bank">Enter password to confirm deletion:</Label>
+              <Input
+                id="delete-password-bank"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password required"
+              />
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Yes, delete account
           </AlertDialogAction>

@@ -66,6 +66,7 @@ export default function CustomersPage() {
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [password, setPassword] = useState('');
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -221,12 +222,18 @@ export default function CustomersPage() {
 
   const handleDeleteCustomer = () => {
     if (!customerToDelete) return;
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
     deleteCustomer(customerToDelete.id);
     toast({
         title: 'Customer Deleted',
         description: `${customerToDelete.name} has been removed.`,
     });
     setCustomerToDelete(null);
+    setPassword('');
   };
 
   const openEditDialog = (customer: Customer) => {
@@ -498,7 +505,7 @@ export default function CustomersPage() {
         </DialogContent>
     </Dialog>
 
-    <AlertDialog open={!!customerToDelete} onOpenChange={(isOpen) => !isOpen && setCustomerToDelete(null)}>
+    <AlertDialog open={!!customerToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setCustomerToDelete(null); setPassword(''); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -506,10 +513,20 @@ export default function CustomersPage() {
             This action cannot be undone. This will permanently delete the customer: <br />
             <strong className="font-medium text-foreground">{customerToDelete?.name}</strong>.
             All their associated transactions will remain but will no longer be linked to them.
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="delete-password-customer">Enter password to confirm deletion:</Label>
+              <Input
+                id="delete-password-customer"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password required"
+              />
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteCustomer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Yes, delete customer
           </AlertDialogAction>

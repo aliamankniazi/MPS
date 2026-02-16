@@ -36,6 +36,7 @@ export default function OtherIncomesPage() {
   const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
+  const [password, setPassword] = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
@@ -63,12 +64,18 @@ export default function OtherIncomesPage() {
   
   const handleDeleteIncome = () => {
     if (!incomeToDelete) return;
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
     deleteOtherIncome(incomeToDelete.id);
     toast({
       title: 'Income Deleted',
       description: `The income entry for "${incomeToDelete.description}" has been removed.`,
     });
     setIncomeToDelete(null);
+    setPassword('');
   };
 
   return (
@@ -202,17 +209,27 @@ export default function OtherIncomesPage() {
         </Card>
       </div>
     </div>
-    <AlertDialog open={!!incomeToDelete} onOpenChange={(isOpen) => !isOpen && setIncomeToDelete(null)}>
+    <AlertDialog open={!!incomeToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setIncomeToDelete(null); setPassword(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the income entry for: <br />
               <strong className="font-medium text-foreground">{incomeToDelete?.description}</strong>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-password-income">Enter password to confirm deletion:</Label>
+                <Input
+                  id="delete-password-income"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password required"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteIncome} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>

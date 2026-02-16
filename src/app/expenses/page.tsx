@@ -76,6 +76,7 @@ export default function ExpensesPage() {
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
+  const [password, setPassword] = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -144,15 +145,31 @@ export default function ExpensesPage() {
   
   const handleDeleteExpense = () => {
     if (!expenseToDelete) return;
+
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
+    
     deleteExpense(expenseToDelete.id);
     toast({
       title: 'Expense Deleted',
       description: `The expense for "${expenseToDelete.description}" has been moved to the recycle bin.`,
     });
     setExpenseToDelete(null);
+    setPassword('');
   };
 
   const handleDeleteSelectedExpenses = () => {
+    if (selectedExpenses.length === 0) return;
+    
+    if (password !== '03006555459') {
+      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
+      setPassword('');
+      return;
+    }
+
     selectedExpenses.forEach(id => deleteExpense(id));
     toast({
       title: 'Expenses Deleted',
@@ -160,6 +177,7 @@ export default function ExpensesPage() {
     });
     setSelectedExpenses([]);
     setShowDeleteSelectedDialog(false);
+    setPassword('');
   };
   
   const totalExpenses = useMemo(() => {
@@ -388,17 +406,27 @@ export default function ExpensesPage() {
           </div>
         </main>
       </div>
-      <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => !isOpen && setExpenseToDelete(null)}>
+      <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setExpenseToDelete(null); setPassword(''); } }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will move the expense entry to the recycle bin: <br />
                 <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="delete-password-expense">Enter password to confirm deletion:</Label>
+                  <Input
+                    id="delete-password-expense"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Password required"
+                  />
+                </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Yes, delete entry
               </AlertDialogAction>
@@ -406,16 +434,26 @@ export default function ExpensesPage() {
           </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={(isOpen) => { if (!isOpen) { setShowDeleteSelectedDialog(false); setPassword(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will move {selectedExpenses.length} expense entries to the recycle bin.
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-password-multi-expense">Enter password to confirm deletion:</Label>
+                <Input
+                  id="delete-password-multi-expense"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Password required"
+                />
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteSelectedExpenses} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete selected
             </AlertDialogAction>
