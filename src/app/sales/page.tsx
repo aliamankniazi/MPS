@@ -285,7 +285,7 @@ export default function SalesPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = watch('notes') || '';
-      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
+      setValue('notes', currentNotes + ' ' + transcript);
       setIsListening(false);
     };
 
@@ -338,46 +338,27 @@ export default function SalesPage() {
     return customerBalance + invoiceBalance;
   }, [customerBalance, invoiceBalance]);
 
-  const dispensedTotals = useMemo(() => {
-    if (!isLoaded || !machines.length) return {};
-    
+  const salesTodayByFuelType = useMemo(() => {
+    if (!isLoaded) return {};
     const today = new Date();
     const startDate = startOfDay(today);
     const endDate = endOfDay(today);
 
     const totals: Record<string, number> = {};
 
-    machines.forEach(machine => {
-      const allReadingsForMachine = machineReadings
-        .filter(r => r.machineId === machine.id)
-        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-
-      const endReading = [...allReadingsForMachine]
-        .reverse()
-        .find(r => new Date(r.timestamp) <= endDate);
-
-      let startReading = [...allReadingsForMachine]
-        .reverse()
-        .find(r => new Date(r.timestamp) < startDate);
-
-      if (!startReading) {
-        // If no reading before the start date, find the first reading on or after the start date
-        startReading = allReadingsForMachine.find(r => new Date(r.timestamp) >= startDate);
-      }
-
-      if (endReading && startReading && endReading.id !== startReading.id) {
-        const dispensed = endReading.volume - startReading.volume;
-        if (dispensed > 0) {
-          if (!totals[machine.fuelType]) {
-            totals[machine.fuelType] = 0;
+    transactions.forEach(tx => {
+      if (tx.timestamp && isValid(new Date(tx.timestamp))) {
+        const txDate = new Date(tx.timestamp);
+        if (txDate >= startDate && txDate <= endDate) {
+          if (tx.fuelType && tx.volume) {
+            totals[tx.fuelType] = (totals[tx.fuelType] || 0) + tx.volume;
           }
-          totals[machine.fuelType] += dispensed;
         }
       }
     });
-
     return totals;
-  }, [machines, machineReadings, isLoaded]);
+  }, [isLoaded, transactions]);
+
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     setCart(currentCart => [...currentCart, data]);
@@ -623,9 +604,9 @@ export default function SalesPage() {
               </Card>
                <Card>
                 <CardHeader>
-                    <CardTitle>Dispensed Fuel Totals</CardTitle>
+                    <CardTitle>Today's Sales by Fuel</CardTitle>
                     <CardDescription>
-                        Total volume dispensed from machines for today.
+                        Total volume sold for each fuel type today.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -633,12 +614,12 @@ export default function SalesPage() {
                         <TableHeader>
                             <TableRow>
                                 <TableHead>Fuel Type</TableHead>
-                                <TableHead className="text-right">Volume Dispensed (Ltr)</TableHead>
+                                <TableHead className="text-right">Volume Sold (Ltr)</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {Object.keys(dispensedTotals).length > 0 ? (
-                                Object.entries(dispensedTotals).map(([fuelType, volume]) => (
+                            {Object.keys(salesTodayByFuelType).length > 0 ? (
+                                Object.entries(salesTodayByFuelType).map(([fuelType, volume]) => (
                                     <TableRow key={fuelType}>
                                         <TableCell className="font-medium">{fuelType}</TableCell>
                                         <TableCell className="text-right font-mono font-semibold text-green-600">
@@ -649,14 +630,14 @@ export default function SalesPage() {
                             ) : (
                                 <TableRow>
                                     <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
-                                        No dispensed fuel data for this period.
+                                        No sales recorded today.
                                     </TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
                     </Table>
                 </CardContent>
-            </Card>
+              </Card>
           </div>
 
           <div className="lg:col-span-1">
