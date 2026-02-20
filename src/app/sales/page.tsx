@@ -285,7 +285,7 @@ export default function SalesPage() {
     recognition.onresult = (event) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = watch('notes') || '';
-      setValue('notes', currentNotes ? `${currentNotes} ${transcript}` : transcript);
+      setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
@@ -738,29 +738,31 @@ export default function SalesPage() {
                               <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
                           </div>
                       </div>
-                      <div className="space-y-2">
-                          <Label>Vehicle Number</Label>
-                          {selectedCustomer && selectedCustomer.vehicleNumber ? (
-                            <Controller
-                                name="vehicleNumber"
-                                control={control}
-                                render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value || ''}>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select vehicle..." />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {String(selectedCustomer.vehicleNumber).split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
-                                                <SelectItem key={v} value={v}>{v}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                )}
-                            />
-                          ) : (
-                            <Input {...register('vehicleNumber')} placeholder="Enter vehicle number... (optional)" />
-                          )}
-                      </div>
+                      {!isWalkIn && (
+                        <div className="space-y-2">
+                            <Label>Vehicle Number</Label>
+                            {selectedCustomer && selectedCustomer.vehicleNumber ? (
+                              <Controller
+                                  name="vehicleNumber"
+                                  control={control}
+                                  render={({ field }) => (
+                                      <Select onValueChange={field.onChange} value={field.value || ''}>
+                                          <SelectTrigger>
+                                              <SelectValue placeholder="Select vehicle..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                              {String(selectedCustomer.vehicleNumber).split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
+                                                  <SelectItem key={v} value={v}>{v}</SelectItem>
+                                              ))}
+                                          </SelectContent>
+                                      </Select>
+                                  )}
+                              />
+                            ) : (
+                              <Input {...register('vehicleNumber')} placeholder="Enter vehicle number... (optional)" />
+                            )}
+                        </div>
+                      )}
                        <div className="space-y-2">
                           <Label>Payment Method</Label>
                           <Controller
