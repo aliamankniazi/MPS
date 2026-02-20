@@ -230,7 +230,7 @@ export default function LedgerPage() {
 
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
         
-        const isCreditSale = tx.paymentMethod === 'Credit';
+        const isCreditSale = !!(tx.customerId && tx.customerId !== 'walkin');
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -240,7 +240,7 @@ export default function LedgerPage() {
             entityId: tx.customerId,
             type: 'Sale',
             debit: isCreditSale ? tx.totalAmount : 0,
-            credit: !isCreditSale ? tx.totalAmount : 0,
+            credit: 0,
             original: tx,
             isCreditSale: isCreditSale,
             notes: tx.notes,

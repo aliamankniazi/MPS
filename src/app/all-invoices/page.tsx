@@ -112,6 +112,7 @@ export default function AllInvoicesPage() {
 
     const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => {
         const profit = getProfitForSale(tx, purchases);
+        const isCredit = !!(tx.customerId && tx.customerId !== 'walkin');
         
         return {
             id: `sale-${tx.id}`,
@@ -122,7 +123,7 @@ export default function AllInvoicesPage() {
             details: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
             amount: tx.totalAmount,
             paymentMethod: tx.paymentMethod,
-            isCreditSale: tx.paymentMethod === 'Credit',
+            isCreditSale: isCredit,
             profit: profit,
         };
     });
@@ -279,7 +280,7 @@ export default function AllInvoicesPage() {
                               <TableBody>
                                 {groupedInvoices[monthKey].invoices.map(invoice => {
                                   const date = new Date(invoice.timestamp);
-                                  const typeLabel = invoice.type === 'Sale' && invoice.isCreditSale ? 'Credit Sale' : invoice.type;
+                                  const typeLabel = invoice.type === 'Sale' ? (invoice.isCreditSale ? 'Credit Sale' : 'Cash Sale') : invoice.type;
                                   const color = colorSettings[typeLabel] || '#6b7280';
                                   return (
                                     <TableRow 
