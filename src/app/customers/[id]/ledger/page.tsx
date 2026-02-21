@@ -374,6 +374,12 @@ export default function CustomerLedgerPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <div className="flex justify-end mb-4">
+              <div className="text-right p-4 rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">Final Balance</p>
+                  <p className={cn("text-2xl font-bold", balanceColorClass())}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+          </div>
           {entries.length > 0 ? (
             <Table>
               <TableHeader>
@@ -474,12 +480,6 @@ export default function CustomerLedgerPage() {
             </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-end bg-muted/50 p-4 rounded-b-lg">
-            <div className="text-right">
-                <p className="text-sm text-muted-foreground">Final Balance</p>
-                <p className={cn("text-2xl font-bold", balanceColorClass())}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-            </div>
-        </CardFooter>
       </Card>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
@@ -502,4 +502,6 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+    
+
     
