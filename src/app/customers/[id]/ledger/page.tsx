@@ -5,7 +5,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -65,7 +65,10 @@ export default function CustomerLedgerPage() {
     dateRange: globalDateRange,
   } = useDatabase();
   
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(globalDateRange);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -81,8 +84,8 @@ export default function CustomerLedgerPage() {
     return { entity: null, entityType: null };
   }, [entityId, customers, suppliers, businessPartners, isLoaded]);
 
-  const { entries, finalBalance } = useMemo(() => {
-    if (!entity) return { entries: [], finalBalance: 0 };
+  const { entries, finalBalance, totalDebit, totalCredit } = useMemo(() => {
+    if (!entity) return { entries: [], finalBalance: 0, totalDebit: 0, totalCredit: 0 };
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -206,6 +209,9 @@ export default function CustomerLedgerPage() {
         )
       : filteredByDate;
 
+    const totalDebitForPeriod = filteredEntries.reduce((sum, e) => sum + e.debit, 0);
+    const totalCreditForPeriod = filteredEntries.reduce((sum, e) => sum + e.credit, 0);
+
     let runningBalance = dateRange?.from ? balanceBeforeRange : openingBalance;
 
     const entriesWithBalance: LedgerEntry[] = filteredEntries.map(entry => {
@@ -222,7 +228,12 @@ export default function CustomerLedgerPage() {
       return { ...entry, balance: runningBalance };
     });
 
-    return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance };
+    return { 
+        entries: entriesWithBalance.reverse(), 
+        finalBalance: runningBalance,
+        totalDebit: totalDebitForPeriod,
+        totalCredit: totalCreditForPeriod,
+    };
   }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleDeleteEntry = () => {
@@ -375,10 +386,20 @@ export default function CustomerLedgerPage() {
         </CardHeader>
         <CardContent>
           <div className="flex justify-end mb-4">
-              <div className="text-right p-4 rounded-lg bg-muted/50">
-                  <p className="text-sm text-muted-foreground">Final Balance</p>
-                  <p className={cn("text-2xl font-bold", balanceColorClass())}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
+            <div className="text-right p-4 rounded-lg bg-muted/50 space-y-2 min-w-[300px]">
+                <div className="flex justify-between gap-4">
+                    <p className="text-sm text-muted-foreground">Total Debit</p>
+                    <p className="text-sm font-semibold font-mono text-destructive">PKR {totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div className="flex justify-between gap-4">
+                    <p className="text-sm text-muted-foreground">Total Credit</p>
+                    <p className="text-sm font-semibold font-mono text-green-600">PKR {totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+                <div className="border-t pt-2 mt-2">
+                    <p className="text-sm text-muted-foreground">Final Balance</p>
+                    <p className={cn("text-2xl font-bold", balanceColorClass())}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                </div>
+            </div>
           </div>
           {entries.length > 0 ? (
             <Table>
@@ -502,6 +523,8 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
+    
+
     
 
     
