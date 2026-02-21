@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
@@ -35,7 +34,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal';
+  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Sale Return';
   debit: number;
   credit: number;
   balance: number;
@@ -54,15 +53,16 @@ export default function CustomerLedgerPage() {
     cashAdvances, 
     purchases, 
     supplierPayments, 
-    investments, 
+    investments,
+    saleReturns,
     deleteTransaction, 
     deletePurchase, 
     deleteCustomerPayment, 
     deleteCashAdvance, 
     deleteSupplierPayment, 
     deleteInvestment,
+    deleteSaleReturn,
     isLoaded,
-    dateRange: globalDateRange,
   } = useDatabase();
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -92,6 +92,7 @@ export default function CustomerLedgerPage() {
         const customerTransactions = transactions.filter(tx => tx.customerId === entityId);
         const customerPaymentsReceived = customerPayments.filter(p => p.customerId === entityId);
         const customerCashAdvances = cashAdvances.filter(ca => ca.customerId === entityId);
+        const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
 
         customerTransactions.forEach(tx => combined.push({
           id: `tx-${tx.id}`,
@@ -127,6 +128,17 @@ export default function CustomerLedgerPage() {
               original: ca
             })
         });
+        
+        customerSaleReturns.forEach(sr => combined.push({
+          id: `sr-${sr.id}`,
+          timestamp: sr.timestamp,
+          description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+          type: 'Sale Return',
+          debit: 0,
+          credit: sr.totalRefund,
+          original: sr
+        }));
+
     } else if (entityType === 'Supplier') {
         const supplierPurchases = purchases.filter(p => p.supplierId === entityId);
         const supplierPaymentsMade = supplierPayments.filter(sp => sp.supplierId === entityId);
@@ -234,7 +246,7 @@ export default function CustomerLedgerPage() {
         totalDebit: totalDebitForPeriod,
         totalCredit: totalCreditForPeriod,
     };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -250,6 +262,7 @@ export default function CustomerLedgerPage() {
             case 'spay': deleteSupplierPayment(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
+            case 'sr': deleteSaleReturn(id); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -464,6 +477,7 @@ export default function CustomerLedgerPage() {
                                     entry.type === 'Investment' && 'bg-indigo-100 text-indigo-800 border-indigo-200',
                                     entry.type === 'Withdrawal' && 'bg-purple-100 text-purple-800 border-purple-200',
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
+                                    entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                 )}
                             >
                               {entry.type === 'Payment' ? 'Amount' : entry.type}
