@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Calendar as CalendarIcon } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Calendar as CalendarIcon, Printer } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -207,7 +207,7 @@ export default function CustomerLedgerPage() {
     const filteredByDate = dateRange?.from
       ? combined.filter(entry => {
           const entryDate = new Date(entry.timestamp);
-          if (!isValid(entryDate)) return false;
+          if (!isValid(entryDate) || !dateRange.from) return false;
           const from = startOfDay(dateRange.from);
           const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
           return entryDate >= from && entryDate <= to;
@@ -302,8 +302,7 @@ export default function CustomerLedgerPage() {
                 <CardContent>
                     <Skeleton className="h-96 w-full" />
                 </CardContent>
-            </Card>
-        </div>
+            </div>
     );
   }
 
@@ -385,12 +384,15 @@ export default function CustomerLedgerPage() {
               </CardTitle>
               <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
             </div>
-             <div className="flex flex-col sm:flex-row items-center gap-2">
+             <div className="flex flex-col sm:flex-row items-center gap-2 print:hidden">
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
                 </div>
                  <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+                 <Button variant="outline" onClick={() => window.print()}>
+                    <Printer className="mr-2 h-4 w-4" /> Print
+                 </Button>
                  <Button asChild variant="outline">
                     <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
                  </Button>
@@ -424,7 +426,7 @@ export default function CustomerLedgerPage() {
                   <TableHead className="text-right">Debit</TableHead>
                   <TableHead className="text-right">Credit</TableHead>
                   <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
+                  <TableHead className="text-center print:hidden">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -492,7 +494,7 @@ export default function CustomerLedgerPage() {
                           <TableCell className={cn("text-right font-semibold font-mono", rowBalanceColorClass(entry.balance))}>
                               {entry.balance.toFixed(2)}
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell className="text-center print:hidden">
                               <Button 
                                   variant="ghost" 
                                   size="icon" 
@@ -537,8 +539,3 @@ export default function CustomerLedgerPage() {
     </div>
   );
 }
-    
-
-    
-
-    
