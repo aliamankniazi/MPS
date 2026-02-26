@@ -5,30 +5,43 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// Track persistence initialization to prevent multiple attempts on the same Firestore instance.
+let persistencePromise: Promise<void> | null = null;
+
+/**
+ * Initializes the Firebase app and its core services.
+ * Ensures that persistence is enabled only once.
+ */
 export function initializeFirebase() {
   const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   const firestore = getFirestore(app);
 
-  // Enable offline persistence.
-  // It's safe to call this after getFirestore, as long as it's before any other
-  // Firestore operations (like getDoc, onSnapshot, etc.). The app's structure
-  // ensures this runs once at startup before any data is fetched.
-  enableIndexedDbPersistence(firestore)
-    .catch((err) => {
-      if (err.code == 'failed-precondition') {
-        // This is a normal occurrence when multiple tabs are open.
-        // Persistence will be active in one of the other tabs.
-        console.warn('Firestore persistence not enabled in this tab, likely due to multiple tabs being open.');
-      } else if (err.code == 'unimplemented') {
-        // The browser does not support IndexedDB.
-        console.warn('Firestore persistence is not available in this browser.');
-      }
-    });
+  // Enable offline persistence only once on the client side.
+  if (typeof window !== 'undefined' && !persistencePromise) {
+    persistencePromise = enableIndexedDbPersistence(firestore)
+      .catch((err) => {
+        if (err.code === 'failed-precondition') {
+          // This happens when multiple tabs are open.
+          console.warn('Firestore persistence not enabled in this tab, likely due to multiple tabs being open.');
+        } else if (err.code === 'unimplemented') {
+          // The browser does not support IndexedDB.
+          console.warn('Firestore persistence is not available in this browser.');
+        } else if (err.code === 'already-exists') {
+          // Persistence already enabled, we can ignore this.
+          console.log('Firestore persistence already enabled.');
+        } else {
+          // For other errors, we log them. 
+          console.error('Firestore persistence error:', err);
+        }
+      });
+  }
 
   return getSdks(app);
 }
 
+/**
+ * Returns the Firebase services for a given app.
+ */
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
