@@ -294,7 +294,7 @@ export default function CustomerLedgerPage() {
                 <CardContent>
                     <Skeleton className="h-96 w-full" />
                 </CardContent>
-            </div>
+            </Card>
         </div>
     );
   }
