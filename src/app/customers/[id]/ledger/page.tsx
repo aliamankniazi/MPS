@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Calendar as CalendarIcon, Printer } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Printer } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -24,11 +24,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
-
 
 type LedgerEntry = {
   id: string;
@@ -148,7 +145,7 @@ export default function CustomerLedgerPage() {
             timestamp: p.timestamp,
             description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase'),
             type: 'Purchase',
-            credit: p.totalCost, // Credit to supplier's account
+            credit: p.totalCost,
             debit: 0,
             original: p
         }));
@@ -172,7 +169,7 @@ export default function CustomerLedgerPage() {
                     timestamp: inv.timestamp,
                     description: inv.notes || 'Investment',
                     type: 'Investment',
-                    credit: inv.amount, // Credit to partner's capital account
+                    credit: inv.amount,
                     debit: 0,
                     original: inv
                 });
@@ -182,7 +179,7 @@ export default function CustomerLedgerPage() {
                     timestamp: inv.timestamp,
                     description: inv.notes || 'Withdrawal',
                     type: 'Withdrawal',
-                    debit: inv.amount, // Debit from partner's capital account
+                    debit: inv.amount,
                     credit: 0,
                     original: inv
                 });
@@ -192,10 +189,13 @@ export default function CustomerLedgerPage() {
 
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const openingBalance = ('openingBalance' in entity && entity.openingBalance) ? entity.openingBalance : 0;
+    const openingBalance = ('openingBalance' in entity && entity.openingBalance) ? (entity.openingBalance as number) : 0;
     
+    const rangeFrom = dateRange?.from ? startOfDay(dateRange.from) : null;
+    const rangeTo = dateRange?.to ? endOfDay(dateRange.to) : (rangeFrom ? endOfDay(rangeFrom) : null);
+
     const balanceBeforeRange = combined
-      .filter(e => dateRange?.from && isValid(new Date(e.timestamp)) && new Date(e.timestamp) < startOfDay(dateRange.from))
+      .filter(e => rangeFrom && isValid(new Date(e.timestamp)) && new Date(e.timestamp) < rangeFrom)
       .reduce((bal, entry) => {
         if (entityType === 'Customer') {
             return bal + (entry.debit - entry.credit);
@@ -203,14 +203,11 @@ export default function CustomerLedgerPage() {
             return bal + (entry.credit - entry.debit);
         }
       }, openingBalance);
-      
-    const filteredByDate = dateRange?.from
+
+    const filteredByDate = rangeFrom && rangeTo
       ? combined.filter(entry => {
           const entryDate = new Date(entry.timestamp);
-          if (!isValid(entryDate) || !dateRange.from) return false;
-          const from = startOfDay(dateRange.from);
-          const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(from);
-          return entryDate >= from && entryDate <= to;
+          return isValid(entryDate) && entryDate >= rangeFrom && entryDate <= rangeTo;
       })
       : combined;
   
@@ -224,14 +221,9 @@ export default function CustomerLedgerPage() {
     const totalDebitForPeriod = filteredEntries.reduce((sum, e) => sum + e.debit, 0);
     const totalCreditForPeriod = filteredEntries.reduce((sum, e) => sum + e.credit, 0);
 
-    let runningBalance = dateRange?.from ? balanceBeforeRange : openingBalance;
+    let runningBalance = rangeFrom ? balanceBeforeRange : openingBalance;
 
     const entriesWithBalance: LedgerEntry[] = filteredEntries.map(entry => {
-      const date = new Date(entry.timestamp);
-      if(!isValid(date)) {
-        return { ...entry, balance: runningBalance, timestamp: 'Invalid Date' };
-      }
-      
       if (entityType === 'Customer') {
         runningBalance += entry.debit - entry.credit;
       } else if (entityType === 'Supplier' || entityType === 'Partner') {
@@ -302,7 +294,8 @@ export default function CustomerLedgerPage() {
                 <CardContent>
                     <Skeleton className="h-96 w-full" />
                 </CardContent>
-            </div>
+            </Card>
+        </div>
     );
   }
 
@@ -321,154 +314,144 @@ export default function CustomerLedgerPage() {
   const isCustomer = entityType === 'Customer';
   const isPartner = entityType === 'Partner';
 
-  const balanceColorClass = () => {
+  const balanceColorClass = (balance: number) => {
       if (entityType === 'Customer') {
-          return finalBalance > 0 ? 'text-destructive' : 'text-green-600';
+          return balance > 0 ? 'text-destructive' : 'text-green-600';
       }
       if (entityType === 'Supplier' || entityType === 'Partner') {
-          return finalBalance >= 0 ? 'text-green-600' : 'text-destructive';
+          return balance >= 0 ? 'text-green-600' : 'text-destructive';
       }
       return '';
   }
 
-  const rowBalanceColorClass = (balance: number) => {
-    if (entityType === 'Customer') {
-        return balance > 0 ? 'text-destructive' : 'text-green-600';
-    }
-    if (entityType === 'Supplier' || entityType === 'Partner') {
-        return balance >= 0 ? 'text-green-600' : 'text-destructive';
-    }
-    return '';
-  }
-
   return (
     <div className="p-4 md:p-8 space-y-8">
-       <Card>
-        <CardHeader>
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4 print:hidden">
+        <div>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <BookUser /> {entityType} Ledger: <span className={cn(balanceColorClass(finalBalance))}>{entity.name}</span>
+          </CardTitle>
+          <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
+          </div>
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+          <Button variant="outline" onClick={() => window.print()}>
+            <Printer className="mr-2 h-4 w-4" /> Print
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
+          </Button>
+        </div>
+      </div>
+
+      <div id="ledger-content" className="space-y-8">
+        <Card>
+          <CardHeader>
             <CardTitle className="flex items-center gap-3">
-                <User /> {entityType} Details
+              <User /> {entityType} Details
             </CardTitle>
-        </CardHeader>
-        <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
+          </CardHeader>
+          <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
             <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground"/>
-                <strong>Name:</strong> <span className={cn(balanceColorClass())}>{entity.name}</span>
+              <User className="w-4 h-4 text-muted-foreground" />
+              <strong>Name:</strong> <span className={cn(balanceColorClass(finalBalance))}>{entity.name}</span>
             </div>
             {'contact' in entity && (
-                <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-muted-foreground"/>
-                    <strong>Contact:</strong> {entity.contact || 'N/A'}
-                </div>
+              <div className="flex items-center gap-2">
+                <Phone className="w-4 h-4 text-muted-foreground" />
+                <strong>Contact:</strong> {(entity as any).contact || 'N/A'}
+              </div>
             )}
             {isCustomer && 'vehicleNumber' in entity && (
-                <div className="flex items-center gap-2">
-                    <Car className="w-4 h-4 text-muted-foreground"/>
-                    <strong>Vehicle No:</strong> {entity.vehicleNumber || 'N/A'}
-                </div>
+              <div className="flex items-center gap-2">
+                <Car className="w-4 h-4 text-muted-foreground" />
+                <strong>Vehicle No:</strong> {(entity as any).vehicleNumber || 'N/A'}
+              </div>
             )}
             {isPartner && 'sharePercentage' in entity && (
-                 <div className="flex items-center gap-2">
-                    <Percent className="w-4 h-4 text-muted-foreground"/>
-                    <strong>Share:</strong> {entity.sharePercentage}%
-                </div>
+              <div className="flex items-center gap-2">
+                <Percent className="w-4 h-4 text-muted-foreground" />
+                <strong>Share:</strong> {(entity as any).sharePercentage}%
+              </div>
             )}
-        </CardContent>
-       </Card>
+          </CardContent>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <BookUser /> {entityType} Ledger: <span className={cn(balanceColorClass())}>{entity.name}</span>
-              </CardTitle>
-              <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
-            </div>
-             <div className="flex flex-col sm:flex-row items-center gap-2 print:hidden">
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
-                </div>
-                 <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                 <Button variant="outline" onClick={() => window.print()}>
-                    <Printer className="mr-2 h-4 w-4" /> Print
-                 </Button>
-                 <Button asChild variant="outline">
-                    <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
-                 </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-end mb-4">
-            <div className="text-right p-4 rounded-lg bg-muted/50 space-y-2 min-w-[300px]">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex justify-end mb-4">
+              <div className="text-right p-4 rounded-lg bg-muted/50 space-y-2 min-w-[300px]">
                 <div className="flex justify-between gap-4">
-                    <p className="text-sm text-muted-foreground">Total Debit</p>
-                    <p className="text-sm font-semibold font-mono text-destructive">PKR {totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-sm text-muted-foreground">Total Debit</p>
+                  <p className="text-sm font-semibold font-mono text-destructive">PKR {totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className="flex justify-between gap-4">
-                    <p className="text-sm text-muted-foreground">Total Credit</p>
-                    <p className="text-sm font-semibold font-mono text-green-600">PKR {totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-sm text-muted-foreground">Total Credit</p>
+                  <p className="text-sm font-semibold font-mono text-green-600">PKR {totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
                 <div className="border-t pt-2 mt-2">
-                    <p className="text-sm text-muted-foreground">Final Balance</p>
-                    <p className={cn("text-2xl font-bold", balanceColorClass())}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  <p className="text-sm text-muted-foreground">Final Balance</p>
+                  <p className={cn("text-2xl font-bold", balanceColorClass(finalBalance))}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                 </div>
+              </div>
             </div>
-          </div>
-          {entries.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date & Time</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Debit</TableHead>
-                  <TableHead className="text-right">Credit</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-center print:hidden">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(() => {
-                  let lastDate: string | null = null;
-                  return entries.map(entry => {
-                    const date = new Date(entry.timestamp);
-                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : null;
-                    const showSeparator = formattedDate && formattedDate !== lastDate;
-                    lastDate = formattedDate;
+            {entries.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date & Time</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead className="text-right">Debit</TableHead>
+                    <TableHead className="text-right">Credit</TableHead>
+                    <TableHead className="text-right">Balance</TableHead>
+                    <TableHead className="text-center print:hidden">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(() => {
+                    let lastDate: string | null = null;
+                    return entries.map(entry => {
+                      const date = new Date(entry.timestamp);
+                      const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : null;
+                      const showSeparator = formattedDate && formattedDate !== lastDate;
+                      lastDate = formattedDate;
 
-                    const isSale = entry.type === 'Sale';
-                    const isSalary = entry.type === 'Salary';
+                      const isSale = entry.type === 'Sale';
+                      const isSalary = entry.type === 'Salary';
 
-                    return (
-                      <React.Fragment key={entry.id}>
-                        {showSeparator && (
-                          <TableRow className="bg-red-800 hover:bg-red-900">
-                            <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
-                              {format(date, 'EEEE, dd MMMM yyyy')}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        <TableRow>
-                          <TableCell className={cn(
+                      return (
+                        <React.Fragment key={entry.id}>
+                          {showSeparator && (
+                            <TableRow className="bg-red-800 hover:bg-red-900">
+                              <TableCell colSpan={7} className="text-center font-semibold text-white py-2">
+                                {format(date, 'EEEE, dd MMMM yyyy')}
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          <TableRow>
+                            <TableCell className={cn(
                               "font-medium", 
                               isSale && 'text-destructive',
                               entry.type === 'Purchase' && 'text-green-600', 
                               entry.type === 'Payment' && 'text-teal-600',
                               entry.type === 'Cash Advance' && 'text-destructive'
-                          )}>
-                            {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
-                          </TableCell>
-                          <TableCell className={cn(
+                            )}>
+                              {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
+                            </TableCell>
+                            <TableCell className={cn(
                               isSale && 'text-destructive',
                               isSalary && 'text-pink-600', 
                               entry.type === 'Purchase' && 'text-green-600', 
                               entry.type === 'Payment' && 'text-teal-600',
                               entry.type === 'Cash Advance' && 'text-destructive'
-                          )}>{entry.description}</TableCell>
-                          <TableCell>
-                             <Badge 
+                            )}>{entry.description}</TableCell>
+                            <TableCell>
+                              <Badge 
                                 variant={entry.debit > 0 ? 'destructive' : 'outline'}
                                 className={cn('text-xs', 
                                     isSale && 'bg-red-100 text-red-800 border-red-200',
@@ -481,59 +464,60 @@ export default function CustomerLedgerPage() {
                                     entry.type === 'Cash Advance' && 'bg-red-100 text-red-800 border-red-200',
                                     entry.type === 'Sale Return' && 'bg-yellow-100 text-yellow-800 border-yellow-200',
                                 )}
-                            >
-                              {entry.type === 'Payment' ? 'Amount' : entry.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-destructive">
-                              {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-green-600">
-                              {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                          </TableCell>
-                          <TableCell className={cn("text-right font-semibold font-mono", rowBalanceColorClass(entry.balance))}>
-                              {entry.balance.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-center print:hidden">
-                              <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => setEntryToDelete(entry)}
                               >
-                                  <Trash2 className="w-4 h-4" />
+                                {entry.type === 'Payment' ? 'Amount' : entry.type}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-destructive">
+                              {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-green-600">
+                              {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
+                            </TableCell>
+                            <TableCell className={cn("text-right font-semibold font-mono", balanceColorClass(entry.balance))}>
+                              {entry.balance.toFixed(2)}
+                            </TableCell>
+                            <TableCell className="text-center print:hidden">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setEntryToDelete(entry)}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </Button>
-                          </TableCell>
-                        </TableRow>
-                      </React.Fragment>
-                    )
-                  });
-                })()}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center text-muted-foreground p-8">
-              <p>No transactions or payments recorded for this {entityType.toLowerCase()} yet.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                            </TableCell>
+                          </TableRow>
+                        </React.Fragment>
+                      )
+                    });
+                  })()}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center text-muted-foreground p-8">
+                <p>No transactions or payments recorded for this {entityType.toLowerCase()} yet.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
         <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle />Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-                This will move the entry to the recycle bin: <br />
-                <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
+              This will move the entry to the recycle bin: <br />
+              <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
             </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setEntryToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Yes, move to bin
+              Yes, move to bin
             </AlertDialogAction>
-            </AlertDialogFooter>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
