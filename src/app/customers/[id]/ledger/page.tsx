@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Printer } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Printer, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import * as XLSX from 'xlsx';
 
 type LedgerEntry = {
   id: string;
@@ -260,6 +261,25 @@ export default function CustomerLedgerPage() {
     }
   };
 
+  const handleExportExcel = () => {
+    const dataToExport = entries.slice().reverse().map(entry => {
+        const date = new Date(entry.timestamp);
+        return {
+            'Date & Time': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
+            'Description': entry.description,
+            'Type': entry.type,
+            'Debit (PKR)': entry.debit > 0 ? entry.debit.toFixed(2) : '',
+            'Credit (PKR)': entry.credit > 0 ? entry.credit.toFixed(2) : '',
+            'Balance (PKR)': entry.balance.toFixed(2),
+        };
+    });
+    
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ledger');
+    XLSX.writeFile(workbook, `${entity?.name || 'Customer'}_Ledger.xlsx`);
+  };
+
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
     
@@ -372,6 +392,9 @@ export default function CustomerLedgerPage() {
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print
+          </Button>
+          <Button variant="outline" onClick={handleExportExcel}>
+            <Download className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button asChild variant="outline">
             <Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link>
