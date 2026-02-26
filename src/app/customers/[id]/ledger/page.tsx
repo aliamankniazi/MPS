@@ -260,8 +260,8 @@ export default function CustomerLedgerPage() {
         }
 
         toast({
-            title: 'Entry Moved to Recycle Bin',
-            description: `The ${entryToDelete.type} entry has been moved to the recycle bin.`,
+            title: 'Entry Deleted',
+            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
         });
     } catch (error: any) {
         toast({
@@ -294,7 +294,7 @@ export default function CustomerLedgerPage() {
                 <CardContent>
                     <Skeleton className="h-96 w-full" />
                 </CardContent>
-            </Card>
+            </div>
         </div>
     );
   }
@@ -508,14 +508,14 @@ export default function CustomerLedgerPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle />Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will move the entry to the recycle bin: <br />
-              <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
+              This action cannot be undone. This will permanently delete the entry for: <br />
+              <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setEntryToDelete(null)}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, move to bin
+              Yes, delete entry
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
