@@ -26,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type LedgerEntry = {
   id: string;
@@ -240,6 +241,25 @@ export default function CustomerLedgerPage() {
     };
   }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
+  const handleQuickPeriod = (value: string) => {
+    const now = new Date();
+    switch (value) {
+      case 'this-month':
+        setDateRange({ from: startOfMonth(now), to: endOfMonth(now) });
+        break;
+      case 'last-month':
+        const lastMonth = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        setDateRange({ from: lastMonth, to: endOfMonth(lastMonth) });
+        break;
+      case 'this-year':
+        setDateRange({ from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31) });
+        break;
+      case 'all-time':
+        setDateRange(undefined);
+        break;
+    }
+  };
+
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
     
@@ -338,6 +358,17 @@ export default function CustomerLedgerPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48 pl-10" />
           </div>
+          <Select onValueChange={handleQuickPeriod}>
+              <SelectTrigger className="w-[150px]">
+                  <SelectValue placeholder="Quick Period" />
+              </SelectTrigger>
+              <SelectContent>
+                  <SelectItem value="this-month">This Month</SelectItem>
+                  <SelectItem value="last-month">Last Month</SelectItem>
+                  <SelectItem value="this-year">This Year</SelectItem>
+                  <SelectItem value="all-time">All Time</SelectItem>
+              </SelectContent>
+          </Select>
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button variant="outline" onClick={() => window.print()}>
             <Printer className="mr-2 h-4 w-4" /> Print
