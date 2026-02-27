@@ -114,7 +114,7 @@ export default function AllTransactionsPage() {
     }
 
     const sales: CombinedEntry[] = transactions.map(tx => {
-      const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer';
+      const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer' && tx.paymentMethod === 'Credit';
       const profit = getProfitForSale(tx, purchases);
 
       return {

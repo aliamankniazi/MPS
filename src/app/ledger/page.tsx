@@ -191,7 +191,7 @@ export default function LedgerPage() {
     // Customers
     customers.forEach(c => {
         const opening = c.openingBalance || 0;
-        const sales = transactions.filter(tx => tx.customerId === c.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
+        const sales = transactions.filter(tx => tx.customerId === c.id && tx.paymentMethod === 'Credit').reduce((sum, tx) => sum + tx.totalAmount, 0);
         const advances = cashAdvances.filter(ca => ca.customerId === c.id).reduce((sum, ca) => sum + ca.amount, 0);
         const payments = customerPayments.filter(p => p.customerId === c.id).reduce((sum, p) => sum + p.amount, 0);
         balances[c.id] = opening + sales + advances - payments;
@@ -230,7 +230,8 @@ export default function LedgerPage() {
 
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
         
-        const isCreditSale = !!(tx.customerId && tx.customerId !== 'walkin');
+        // A sale is only a credit sale (receivable) if a permanent customer is identified AND payment method is 'Credit'
+        const isCreditSale = !!(tx.customerId && tx.customerId !== 'walkin' && tx.paymentMethod === 'Credit');
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -1201,7 +1202,17 @@ export default function LedgerPage() {
                                                                 </div>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>{entry.notes || ''}</TableCell>
+                                                        <TableCell>
+                                                            {(() => {
+                                                                const notes = entry.notes || '';
+                                                                // User requested: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
+                                                                const isCashOrWalkin = entry.type === 'Sale' && !entry.isCreditSale;
+                                                                if (isCashOrWalkin) {
+                                                                    return notes.replace(/Vehicle: [^,]+(, )?/g, '').trim();
+                                                                }
+                                                                return notes;
+                                                            })()}
+                                                        </TableCell>
                                                         <TableCell style={{ color }}>
                                                             {entry.description}
                                                         </TableCell>

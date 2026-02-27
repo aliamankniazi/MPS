@@ -112,7 +112,7 @@ export default function AllInvoicesPage() {
 
     const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => {
         const profit = getProfitForSale(tx, purchases);
-        const isCredit = !!(tx.customerId && tx.customerId !== 'walkin');
+        const isCredit = !!(tx.customerId && tx.customerId !== 'walkin' && tx.paymentMethod === 'Credit');
         
         return {
             id: `sale-${tx.id}`,

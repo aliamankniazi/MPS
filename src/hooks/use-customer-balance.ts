@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useMemo } from 'react';
@@ -7,7 +6,7 @@ import { useDatabase } from '@/hooks/use-database';
 
 /**
  * A custom hook to calculate the current balance for a specific customer.
- * It sums up all their transactions and cash advances (debits) and subtracts
+ * It sums up all their credit transactions and cash advances (debits) and subtracts
  * all their payments (credits).
  * @param customerId The ID of the customer to calculate the balance for.
  * @returns An object containing the calculated balance and a loading state.
@@ -23,8 +22,9 @@ export function useCustomerBalance(customerId: string | null) {
     const customer = customers.find(c => c.id === customerId);
     const openingBalance = customer?.openingBalance || 0;
 
+    // Only count transactions with 'Credit' payment method towards outstanding balance
     const customerTransactions = transactions
-      .filter(tx => tx.customerId === customerId)
+      .filter(tx => tx.customerId === customerId && tx.paymentMethod === 'Credit')
       .reduce((sum, tx) => sum + tx.totalAmount, 0);
 
     const customerCashAdvances = cashAdvances

@@ -387,7 +387,8 @@ export default function SalesPage() {
     }
 
     let finalNotes = data.notes || '';
-    if (data.vehicleNumber) {
+    // User requested: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
+    if (data.vehicleNumber && data.paymentMethod === 'Credit' && !isWalkIn) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
     
