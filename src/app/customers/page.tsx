@@ -114,6 +114,16 @@ export default function CustomersPage() {
     return balanceMap;
   }, [customers, transactions, customerPayments, cashAdvances]);
 
+  const totalUdhar = useMemo(() => {
+    let total = 0;
+    balances.forEach((balance) => {
+      if (balance > 0) {
+        total += balance;
+      }
+    });
+    return total;
+  }, [balances]);
+
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, Customer>();
 
@@ -344,14 +354,20 @@ export default function CustomersPage() {
                     A record of all your customers and business partners.
                     </CardDescription>
                 </div>
-                <div className="relative w-full max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input 
-                        placeholder="Search by name, contact, area..." 
-                        className="pl-10"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+                <div className="flex flex-col items-end gap-2">
+                    <div className="text-right bg-muted/50 p-2 rounded-lg border border-destructive/20 min-w-[200px]">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-destructive">Total Udhar (Receivables)</p>
+                        <p className="text-xl font-bold text-destructive font-mono">PKR {totalUdhar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                    <div className="relative w-full max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                            placeholder="Search by name, contact, area..." 
+                            className="pl-10"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
                 </div>
             </div>
           </CardHeader>
