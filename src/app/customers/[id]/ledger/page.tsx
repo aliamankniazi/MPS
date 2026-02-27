@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Phone, Car, Trash2, AlertTriangle, Percent, Search, Printer, Download } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -102,7 +102,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
             type: 'Sale',
             debit: tx.totalAmount,
-            credit: isCredit ? 0 : tx.totalAmount, // Cash sales are Debit and Credit (wash)
+            credit: isCredit ? 0 : tx.totalAmount, 
             original: tx
           });
         });
@@ -138,7 +138,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
           type: 'Sale Return',
           debit: 0,
-          credit: sr.totalRefund, // Returns reduce receivable
+          credit: sr.totalRefund, 
           original: sr
         }));
 
@@ -215,7 +215,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance, totalDebit: totalDebitForPeriod, totalCredit: totalCreditForPeriod };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm, entities]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleQuickPeriod = (value: string) => {
     const now = new Date();
@@ -302,7 +302,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                   {entries.map(entry => {
                     const date = new Date(entry.timestamp);
                     const isSale = entry.type === 'Sale';
-                    const color = isSale ? 'text-destructive' : (entry.type === 'Payment' ? 'text-teal-600' : '');
+                    const color = entry.original?.paymentMethod === 'Credit' ? 'text-blue-600' : (isSale ? 'text-destructive' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
                     return (
                         <TableRow key={entry.id}>
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid'}</TableCell>

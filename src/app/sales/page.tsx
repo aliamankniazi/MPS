@@ -80,7 +80,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, purchases, transactions, colorSettings, machines, machineReadings, addMachineReading, fuelStock } = useDatabase();
+  const { customers, addTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock } = useDatabase();
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -158,7 +158,6 @@ export default function SalesPage() {
         const customer = customers.find(c => c.id === savedCustomerId);
         if (customer) {
           setValue('customerId', customer.id);
-          // Safely set vehicle number
           if (customer.vehicleNumber && typeof customer.vehicleNumber === 'string') {
             const vehicle = customer.vehicleNumber.split(/[,\n]/)[0].trim();
             setValue('vehicleNumber', vehicle);
@@ -185,7 +184,7 @@ export default function SalesPage() {
     }
   }, [isLoaded, products, setItemValue, handleProductSelect]);
 
-  // Business Rule: Walk-in is always Cash, Other customers are always Credit
+  // BUSINESS RULE: Walk-in is always Cash, Identified customers are always Credit
   useEffect(() => {
     if (isWalkIn) {
       setValue('paymentMethod', 'Cash');
@@ -228,7 +227,7 @@ export default function SalesPage() {
     return products.find(p => p.id === productId);
   }, [productId, products]);
 
-  const currentStock = useMemo(() => {
+  const currentStockValue = useMemo(() => {
     if (!selectedProduct) return 0;
     return fuelStock[selectedProduct.name as FuelType] || 0;
   }, [selectedProduct, fuelStock]);
@@ -237,16 +236,14 @@ export default function SalesPage() {
     if (!selectedProduct) return 0;
     const itemQuantity = Number(quantity) || 0;
     const cartQuantity = cart.filter(item => item.productId === selectedProduct.id).reduce((sum, item) => sum + item.quantity, 0);
-    return currentStock - cartQuantity - itemQuantity;
-  }, [currentStock, quantity, selectedProduct, cart]);
+    return currentStockValue - cartQuantity - itemQuantity;
+  }, [currentStockValue, quantity, selectedProduct, cart]);
 
 
   useEffect(() => {
     const qty = Number(quantity) || 0;
     const prc = Number(price) || 0;
     const total = Number(totalAmount) || 0;
-  
-    // Use a small epsilon for floating point comparisons to prevent infinite loops
     const epsilon = 0.001;
   
     if (lastUserEditedField.current === 'quantity' || lastUserEditedField.current === 'price') {
@@ -270,13 +267,9 @@ export default function SalesPage() {
   }, [quantity, price, totalAmount, setItemValue]);
   
   useEffect(() => {
-    // SpeechRecognition is a browser-only API
     if (typeof window === 'undefined') return;
-
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -292,11 +285,6 @@ export default function SalesPage() {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error', event.error);
-      toast({
-          variant: 'destructive',
-          title: 'Voice Error',
-          description: `Speech recognition error: ${event.error}`,
-      });
       setIsListening(false);
     };
     
@@ -305,13 +293,11 @@ export default function SalesPage() {
     };
 
     recognitionRef.current = recognition;
-
-  }, [language, watch, setValue, toast]);
+  }, [language, watch, setValue]);
 
   const handleToggleListening = () => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
-
     if (isListening) {
       recognition.stop();
       setIsListening(false);
@@ -369,11 +355,7 @@ export default function SalesPage() {
   
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
     if (cart.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Empty Cart',
-        description: 'Please add at least one item to the cart.',
-      });
+      toast({ variant: 'destructive', title: 'Empty Cart', description: 'Please add at least one item to the cart.' });
       return;
     }
 
@@ -388,7 +370,7 @@ export default function SalesPage() {
     }
 
     let finalNotes = data.notes || '';
-    // Rule: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
+    // RULE: Don't show vehicle number for Cash sales
     if (data.vehicleNumber && data.paymentMethod === 'Credit' && !isWalkIn) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
@@ -408,7 +390,7 @@ export default function SalesPage() {
                     const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
                     costPrice = costPerLitre * item.quantity;
                 }
-            } else { // Supplementary Product
+            } else {
                 costPrice = (product.purchasePrice || 0) * item.quantity;
             }
         }
@@ -429,10 +411,7 @@ export default function SalesPage() {
         addTransaction(transactionData);
     });
 
-    toast({
-      title: 'Sale Complete',
-      description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.`,
-    });
+    toast({ title: 'Sale Complete', description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.` });
     
     reset({
         customerId: data.customerId,
@@ -515,7 +494,7 @@ export default function SalesPage() {
                                     <div className="grid grid-cols-2 gap-2 pt-1">
                                         <div>
                                             <p className="text-xs text-muted-foreground">Current Stock</p>
-                                            <p className="text-sm font-semibold">{currentStock.toFixed(2)}</p>
+                                            <p className="text-sm font-semibold">{currentStockValue.toFixed(2)}</p>
                                         </div>
                                         <div>
                                             <p className="text-xs text-muted-foreground">After Sale</p>
@@ -607,9 +586,7 @@ export default function SalesPage() {
                <Card>
                 <CardHeader>
                     <CardTitle>Today's Sales by Fuel</CardTitle>
-                    <CardDescription>
-                        Total volume sold for each fuel type today.
-                    </CardDescription>
+                    <CardDescription>Total volume sold for each fuel type today.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>

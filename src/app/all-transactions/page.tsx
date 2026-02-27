@@ -4,14 +4,14 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download, X } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import type { Customer, Expense, Purchase, PurchaseReturn, Transaction, CustomerPayment, DateRange } from '@/lib/types';
+import type { Customer, Purchase, Transaction, DateRange } from '@/lib/types';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,7 +25,6 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -115,7 +114,7 @@ export default function AllTransactionsPage() {
     }
 
     const sales: CombinedEntry[] = transactions.map(tx => {
-      const isCredit = tx.customerId && tx.customerId !== 'walkin' && tx.customerName !== 'Walk-in Customer' && tx.paymentMethod === 'Credit';
+      const isCredit = tx.paymentMethod === 'Credit';
       const profit = getProfitForSale(tx, purchases);
 
       return {
@@ -309,7 +308,7 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, localDateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // Force Blue for Credit Sale
+    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // FORCE BLUE FOR CREDIT SALE
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280'; // default gray
   };

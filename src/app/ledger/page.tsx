@@ -5,11 +5,11 @@ import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react'
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
+import { format, isValid, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, X, Pencil } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -27,24 +27,12 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
-import type { Transaction, Product, Purchase, DateRange, MachineReading, OtherIncome, Expense } from '@/lib/types';
+import type { Transaction, OtherIncome, Expense, DateRange, MachineReading } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/date-range-picker';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { Calendar as CalendarIcon } from 'lucide-react';
-
 
 type LedgerEntry = {
   id: string;
@@ -101,13 +89,6 @@ const TRANSACTION_TYPES = [
     'Customer Payment', 'Supplier Payment', 'Cash Advance', 'Investment', 'Withdrawal', 'Salary', 'Salary Expense', 'Daily Closing Stock'
 ];
 
-const machineReadingEditSchema = z.object({
-  volume: z.coerce.number().min(0, "Volume cannot be negative."),
-  date: z.date({ required_error: "A date is required."}),
-});
-type MachineReadingEditFormValues = z.infer<typeof machineReadingEditSchema>;
-
-
 export default function LedgerPage() {
   const { 
     transactions, 
@@ -124,7 +105,6 @@ export default function LedgerPage() {
     customers,
     suppliers,
     businessPartners,
-    machines,
     machineReadings,
     colorSettings,
     isLoaded,
@@ -137,13 +117,9 @@ export default function LedgerPage() {
     deleteInvestment,
     deleteCustomerPayment,
     deleteCashAdvance,
-    deleteMachineReading,
-    updateMachineReading,
   } = useDatabase();
 
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
-  const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
-  const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
@@ -154,60 +130,6 @@ export default function LedgerPage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
-  const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
-    resolver: zodResolver(machineReadingEditSchema),
-  });
-
-  useEffect(() => {
-    if (readingToEdit) {
-      resetReading({
-        volume: readingToEdit.volume,
-        date: new Date(readingToEdit.timestamp),
-      });
-    }
-  }, [readingToEdit, resetReading]);
-
-  const onEditReadingSubmit: SubmitHandler<MachineReadingEditFormValues> = (data) => {
-    if (!readingToEdit) return;
-    updateMachineReading(readingToEdit.id, {
-      volume: data.volume,
-      timestamp: data.date.toISOString(),
-    });
-    toast({
-      title: "Reading Updated",
-      description: `The reading for ${readingToEdit.machineName} has been updated.`,
-    });
-    setReadingToEdit(null);
-  };
-
-  const entityBalances = useMemo(() => {
-    if (!isLoaded) return {};
-    const balances: Record<string, number> = {};
-
-    customers.forEach(c => {
-        const opening = c.openingBalance || 0;
-        const sales = transactions.filter(tx => tx.customerId === c.id && tx.paymentMethod === 'Credit').reduce((sum, tx) => sum + tx.totalAmount, 0);
-        const advances = cashAdvances.filter(ca => ca.customerId === c.id).reduce((sum, ca) => sum + ca.amount, 0);
-        const payments = customerPayments.filter(p => p.customerId === c.id).reduce((sum, p) => sum + p.amount, 0);
-        balances[c.id] = opening + sales + advances - payments;
-    });
-
-    suppliers.forEach(s => {
-        const opening = s.openingBalance || 0;
-        const purchasesTotal = purchases.filter(p => p.supplierId === s.id).reduce((sum, p) => sum + p.totalCost, 0);
-        const paymentsTotal = supplierPayments.filter(sp => sp.supplierId === s.id).reduce((sum, sp) => sum + sp.amount, 0);
-        balances[s.id] = opening + purchasesTotal - paymentsTotal;
-    });
-
-    businessPartners.forEach(p => {
-        const investmentsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Investment').reduce((sum, i) => sum + i.amount, 0);
-        const withdrawalsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Withdrawal').reduce((sum, i) => sum + i.amount, 0);
-        balances[p.id] = (balances[p.id] || 0) + investmentsTotal - withdrawalsTotal;
-    });
-
-    return balances;
-  }, [isLoaded, customers, suppliers, businessPartners, transactions, purchases, customerPayments, supplierPayments, cashAdvances, investments]);
-
   // 1. allEntries
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -216,7 +138,6 @@ export default function LedgerPage() {
 
     transactions.forEach(tx => {
         if (!tx.timestamp || !isValid(new Date(tx.timestamp))) return;
-        
         const customer = customers.find(c => c.id === tx.customerId);
         const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
@@ -397,7 +318,7 @@ export default function LedgerPage() {
     });
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
 
-  // 2. filteredEntries
+  // 2. filteredEntries - MOVED UP TO FIX REFERENCE ERROR
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
 
@@ -489,12 +410,8 @@ export default function LedgerPage() {
       const dayCredit = dayEntries.reduce((sum, e) => sum + e.credit, 0);
       lastDayClosingBalance = dayOpeningBalance + dayDebit - dayCredit;
       
-        const readingsOnDay = machineReadings.filter(r => {
-            const readingDate = new Date(r.timestamp);
-            return isValid(readingDate) && isSameDay(readingDate, dayStart);
-        });
-
         const salesOnDay = dayEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
+        const readingsOnDay = machineReadings.filter(r => isValid(new Date(r.timestamp)) && isSameDay(new Date(r.timestamp), dayStart));
         const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
 
         const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
@@ -611,7 +528,7 @@ export default function LedgerPage() {
   }, [groupedEntries]);
 
   const getEntryColor = (entry: LedgerEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // Force Blue for Credit Sale
+    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // CREDIT SALES ARE BLUE
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280';
   };
@@ -859,9 +776,6 @@ export default function LedgerPage() {
                                                         <TableCell className="font-medium" style={{ color }}>{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}</TableCell>
                                                         <TableCell className="font-medium" style={{ color }}>
                                                             <Link href={link} className="hover:underline">{entry.partnerName}</Link>
-                                                            {entry.entityId && entityBalances[entry.entityId] !== undefined && (
-                                                                <div className="text-xs text-muted-foreground">Cur. Bal: {entityBalances[entry.entityId].toLocaleString()}</div>
-                                                            )}
                                                         </TableCell>
                                                         <TableCell style={{ color }}>
                                                             <div className="font-medium">{entry.description}</div>
