@@ -210,11 +210,11 @@ export default function AllTransactionsPage() {
             const latestDate = new Date(latestEntry.timestamp);
             setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
         } else {
-            setLocalDateRange({ from: startOfToday(), to: endOfToday() });
+            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
         }
         isInitialDateSet.current = true;
     } else if (isLoaded && !isInitialDateSet.current) {
-        setLocalDateRange({ from: startOfToday(), to: endOfToday() });
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
         isInitialDateSet.current = true;
     }
   }, [isLoaded, combinedEntries]);
@@ -245,7 +245,7 @@ export default function AllTransactionsPage() {
     if (!localDateRange?.from) return [];
     
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(new Date());
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -285,7 +285,7 @@ export default function AllTransactionsPage() {
 
     let currentTransactions = transactions;
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(new Date());
     currentTransactions = transactions.filter(tx => {
         const txDate = new Date(tx.timestamp);
         return isValid(txDate) && txDate >= from && txDate <= to;
@@ -309,6 +309,7 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, localDateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
+    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // Force Blue for Credit Sale
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280'; // default gray
   };

@@ -235,7 +235,7 @@ export default function AllInvoicesPage() {
                         <SelectItem value="Purchase">Purchase</SelectItem>
                     </SelectContent>
                 </Select>
-                <div className="relative w-full max-w-sm">
+                <div className="relative w-full max-sm:max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search invoices..."
@@ -281,7 +281,7 @@ export default function AllInvoicesPage() {
                                 {groupedInvoices[monthKey].invoices.map(invoice => {
                                   const date = new Date(invoice.timestamp);
                                   const typeLabel = invoice.type === 'Sale' ? (invoice.isCreditSale ? 'Credit Sale' : 'Cash Sale') : invoice.type;
-                                  const color = colorSettings[typeLabel] || '#6b7280';
+                                  const color = invoice.isCreditSale ? '#3B82F6' : (colorSettings[typeLabel] || '#6b7280');
                                   return (
                                     <TableRow 
                                       key={invoice.id}

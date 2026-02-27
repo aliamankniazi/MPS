@@ -185,6 +185,7 @@ export default function SalesPage() {
     }
   }, [isLoaded, products, setItemValue, handleProductSelect]);
 
+  // Business Rule: Walk-in is always Cash, Other customers are always Credit
   useEffect(() => {
     if (isWalkIn) {
       setValue('paymentMethod', 'Cash');
@@ -387,7 +388,7 @@ export default function SalesPage() {
     }
 
     let finalNotes = data.notes || '';
-    // User requested: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
+    // Rule: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
     if (data.vehicleNumber && data.paymentMethod === 'Credit' && !isWalkIn) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
@@ -733,7 +734,7 @@ export default function SalesPage() {
                                               <SelectValue placeholder="Select vehicle..." />
                                           </SelectTrigger>
                                           <SelectContent>
-                                              {String(selectedCustomer.vehicleNumber).split(/[,\\n]/).map(v => v.trim()).filter(Boolean).map(v => (
+                                              {String(selectedCustomer.vehicleNumber).split(/[,\n]/).map(v => v.trim()).filter(Boolean).map(v => (
                                                   <SelectItem key={v} value={v}>{v}</SelectItem>
                                               ))}
                                           </SelectContent>
@@ -751,7 +752,7 @@ export default function SalesPage() {
                             name="paymentMethod"
                             control={control}
                             render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value} disabled={!isWalkIn}>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={true}>
                                 <SelectTrigger>
                                   <SelectValue placeholder="Select payment method" />
                                 </SelectTrigger>
@@ -763,12 +764,13 @@ export default function SalesPage() {
                                       <SelectItem value="Mobile">Mobile Wallet</SelectItem>
                                     </>
                                   ) : (
-                                    <SelectItem value="Credit">Credit</SelectItem>
+                                    <SelectItem value="Credit">Credit (Udhar)</SelectItem>
                                   )}
                                 </SelectContent>
                               </Select>
                             )}
                           />
+                          <p className="text-[10px] text-muted-foreground italic">Payment method is automatically locked based on customer type.</p>
                       </div>
                       <div className="space-y-2">
                           <Label>Invoice Date</Label>

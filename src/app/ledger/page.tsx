@@ -131,7 +131,6 @@ export default function LedgerPage() {
     deleteTransaction,
     deletePurchase,
     deleteExpense,
-    deletePurchaseReturns, // assuming this exists or similar
     deleteSaleReturn,
     deleteOtherIncome,
     deleteSupplierPayment,
@@ -185,7 +184,6 @@ export default function LedgerPage() {
     if (!isLoaded) return {};
     const balances: Record<string, number> = {};
 
-    // Customers
     customers.forEach(c => {
         const opening = c.openingBalance || 0;
         const sales = transactions.filter(tx => tx.customerId === c.id && tx.paymentMethod === 'Credit').reduce((sum, tx) => sum + tx.totalAmount, 0);
@@ -194,7 +192,6 @@ export default function LedgerPage() {
         balances[c.id] = opening + sales + advances - payments;
     });
 
-    // Suppliers
     suppliers.forEach(s => {
         const opening = s.openingBalance || 0;
         const purchasesTotal = purchases.filter(p => p.supplierId === s.id).reduce((sum, p) => sum + p.totalCost, 0);
@@ -202,7 +199,6 @@ export default function LedgerPage() {
         balances[s.id] = opening + purchasesTotal - paymentsTotal;
     });
 
-    // Business Partners
     businessPartners.forEach(p => {
         const investmentsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Investment').reduce((sum, i) => sum + i.amount, 0);
         const withdrawalsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Withdrawal').reduce((sum, i) => sum + i.amount, 0);
@@ -212,7 +208,7 @@ export default function LedgerPage() {
     return balances;
   }, [isLoaded, customers, suppliers, businessPartners, transactions, purchases, customerPayments, supplierPayments, cashAdvances, investments]);
 
-  // 1. allEntries: This is the foundation for all subsequent memos
+  // 1. allEntries
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
     
@@ -401,7 +397,7 @@ export default function LedgerPage() {
     });
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
 
-  // 2. filteredEntries: Depends on allEntries
+  // 2. filteredEntries
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
 
@@ -429,7 +425,7 @@ export default function LedgerPage() {
     return entries;
   }, [allEntries, searchTerm, localDateRange, selectedType]);
 
-  // 3. productWiseSales: Depends on filteredEntries
+  // 3. productWiseSales
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
@@ -449,7 +445,7 @@ export default function LedgerPage() {
     return Object.values(salesByProduct);
   }, [isLoaded, filteredEntries, products]);
 
-  // 4. profitSummary: Depends on filteredEntries
+  // 4. profitSummary
   const profitSummary = useMemo(() => {
     if (!isLoaded) return null;
     
@@ -466,7 +462,7 @@ export default function LedgerPage() {
     return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
   }, [isLoaded, filteredEntries]);
 
-  // 5. groupedEntries: Depends on filteredEntries and allEntries
+  // 5. groupedEntries
   const groupedEntries: GroupedEntries = useMemo(() => {
     if (!localDateRange?.from) return {};
     const rangeStart = startOfDay(localDateRange.from);
@@ -615,6 +611,7 @@ export default function LedgerPage() {
   }, [groupedEntries]);
 
   const getEntryColor = (entry: LedgerEntry) => {
+    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // Force Blue for Credit Sale
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280';
   };
