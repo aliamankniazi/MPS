@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfMonth, endOfMonth, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, DollarSign, Trash2, AlertTriangle, TrendingUp, TrendingDown, LayoutDashboard, Printer, Download, Package, BarChart2, X, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -26,11 +26,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
-import type { Transaction, Product, Purchase, DateRange, MachineReading } from '@/lib/types';
+import type { Transaction, Product, Purchase, DateRange, MachineReading, OtherIncome, Expense } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -123,7 +120,6 @@ export default function LedgerPage() {
     investments, 
     customerPayments,
     cashAdvances,
-    fuelPrices,
     products,
     customers,
     suppliers,
@@ -135,7 +131,7 @@ export default function LedgerPage() {
     deleteTransaction,
     deletePurchase,
     deleteExpense,
-    deletePurchaseReturn,
+    deletePurchaseReturns, // assuming this exists or similar
     deleteSaleReturn,
     deleteOtherIncome,
     deleteSupplierPayment,
@@ -145,6 +141,7 @@ export default function LedgerPage() {
     deleteMachineReading,
     updateMachineReading,
   } = useDatabase();
+
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
   const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
   const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
@@ -212,11 +209,10 @@ export default function LedgerPage() {
         balances[p.id] = (balances[p.id] || 0) + investmentsTotal - withdrawalsTotal;
     });
 
-
     return balances;
   }, [isLoaded, customers, suppliers, businessPartners, transactions, purchases, customerPayments, supplierPayments, cashAdvances, investments]);
 
-
+  // 1. allEntries: This is the foundation for all subsequent memos
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
     
@@ -227,9 +223,7 @@ export default function LedgerPage() {
         
         const customer = customers.find(c => c.id === tx.customerId);
         const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
-
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
-        
         const isCreditSale = tx.paymentMethod === 'Credit';
 
         combined.push({
@@ -239,8 +233,8 @@ export default function LedgerPage() {
             partnerName: customerName,
             entityId: tx.customerId,
             type: 'Sale',
-            debit: tx.totalAmount, // Always show in Debit
-            credit: !isCreditSale ? tx.totalAmount : 0, // Show in Credit if Cash/Card/Mobile
+            debit: tx.totalAmount, 
+            credit: !isCreditSale ? tx.totalAmount : 0, 
             original: tx,
             isCreditSale: isCreditSale,
             notes: tx.notes,
@@ -250,10 +244,8 @@ export default function LedgerPage() {
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         if (cp.paymentMethod === 'Salary') return;
-
         const customer = customers.find(c => c.id === cp.customerId);
         const customerName = customer ? customer.name : cp.customerName;
-
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
@@ -270,10 +262,8 @@ export default function LedgerPage() {
     
      cashAdvances.forEach(ca => {
         if (!ca.timestamp || !isValid(new Date(ca.timestamp))) return;
-
         const customer = customers.find(c => c.id === ca.customerId);
         const customerName = customer ? customer.name : ca.customerName;
-
         combined.push({
           id: `ca-${ca.id}`,
           timestamp: ca.timestamp,
@@ -290,10 +280,8 @@ export default function LedgerPage() {
 
     purchases.forEach(p => {
         if (!p.timestamp || !isValid(new Date(p.timestamp))) return;
-        
         const supplier = suppliers.find(s => s.id === p.supplierId);
         const supplierName = supplier ? supplier.name : p.supplier;
-
         combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
@@ -309,10 +297,8 @@ export default function LedgerPage() {
 
      supplierPayments.forEach(sp => {
         if (!sp.timestamp || !isValid(new Date(sp.timestamp))) return;
-
         const supplier = suppliers.find(s => s.id === sp.supplierId);
         const supplierName = supplier ? supplier.name : sp.supplierName;
-
         combined.push({
             id: `sp-${sp.id}`,
             timestamp: sp.timestamp,
@@ -328,14 +314,10 @@ export default function LedgerPage() {
 
     expenses.forEach(e => {
         if (!e.timestamp || !isValid(new Date(e.timestamp))) return;
-        
         const isSalaryExpense = e.category === 'Salaries';
         const employeeNameFromDesc = e.description.replace('Salary for ', '').replace(/ \(.*/, '');
         const employeeAsCustomer = customers.find(c => c.name === employeeNameFromDesc && c.area === 'Employee');
-        const partnerName = isSalaryExpense 
-            ? (employeeAsCustomer ? employeeAsCustomer.name : employeeNameFromDesc) 
-            : 'Internal';
-
+        const partnerName = isSalaryExpense ? (employeeAsCustomer ? employeeAsCustomer.name : employeeNameFromDesc) : 'Internal';
         combined.push({
             id: `exp-${e.id}`,
             timestamp: e.timestamp,
@@ -351,10 +333,8 @@ export default function LedgerPage() {
     
     purchaseReturns.forEach(pr => {
         if (!pr.timestamp || !isValid(new Date(pr.timestamp))) return;
-
         const supplier = suppliers.find(s => s.id === pr.supplierId);
         const supplierName = supplier ? supplier.name : pr.supplier;
-
         combined.push({
             id: `pr-${pr.id}`,
             timestamp: pr.timestamp,
@@ -362,7 +342,7 @@ export default function LedgerPage() {
             partnerName: supplierName,
             entityId: pr.supplierId,
             type: 'Purchase Return',
-            debit: pr.totalRefund, // Return reduces payable
+            debit: pr.totalRefund,
             credit: 0,
             original: pr,
             notes: pr.reason,
@@ -371,10 +351,8 @@ export default function LedgerPage() {
     
     saleReturns.forEach(sr => {
       if (!sr.timestamp || !isValid(new Date(sr.timestamp))) return;
-
       const customer = customers.find(c => c.id === sr.customerId);
       const customerName = customer ? customer.name : sr.customerName;
-
       combined.push({
         id: `sr-${sr.id}`,
         timestamp: sr.timestamp,
@@ -383,7 +361,7 @@ export default function LedgerPage() {
         entityId: sr.customerId,
         type: 'Sale Return',
         debit: 0,
-        credit: sr.totalRefund, // Return reduces receivable
+        credit: sr.totalRefund, 
         original: sr,
         notes: sr.reason,
       });
@@ -405,110 +383,25 @@ export default function LedgerPage() {
     
     investments.forEach(inv => {
         if (!inv.timestamp || !isValid(new Date(inv.timestamp))) return;
-
         const partner = businessPartners.find(p => p.id === inv.partnerId);
         const partnerName = partner ? partner.name : inv.partnerName;
-
         if (inv.type === 'Investment') {
-            combined.push({
-                id: `inv-${inv.id}`,
-                timestamp: inv.timestamp,
-                description: 'Investment',
-                partnerName: partnerName,
-                entityId: inv.partnerId,
-                type: 'Investment',
-                debit: 0,
-                credit: inv.amount,
-                original: inv,
-                notes: inv.notes,
-            });
+            combined.push({ id: `inv-${inv.id}`, timestamp: inv.timestamp, description: 'Investment', partnerName, entityId: inv.partnerId, type: 'Investment', debit: 0, credit: inv.amount, original: inv, notes: inv.notes });
         } else {
-            combined.push({
-                id: `wdr-${inv.id}`,
-                timestamp: inv.timestamp,
-                description: 'Withdrawal',
-                partnerName: partnerName,
-                entityId: inv.partnerId,
-                type: 'Withdrawal',
-                debit: inv.amount,
-                credit: 0,
-                original: inv,
-                notes: inv.notes,
-            });
+            combined.push({ id: `wdr-${inv.id}`, timestamp: inv.timestamp, description: 'Withdrawal', partnerName, entityId: inv.partnerId, type: 'Withdrawal', debit: inv.amount, credit: 0, original: inv, notes: inv.notes });
         }
     });
     
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
     let runningBalance = 0;
-    const finalEntries = combined.map(entry => {
+    return combined.map(entry => {
         runningBalance += entry.debit - entry.credit;
-        return { ...entry, balance: runningBalance };
+        return { ...entry, balance: runningBalance } as LedgerEntry;
     });
-
-    return finalEntries;
-
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
-    
-    useEffect(() => {
-        if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
-            const latestEntry = allEntries[allEntries.length - 1];
-            if (latestEntry && isValid(new Date(latestEntry.timestamp))) {
-                const latestDate = new Date(latestEntry.timestamp);
-                setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
-            } else {
-                 setLocalDateRange({ from: startOfToday(), to: endOfToday() });
-            }
-            initialDateSet.current = true;
-        } else if (isLoaded && !initialDateSet.current) {
-            setLocalDateRange({ from: startOfToday(), to: endOfToday() });
-            initialDateSet.current = true;
-        }
-    }, [isLoaded, allEntries]);
 
-  const productWiseSales = useMemo(() => {
-    if (!isLoaded || !products) return [];
-
-    const { transactions: filteredTransactions } = filteredEntries.length > 0 ? { transactions: filteredEntries.filter(e => e.type === 'Sale').map(e => e.original) } : { transactions: [] };
-
-    const salesByProduct = filteredEntries.filter(e => e.type === 'Sale').reduce((acc, e) => {
-        const tx = e.original as Transaction;
-        const productName = tx.product || tx.fuelType;
-        if (!productName) return acc;
-        if (!acc[productName]) {
-            const productInfo = products.find(p => p.name === productName);
-            acc[productName] = {
-                product: productName,
-                unit: productInfo?.unit || 'Liters',
-                totalSold: 0,
-                totalRevenue: 0,
-            };
-        }
-        acc[productName].totalSold += tx.volume || 0;
-        acc[productName].totalRevenue += tx.totalAmount;
-        return acc;
-    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
-
-    return Object.values(salesByProduct);
-  }, [isLoaded, filteredEntries, products]);
-
-  const profitSummary = useMemo(() => {
-    if (!isLoaded) return null;
-    
-    const filteredTransactions = filteredEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
-    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
-    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
-    
-    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
-    const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const netProfit = grossProfit - totalExpenses;
-
-    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
-  }, [isLoaded, filteredEntries]);
-
-
+  // 2. filteredEntries: Depends on allEntries
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
 
@@ -536,6 +429,44 @@ export default function LedgerPage() {
     return entries;
   }, [allEntries, searchTerm, localDateRange, selectedType]);
 
+  // 3. productWiseSales: Depends on filteredEntries
+  const productWiseSales = useMemo(() => {
+    if (!isLoaded || !products) return [];
+
+    const salesByProduct = filteredEntries.filter(e => e.type === 'Sale').reduce((acc, e) => {
+        const tx = e.original as Transaction;
+        const productName = tx.product || tx.fuelType;
+        if (!productName) return acc;
+        if (!acc[productName]) {
+            const productInfo = products.find(p => p.name === productName);
+            acc[productName] = { product: productName, unit: productInfo?.unit || 'Liters', totalSold: 0, totalRevenue: 0 };
+        }
+        acc[productName].totalSold += tx.volume || 0;
+        acc[productName].totalRevenue += tx.totalAmount;
+        return acc;
+    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
+
+    return Object.values(salesByProduct);
+  }, [isLoaded, filteredEntries, products]);
+
+  // 4. profitSummary: Depends on filteredEntries
+  const profitSummary = useMemo(() => {
+    if (!isLoaded) return null;
+    
+    const filteredTransactions = filteredEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
+    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
+    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
+    
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
+    const grossProfit = totalRevenue - totalCostOfGoods;
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = grossProfit - totalExpenses;
+
+    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
+  }, [isLoaded, filteredEntries]);
+
+  // 5. groupedEntries: Depends on filteredEntries and allEntries
   const groupedEntries: GroupedEntries = useMemo(() => {
     if (!localDateRange?.from) return {};
     const rangeStart = startOfDay(localDateRange.from);
@@ -557,12 +488,9 @@ export default function LedgerPage() {
     for (const dayKey of dayKeysSorted) {
       const dayStart = startOfDay(new Date(dayKey));
       const dayEntries = filteredEntries.filter(e => format(new Date(e.timestamp), 'yyyy-MM-dd') === dayKey);
-      
       const dayOpeningBalance = lastDayClosingBalance;
-
       const dayDebit = dayEntries.reduce((sum, e) => sum + e.debit, 0);
       const dayCredit = dayEntries.reduce((sum, e) => sum + e.credit, 0);
-
       lastDayClosingBalance = dayOpeningBalance + dayDebit - dayCredit;
       
         const readingsOnDay = machineReadings.filter(r => {
@@ -570,70 +498,21 @@ export default function LedgerPage() {
             return isValid(readingDate) && isSameDay(readingDate, dayStart);
         });
 
-        const salesOnDay = dayEntries
-            .filter(e => e.type === 'Sale')
-            .map(e => e.original as Transaction);
-            
+        const salesOnDay = dayEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
         const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
 
         const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
-            const latestReadingForDay = readingsOnDay
-                .filter(r => r.machineName === machineName)
-                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            
+            const latestReadingForDay = readingsOnDay.filter(r => r.machineName === machineName).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
             if (!latestReadingForDay) return null;
-
-            const previousReading = machineReadings
-                .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
-                .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-            
-            let dispensed = 0;
-
-            if (previousReading) {
-                dispensed = latestReadingForDay.volume - previousReading.volume;
-            } else {
-                const readingsOnSameDaySorted = readingsOnDay
-                    .filter(r => r.machineName === machineName)
-                    .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-                
-                if (readingsOnSameDaySorted.length > 1) {
-                    dispensed = readingsOnSameDaySorted[readingsOnSameDaySorted.length-1].volume - readingsOnSameDaySorted[0].volume;
-                }
-            }
-
-            return {
-                ...latestReadingForDay,
-                previousReadingVolume: previousReading?.volume,
-                previousReadingTimestamp: previousReading?.timestamp,
-                dispensed: dispensed > 0 ? dispensed : 0,
-            };
+            const previousReading = machineReadings.filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+            let dispensed = previousReading ? latestReadingForDay.volume - previousReading.volume : 0;
+            return { ...latestReadingForDay, previousReadingVolume: previousReading?.volume, dispensed: dispensed > 0 ? dispensed : 0 } as ProcessedReading;
         }).filter((r): r is ProcessedReading => r !== null);
 
-
-        const salesSummaryByFuel = salesOnDay
-            .filter(tx => tx.fuelType && tx.volume)
-            .reduce((acc, tx) => {
-                acc[tx.fuelType] = (acc[tx.fuelType] || 0) + tx.volume;
-                return acc;
-        }, {} as Record<string, number>);
-
-        const dispensedSummaryByFuel = processedReadings.reduce((acc, reading) => {
-            acc[reading.fuelType] = (acc[reading.fuelType] || 0) + reading.dispensed;
-            return acc;
-        }, {} as Record<string, number>);
-
+        const salesSummaryByFuel = salesOnDay.filter(tx => tx.fuelType && tx.volume).reduce((acc, tx) => { acc[tx.fuelType] = (acc[tx.fuelType] || 0) + tx.volume; return acc; }, {} as Record<string, number>);
+        const dispensedSummaryByFuel = processedReadings.reduce((acc, reading) => { acc[reading.fuelType] = (acc[reading.fuelType] || 0) + reading.dispensed; return acc; }, {} as Record<string, number>);
         const allFuelTypesInDay = [...new Set([...Object.keys(salesSummaryByFuel), ...Object.keys(dispensedSummaryByFuel)])];
-
-        const comparisonSummary = allFuelTypesInDay.map(fuelType => {
-            const sales = salesSummaryByFuel[fuelType] || 0;
-            const dispensed = dispensedSummaryByFuel[fuelType] || 0;
-            return {
-                fuelType,
-                sales,
-                dispensed,
-                difference: dispensed - sales,
-            };
-        });
+        const comparisonSummary = allFuelTypesInDay.map(fuelType => ({ fuelType, sales: salesSummaryByFuel[fuelType] || 0, dispensed: dispensedSummaryByFuel[fuelType] || 0, difference: (dispensedSummaryByFuel[fuelType] || 0) - (salesSummaryByFuel[fuelType] || 0) }));
 
       result[dayKey] = {
         entries: dayEntries,
@@ -656,11 +535,25 @@ export default function LedgerPage() {
         comparisonSummary: comparisonSummary,
       };
     }
-    
     return result;
-
   }, [filteredEntries, allEntries, localDateRange, machineReadings]);
-  
+
+  useEffect(() => {
+    if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
+        const latestEntry = allEntries[allEntries.length - 1];
+        if (latestEntry && isValid(new Date(latestEntry.timestamp))) {
+            const latestDate = new Date(latestEntry.timestamp);
+            setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
+        } else {
+            setLocalDateRange({ from: startOfToday(), to: endOfToday() });
+        }
+        initialDateSet.current = true;
+    } else if (isLoaded && !initialDateSet.current) {
+        setLocalDateRange({ from: startOfToday(), to: endOfToday() });
+        initialDateSet.current = true;
+    }
+  }, [isLoaded, allEntries]);
+
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
   dayKeys.forEach(key => {
@@ -671,14 +564,11 @@ export default function LedgerPage() {
     });
   });
 
-  const allFilteredEntryIds = useMemo(() =>
-    filteredEntries.map(e => e.id).filter(id => id && id.includes('-'))
-  , [filteredEntries]);
+  const allFilteredEntryIds = useMemo(() => filteredEntries.map(e => e.id).filter(id => id && id.includes('-')), [filteredEntries]);
 
   const masterCheckboxState = useMemo(() => {
     if (allFilteredEntryIds.length === 0) return false;
     const intersectionCount = allFilteredEntryIds.filter(id => selectedEntries.includes(id)).length;
-
     if (intersectionCount === 0) return false;
     if (intersectionCount === allFilteredEntryIds.length) return true;
     return 'indeterminate';
@@ -688,18 +578,18 @@ export default function LedgerPage() {
     const dataToExport = filteredEntries.slice().reverse().map(entry => {
         const date = new Date(entry.timestamp);
         const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
         return {
             'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
             'Partner': entry.partnerName,
-            'Notes': entry.notes || '',
             'Particulars': entry.description,
+            'Notes': notesToDisplay,
             'Type': typeLabel,
             'Debit (PKR)': entry.debit > 0 ? entry.debit.toFixed(2) : '',
             'Credit (PKR)': entry.credit > 0 ? entry.credit.toFixed(2) : '',
             'Balance (PKR)': entry.balance.toFixed(2),
         };
     });
-    
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Ledger');
@@ -707,35 +597,20 @@ export default function LedgerPage() {
   };
 
   const handleSelectAllGlobal = (checked: boolean | 'indeterminate') => {
-    if (checked === true) {
-        setSelectedEntries(prev => [...new Set([...prev, ...allFilteredEntryIds])]);
-    } else {
-        const filteredIdSet = new Set(allFilteredEntryIds);
-        setSelectedEntries(prev => prev.filter(id => !filteredIdSet.has(id)));
-    }
+    if (checked === true) setSelectedEntries(prev => [...new Set([...prev, ...allFilteredEntryIds])]);
+    else { const filteredIdSet = new Set(allFilteredEntryIds); setSelectedEntries(prev => prev.filter(id => !filteredIdSet.has(id))); }
   };
 
   const handleSelectEntry = useCallback((entryId: string, isSelected: boolean) => {
-    setSelectedEntries(prev => {
-        if (isSelected) {
-            return [...prev, entryId];
-        } else {
-            return prev.filter(id => id !== entryId);
-        }
-    });
+    setSelectedEntries(prev => isSelected ? [...prev, entryId] : prev.filter(id => id !== entryId));
   }, []);
 
   const handleSelectAllForDay = useCallback((dayKey: string, isSelected: boolean) => {
       if (!groupedEntries[dayKey]) return;
       const dayEntryIds = groupedEntries[dayKey].entries.map(e => e.id).filter(id => id.includes('-'));
-      
       setSelectedEntries(prev => {
         const otherDaySelections = prev.filter(id => !dayEntryIds.includes(id));
-        if (isSelected) {
-          return [...otherDaySelections, ...dayEntryIds];
-        } else {
-          return otherDaySelections;
-        }
+        return isSelected ? [...otherDaySelections, ...dayEntryIds] : otherDaySelections;
       });
   }, [groupedEntries]);
 
@@ -746,11 +621,6 @@ export default function LedgerPage() {
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
-    if (!entryToDelete.id || !entryToDelete.id.includes('-')) {
-        toast({ variant: 'destructive', title: 'Delete Failed', description: 'This is a calculated entry.' });
-        setEntryToDelete(null);
-        return;
-    }
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         switch(typePrefix) {
@@ -759,24 +629,18 @@ export default function LedgerPage() {
             case 'cp': deleteCustomerPayment(id); break;
             case 'sp': deleteSupplierPayment(id); break;
             case 'exp': deleteExpense(id); break;
-            case 'pr': deletePurchaseReturn(id); break;
             case 'sr': deleteSaleReturn(id); break;
             case 'oi': deleteOtherIncome(id); break;
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
             case 'ca': deleteCashAdvance(id); break;
-            default: throw new Error('Unknown type');
         }
         toast({ title: 'Entry Deleted' });
-    } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error Deleting' });
-    } finally {
-        setEntryToDelete(null);
-    }
+    } catch (error: any) { toast({ variant: 'destructive', title: 'Error Deleting' }); }
+    setEntryToDelete(null);
   };
 
   const handleDeleteSelectedEntries = () => {
-    if (selectedEntries.length === 0) return;
     selectedEntries.forEach(entryId => {
         const [typePrefix, id] = entryId.split(/-(.*)/s);
         try {
@@ -786,7 +650,6 @@ export default function LedgerPage() {
                 case 'cp': deleteCustomerPayment(id); break;
                 case 'sp': deleteSupplierPayment(id); break;
                 case 'exp': deleteExpense(id); break;
-                case 'pr': deletePurchaseReturn(id); break;
                 case 'sr': deleteSaleReturn(id); break;
                 case 'oi': deleteOtherIncome(id); break;
                 case 'inv': deleteInvestment(id); break;
@@ -799,22 +662,10 @@ export default function LedgerPage() {
     setSelectedEntries([]);
     setShowDeleteSelectedDialog(false);
   };
-  
-  const handleDeleteReading = () => {
-    if (!readingToDelete) return;
-    deleteMachineReading(readingToDelete.id);
-    setReadingToDelete(null);
-  }
 
-  const clearFilters = () => {
-    setSearchTerm('');
-    setLocalDateRange(undefined);
-    setSelectedType('');
-  }
-
+  const clearFilters = () => { setSearchTerm(''); setLocalDateRange(undefined); setSelectedType(''); }
   const hasActiveFilters = searchTerm || localDateRange?.from || selectedType;
   const currentDayKey = format(new Date(), 'yyyy-MM-dd');
-
   let runningEntryCount = filteredEntries.length;
 
   const getEntryLink = (entry: LedgerEntry): string => {
@@ -823,6 +674,14 @@ export default function LedgerPage() {
     if (entry.type === 'Purchase') return `/invoice/purchase/${entry.original.id}`;
     return `/customers/${entry.entityId}/ledger`;
   }
+
+  const getDisplayNotes = (notes: string, type: string, isCredit: boolean) => {
+    if (!notes) return '';
+    if (type === 'Sale' && !isCredit) {
+        return notes.replace(/Vehicle: [^,]+,?\s*/, '').trim();
+    }
+    return notes;
+  };
 
   return (
     <>
@@ -992,6 +851,7 @@ export default function LedgerPage() {
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
                                                 const currentSr = runningEntryCount--;
                                                 const link = getEntryLink(entry);
+                                                const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
 
                                                 return (
                                                     <TableRow key={entry.id}>
@@ -1006,12 +866,16 @@ export default function LedgerPage() {
                                                                 <div className="text-xs text-muted-foreground">Cur. Bal: {entityBalances[entry.entityId].toLocaleString()}</div>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell style={{ color }}>{entry.description} <Badge className="ml-2 text-[10px]" style={{ backgroundColor: `${color}20`, color, borderColor: `${color}40` }}>{typeLabel}</Badge></TableCell>
+                                                        <TableCell style={{ color }}>
+                                                            <div className="font-medium">{entry.description}</div>
+                                                            {notesToDisplay && <div className="text-xs opacity-70 italic">{notesToDisplay}</div>}
+                                                            <Badge className="mt-1 text-[10px]" style={{ backgroundColor: `${color}20`, color, borderColor: `${color}40` }}>{typeLabel}</Badge>
+                                                        </TableCell>
                                                         <TableCell className="text-right font-mono" style={{ color }}>{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
                                                         <TableCell className="text-right font-mono" style={{ color }}>{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
                                                         <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>{entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                                         <TableCell className="text-center">
-                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)} disabled={!entry.id.includes('-')}><Trash2 className="h-4 w-4" /></Button>
+                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)} disabled={!entry.id.includes('-')}><Trash2 className="w-4 h-4" /></Button>
                                                         </TableCell>
                                                     </TableRow>
                                                 )

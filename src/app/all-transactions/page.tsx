@@ -43,6 +43,7 @@ type CombinedEntry = {
   original: any;
   isCreditSale?: boolean;
   profit?: number;
+  notes?: string;
 };
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -128,6 +129,7 @@ export default function AllTransactionsPage() {
         original: { ...tx },
         isCreditSale: isCredit,
         profit,
+        notes: tx.notes,
       }
     });
 
@@ -142,6 +144,7 @@ export default function AllTransactionsPage() {
         details: p.notes || `${p.paymentMethod} Payment`,
         amount: p.amount,
         original: { ...p },
+        notes: p.notes,
     }));
 
     const advances: CombinedEntry[] = cashAdvances.map(ca => ({
@@ -153,6 +156,7 @@ export default function AllTransactionsPage() {
         details: ca.notes || 'Cash Advance',
         amount: ca.amount,
         original: { ...ca },
+        notes: ca.notes,
     }));
 
     
@@ -206,11 +210,11 @@ export default function AllTransactionsPage() {
             const latestDate = new Date(latestEntry.timestamp);
             setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
         } else {
-            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+            setLocalDateRange({ from: startOfToday(), to: endOfToday() });
         }
         isInitialDateSet.current = true;
     } else if (isLoaded && !isInitialDateSet.current) {
-        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        setLocalDateRange({ from: startOfToday(), to: endOfToday() });
         isInitialDateSet.current = true;
     }
   }, [isLoaded, combinedEntries]);
@@ -219,11 +223,13 @@ export default function AllTransactionsPage() {
     const dataToExport = filteredEntries.map(entry => {
         const date = new Date(entry.timestamp);
         const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
         return {
             'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
             'Type': typeLabel,
             'Partner': entry.partner,
             'Details': entry.details,
+            'Notes': notesToDisplay,
             'Amount (PKR)': entry.amount.toFixed(2),
             'Profit (PKR)': entry.type === 'Sale' && entry.profit ? entry.profit.toFixed(2) : '-'
         };
@@ -239,7 +245,7 @@ export default function AllTransactionsPage() {
     if (!localDateRange?.from) return [];
     
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -251,7 +257,8 @@ export default function AllTransactionsPage() {
     return entries.filter(entry =>
       (entry.partner && entry.partner.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (entry.type && entry.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase()))
+      (entry.details && entry.details.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (entry.notes && entry.notes.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [combinedEntries, searchTerm, localDateRange]);
 
@@ -278,7 +285,7 @@ export default function AllTransactionsPage() {
 
     let currentTransactions = transactions;
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(localDateRange.from);
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
     currentTransactions = transactions.filter(tx => {
         const txDate = new Date(tx.timestamp);
         return isValid(txDate) && txDate >= from && txDate <= to;
@@ -366,6 +373,14 @@ export default function AllTransactionsPage() {
     }
   };
 
+  const getDisplayNotes = (notes: string, type: string, isCredit: boolean) => {
+    if (!notes) return '';
+    if (type === 'Sale' && !isCredit) {
+        return notes.replace(/Vehicle: [^,]+,?\s*/, '').trim();
+    }
+    return notes;
+  };
+
 
   return (
     <>
@@ -425,6 +440,7 @@ export default function AllTransactionsPage() {
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+                                                const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
 
                                                 return (
                                                 <TableRow key={entry.id}>
@@ -442,10 +458,15 @@ export default function AllTransactionsPage() {
                                                     >{typeLabel}</Badge>
                                                     </TableCell>
                                                     <TableCell className="font-medium">{entry.partner}</TableCell>
-                                                    <TableCell className={cn(
-                                                        entry.details.toLowerCase().includes('diesel') && 'text-green-600',
-                                                        (entry.details.toLowerCase().includes('unleaded') || entry.details.toLowerCase().includes('premium')) && 'text-destructive'
-                                                    )}>{entry.details}</TableCell>
+                                                    <TableCell>
+                                                        <div className={cn(
+                                                            entry.details.toLowerCase().includes('diesel') && 'text-green-600',
+                                                            (entry.details.toLowerCase().includes('unleaded') || entry.details.toLowerCase().includes('premium')) && 'text-destructive'
+                                                        )}>
+                                                            {entry.details}
+                                                        </div>
+                                                        {notesToDisplay && <div className="text-[10px] text-muted-foreground italic mt-0.5">{notesToDisplay}</div>}
+                                                    </TableCell>
                                                     <TableCell className="text-right font-semibold font-mono" style={{ color }}>
                                                         {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </TableCell>
