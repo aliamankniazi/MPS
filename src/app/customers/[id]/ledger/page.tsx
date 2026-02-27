@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useMemo, useState, useEffect, use } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
@@ -40,9 +39,10 @@ type LedgerEntry = {
   original: any;
 };
 
-export default function CustomerLedgerPage() {
-  const params = useParams();
-  const entityId = params.id as string;
+export default function CustomerLedgerPage(props: { params: Promise<{ id: string }>, searchParams: Promise<any> }) {
+  const resolvedParams = use(props.params);
+  const entityId = resolvedParams.id;
+  
   const { 
     customers, 
     suppliers, 
@@ -437,22 +437,21 @@ export default function CustomerLedgerPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="flex justify-end mb-4">
-              <div className="text-right p-4 rounded-lg bg-muted/50 space-y-2 min-w-[300px]">
-                <div className="flex justify-between gap-4">
-                  <p className="text-sm text-muted-foreground">Total Debit</p>
-                  <p className="text-sm font-semibold font-mono text-destructive">PKR {totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <p className="text-sm text-muted-foreground">Total Credit</p>
-                  <p className="text-sm font-semibold font-mono text-green-600">PKR {totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-                <div className="border-t pt-2 mt-2">
-                  <p className="text-sm text-muted-foreground">Final Balance</p>
-                  <p className={cn("text-2xl font-bold", balanceColorClass(finalBalance))}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-3 mb-6">
+                <Card className="bg-muted/50 shadow-none border-none">
+                    <CardHeader className="py-2 px-4"><CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total Debit</CardTitle></CardHeader>
+                    <CardContent className="px-4 pb-4"><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></CardContent>
+                </Card>
+                <Card className="bg-muted/50 shadow-none border-none">
+                    <CardHeader className="py-2 px-4"><CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Total Credit</CardTitle></CardHeader>
+                    <CardContent className="px-4 pb-4"><div className="text-2xl font-bold text-green-600">PKR {totalCredit.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></CardContent>
+                </Card>
+                <Card className="bg-muted/50 shadow-none border-2 border-primary/20">
+                    <CardHeader className="py-2 px-4"><CardTitle className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Final Balance</CardTitle></CardHeader>
+                    <CardContent className="px-4 pb-4"><div className={cn("text-2xl font-bold", balanceColorClass(finalBalance))}>PKR {finalBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</div></CardContent>
+                </Card>
             </div>
+
             {entries.length > 0 ? (
               <Table>
                 <TableHeader>
