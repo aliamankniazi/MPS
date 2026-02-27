@@ -205,7 +205,7 @@ export default function LedgerPage() {
         balances[s.id] = opening + purchasesTotal - paymentsTotal;
     });
 
-    // Business Partners (their investment capital, separate from any customer balance they may have)
+    // Business Partners
     businessPartners.forEach(p => {
         const investmentsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Investment').reduce((sum, i) => sum + i.amount, 0);
         const withdrawalsTotal = investments.filter(i => i.partnerId === p.id && i.type === 'Withdrawal').reduce((sum, i) => sum + i.amount, 0);
@@ -230,8 +230,7 @@ export default function LedgerPage() {
 
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
         
-        // A sale is only a credit sale (receivable) if a permanent customer is identified AND payment method is 'Credit'
-        const isCreditSale = !!(tx.customerId && tx.customerId !== 'walkin' && tx.paymentMethod === 'Credit');
+        const isCreditSale = tx.paymentMethod === 'Credit';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -240,8 +239,8 @@ export default function LedgerPage() {
             partnerName: customerName,
             entityId: tx.customerId,
             type: 'Sale',
-            debit: isCreditSale ? tx.totalAmount : 0,
-            credit: 0,
+            debit: tx.totalAmount, // Always show in Debit
+            credit: !isCreditSale ? tx.totalAmount : 0, // Show in Credit if Cash/Card/Mobile
             original: tx,
             isCreditSale: isCreditSale,
             notes: tx.notes,
@@ -250,16 +249,15 @@ export default function LedgerPage() {
     
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
-        if (cp.paymentMethod === 'Salary') return; // Exclude salary payments as they're handled by expenses
+        if (cp.paymentMethod === 'Salary') return;
 
         const customer = customers.find(c => c.id === cp.customerId);
         const customerName = customer ? customer.name : cp.customerName;
 
-        const description = `Payment Received`;
         combined.push({
           id: `cp-${cp.id}`,
           timestamp: cp.timestamp,
-          description,
+          description: 'Payment Received',
           partnerName: customerName,
           entityId: cp.customerId,
           type: 'Customer Payment',
@@ -296,11 +294,10 @@ export default function LedgerPage() {
         const supplier = suppliers.find(s => s.id === p.supplierId);
         const supplierName = supplier ? supplier.name : p.supplier;
 
-        const description = p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase');
         combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
-            description,
+            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase'),
             partnerName: supplierName,
             entityId: p.supplierId,
             type: 'Purchase',
@@ -365,8 +362,8 @@ export default function LedgerPage() {
             partnerName: supplierName,
             entityId: pr.supplierId,
             type: 'Purchase Return',
-            debit: 0,
-            credit: pr.totalRefund,
+            debit: pr.totalRefund, // Return reduces payable
+            credit: 0,
             original: pr,
             notes: pr.reason,
         })
@@ -385,8 +382,8 @@ export default function LedgerPage() {
         partnerName: customerName,
         entityId: sr.customerId,
         type: 'Sale Return',
-        debit: sr.totalRefund,
-        credit: 0,
+        debit: 0,
+        credit: sr.totalRefund, // Return reduces receivable
         original: sr,
         notes: sr.reason,
       });
@@ -455,16 +452,16 @@ export default function LedgerPage() {
     
     useEffect(() => {
         if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
-            const latestEntry = allEntries[allEntries.length - 1]; // allEntries is sorted ascending
+            const latestEntry = allEntries[allEntries.length - 1];
             if (latestEntry && isValid(new Date(latestEntry.timestamp))) {
                 const latestDate = new Date(latestEntry.timestamp);
                 setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
             } else {
-                 setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+                 setLocalDateRange({ from: startOfToday(), to: endOfToday() });
             }
             initialDateSet.current = true;
         } else if (isLoaded && !initialDateSet.current) {
-            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+            setLocalDateRange({ from: startOfToday(), to: endOfToday() });
             initialDateSet.current = true;
         }
     }, [isLoaded, allEntries]);
@@ -472,7 +469,10 @@ export default function LedgerPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
-    const salesByProduct = transactions.reduce((acc, tx) => {
+    const { transactions: filteredTransactions } = filteredEntries.length > 0 ? { transactions: filteredEntries.filter(e => e.type === 'Sale').map(e => e.original) } : { transactions: [] };
+
+    const salesByProduct = filteredEntries.filter(e => e.type === 'Sale').reduce((acc, e) => {
+        const tx = e.original as Transaction;
         const productName = tx.product || tx.fuelType;
         if (!productName) return acc;
         if (!acc[productName]) {
@@ -490,18 +490,23 @@ export default function LedgerPage() {
     }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
 
     return Object.values(salesByProduct);
-  }, [isLoaded, transactions, products]);
+  }, [isLoaded, filteredEntries, products]);
 
   const profitSummary = useMemo(() => {
     if (!isLoaded) return null;
-    const totalRevenue = transactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + otherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalCostOfGoods = purchases.reduce((sum, p) => sum + p.totalCost, 0);
+    
+    const filteredTransactions = filteredEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
+    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
+    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
+    
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
     const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     const netProfit = grossProfit - totalExpenses;
 
     return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
-  }, [isLoaded, transactions, otherIncomes, purchases, expenses]);
+  }, [isLoaded, filteredEntries]);
 
 
   const filteredEntries = useMemo(() => {
@@ -560,7 +565,6 @@ export default function LedgerPage() {
 
       lastDayClosingBalance = dayOpeningBalance + dayDebit - dayCredit;
       
-       // --- Machine Reading Logic ---
         const readingsOnDay = machineReadings.filter(r => {
             const readingDate = new Date(r.timestamp);
             return isValid(readingDate) && isSameDay(readingDate, dayStart);
@@ -630,7 +634,6 @@ export default function LedgerPage() {
                 difference: dispensed - sales,
             };
         });
-      // --- End Machine Reading Logic ---
 
       result[dayKey] = {
         entries: dayEntries,
@@ -660,7 +663,6 @@ export default function LedgerPage() {
   
   const dayKeys = Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-  // This loop calculates the running balance for each individual entry *within* a day for display purposes.
   dayKeys.forEach(key => {
     let runningBalance = groupedEntries[key].openingBalance;
     groupedEntries[key].entries.forEach(entry => {
@@ -683,7 +685,7 @@ export default function LedgerPage() {
   }, [allFilteredEntryIds, selectedEntries]);
   
   const handleExportExcel = () => {
-    const dataToExport = filteredEntries.slice().reverse().map(entry => { // reverse to get chronological order for export
+    const dataToExport = filteredEntries.slice().reverse().map(entry => {
         const date = new Date(entry.timestamp);
         const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
         return {
@@ -706,10 +708,8 @@ export default function LedgerPage() {
 
   const handleSelectAllGlobal = (checked: boolean | 'indeterminate') => {
     if (checked === true) {
-        // When checking, add all currently filtered IDs to the selection
         setSelectedEntries(prev => [...new Set([...prev, ...allFilteredEntryIds])]);
     } else {
-        // When unchecking, remove all currently filtered IDs from the selection
         const filteredIdSet = new Set(allFilteredEntryIds);
         setSelectedEntries(prev => prev.filter(id => !filteredIdSet.has(id)));
     }
@@ -741,35 +741,17 @@ export default function LedgerPage() {
 
   const getEntryColor = (entry: LedgerEntry) => {
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
-    return colorSettings[type] || '#6b7280'; // default gray
+    return colorSettings[type] || '#6b7280';
   };
   
   const handleDeleteEntry = () => {
-    if (!entryToDelete) {
-        return;
-    }
-    
+    if (!entryToDelete) return;
     if (!entryToDelete.id || !entryToDelete.id.includes('-')) {
-        toast({
-            variant: 'destructive',
-            title: 'Delete Failed',
-            description: 'This is a calculated entry and cannot be deleted.',
-        });
+        toast({ variant: 'destructive', title: 'Delete Failed', description: 'This is a calculated entry.' });
         setEntryToDelete(null);
         return;
     }
-    
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
-    if (!id) {
-        toast({
-            variant: 'destructive',
-            title: 'Delete Failed',
-            description: 'This is a calculated entry and cannot be deleted.',
-        });
-        setEntryToDelete(null);
-        return;
-    }
-
     try {
         switch(typePrefix) {
             case 'tx': deleteTransaction(id); break;
@@ -783,20 +765,11 @@ export default function LedgerPage() {
             case 'inv': deleteInvestment(id); break;
             case 'wdr': deleteInvestment(id); break;
             case 'ca': deleteCashAdvance(id); break;
-            default:
-                throw new Error('Could not delete entry of unknown type.');
+            default: throw new Error('Unknown type');
         }
-
-        toast({
-            title: 'Entry Deleted',
-            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
-        });
+        toast({ title: 'Entry Deleted' });
     } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error Deleting',
-            description: error.message || 'An unexpected error occurred.',
-        });
+        toast({ variant: 'destructive', title: 'Error Deleting' });
     } finally {
         setEntryToDelete(null);
     }
@@ -804,22 +777,8 @@ export default function LedgerPage() {
 
   const handleDeleteSelectedEntries = () => {
     if (selectedEntries.length === 0) return;
-
-    let successCount = 0;
-    let errorCount = 0;
-
     selectedEntries.forEach(entryId => {
-        if (!entryId || !entryId.includes('-')) {
-            errorCount++;
-            return;
-        }
-
         const [typePrefix, id] = entryId.split(/-(.*)/s);
-        if (!id) {
-            errorCount++;
-            return;
-        }
-
         try {
             switch(typePrefix) {
                 case 'tx': deleteTransaction(id); break;
@@ -833,30 +792,10 @@ export default function LedgerPage() {
                 case 'inv': deleteInvestment(id); break;
                 case 'wdr': deleteInvestment(id); break;
                 case 'ca': deleteCashAdvance(id); break;
-                default:
-                    throw new Error('Unknown entry type for deletion.');
             }
-            successCount++;
-        } catch (error: any) {
-            errorCount++;
-            console.error(`Failed to delete entry ${entryId}:`, error);
-        }
+        } catch (error) {}
     });
-
-    if (successCount > 0) {
-        toast({
-            title: 'Entries Deleted',
-            description: `${successCount} entries have been successfully deleted.`,
-        });
-    }
-    if (errorCount > 0) {
-        toast({
-            variant: 'destructive',
-            title: 'Deletion Error',
-            description: `Failed to delete ${errorCount} entries.`,
-        });
-    }
-
+    toast({ title: 'Entries Deleted' });
     setSelectedEntries([]);
     setShowDeleteSelectedDialog(false);
   };
@@ -864,10 +803,6 @@ export default function LedgerPage() {
   const handleDeleteReading = () => {
     if (!readingToDelete) return;
     deleteMachineReading(readingToDelete.id);
-    toast({
-        title: 'Reading Deleted',
-        description: `The reading for ${readingToDelete.machineName} has been deleted.`,
-    });
     setReadingToDelete(null);
   }
 
@@ -884,23 +819,9 @@ export default function LedgerPage() {
 
   const getEntryLink = (entry: LedgerEntry): string => {
     if (!entry.entityId) return '#';
-
-    if (entry.type === 'Sale') {
-      return `/invoice/sale/${entry.original.id}`;
-    }
-    if (entry.type === 'Purchase') {
-      return `/invoice/purchase/${entry.original.id}`;
-    }
-    if (entry.original.customerId || entry.type === 'Customer Payment' || entry.type === 'Cash Advance' || entry.type === 'Sale Return' ) {
-        return `/customers/${entry.entityId}/ledger`;
-    }
-    if (entry.original.supplierId || entry.type === 'Supplier Payment' || entry.type === 'Purchase Return') {
-        return `/customers/${entry.entityId}/ledger`;
-    }
-    if (entry.original.partnerId || entry.type === 'Investment' || entry.type === 'Withdrawal') {
-        return `/customers/${entry.entityId}/ledger`;
-    }
-    return '#'; // Default fallback
+    if (entry.type === 'Sale') return `/invoice/sale/${entry.original.id}`;
+    if (entry.type === 'Purchase') return `/invoice/purchase/${entry.original.id}`;
+    return `/customers/${entry.entityId}/ledger`;
   }
 
   return (
@@ -909,15 +830,10 @@ export default function LedgerPage() {
        <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2"><BookOpen /> {showJournal ? 'General Journal' : 'Date Wise Business Report'}</h1>
-          <p className="text-muted-foreground">{showJournal ? 'A chronological record of all financial transactions.' : 'A high-level business overview without individual journal entries.'}</p>
+          <p className="text-muted-foreground">{showJournal ? 'A chronological record of all financial transactions.' : 'A high-level business overview.'}</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-2">
-           <Input 
-            placeholder="Search journal..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-            className="w-full md:w-48"
-          />
+           <Input placeholder="Search journal..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-48" />
             <Select value={selectedType} onValueChange={(value) => setSelectedType(value === 'all' ? '' : value)}>
                 <SelectTrigger className="w-full md:w-48">
                     <SelectValue placeholder="Filter by type" />
@@ -931,28 +847,12 @@ export default function LedgerPage() {
             <Button variant="outline" onClick={() => setShowJournal(!showJournal)}>{showJournal ? 'Show Business Report' : 'Show Full Journal'}</Button>
             <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
             <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4"/> Excel</Button>
-
            {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4"/>Clear</Button>}
-
            <div className="flex items-center space-x-2 border-l pl-4 ml-4">
-              <Checkbox
-                id="select-all-global"
-                checked={masterCheckboxState}
-                onCheckedChange={handleSelectAllGlobal}
-              />
-              <Label htmlFor="select-all-global" className="text-sm font-medium">
-                Select All ({allFilteredEntryIds.length})
-              </Label>
+              <Checkbox id="select-all-global" checked={masterCheckboxState} onCheckedChange={handleSelectAllGlobal} />
+              <Label htmlFor="select-all-global" className="text-sm font-medium">Select All ({allFilteredEntryIds.length})</Label>
             </div>
-
-           {selectedEntries.length > 0 && (
-              <Button 
-                variant="destructive" 
-                onClick={() => setShowDeleteSelectedDialog(true)}
-              >
-                Delete Selected ({selectedEntries.length})
-              </Button>
-            )}
+           {selectedEntries.length > 0 && <Button variant="destructive" onClick={() => setShowDeleteSelectedDialog(true)}>Delete Selected ({selectedEntries.length})</Button>}
         </div>
        </header>
 
@@ -960,7 +860,7 @@ export default function LedgerPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><Package /> Product Wise Sale Report</CardTitle>
-                    <CardDescription>A summary of all product sales for the selected period.</CardDescription>
+                    <CardDescription>Sales summary for the selected period.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Table>
@@ -968,7 +868,6 @@ export default function LedgerPage() {
                             <TableRow>
                                 <TableHead>Product</TableHead>
                                 <TableHead className="text-right">Total Sold</TableHead>
-                                <TableHead className="text-right">Avg Price/Unit</TableHead>
                                 <TableHead className="text-right">Total Revenue</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -977,7 +876,6 @@ export default function LedgerPage() {
                                 <TableRow key={item.product}>
                                     <TableCell>{item.product}</TableCell>
                                     <TableCell className="text-right">{item.totalSold.toFixed(2)} {item.unit}</TableCell>
-                                    <TableCell className="text-right">{(item.totalSold > 0 ? item.totalRevenue / item.totalSold : 0).toFixed(2)}</TableCell>
                                     <TableCell className="text-right">{item.totalRevenue.toFixed(2)}</TableCell>
                                 </TableRow>
                             ))}
@@ -988,7 +886,7 @@ export default function LedgerPage() {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2"><DollarSign /> Profit Summary</CardTitle>
-                    <CardDescription>A summary of overall profit for the selected period.</CardDescription>
+                    <CardDescription>Overall profit summary.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
                    <div className="flex justify-between items-center">
@@ -1018,15 +916,14 @@ export default function LedgerPage() {
       <Card>
         <CardHeader>
             <CardTitle>Daily Overview</CardTitle>
-            <CardDescription>{hasActiveFilters ? 'Showing filtered results.' : 'All transactions grouped by day.'}</CardDescription>
+            <CardDescription>{hasActiveFilters ? 'Filtered results.' : 'All transactions by day.'}</CardDescription>
         </CardHeader>
         <CardContent>
             {dayKeys.length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentDayKey, ...dayKeys.filter(k => k !== currentDayKey)]}>
+                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[currentDayKey]}>
                     {dayKeys.map(dayKey => {
                        const dayData = groupedEntries[dayKey];
-                       if (!dayData || (dayData.entries.length === 0 && dayData.machineReadings.length === 0)) return null;
-                       
+                       if (!dayData) return null;
                        const dayEntryIds = dayData.entries.map(e => e.id).filter(id => id.includes('-'));
                        const areAllSelected = dayEntryIds.length > 0 && dayEntryIds.every(id => selectedEntries.includes(id));
                        const areSomeSelected = dayEntryIds.some(id => selectedEntries.includes(id));
@@ -1037,8 +934,8 @@ export default function LedgerPage() {
                                 <div className="flex justify-between w-full pr-4 items-center">
                                     <span className="font-semibold text-red-500">{format(new Date(dayKey), 'EEEE, dd MMMM yyyy')}</span>
                                     <div className="flex gap-4 text-sm font-normal">
-                                        <span>Previous Closing: <span className="font-mono text-muted-foreground">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></span>
-                                        <span>Day's Closing: <span className="font-mono font-semibold">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></span>
+                                        <span>Prev: <span className="font-mono text-muted-foreground">{dayData.openingBalance.toLocaleString()}</span></span>
+                                        <span>Closing: <span className="font-mono font-semibold">{dayData.closingBalance.toLocaleString()}</span></span>
                                     </div>
                                 </div>
                             </AccordionTrigger>
@@ -1051,119 +948,37 @@ export default function LedgerPage() {
                                         <div className="flex justify-between"><span>Other:</span> <span className="font-mono">{dayData.dailySummary.otherIncome.toLocaleString()}</span></div>
                                     </div>
                                     <div>
-                                        <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenses</h4>
+                                        <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenditure</h4>
                                         <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
                                         <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
                                         <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
                                     </div>
                                     <div className="col-span-2 md:col-span-1">
-                                        <h4 className="font-semibold border-b pb-1 mb-1 text-blue-600">Purchases</h4>
+                                        <h4 className="font-semibold border-b pb-1 mb-1 text-blue-600">Trading</h4>
                                         <div className="flex justify-between"><span>Purchases:</span> <span className="font-mono">{dayData.dailySummary.purchases.toLocaleString()}</span></div>
-                                        <div className="flex justify-between"><span>Supplier Payment:</span> <span className="font-mono">{dayData.dailySummary.supplierPayment.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Supplier Pay:</span> <span className="font-mono">{dayData.dailySummary.supplierPayment.toLocaleString()}</span></div>
                                     </div>
                                     <div className="col-span-2 md:col-span-3 lg:col-span-2">
-                                        <h4 className="font-semibold border-b pb-1 mb-1">Balance Summary</h4>
-                                        <div className="flex justify-between"><span>Previous Closing:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
-                                        <div className="flex justify-between"><span>Total Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
-                                        <div className="flex justify-between"><span>Total Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
-                                        <div className="flex justify-between font-bold"><span>Day's Closing Balance:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits: 2})}</span></div>
+                                        <h4 className="font-semibold border-b pb-1 mb-1">Balance</h4>
+                                        <div className="flex justify-between"><span>Opening:</span> <span className="font-mono">{dayData.openingBalance.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Debits:</span> <span className="font-mono text-destructive">{dayData.totalDebit.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Credits:</span> <span className="font-mono text-green-600">{dayData.totalCredit.toLocaleString()}</span></div>
+                                        <div className="flex justify-between font-bold"><span>Closing:</span> <span className="font-mono">{dayData.closingBalance.toLocaleString()}</span></div>
                                     </div>
                                 </div>
                                 
-                                <div className="space-y-4 mb-4">
-                                     {dayData.comparisonSummary && dayData.comparisonSummary.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-md mb-2">Sales vs. Dispensed Volume Verification for {format(new Date(dayKey), 'dd-MMM-yyyy')}</h4>
-                                            <div className="border rounded-md">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Fuel Type</TableHead>
-                                                            <TableHead className="text-right">Invoice Sales (Ltr)</TableHead>
-                                                            <TableHead className="text-right">Machine Dispensed (Ltr)</TableHead>
-                                                            <TableHead className="text-right">Variance (Dispensed - Sales)</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {dayData.comparisonSummary.map(summary => (
-                                                            <TableRow key={summary.fuelType}>
-                                                                <TableCell className="font-medium">{summary.fuelType}</TableCell>
-                                                                <TableCell className="text-right font-mono">{summary.sales.toFixed(2)}</TableCell>
-                                                                <TableCell className="text-right font-mono">{summary.dispensed.toFixed(2)}</TableCell>
-                                                                <TableCell className={`text-right font-mono font-semibold ${summary.difference > 0.01 ? 'text-green-600' : summary.difference < -0.01 ? 'text-destructive' : ''}`}>
-                                                                    {summary.difference.toFixed(2)}
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {dayData.machineReadings && dayData.machineReadings.length > 0 && (
-                                        <div>
-                                            <h4 className="font-semibold text-md mb-2">Machine Reading Details for {format(new Date(dayKey), 'dd-MMM-yyyy')}</h4>
-                                            <div className="border rounded-md">
-                                                <Table>
-                                                    <TableHeader>
-                                                        <TableRow>
-                                                            <TableHead>Machine Name</TableHead>
-                                                            <TableHead className="text-right">Start of Day Reading</TableHead>
-                                                            <TableHead className="text-right">End of Day Reading</TableHead>
-                                                            <TableHead className="text-center">Actions</TableHead>
-                                                        </TableRow>
-                                                    </TableHeader>
-                                                    <TableBody>
-                                                        {dayData.machineReadings.map(reading => (
-                                                            <TableRow key={reading.id}>
-                                                                <TableCell>{reading.machineName} ({reading.fuelType})</TableCell>
-                                                                <TableCell className="text-right font-mono">
-                                                                    <div>{reading.previousReadingVolume?.toFixed(2) ?? 'N/A'}</div>
-                                                                    {reading.previousReadingTimestamp && (
-                                                                        <div className="text-xs text-muted-foreground">{format(new Date(reading.previousReadingTimestamp), 'dd-MMM-yy hh:mm a')}</div>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="text-right font-mono">
-                                                                    <div>{reading.volume.toFixed(2)}</div>
-                                                                    {reading.timestamp && (
-                                                                        <div className="text-xs text-muted-foreground">{format(new Date(reading.timestamp), 'dd-MMM-yy hh:mm a')}</div>
-                                                                    )}
-                                                                </TableCell>
-                                                                <TableCell className="text-center">
-                                                                    <Button variant="ghost" size="icon" title="Edit" onClick={() => setReadingToEdit(reading)}>
-                                                                        <Pencil className="w-4 h-4" />
-                                                                    </Button>
-                                                                    <Button variant="ghost" size="icon" title="Delete" onClick={() => setReadingToDelete(reading)}>
-                                                                        <Trash2 className="w-4 h-4 text-destructive" />
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
                                 {showJournal && (
                                     <div className="border rounded-md">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead className="w-12 px-4">
-                                                  <Checkbox
-                                                    checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false}
-                                                    onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)}
-                                                    aria-label="Select all entries for this day"
-                                                  />
+                                                  <Checkbox checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false} onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)} />
                                                 </TableHead>
                                                 <TableHead>Sr #</TableHead>
                                                 <TableHead>Date & Time</TableHead>
                                                 <TableHead>Partner</TableHead>
-                                                <TableHead>Notes</TableHead>
                                                 <TableHead>Particulars</TableHead>
-                                                <TableHead>Type</TableHead>
                                                 <TableHead className="text-right">Debit</TableHead>
                                                 <TableHead className="text-right">Credit</TableHead>
                                                 <TableHead className="text-right">Balance</TableHead>
@@ -1181,77 +996,22 @@ export default function LedgerPage() {
                                                 return (
                                                     <TableRow key={entry.id}>
                                                         <TableCell className="px-4">
-                                                          <Checkbox
-                                                            checked={selectedEntries.includes(entry.id)}
-                                                            onCheckedChange={(checked) => handleSelectEntry(entry.id, !!checked)}
-                                                            disabled={!entry.id.includes('-')}
-                                                            aria-label="Select row"
-                                                          />
+                                                          <Checkbox checked={selectedEntries.includes(entry.id)} onCheckedChange={(checked) => handleSelectEntry(entry.id, !!checked)} disabled={!entry.id.includes('-')} />
                                                         </TableCell>
                                                         <TableCell>{currentSr}</TableCell>
+                                                        <TableCell className="font-medium" style={{ color }}>{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}</TableCell>
                                                         <TableCell className="font-medium" style={{ color }}>
-                                                            {isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date'}
-                                                        </TableCell>
-                                                        <TableCell className="font-medium" style={{ color }}>
-                                                            <Link href={link} className="hover:underline" rel="noopener noreferrer">
-                                                                {entry.partnerName}
-                                                            </Link>
+                                                            <Link href={link} className="hover:underline">{entry.partnerName}</Link>
                                                             {entry.entityId && entityBalances[entry.entityId] !== undefined && (
-                                                                <div className="text-xs text-muted-foreground">
-                                                                    Cur. Bal: {entityBalances[entry.entityId].toLocaleString(undefined, {minimumFractionDigits: 2})}
-                                                                </div>
+                                                                <div className="text-xs text-muted-foreground">Cur. Bal: {entityBalances[entry.entityId].toLocaleString()}</div>
                                                             )}
                                                         </TableCell>
-                                                        <TableCell>
-                                                            {(() => {
-                                                                const notes = entry.notes || '';
-                                                                // User requested: Dont Show Any Vehicle Number For Cash Sale or Walkin Customer Sale
-                                                                const isCashOrWalkin = entry.type === 'Sale' && !entry.isCreditSale;
-                                                                if (isCashOrWalkin) {
-                                                                    return notes.replace(/Vehicle: [^,]+(, )?/g, '').trim();
-                                                                }
-                                                                return notes;
-                                                            })()}
-                                                        </TableCell>
-                                                        <TableCell style={{ color }}>
-                                                            {entry.description}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                        <Badge 
-                                                            className="text-xs border"
-                                                            style={{
-                                                                backgroundColor: `${color}20`,
-                                                                color: color,
-                                                                borderColor: `${color}40`,
-                                                            }}
-                                                        >
-                                                          {typeLabel}
-                                                        </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono" style={{ color }}>
-                                                            {entry.debit > 0 ? entry.debit.toFixed(2) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className="text-right font-mono" style={{ color }}>
-                                                            {entry.credit > 0 ? entry.credit.toFixed(2) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>
-                                                            {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                                        </TableCell>
+                                                        <TableCell style={{ color }}>{entry.description} <Badge className="ml-2 text-[10px]" style={{ backgroundColor: `${color}20`, color, borderColor: `${color}40` }}>{typeLabel}</Badge></TableCell>
+                                                        <TableCell className="text-right font-mono" style={{ color }}>{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
+                                                        <TableCell className="text-right font-mono" style={{ color }}>{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                                                        <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>{entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                                         <TableCell className="text-center">
-                                                            <Button asChild variant="ghost" size="icon" title="Edit">
-                                                                <Link href="/customers">
-                                                                    <Pencil className="w-4 h-4" />
-                                                                </Link>
-                                                            </Button>
-                                                            <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            className="text-destructive hover:text-destructive" 
-                                                            onClick={() => setEntryToDelete(entry)}
-                                                            disabled={!entry.id.includes('-')}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                            </Button>
+                                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)} disabled={!entry.id.includes('-')}><Trash2 className="h-4 w-4" /></Button>
                                                         </TableCell>
                                                     </TableRow>
                                                 )
@@ -1265,7 +1025,7 @@ export default function LedgerPage() {
                         )
                     })}
                 </Accordion>
-            ) : <p className="text-center p-8 text-muted-foreground">{hasActiveFilters ? 'No transactions match your filters.' : 'No transactions found.'}</p>}
+            ) : <p className="text-center p-8 text-muted-foreground">No transactions found.</p>}
         </CardContent>
       </Card>
     </div>
@@ -1273,17 +1033,12 @@ export default function LedgerPage() {
     <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the entry for: <br />
-              <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
-            </AlertDialogDescription>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>This action cannot be undone. Permanently delete: <strong>{entryToDelete?.description}</strong></AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, delete entry
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, delete entry</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1291,81 +1046,15 @@ export default function LedgerPage() {
       <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the selected {selectedEntries.length} entries.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Delete {selectedEntries.length} entries?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the selected entries.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSelectedEntries} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Yes, delete {selectedEntries.length} entries
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteSelectedEntries} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, delete {selectedEntries.length} entries</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
-      <AlertDialog open={!!readingToDelete} onOpenChange={(isOpen) => !isOpen && setReadingToDelete(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-                This will move the machine reading to the recycle bin.
-            </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteReading} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Yes, delete reading
-            </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={!!readingToEdit} onOpenChange={(isOpen) => !isOpen && setReadingToEdit(null)}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Edit Machine Reading for {readingToEdit?.machineName}</DialogTitle>
-                <DialogDescription>
-                    Update the closing reading volume and date.
-                </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmitReading(onEditReadingSubmit)}>
-                <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="edit-reading-volume">Volume</Label>
-                        <Input id="edit-reading-volume" type="number" step="any" {...registerReading('volume')} />
-                        {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
-                    </div>
-                     <div className="space-y-2">
-                        <Label>Date</Label>
-                        <Controller
-                            name="date"
-                            control={controlReading}
-                            render={({ field }) => (
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
-                        {readingErrors.date && <p className="text-sm text-destructive">{readingErrors.date.message}</p>}
-                    </div>
-                </div>
-                <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setReadingToEdit(null)}>Cancel</Button>
-                    <Button type="submit">Save Changes</Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
     </>
   );
 }

@@ -33,7 +33,7 @@ type CombinedEntry = {
   entityId: string;
   entityName: string;
   entityType: 'Customer' | 'Supplier' | 'Partner';
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Investment' | 'Withdrawal';
+  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Sale Return' | 'Purchase Return';
   description: string;
   debit: number;
   credit: number;
@@ -50,7 +50,9 @@ export default function PartnerLedgerPage() {
       purchases, 
       supplierPayments, 
       businessPartners, 
-      investments, 
+      investments,
+      saleReturns,
+      purchaseReturns,
       isLoaded,
       deleteTransaction,
       deleteCustomerPayment,
@@ -58,6 +60,8 @@ export default function PartnerLedgerPage() {
       deletePurchase,
       deleteSupplierPayment,
       deleteInvestment,
+      deleteSaleReturn,
+      deletePurchaseReturn,
   } = useDatabase();
   
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
@@ -67,26 +71,11 @@ export default function PartnerLedgerPage() {
 
   const entities = useMemo(() => {
     if (!isLoaded) return [];
-
     const entityMap = new Map<string, { id: string; name: string; type: 'Customer' | 'Supplier' | 'Partner' }>();
-
-    customers.forEach(c => {
-      // It's a regular customer unless it's also in the partners list
-      entityMap.set(c.id, { id: c.id, name: c.name, type: 'Customer' });
-    });
-
-    suppliers.forEach(s => {
-      entityMap.set(s.id, { id: s.id, name: s.name, type: 'Supplier' });
-    });
-    
-    businessPartners.forEach(p => {
-        // If a partner exists, their type should be 'Partner'
-        entityMap.set(p.id, { id: p.id, name: p.name, type: 'Partner' });
-    });
-
-    const allEntities = Array.from(entityMap.values());
-    
-    return allEntities.sort((a,b) => a.name.localeCompare(b.name));
+    customers.forEach(c => entityMap.set(c.id, { id: c.id, name: c.name, type: 'Customer' }));
+    suppliers.forEach(s => entityMap.set(s.id, { id: s.id, name: s.name, type: 'Supplier' }));
+    businessPartners.forEach(p => entityMap.set(p.id, { id: p.id, name: p.name, type: 'Partner' }));
+    return Array.from(entityMap.values()).sort((a,b) => a.name.localeCompare(b.name));
   }, [customers, suppliers, businessPartners, isLoaded]);
 
   const { entries, totals, finalBalance, specialReport } = useMemo(() => {
@@ -94,9 +83,9 @@ export default function PartnerLedgerPage() {
 
     const combined: Omit<CombinedEntry, 'balance'>[] = [];
 
-    // Customer transactions
     transactions.forEach(tx => {
       if (tx.customerId) {
+        const isCredit = tx.paymentMethod === 'Credit';
         combined.push({
           id: `tx-${tx.id}`,
           timestamp: tx.timestamp,
@@ -106,7 +95,7 @@ export default function PartnerLedgerPage() {
           type: 'Sale',
           description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
           debit: tx.totalAmount,
-          credit: 0,
+          credit: isCredit ? 0 : tx.totalAmount, // Cash sales are Debit and Credit (wash)
         });
       }
     });
@@ -139,7 +128,6 @@ export default function PartnerLedgerPage() {
       });
     });
     
-    // Supplier transactions
     purchases.forEach(p => {
         combined.push({
             id: `pur-${p.id}`,
@@ -168,7 +156,6 @@ export default function PartnerLedgerPage() {
         });
     });
 
-    // Partner transactions
     investments.forEach(inv => {
         combined.push({
             id: `inv-${inv.id}`,
@@ -183,6 +170,33 @@ export default function PartnerLedgerPage() {
         });
     });
 
+    saleReturns.forEach(sr => {
+        combined.push({
+            id: `sr-${sr.id}`,
+            timestamp: sr.timestamp,
+            entityId: sr.customerId,
+            entityName: sr.customerName,
+            entityType: 'Customer',
+            type: 'Sale Return',
+            description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
+            debit: 0,
+            credit: sr.totalRefund,
+        });
+    });
+
+    purchaseReturns.forEach(pr => {
+        combined.push({
+            id: `pr-${pr.id}`,
+            timestamp: pr.timestamp,
+            entityId: pr.supplierId,
+            entityName: pr.supplier,
+            entityType: 'Supplier',
+            type: 'Purchase Return',
+            description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
+            debit: pr.totalRefund,
+            credit: 0,
+        });
+    });
 
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
@@ -194,24 +208,14 @@ export default function PartnerLedgerPage() {
     if (selectedEntityId && entityFilteredEntries.length > 0) {
         const lastDebitEntry = [...entityFilteredEntries].reverse().find(e => e.debit > 0);
         const lastCreditEntry = [...entityFilteredEntries].reverse().find(e => e.credit > 0);
-        
         const entityType = entities.find(e => e.id === selectedEntityId)?.type;
-        
-        let entityTotalBalance;
-        if (entityType === 'Partner') {
-          // For partners, positive balance is net investment (credit balance)
-          entityTotalBalance = entityFilteredEntries.reduce((acc, entry) => acc + (entry.credit - entry.debit), 0);
+        let totalBal = 0;
+        if (entityType === 'Partner' || entityType === 'Supplier') {
+            totalBal = entityFilteredEntries.reduce((acc, entry) => acc + (entry.credit - entry.debit), 0);
         } else {
-          // For customers/suppliers, positive balance is amount owed to us (debit balance)
-          entityTotalBalance = entityFilteredEntries.reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
+            totalBal = entityFilteredEntries.reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
         }
-
-        reportData = {
-            totalBalance: entityTotalBalance,
-            lastDebit: lastDebitEntry ? lastDebitEntry.debit : 0,
-            lastCredit: lastCreditEntry ? lastCreditEntry.credit : 0,
-            entityType: entityType || 'Customer',
-        };
+        reportData = { totalBalance: totalBal, lastDebit: lastDebitEntry?.debit || 0, lastCredit: lastCreditEntry?.credit || 0, entityType: entityType || 'Customer' };
     }
 
     let openingBalance = 0;
@@ -221,106 +225,50 @@ export default function PartnerLedgerPage() {
       const startOfSelectedDay = startOfDay(selectedDate);
       openingBalance = entityFilteredEntries
         .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfSelectedDay)
-        .reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
-
-      const endOfSelectedDay = endOfDay(selectedDate);
-      entriesForDisplay = entityFilteredEntries.filter(entry => {
-          const entryDate = new Date(entry.timestamp);
-          return isValid(entryDate) && entryDate >= startOfSelectedDay && entryDate <= endOfSelectedDay;
-      });
+        .reduce((acc, entry) => {
+            const entityType = entities.find(e => e.id === entry.entityId)?.type;
+            if(entityType === 'Partner' || entityType === 'Supplier') return acc + (entry.credit - entry.debit);
+            return acc + (entry.debit - entry.credit);
+        }, 0);
+      entriesForDisplay = entityFilteredEntries.filter(entry => isSameDay(new Date(entry.timestamp), selectedDate));
     }
 
     let runningBalance = openingBalance;
     const entriesWithBalance: CombinedEntry[] = entriesForDisplay.map(entry => {
         const entityType = entities.find(e => e.id === entry.entityId)?.type;
-        if(entityType === 'Partner' || entityType === 'Supplier'){
-            runningBalance += entry.credit - entry.debit;
-        } else {
-             runningBalance += entry.debit - entry.credit;
-        }
-
+        if(entityType === 'Partner' || entityType === 'Supplier') runningBalance += entry.credit - entry.debit;
+        else runningBalance += entry.debit - entry.credit;
         return { ...entry, balance: runningBalance };
     });
 
-    const calculatedTotals = entriesForDisplay.reduce(
-        (acc, entry) => {
-            acc.debit += entry.debit;
-            acc.credit += entry.credit;
-            return acc;
-        },
-        { debit: 0, credit: 0 }
-    );
+    const calculatedTotals = entriesForDisplay.reduce((acc, entry) => { acc.debit += entry.debit; acc.credit += entry.credit; return acc; }, { debit: 0, credit: 0 });
     
-    return { 
-        entries: entriesWithBalance.reverse(),
-        totals: calculatedTotals,
-        finalBalance: runningBalance,
-        specialReport: reportData,
-    };
-  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, selectedEntityId, selectedDate, isLoaded, entities]);
+    return { entries: entriesWithBalance.reverse(), totals: calculatedTotals, finalBalance: runningBalance, specialReport: reportData };
+  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, saleReturns, purchaseReturns, selectedEntityId, selectedDate, isLoaded, entities]);
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
-
-    if (!entryToDelete.id || !entryToDelete.id.includes('-')) {
-        toast({
-            variant: 'destructive',
-            title: 'Delete Failed',
-            description: 'This is a calculated entry and cannot be deleted.',
-        });
-        setEntryToDelete(null);
-        return;
-    }
-
-    const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
-
+    const [prefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
-        switch(typePrefix) {
-            case 'tx': deleteTransaction(id); break;
-            case 'pay': deleteCustomerPayment(id); break;
-            case 'adv': deleteCashAdvance(id); break;
-            case 'pur': deletePurchase(id); break;
-            case 'sp': deleteSupplierPayment(id); break;
-            case 'inv': deleteInvestment(id); break;
-            default:
-                throw new Error('Could not delete entry of unknown type.');
-        }
-        toast({
-            title: 'Entry Deleted',
-            description: `The ${entryToDelete.type} entry has been successfully deleted.`,
-        });
-    } catch (error: any) {
-         toast({
-            variant: 'destructive',
-            title: 'Error Deleting',
-            description: error.message || 'An unexpected error occurred.',
-        });
-    } finally {
-        setEntryToDelete(null);
-    }
+        if (prefix === 'tx') deleteTransaction(id);
+        else if (prefix === 'pay') deleteCustomerPayment(id);
+        else if (prefix === 'adv') deleteCashAdvance(id);
+        else if (prefix === 'pur') deletePurchase(id);
+        else if (prefix === 'sp') deleteSupplierPayment(id);
+        else if (prefix === 'inv') deleteInvestment(id);
+        else if (prefix === 'sr') deleteSaleReturn(id);
+        else if (prefix === 'pr') deletePurchaseReturn(id);
+        toast({ title: 'Entry Deleted' });
+    } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
+    setEntryToDelete(null);
   };
 
   const getBadgeVariant = (type: CombinedEntry['type']) => {
-    switch (type) {
-      case 'Sale':
-      case 'Cash Advance':
-      case 'Supplier Payment':
-      case 'Withdrawal':
-        return 'destructive';
-      case 'Payment':
-      case 'Purchase':
-      case 'Investment':
-        return 'outline';
-      default:
-        return 'default';
-    }
+    if (['Sale', 'Cash Advance', 'Supplier Payment', 'Withdrawal'].includes(type)) return 'destructive';
+    return 'outline';
   };
 
-  const clearFilters = () => {
-    setSelectedEntityId('');
-    setSelectedDate(undefined);
-  };
-
+  const clearFilters = () => { setSelectedEntityId(''); setSelectedDate(undefined); };
   const hasActiveFilters = selectedEntityId || selectedDate;
   const selectedEntity = entities.find(e => e.id === selectedEntityId);
 
@@ -329,224 +277,62 @@ export default function PartnerLedgerPage() {
     <div className="p-4 md:p-8 space-y-6">
        <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <HandCoins /> Unified Ledger
-          </CardTitle>
-          <CardDescription>A unified record of all transactions for customers, suppliers, and business partners. Use the filters below to refine your search.</CardDescription>
-          
+          <CardTitle className="flex items-center gap-2"><HandCoins /> Unified Ledger</CardTitle>
+          <CardDescription>A unified record of all transactions.</CardDescription>
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-4">
-              <Select value={selectedEntityId} onValueChange={(value) => setSelectedEntityId(value === 'all' ? '' : value)}>
-                <SelectTrigger className="sm:w-[240px]">
-                  <SelectValue placeholder="Filter by partner..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Partners</SelectItem>
-                  {entities.map(e => (
-                    <SelectItem key={e.id} value={e.id}>{e.name} ({e.type})</SelectItem>
-                  ))}
-                </SelectContent>
+              <Select value={selectedEntityId} onValueChange={(v) => setSelectedEntityId(v === 'all' ? '' : v)}>
+                <SelectTrigger className="sm:w-[240px]"><SelectValue placeholder="Filter by partner..." /></SelectTrigger>
+                <SelectContent><SelectItem value="all">All Partners</SelectItem>{entities.map(e => (<SelectItem key={e.id} value={e.id}>{e.name} ({e.type})</SelectItem>))}</SelectContent>
               </Select>
-              
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={"outline"}
-                    className={cn(
-                      "w-full sm:w-[240px] justify-start text-left font-normal",
-                      !selectedDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : <span>Filter by date...</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-
-              {hasActiveFilters && (
-                <Button variant="ghost" onClick={clearFilters}>
-                  <X className="mr-2 h-4 w-4" />
-                  Clear Filters
-                </Button>
-              )}
+              <Popover><PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full sm:w-[240px] justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{selectedDate ? format(selectedDate, "PPP") : <span>Filter by date...</span>}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent></Popover>
+              {hasActiveFilters && <Button variant="ghost" onClick={clearFilters}><X className="mr-2 h-4 w-4" />Clear</Button>}
           </div>
         </CardHeader>
       </Card>
 
       {selectedEntityId && specialReport && selectedEntity && (
-        <Card>
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                    {selectedEntity.type} Report for {selectedEntity.name}
-                </CardTitle>
-            </CardHeader>
+        <Card><CardHeader><CardTitle className="text-lg">{selectedEntity.type} Report for {selectedEntity.name}</CardTitle></CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground"><Wallet /> Total Balance</div>
-                    <div className={`text-2xl font-bold ${specialReport.entityType === 'Partner' ? (specialReport.totalBalance >= 0 ? 'text-green-600' : 'text-destructive') : (specialReport.totalBalance > 0 ? 'text-destructive' : 'text-green-600')}`}>
-                        PKR {specialReport.totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
+                    <div className={`text-2xl font-bold ${specialReport.entityType === 'Partner' ? (specialReport.totalBalance >= 0 ? 'text-green-600' : 'text-destructive') : (specialReport.totalBalance > 0 ? 'text-destructive' : 'text-green-600')}`}>PKR {specialReport.totalBalance.toLocaleString()}</div>
                 </div>
-                <div className="p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown /> Last Debit</div>
-                    <div className="text-2xl font-bold text-destructive">PKR {specialReport.lastDebit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                </div>
-                <div className="p-4 bg-muted/50 rounded-lg">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp /> Last Credit</div>
-                    <div className="text-2xl font-bold text-green-600">PKR {specialReport.lastCredit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                </div>
+                <div className="p-4 bg-muted/50 rounded-lg"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown /> Last Debit</div><div className="text-2xl font-bold text-destructive">PKR {specialReport.lastDebit.toLocaleString()}</div></div>
+                <div className="p-4 bg-muted/50 rounded-lg"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp /> Last Credit</div><div className="text-2xl font-bold text-green-600">PKR {specialReport.lastCredit.toLocaleString()}</div></div>
             </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Transaction History</CardTitle>
-          <CardDescription>
-            {selectedDate 
-              ? `Showing transactions for ${format(selectedDate, 'PPP')}` 
-              : 'A detailed log of all transactions for the selected filter.'
-            }
-          </CardDescription>
-        </CardHeader>
+      <Card><CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
         <CardContent>
           {isLoaded && entries.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Partner</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-center">Type</TableHead>
-                  <TableHead className="text-right">Debit</TableHead>
-                  <TableHead className="text-right">Credit</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                  <TableHead className="text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
+            <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
-                {(() => {
-                  let lastDate: string | null = null;
-                  return entries.map(entry => {
+                {entries.map(entry => {
                     const date = new Date(entry.timestamp);
-                    const formattedDate = isValid(date) ? format(date, 'yyyy-MM-dd') : null;
-                    const showSeparator = formattedDate && formattedDate !== lastDate;
-                    lastDate = formattedDate;
-
                     return (
-                      <React.Fragment key={entry.id}>
-                        {showSeparator && (
-                          <TableRow className="bg-red-800 hover:bg-red-900">
-                            <TableCell colSpan={8} className="text-center font-semibold text-white py-2">
-                              {format(date, 'EEEE, dd MMMM yyyy')}
-                            </TableCell>
-                          </TableRow>
-                        )}
-                        <TableRow>
-                          <TableCell className="font-medium">
-                            {isValid(date) ? format(date, 'PP pp') : 'Invalid Date'}
-                          </TableCell>
-                          <TableCell>
-                            <div>{entry.entityName}</div>
-                            <div className="text-xs text-muted-foreground">{entry.entityType}</div>
-                          </TableCell>
+                        <TableRow key={entry.id}>
+                          <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'PP pp') : 'Invalid'}</TableCell>
+                          <TableCell><div>{entry.entityName}</div><div className="text-xs text-muted-foreground">{entry.entityType}</div></TableCell>
                           <TableCell>{entry.description}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge 
-                              variant={getBadgeVariant(entry.type)}
-                              className={cn((entry.type === 'Payment' || entry.type === 'Purchase' || entry.type === 'Investment') && 'bg-green-100 text-green-800 border-green-200 hover:bg-green-200 dark:bg-green-900/50 dark:text-green-300 dark:border-green-700')}
-                            >
-                              {entry.type}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-destructive">
-                              {entry.debit > 0 ? `PKR ${entry.debit.toFixed(2)}` : '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-green-600">
-                              {entry.credit > 0 ? `PKR ${entry.credit.toFixed(2)}` : '-'}
-                          </TableCell>
-                          <TableCell className={`text-right font-semibold font-mono ${entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                              {entry.balance?.toFixed(2)}
-                          </TableCell>
-                          <TableCell className="text-center space-x-0">
-                                <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                   <Link href={`/customers/${entry.entityId}/ledger`}>
-                                     <BookText className="w-4 h-4" />
-                                   </Link>
-                                </Button>
-                                <Button asChild variant="ghost" size="icon" title="Edit Partner">
-                                   <Link href="/customers">
-                                     <Pencil className="w-4 h-4" />
-                                   </Link>
-                                </Button>
-                                <Button variant="ghost" size="icon" title="Delete Entry" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
-                          </TableCell>
+                          <TableCell className="text-center"><Badge variant={getBadgeVariant(entry.type)}>{entry.type}</Badge></TableCell>
+                          <TableCell className="text-right font-mono text-destructive">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
+                          <TableCell className="text-right font-mono text-green-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                          <TableCell className={cn("text-right font-semibold font-mono", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600')}>{entry.balance?.toFixed(2)}</TableCell>
+                          <TableCell className="text-center"><Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)}><Trash2 className="w-4 h-4" /></Button></TableCell>
                         </TableRow>
-                      </React.Fragment>
                     )
-                  });
-                })()}
+                })}
               </TableBody>
-               <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={4} className="font-bold text-right">Totals for Period</TableCell>
-                  <TableCell className="text-right font-bold font-mono text-destructive">PKR {totals.debit.toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-bold font-mono text-green-600">PKR {totals.credit.toFixed(2)}</TableCell>
-                  <TableCell colSpan={2} />
-                </TableRow>
-                <TableRow>
-                  <TableCell colSpan={5} className="font-bold text-right">Closing Balance for Period</TableCell>
-                  <TableCell colSpan={3} className={`text-right font-bold text-lg font-mono ${finalBalance > 0 ? 'text-destructive' : 'text-green-600'}`}>
-                    PKR {finalBalance.toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
+               <TableFooter><TableRow><TableCell colSpan={4} className="font-bold text-right">Totals</TableCell><TableCell className="text-right font-bold text-destructive">PKR {totals.debit.toFixed(2)}</TableCell><TableCell className="text-right font-bold text-green-600">PKR {totals.credit.toFixed(2)}</TableCell><TableCell colSpan={2} /></TableRow></TableFooter>
             </Table>
-          ) : (
-            <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-8 border-2 border-dashed rounded-lg">
-                {isLoaded ? (
-                    <>
-                        <XCircle className="w-16 h-16" />
-                        <h3 className="text-xl font-semibold">
-                          {hasActiveFilters ? 'No Matching Transactions' : 'No Partner Transactions Yet'}
-                        </h3>
-                        <p>
-                          {hasActiveFilters ? 'Try adjusting or clearing your filters.' : 'Sales, purchases, and payments will appear here.'}
-                        </p>
-                    </>
-                ) : (
-                    <p>Loading transaction data...</p>
-                )}
-            </div>
-          )}
+          ) : <div className="text-center p-8 text-muted-foreground">No transactions found.</div>}
         </CardContent>
       </Card>
     </div>
     <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
-        <AlertDialogContent>
-        <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the entry for: <br />
-            <strong className="font-medium text-foreground">{entryToDelete?.description}</strong>
-            </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            Yes, delete entry
-            </AlertDialogAction>
-        </AlertDialogFooter>
-        </AlertDialogContent>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Entry?</AlertDialogTitle><AlertDialogDescription>Delete: {entryToDelete?.description}</AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
     </>
   );
