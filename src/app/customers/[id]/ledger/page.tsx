@@ -33,7 +33,7 @@ type LedgerEntry = {
   id: string;
   timestamp: string;
   description: string;
-  type: 'Sale' | 'Payment' | 'Cash Advance' | 'Purchase' | 'Supplier Payment' | 'Salary' | 'Investment' | 'Withdrawal' | 'Sale Return';
+  type: string;
   debit: number;
   credit: number;
   balance: number;
@@ -95,14 +95,16 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
 
         customerTransactions.forEach(tx => {
-          const isCredit = tx.paymentMethod === 'Credit';
+          // FIREBASE IMPLEMENTATION TASK: Both Cash and Credit sales increase receivable balance
+          // but show differently.
+          const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer');
           combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-            type: 'Sale',
+            type: 'Credit Sale',
             debit: tx.totalAmount,
-            credit: isCredit ? 0 : tx.totalAmount, 
+            credit: 0, // In Customer Ledger, a Sale is a Debit (Increases Receivable)
             original: tx
           });
         });
@@ -301,8 +303,10 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                 <TableBody>
                   {entries.map(entry => {
                     const date = new Date(entry.timestamp);
-                    const isSale = entry.type === 'Sale';
-                    const color = entry.original?.paymentMethod === 'Credit' ? 'text-blue-600' : (isSale ? 'text-destructive' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
+                    // FIREBASE IMPLEMENTATION TASK: Coloring
+                    const isWalkIn = entry.original?.isWalkIn;
+                    const color = isWalkIn ? 'text-green-600' : (entry.type === 'Credit Sale' ? 'text-blue-600' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
+                    
                     return (
                         <TableRow key={entry.id}>
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid'}</TableCell>

@@ -184,7 +184,7 @@ export default function SalesPage() {
     }
   }, [isLoaded, products, setItemValue, handleProductSelect]);
 
-  // BUSINESS RULE: Walk-in is always Cash, Identified customers are always Credit
+  // MANDATORY LOGIC: Walk-in = Cash, Others = Credit
   useEffect(() => {
     if (isWalkIn) {
       setValue('paymentMethod', 'Cash');
@@ -371,7 +371,7 @@ export default function SalesPage() {
 
     let finalNotes = data.notes || '';
     // RULE: Don't show vehicle number for Cash sales
-    if (data.vehicleNumber && data.paymentMethod === 'Credit' && !isWalkIn) {
+    if (data.vehicleNumber && !isWalkIn) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
     
@@ -395,20 +395,33 @@ export default function SalesPage() {
             }
         }
 
-        const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { timestamp?: string } = {
+        // FIREBASE IMPLEMENTATION TASK: Lock logic for Walk-in vs Others
+        const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { 
+            timestamp?: string, 
+            isWalkIn: boolean, 
+            saleType: 'cash' | 'credit',
+            entryType: 'cash_sale' | 'credit_sale',
+            journalColumn: 'credit' | 'debit',
+            colorCode: string
+        } = {
           fuelType: item.productName,
           volume: item.quantity,
           pricePerLitre: item.price,
           product: item.productName,
           totalAmount: item.totalAmount,
           costPrice: costPrice,
-          paymentMethod: (data.paymentMethod as PaymentMethod) || 'Cash',
+          paymentMethod: isWalkIn ? 'Cash' : 'Credit',
           customerId: data.customerId,
           customerName: selectedCustomer?.name || 'Walk-in Customer',
           notes: finalNotes,
           timestamp: finalInvoiceDate,
+          isWalkIn: isWalkIn,
+          saleType: isWalkIn ? 'cash' : 'credit',
+          entryType: isWalkIn ? 'cash_sale' : 'credit_sale',
+          journalColumn: isWalkIn ? 'credit' : 'debit',
+          colorCode: isWalkIn ? '#22C55E' : '#3B82F6' // Green for Walk-in, Blue for Credit
         };
-        addTransaction(transactionData);
+        addTransaction(transactionData as any);
     });
 
     toast({ title: 'Sale Complete', description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.` });
@@ -736,12 +749,12 @@ export default function SalesPage() {
                                 <SelectContent>
                                   {isWalkIn ? (
                                     <>
-                                      <SelectItem value="Cash">Cash</SelectItem>
+                                      <SelectItem value="Cash">Cash Sale – Walk-in</SelectItem>
                                       <SelectItem value="Card">Card</SelectItem>
                                       <SelectItem value="Mobile">Mobile Wallet</SelectItem>
                                     </>
                                   ) : (
-                                    <SelectItem value="Credit">Credit (Udhar)</SelectItem>
+                                    <SelectItem value="Credit">Credit Sale (Udhar)</SelectItem>
                                   )}
                                 </SelectContent>
                               </Select>

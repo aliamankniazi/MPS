@@ -40,12 +40,13 @@ type LedgerEntry = {
   description: string;
   partnerName: string;
   entityId?: string;
-  type: 'Sale' | 'Purchase' | 'Expense' | 'Purchase Return' | 'Sale Return' | 'Other Income' | 'Supplier Payment' | 'Investment' | 'Withdrawal' | 'Customer Payment' | 'Salary' | 'Cash Advance' | 'Daily Closing Stock' | 'Salary Expense';
+  type: string;
   debit: number;
   credit: number;
   balance: number;
   original: any;
   isCreditSale?: boolean;
+  isWalkIn?: boolean;
   notes?: string;
 };
 
@@ -141,7 +142,11 @@ export default function LedgerPage() {
         const customer = customers.find(c => c.id === tx.customerId);
         const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
-        const isCreditSale = tx.paymentMethod === 'Credit';
+        
+        // FIREBASE IMPLEMENTATION TASK: Column and Type Logic
+        const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer' || !tx.customerId || tx.customerId === 'walkin');
+        const entryType = isWalkIn ? 'cash_sale' : 'credit_sale';
+        const displayLabel = isWalkIn ? 'Cash Sale – Walk-in' : 'Credit Sale';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -149,11 +154,13 @@ export default function LedgerPage() {
             description,
             partnerName: customerName,
             entityId: tx.customerId,
-            type: 'Sale',
-            debit: tx.totalAmount, 
-            credit: !isCreditSale ? tx.totalAmount : 0, 
+            type: entryType,
+            // Logic: Walk-in -> Credit Column, Others -> Debit Column
+            debit: isWalkIn ? 0 : tx.totalAmount, 
+            credit: isWalkIn ? tx.totalAmount : 0, 
             original: tx,
-            isCreditSale: isCreditSale,
+            isCreditSale: !isWalkIn,
+            isWalkIn: isWalkIn,
             notes: tx.notes,
         });
     });
@@ -318,7 +325,7 @@ export default function LedgerPage() {
     });
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
 
-  // 2. filteredEntries - MOVED UP TO FIX REFERENCE ERROR
+  // 2. filteredEntries
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
 
@@ -350,7 +357,7 @@ export default function LedgerPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
-    const salesByProduct = filteredEntries.filter(e => e.type === 'Sale').reduce((acc, e) => {
+    const salesByProduct = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').reduce((acc, e) => {
         const tx = e.original as Transaction;
         const productName = tx.product || tx.fuelType;
         if (!productName) return acc;
@@ -370,7 +377,7 @@ export default function LedgerPage() {
   const profitSummary = useMemo(() => {
     if (!isLoaded) return null;
     
-    const filteredTransactions = filteredEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
+    const filteredTransactions = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
     const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
     const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
     
@@ -410,7 +417,7 @@ export default function LedgerPage() {
       const dayCredit = dayEntries.reduce((sum, e) => sum + e.credit, 0);
       lastDayClosingBalance = dayOpeningBalance + dayDebit - dayCredit;
       
-        const salesOnDay = dayEntries.filter(e => e.type === 'Sale').map(e => e.original as Transaction);
+        const salesOnDay = dayEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
         const readingsOnDay = machineReadings.filter(r => isValid(new Date(r.timestamp)) && isSameDay(new Date(r.timestamp), dayStart));
         const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
 
@@ -434,8 +441,8 @@ export default function LedgerPage() {
         totalDebit: dayDebit,
         totalCredit: dayCredit,
         dailySummary: dayEntries.reduce((summary, entry) => {
-          if (entry.type === 'Sale' && !entry.isCreditSale) summary.cashSale += entry.credit;
-          if (entry.type === 'Sale' && entry.isCreditSale) summary.creditSale += entry.debit;
+          if (entry.type === 'cash_sale') summary.cashSale += entry.credit;
+          if (entry.type === 'credit_sale') summary.creditSale += entry.debit;
           if (entry.type === 'Customer Payment' || entry.type === 'Salary') summary.recovery += entry.credit;
           if (entry.type === 'Other Income') summary.otherIncome += entry.credit;
           if (entry.type === 'Cash Advance') summary.cashAdvance += entry.debit;
@@ -490,7 +497,7 @@ export default function LedgerPage() {
   const handleExportExcel = () => {
     const dataToExport = filteredEntries.slice().reverse().map(entry => {
         const date = new Date(entry.timestamp);
-        const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+        const typeLabel = entry.type === 'cash_sale' ? 'Cash Sale – Walk-in' : entry.type === 'credit_sale' ? 'Credit Sale' : entry.type;
         const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
         return {
             'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
@@ -527,10 +534,11 @@ export default function LedgerPage() {
       });
   }, [groupedEntries]);
 
+  // FIREBASE IMPLEMENTATION TASK: Color logic
   const getEntryColor = (entry: LedgerEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // CREDIT SALES ARE BLUE
-    const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
-    return colorSettings[type] || '#6b7280';
+    if (entry.type === 'cash_sale') return '#22C55E'; // Green
+    if (entry.type === 'credit_sale') return '#3B82F6'; // Blue
+    return colorSettings[entry.type] || '#6b7280';
   };
   
   const handleDeleteEntry = () => {
@@ -584,14 +592,14 @@ export default function LedgerPage() {
 
   const getEntryLink = (entry: LedgerEntry): string => {
     if (!entry.entityId) return '#';
-    if (entry.type === 'Sale') return `/invoice/sale/${entry.original.id}`;
+    if (entry.type === 'cash_sale' || entry.type === 'credit_sale') return `/invoice/sale/${entry.original.id}`;
     if (entry.type === 'Purchase') return `/invoice/purchase/${entry.original.id}`;
     return `/customers/${entry.entityId}/ledger`;
   }
 
   const getDisplayNotes = (notes: string, type: string, isCredit: boolean) => {
     if (!notes) return '';
-    if (type === 'Sale' && !isCredit) {
+    if (type === 'cash_sale') {
         return notes.replace(/Vehicle: [^,]+,?\s*/, '').trim();
     }
     return notes;
@@ -762,7 +770,7 @@ export default function LedgerPage() {
                                             {dayData.entries.slice().reverse().map((entry) => {
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
-                                                const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' && !entry.isCreditSale ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
+                                                const typeLabel = entry.type === 'cash_sale' ? 'Cash Sale – Walk-in' : entry.type === 'credit_sale' ? 'Credit Sale' : entry.type;
                                                 const currentSr = runningEntryCount--;
                                                 const link = getEntryLink(entry);
                                                 const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
