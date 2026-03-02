@@ -95,16 +95,13 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
 
         customerTransactions.forEach(tx => {
-          // FIREBASE IMPLEMENTATION TASK: Both Cash and Credit sales increase receivable balance
-          // but show differently.
-          const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer');
           combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
             type: 'Credit Sale',
             debit: tx.totalAmount,
-            credit: 0, // In Customer Ledger, a Sale is a Debit (Increases Receivable)
+            credit: 0,
             original: tx
           });
         });
@@ -260,8 +257,20 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     setEntryToDelete(null);
   };
 
-  if (!isLoaded) return <div className="p-4 md:p-8 space-y-8"><Skeleton className="h-8 w-64"/><Skeleton className="h-24 w-full"/><Skeleton className="h-96 w-full"/></div>;
-  if (!entity) return <div className="p-8 text-center"><h2 className="text-2xl font-bold text-destructive">Not Found</h2><Button asChild className="mt-4"><Link href="/partner-ledger">Back</Link></Button></div>;
+  if (!isLoaded) return (
+    <div className="p-4 md:p-8 space-y-8">
+        <Skeleton className="h-8 w-64"/>
+        <Skeleton className="h-24 w-full"/>
+        <Skeleton className="h-96 w-full"/>
+    </div>
+  );
+
+  if (!entity) return (
+    <div className="p-8 text-center">
+        <h2 className="text-2xl font-bold text-destructive">Not Found</h2>
+        <Button asChild className="mt-4"><Link href="/partner-ledger">Back</Link></Button>
+    </div>
+  );
 
   const balanceColor = (bal: number) => entityType === 'Customer' ? (bal > 0 ? 'text-destructive' : 'text-green-600') : (bal >= 0 ? 'text-green-600' : 'text-destructive');
 
@@ -270,11 +279,19 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       <div className="flex flex-col md:flex-row justify-between items-start gap-4 print:hidden">
         <div>
           <CardTitle className="text-2xl font-bold flex items-center gap-2"><BookUser /> {entityType} Ledger: <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></CardTitle>
-          <CardDescription>A record of all transactions.</CardDescription>
+          <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48" />
-          <Select onValueChange={handleQuickPeriod}><SelectTrigger className="w-[150px]"><SelectValue placeholder="Quick Period"/></SelectTrigger><SelectContent><SelectItem value="this-month">This Month</SelectItem><SelectItem value="last-month">Last Month</SelectItem><SelectItem value="this-year">This Year</SelectItem><SelectItem value="all-time">All Time</SelectItem></SelectContent></Select>
+          <Select onValueChange={handleQuickPeriod}>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Quick Period"/></SelectTrigger>
+            <SelectContent>
+                <SelectItem value="this-month">This Month</SelectItem>
+                <SelectItem value="last-month">Last Month</SelectItem>
+                <SelectItem value="this-year">This Year</SelectItem>
+                <SelectItem value="all-time">All Time</SelectItem>
+            </SelectContent>
+          </Select>
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print</Button>
           <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Excel</Button>
@@ -283,7 +300,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       </div>
 
       <div id="ledger-content" className="space-y-8">
-        <Card><CardHeader><CardTitle className="flex items-center gap-3"><User /> {entityType} Details</CardTitle></CardHeader>
+        <Card>
+          <CardHeader><CardTitle className="flex items-center gap-3"><User /> {entityType} Details</CardTitle></CardHeader>
           <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
             <div><strong>Name:</strong> <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></div>
             {'contact' in entity && <div><strong>Contact:</strong> {(entity as any).contact}</div>}
@@ -291,7 +309,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           </CardContent>
         </Card>
 
-        <Card><CardContent className="pt-6">
+        <Card>
+          <CardContent className="pt-6">
             <div className="grid gap-4 sm:grid-cols-3 mb-6">
                 <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Debit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString()}</div></CardContent></Card>
                 <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
@@ -299,13 +318,21 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             </div>
 
             <Table>
-                <TableHeader><TableRow><TableHead>Date & Time</TableHead><TableHead>Description</TableHead><TableHead>Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center print:hidden">Actions</TableHead></TableRow></TableHeader>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date & Time</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Debit</TableHead>
+                        <TableHead className="text-right">Credit</TableHead>
+                        <TableHead className="text-right">Balance</TableHead>
+                        <TableHead className="text-center print:hidden">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
                 <TableBody>
                   {entries.map(entry => {
                     const date = new Date(entry.timestamp);
-                    // FIREBASE IMPLEMENTATION TASK: Coloring
-                    const isWalkIn = entry.original?.isWalkIn;
-                    const color = isWalkIn ? 'text-green-600' : (entry.type === 'Credit Sale' ? 'text-blue-600' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
+                    const color = entry.original?.isWalkIn ? 'text-green-600' : (entry.type === 'Credit Sale' ? 'text-blue-600' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
                     
                     return (
                         <TableRow key={entry.id}>
@@ -326,8 +353,15 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       </div>
 
       <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Entry?</AlertDialogTitle><AlertDialogDescription>This will permanently delete: {entryToDelete?.description}</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete: {entryToDelete?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

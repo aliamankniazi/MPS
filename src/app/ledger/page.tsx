@@ -2,11 +2,8 @@
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
-import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X } from 'lucide-react';
@@ -131,7 +128,6 @@ export default function LedgerPage() {
   const [selectedEntries, setSelectedEntries] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
 
-  // 1. allEntries
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
     
@@ -143,10 +139,8 @@ export default function LedgerPage() {
         const customerName = customer ? customer.name : (tx.customerName || 'Walk-in Customer');
         const description = tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale');
         
-        // FIREBASE IMPLEMENTATION TASK: Column and Type Logic
         const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer' || !tx.customerId || tx.customerId === 'walkin');
         const entryType = isWalkIn ? 'cash_sale' : 'credit_sale';
-        const displayLabel = isWalkIn ? 'Cash Sale – Walk-in' : 'Credit Sale';
 
         combined.push({
             id: `tx-${tx.id}`,
@@ -155,7 +149,6 @@ export default function LedgerPage() {
             partnerName: customerName,
             entityId: tx.customerId,
             type: entryType,
-            // Logic: Walk-in -> Credit Column, Others -> Debit Column
             debit: isWalkIn ? 0 : tx.totalAmount, 
             credit: isWalkIn ? tx.totalAmount : 0, 
             original: tx,
@@ -325,7 +318,6 @@ export default function LedgerPage() {
     });
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, products, customers, suppliers, businessPartners]);
 
-  // 2. filteredEntries
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
 
@@ -353,7 +345,6 @@ export default function LedgerPage() {
     return entries;
   }, [allEntries, searchTerm, localDateRange, selectedType]);
 
-  // 3. productWiseSales
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
@@ -373,7 +364,6 @@ export default function LedgerPage() {
     return Object.values(salesByProduct);
   }, [isLoaded, filteredEntries, products]);
 
-  // 4. profitSummary
   const profitSummary = useMemo(() => {
     if (!isLoaded) return null;
     
@@ -390,7 +380,6 @@ export default function LedgerPage() {
     return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
   }, [isLoaded, filteredEntries]);
 
-  // 5. groupedEntries
   const groupedEntries: GroupedEntries = useMemo(() => {
     if (!localDateRange?.from) return {};
     const rangeStart = startOfDay(localDateRange.from);
@@ -534,10 +523,9 @@ export default function LedgerPage() {
       });
   }, [groupedEntries]);
 
-  // FIREBASE IMPLEMENTATION TASK: Color logic
   const getEntryColor = (entry: LedgerEntry) => {
-    if (entry.type === 'cash_sale') return '#22C55E'; // Green
-    if (entry.type === 'credit_sale') return '#3B82F6'; // Blue
+    if (entry.type === 'cash_sale') return '#22C55E';
+    if (entry.type === 'credit_sale') return '#3B82F6';
     return colorSettings[entry.type] || '#6b7280';
   };
   

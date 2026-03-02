@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, Mic } from 'lucide-react';
-import type { PaymentMethod, Transaction, Product, Purchase, FuelType } from '@/lib/types';
+import type { Transaction, Product, Purchase, FuelType } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
@@ -45,7 +45,6 @@ const transactionSchema = z.object({
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
-
 
 function PageHeader() {
     const [currentTime, setCurrentTime] = useState('');
@@ -184,7 +183,6 @@ export default function SalesPage() {
     }
   }, [isLoaded, products, setItemValue, handleProductSelect]);
 
-  // MANDATORY LOGIC: Walk-in = Cash, Others = Credit
   useEffect(() => {
     if (isWalkIn) {
       setValue('paymentMethod', 'Cash');
@@ -195,7 +193,7 @@ export default function SalesPage() {
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
-    const unitsFromProducts = products.map(p => p.unit).filter(Boolean);
+    const unitsFromProducts = products.map(p => p.unit).filter(Boolean) as string[];
     const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
     const uniqueUnits = [...new Set(combinedUnits)];
     return uniqueUnits.map(lowerUnit => {
@@ -370,7 +368,6 @@ export default function SalesPage() {
     }
 
     let finalNotes = data.notes || '';
-    // RULE: Don't show vehicle number for Cash sales
     if (data.vehicleNumber && !isWalkIn) {
         finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
     }
@@ -395,15 +392,7 @@ export default function SalesPage() {
             }
         }
 
-        // FIREBASE IMPLEMENTATION TASK: Lock logic for Walk-in vs Others
-        const transactionData: Omit<Transaction, 'id' | 'timestamp'> & { 
-            timestamp?: string, 
-            isWalkIn: boolean, 
-            saleType: 'cash' | 'credit',
-            entryType: 'cash_sale' | 'credit_sale',
-            journalColumn: 'credit' | 'debit',
-            colorCode: string
-        } = {
+        const transactionData = {
           fuelType: item.productName,
           volume: item.quantity,
           pricePerLitre: item.price,
@@ -419,7 +408,7 @@ export default function SalesPage() {
           saleType: isWalkIn ? 'cash' : 'credit',
           entryType: isWalkIn ? 'cash_sale' : 'credit_sale',
           journalColumn: isWalkIn ? 'credit' : 'debit',
-          colorCode: isWalkIn ? '#22C55E' : '#3B82F6' // Green for Walk-in, Blue for Credit
+          colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
         };
         addTransaction(transactionData as any);
     });
