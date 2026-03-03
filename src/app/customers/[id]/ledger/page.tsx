@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect, use } from 'react';
@@ -101,7 +100,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
             type: 'Credit Sale',
             debit: tx.totalAmount,
-            credit: 0,
+            credit: tx.isWalkIn ? tx.totalAmount : 0, // Cash sales are both
             original: tx
           });
         });
@@ -214,7 +213,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance, totalDebit: totalDebitForPeriod, totalCredit: totalCreditForPeriod };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm, entities]);
 
   const handleQuickPeriod = (value: string) => {
     const now = new Date();
@@ -261,7 +260,11 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     <div className="p-4 md:p-8 space-y-8">
         <Skeleton className="h-8 w-64"/>
         <Skeleton className="h-24 w-full"/>
-        <Skeleton className="h-96 w-full"/>
+        <Card>
+            <CardContent className="pt-6">
+                <Skeleton className="h-96 w-full" />
+            </CardContent>
+        </Card>
     </div>
   );
 

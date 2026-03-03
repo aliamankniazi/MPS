@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -45,6 +44,7 @@ type LedgerEntry = {
   isCreditSale?: boolean;
   isWalkIn?: boolean;
   notes?: string;
+  journalColumn?: 'debit' | 'credit';
 };
 
 interface ProcessedReading extends MachineReading {
@@ -149,8 +149,8 @@ export default function LedgerPage() {
             partnerName: customerName,
             entityId: tx.customerId,
             type: entryType,
-            debit: isWalkIn ? 0 : tx.totalAmount, 
-            credit: isWalkIn ? tx.totalAmount : 0, 
+            debit: (tx as any).journalColumn === 'debit' ? tx.totalAmount : 0, 
+            credit: (tx as any).journalColumn === 'credit' ? tx.totalAmount : 0, 
             original: tx,
             isCreditSale: !isWalkIn,
             isWalkIn: isWalkIn,
@@ -158,6 +158,17 @@ export default function LedgerPage() {
         });
     });
     
+    // Support for older data or entries without journalColumn
+    combined = combined.map(e => {
+        if (e.type === 'cash_sale' && e.debit === 0 && e.credit === 0) {
+            return { ...e, credit: e.original.totalAmount };
+        }
+        if (e.type === 'credit_sale' && e.debit === 0 && e.credit === 0) {
+            return { ...e, debit: e.original.totalAmount };
+        }
+        return e;
+    });
+
     customerPayments.forEach(cp => {
         if (!cp.timestamp || !isValid(new Date(cp.timestamp))) return;
         if (cp.paymentMethod === 'Salary') return;

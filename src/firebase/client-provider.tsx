@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, type ReactNode } from 'react';
 import { FirebaseProvider } from '@/firebase/provider';
-import { initializeFirebase } from '@/firebase';
+import { initializeFirebase } from './init';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
@@ -23,11 +23,14 @@ export function FirebaseClientProvider({ children }: FirebaseClientProviderProps
   useEffect(() => {
     // Initialize Firebase on the client side, once per component mount.
     setFirebaseServices(initializeFirebase());
-  }, []); // Empty dependency array ensures this runs only once on mount on the client
+  }, []);
 
   if (!firebaseServices) {
-    // Render a loading state or null while waiting for client-side initialization
-    return null; // Or a loading spinner
+    return (
+        <div className="flex h-screen w-full items-center justify-center">
+            <p className="text-muted-foreground animate-pulse">Initializing Services...</p>
+        </div>
+    );
   }
 
   return (
