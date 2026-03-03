@@ -96,7 +96,6 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         customerTransactions.forEach(tx => {
           const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer' || !tx.customerId || tx.customerId === 'walkin');
           
-          // Use saved journal mapping if available, otherwise default
           let debit = 0;
           let credit = 0;
           if ((tx as any).journalColumn) {
@@ -239,7 +238,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
   };
 
   const handleExportExcel = () => {
-    const dataToExport = entries.slice().reverse().map(entry => ({
+    const dataToExport = entries.slice().reverse().map((entry, index) => ({
+        '#': index + 1,
         'Date': isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
         'Description': entry.description,
         'Type': entry.type,
@@ -336,6 +336,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             <Table>
                 <TableHeader>
                     <TableRow>
+                        <TableHead className="w-12">#</TableHead>
                         <TableHead>Date & Time</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Type</TableHead>
@@ -346,12 +347,13 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map(entry => {
+                  {entries.map((entry, index) => {
                     const date = new Date(entry.timestamp);
                     const color = entry.original?.isWalkIn ? 'text-green-600' : (entry.type === 'Credit Sale' ? 'text-blue-600' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
                     
                     return (
                         <TableRow key={entry.id}>
+                          <TableCell className="font-mono text-muted-foreground">{entries.length - index}</TableCell>
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid'}</TableCell>
                           <TableCell className={color}>{entry.description}</TableCell>
                           <TableCell><Badge variant={entry.debit > 0 ? 'destructive' : 'outline'}>{entry.type}</Badge></TableCell>
