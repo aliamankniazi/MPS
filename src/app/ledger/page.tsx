@@ -495,11 +495,12 @@ export default function LedgerPage() {
   }, [allFilteredEntryIds, selectedEntries]);
   
   const handleExportExcel = () => {
-    const dataToExport = filteredEntries.slice().reverse().map(entry => {
+    const dataToExport = filteredEntries.slice().reverse().map((entry, index) => {
         const date = new Date(entry.timestamp);
         const typeLabel = entry.type === 'cash_sale' ? 'Cash Sale – Walk-in' : entry.type === 'credit_sale' ? 'Credit Sale' : entry.type;
         const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
         return {
+            '#': index + 1,
             'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
             'Partner': entry.partnerName,
             'Particulars': entry.description,
@@ -754,7 +755,7 @@ export default function LedgerPage() {
                                             <TableRow>
                                                 <TableHead className="w-12 px-4">
                                                   <Checkbox checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false} onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)} />
-                                                </Head>
+                                                </TableHead>
                                                 <TableHead>Sr #</TableHead>
                                                 <TableHead>Date & Time</TableHead>
                                                 <TableHead>Partner</TableHead>
