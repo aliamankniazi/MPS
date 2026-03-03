@@ -94,13 +94,26 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
 
         customerTransactions.forEach(tx => {
+          const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer' || !tx.customerId || tx.customerId === 'walkin');
+          
+          // Use saved journal mapping if available, otherwise default
+          let debit = 0;
+          let credit = 0;
+          if ((tx as any).journalColumn) {
+            debit = (tx as any).journalColumn === 'debit' ? tx.totalAmount : 0;
+            credit = (tx as any).journalColumn === 'credit' ? tx.totalAmount : 0;
+          } else {
+            debit = tx.totalAmount;
+            credit = isWalkIn ? tx.totalAmount : 0;
+          }
+
           combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-            type: 'Credit Sale',
-            debit: tx.totalAmount,
-            credit: tx.isWalkIn ? tx.totalAmount : 0, // Cash sales are both
+            type: isWalkIn ? 'Cash Sale – Walk-in' : 'Credit Sale',
+            debit,
+            credit,
             original: tx
           });
         });
@@ -213,7 +226,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     });
 
     return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance, totalDebit: totalDebitForPeriod, totalCredit: totalCreditForPeriod };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm, entities]);
+  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
   const handleQuickPeriod = (value: string) => {
     const now = new Date();

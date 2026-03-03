@@ -284,10 +284,10 @@ export default function LedgerPage() {
       combined.push({
         id: `sr-${sr.id}`,
         timestamp: sr.timestamp,
-        description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
-        partnerName: customerName,
         entityId: sr.customerId,
+        entityName: customerName,
         type: 'Sale Return',
+        description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
         debit: 0,
         credit: sr.totalRefund, 
         original: sr,
@@ -754,7 +754,7 @@ export default function LedgerPage() {
                                             <TableRow>
                                                 <TableHead className="w-12 px-4">
                                                   <Checkbox checked={areAllSelected ? true : areSomeSelected ? 'indeterminate' : false} onCheckedChange={(checked) => handleSelectAllForDay(dayKey, !!checked)} />
-                                                </TableHead>
+                                                </Head>
                                                 <TableHead>Sr #</TableHead>
                                                 <TableHead>Date & Time</TableHead>
                                                 <TableHead>Partner</TableHead>
