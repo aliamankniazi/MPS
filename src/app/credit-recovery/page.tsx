@@ -38,6 +38,7 @@ interface ReportRow {
     recovery: number;
     currentBalance: number;
     lastTransactionDate: Date | null;
+    periodItems: { date: Date; desc: string; amount: number; type: 'debit' | 'credit' }[];
 }
 
 export default function CreditRecoveryPage() {
@@ -85,21 +86,37 @@ export default function CreditRecoveryPage() {
                 return isValid(itemDate) && itemDate >= from && itemDate <= to;
             }
 
-            const totalSales = transactions
-                .filter(tx => tx.customerId === customer.id && filterByDateRange(tx))
-                .reduce((sum, tx) => sum + tx.totalAmount, 0);
+            const periodTransactions = transactions.filter(tx => tx.customerId === customer.id && filterByDateRange(tx));
+            const periodAdvances = cashAdvances.filter(ca => ca.customerId === customer.id && filterByDateRange(ca));
+            const periodPayments = customerPayments.filter(p => p.customerId === customer.id && filterByDateRange(p));
 
-            const totalCashAdvances = cashAdvances
-                .filter(ca => ca.customerId === customer.id && filterByDateRange(ca))
-                .reduce((sum, ca) => sum + ca.amount, 0);
-            
+            const totalSales = periodTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
+            const totalCashAdvances = periodAdvances.reduce((sum, ca) => sum + ca.amount, 0);
             const totalDebit = totalSales + totalCashAdvances;
-
-            const totalRecovery = customerPayments
-                .filter(p => p.customerId === customer.id && filterByDateRange(p))
-                .reduce((sum, p) => sum + p.amount, 0);
+            const totalRecovery = periodPayments.reduce((sum, p) => sum + p.amount, 0);
             
             const currentBalance = openingBalance + totalDebit - totalRecovery;
+
+            const periodItems = [
+                ...periodTransactions.map(tx => ({
+                    date: new Date(tx.timestamp),
+                    desc: (tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'Sale')) + (tx.notes ? ` (${tx.notes})` : ''),
+                    amount: tx.totalAmount,
+                    type: 'debit' as const
+                })),
+                ...periodAdvances.map(ca => ({
+                    date: new Date(ca.timestamp),
+                    desc: (ca.notes || 'Cash Advance'),
+                    amount: ca.amount,
+                    type: 'debit' as const
+                })),
+                ...periodPayments.map(p => ({
+                    date: new Date(p.timestamp),
+                    desc: (p.notes || `Payment (${p.paymentMethod})`),
+                    amount: p.amount,
+                    type: 'credit' as const
+                }))
+            ].sort((a,b) => a.date.getTime() - b.date.getTime());
 
             return {
                 id: customer.id,
@@ -109,16 +126,14 @@ export default function CreditRecoveryPage() {
                 recovery: totalRecovery,
                 currentBalance,
                 lastTransactionDate,
+                periodItems,
             };
         }).filter(row => {
             if (selectedCustomerId !== 'all') return true;
 
             // If a date range is selected, only show customers with a sale or recovery in that range.
             if (from && to) {
-                 const hasActivityInRange = 
-                    transactions.some(tx => tx.customerId === row.id && isValid(new Date(tx.timestamp)) && new Date(tx.timestamp) >= from && new Date(tx.timestamp) <= to) ||
-                    customerPayments.some(p => p.customerId === row.id && isValid(new Date(p.timestamp)) && new Date(p.timestamp) >= from && new Date(p.timestamp) <= to) ||
-                    cashAdvances.some(ca => ca.customerId === row.id && isValid(new Date(ca.timestamp)) && new Date(ca.timestamp) >= from && new Date(ca.timestamp) <= to);
+                 const hasActivityInRange = row.periodItems.length > 0;
                 return hasActivityInRange;
             }
 
@@ -167,12 +182,22 @@ export default function CreditRecoveryPage() {
             ? (dateRange.to && !isSameDay(dateRange.from, dateRange.to) ? `${format(dateRange.from, 'dd MMM, yyyy')} to ${format(dateRange.to, 'dd MMM, yyyy')}` : format(dateRange.from, 'dd MMM, yyyy'))
             : 'all time';
 
+        let breakdown = '';
+        if (row.periodItems.length > 0) {
+            breakdown = '\n\nTransactions Detail:';
+            row.periodItems.forEach(item => {
+                const sign = item.type === 'debit' ? '+' : '-';
+                breakdown += `\n${format(item.date, 'dd-MMM')}: ${item.desc} [${sign}${formatCurrency(item.amount)}]`;
+            });
+        }
+
         const message = `As-Salaam-Alaikum, Dear ${row.customer.name},
 For Period: ${period}
 Your Previous Amount: ${formatCurrency(row.previousBalance)}
 New Sale Amount: ${formatCurrency(row.sale)}
-Paid Amount: ${formatCurrency(row.recovery)}
+Paid Amount: ${formatCurrency(row.recovery)}${breakdown}
 Now your balance is: ${formatCurrency(row.currentBalance)}
+
 Thank You,
 Mianwali Petroleum Service
 Ballo Khel Road Mianwali
@@ -221,7 +246,7 @@ And Also Use Account Number As A Raast ID`;
              <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div className="relative w-full max-w-sm">
+                        <div className="relative w-full max-sm:max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input 
                                 placeholder="Search records by name or contact..." 
