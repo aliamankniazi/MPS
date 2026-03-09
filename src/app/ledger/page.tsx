@@ -159,7 +159,6 @@ export default function LedgerPage() {
         });
     });
     
-    // Support for older data or entries without journalColumn
     combined = combined.map(e => {
         if (e.type === 'cash_sale' && e.debit === 0 && e.credit === 0) {
             return { ...e, credit: e.original.totalAmount };
@@ -424,6 +423,22 @@ export default function LedgerPage() {
     return result;
   }, [filteredEntries, allEntries, localDateRange, machineReadings]);
 
+  const profitSummary = useMemo(() => {
+    if (!isLoaded) return null;
+    
+    const filteredTransactions = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
+    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
+    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
+    
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
+    const grossProfit = totalRevenue - totalCostOfGoods;
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = grossProfit - totalExpenses;
+
+    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
+  }, [isLoaded, filteredEntries]);
+
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
 
@@ -442,22 +457,6 @@ export default function LedgerPage() {
 
     return Object.values(salesByProduct);
   }, [isLoaded, filteredEntries, products]);
-
-  const profitSummary = useMemo(() => {
-    if (!isLoaded) return null;
-    
-    const filteredTransactions = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
-    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
-    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
-    
-    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
-    const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const netProfit = grossProfit - totalExpenses;
-
-    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
-  }, [isLoaded, filteredEntries]);
 
   useEffect(() => {
     if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
@@ -589,7 +588,6 @@ export default function LedgerPage() {
   const clearFilters = () => { setSearchTerm(''); setLocalDateRange(undefined); setSelectedType(''); }
   const hasActiveFilters = searchTerm || localDateRange?.from || selectedType;
   const currentDayKey = format(new Date(), 'yyyy-MM-dd');
-  let runningEntryCount = filteredEntries.length;
 
   const getEntryLink = (entry: LedgerEntry): string => {
     if (!entry.entityId) return '#';
@@ -772,9 +770,12 @@ export default function LedgerPage() {
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'cash_sale' ? 'Cash Sale – Walk-in' : entry.type === 'credit_sale' ? 'Credit Sale' : entry.type;
-                                                const currentSr = runningEntryCount--;
                                                 const link = getEntryLink(entry);
                                                 const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
+                                                
+                                                // Find global index for Sr #
+                                                const globalIndex = filteredEntries.findIndex(e => e.id === entry.id);
+                                                const currentSr = filteredEntries.length - globalIndex;
 
                                                 return (
                                                     <TableRow key={entry.id}>

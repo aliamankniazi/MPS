@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect, use } from 'react';
@@ -148,6 +149,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
           type: 'Sale Return',
           debit: 0,
+          shift: sr.totalRefund,
           credit: sr.totalRefund, 
           original: sr
         }));
@@ -350,10 +352,11 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                   {entries.map((entry, index) => {
                     const date = new Date(entry.timestamp);
                     const color = entry.original?.isWalkIn ? 'text-green-600' : (entry.type === 'Credit Sale' ? 'text-blue-600' : (entry.type === 'Payment' ? 'text-teal-600' : ''));
+                    const serialNumber = entries.length - index;
                     
                     return (
                         <TableRow key={entry.id}>
-                          <TableCell className="font-mono text-muted-foreground">{entries.length - index}</TableCell>
+                          <TableCell className="font-mono text-muted-foreground">{serialNumber}</TableCell>
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid'}</TableCell>
                           <TableCell className={color}>{entry.description}</TableCell>
                           <TableCell><Badge variant={entry.debit > 0 ? 'destructive' : 'outline'}>{entry.type}</Badge></TableCell>
