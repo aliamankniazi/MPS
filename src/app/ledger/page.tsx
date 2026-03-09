@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -356,41 +357,6 @@ export default function LedgerPage() {
     return entries;
   }, [allEntries, searchTerm, localDateRange, selectedType]);
 
-  const productWiseSales = useMemo(() => {
-    if (!isLoaded || !products) return [];
-
-    const salesByProduct = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').reduce((acc, e) => {
-        const tx = e.original as Transaction;
-        const productName = tx.product || tx.fuelType;
-        if (!productName) return acc;
-        if (!acc[productName]) {
-            const productInfo = products.find(p => p.name === productName);
-            acc[productName] = { product: productName, unit: productInfo?.unit || 'Liters', totalSold: 0, totalRevenue: 0 };
-        }
-        acc[productName].totalSold += tx.volume || 0;
-        acc[productName].totalRevenue += tx.totalAmount;
-        return acc;
-    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
-
-    return Object.values(salesByProduct);
-  }, [isLoaded, filteredEntries, products]);
-
-  const profitSummary = useMemo(() => {
-    if (!isLoaded) return null;
-    
-    const filteredTransactions = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
-    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
-    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
-    
-    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
-    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
-    const grossProfit = totalRevenue - totalCostOfGoods;
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const netProfit = grossProfit - totalExpenses;
-
-    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
-  }, [isLoaded, filteredEntries]);
-
   const groupedEntries: GroupedEntries = useMemo(() => {
     if (!localDateRange?.from) return {};
     const rangeStart = startOfDay(localDateRange.from);
@@ -457,6 +423,41 @@ export default function LedgerPage() {
     }
     return result;
   }, [filteredEntries, allEntries, localDateRange, machineReadings]);
+
+  const productWiseSales = useMemo(() => {
+    if (!isLoaded || !products) return [];
+
+    const salesByProduct = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').reduce((acc, e) => {
+        const tx = e.original as Transaction;
+        const productName = tx.product || tx.fuelType;
+        if (!productName) return acc;
+        if (!acc[productName]) {
+            const productInfo = products.find(p => p.name === productName);
+            acc[productName] = { product: productName, unit: productInfo?.unit || 'Liters', totalSold: 0, totalRevenue: 0 };
+        }
+        acc[productName].totalSold += tx.volume || 0;
+        acc[productName].totalRevenue += tx.totalAmount;
+        return acc;
+    }, {} as Record<string, { product: string; unit: string; totalSold: number; totalRevenue: number }>);
+
+    return Object.values(salesByProduct);
+  }, [isLoaded, filteredEntries, products]);
+
+  const profitSummary = useMemo(() => {
+    if (!isLoaded) return null;
+    
+    const filteredTransactions = filteredEntries.filter(e => e.type === 'cash_sale' || e.type === 'credit_sale').map(e => e.original as Transaction);
+    const filteredOtherIncomes = filteredEntries.filter(e => e.type === 'Other Income').map(e => e.original as OtherIncome);
+    const filteredExpenses = filteredEntries.filter(e => e.type === 'Expense' || e.type === 'Salary').map(e => e.original as Expense);
+    
+    const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0) + filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
+    const totalCostOfGoods = filteredTransactions.reduce((sum, tx) => sum + (tx.costPrice || 0), 0);
+    const grossProfit = totalRevenue - totalCostOfGoods;
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const netProfit = grossProfit - totalExpenses;
+
+    return { totalRevenue, totalCostOfGoods, grossProfit, totalExpenses, netProfit };
+  }, [isLoaded, filteredEntries]);
 
   useEffect(() => {
     if (isLoaded && allEntries.length > 0 && !initialDateSet.current) {
