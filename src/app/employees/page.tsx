@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -134,31 +133,23 @@ export default function SalaryPaymentPage() {
     // SpeechRecognition is a browser-only API
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.error("Speech Recognition API not supported in this browser.");
-      return;
-    }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = language;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValues('notes') || '';
       setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
-      toast({
-          variant: 'destructive',
-          title: 'Voice Error',
-          description: `Speech recognition error: ${event.error}`,
-      });
       setIsListening(false);
     };
     
@@ -168,7 +159,7 @@ export default function SalaryPaymentPage() {
 
     recognitionRef.current = recognition;
 
-  }, [language, getValues, setValue, toast]);
+  }, [language, getValues, setValue]);
 
   const handleToggleListening = () => {
     const recognition = recognitionRef.current;
@@ -427,7 +418,7 @@ export default function SalaryPaymentPage() {
   };
   
   const totalBulkSalary = useMemo(() => {
-    if (!paymentToConfirm || paymentToConfirm.length <= 1) return 0;
+    if (!paymentToConfirm || paymentToConfirm.length === 0) return 0;
     return paymentToConfirm.reduce((sum, p) => sum + p.calculation.total, 0);
   }, [paymentToConfirm]);
 
@@ -626,7 +617,7 @@ export default function SalaryPaymentPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/> Confirm Salary Payment</AlertDialogTitle>
             <AlertDialogDescription>
-              Please review and confirm the salary payment details before posting to the ledger.
+              Please review and confirm the salary payment details. You can manually edit the salary amount before posting.
             </AlertDialogDescription>
           </AlertDialogHeader>
           {paymentToConfirm && paymentToConfirm.length > 0 && (
@@ -659,9 +650,25 @@ export default function SalaryPaymentPage() {
                         <span>Total Present Days:</span>
                         <span className="text-primary">{paymentToConfirm[0].calculation.totalPresentDays} / {paymentToConfirm[0].calculation.daysInMonth}</span>
                     </div>
-                    <div className="flex justify-between text-lg font-bold">
-                        <span>Final Calculated Salary:</span>
-                        <span className="text-primary">PKR {paymentToConfirm[0].calculation.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div className="flex justify-between items-center text-lg font-bold">
+                        <span>Salary Amount:</span>
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-normal text-muted-foreground">PKR</span>
+                            <Input 
+                                type="number" 
+                                value={paymentToConfirm[0].calculation.total}
+                                onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    const updated = [...paymentToConfirm];
+                                    updated[0] = {
+                                        ...updated[0],
+                                        calculation: { ...updated[0].calculation, total: val }
+                                    };
+                                    setPaymentToConfirm(updated);
+                                }}
+                                className="w-32 text-right h-10 font-mono"
+                            />
+                        </div>
                     </div>
                 </div>
             ) : (
@@ -671,7 +678,7 @@ export default function SalaryPaymentPage() {
                             <TableRow>
                                 <TableHead>Employee</TableHead>
                                 <TableHead>Attendance</TableHead>
-                                <TableHead className="text-right">Calculated Salary</TableHead>
+                                <TableHead className="text-right">Salary Figure</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -679,12 +686,29 @@ export default function SalaryPaymentPage() {
                                 <TableRow key={p.employeeId}>
                                     <TableCell>{p.employeeName}</TableCell>
                                     <TableCell>{p.calculation.totalPresentDays}/{p.calculation.daysInMonth}</TableCell>
-                                    <TableCell className="text-right font-semibold">PKR {p.calculation.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-2">
+                                            <Input 
+                                                type="number" 
+                                                value={p.calculation.total}
+                                                onChange={(e) => {
+                                                    const val = parseFloat(e.target.value) || 0;
+                                                    const updated = paymentToConfirm.map(item => 
+                                                        item.employeeId === p.employeeId 
+                                                            ? { ...item, calculation: { ...item.calculation, total: val } } 
+                                                            : item
+                                                    );
+                                                    setPaymentToConfirm(updated);
+                                                }}
+                                                className="w-28 text-right h-8 font-mono"
+                                            />
+                                        </div>
+                                    </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
-                    <div className="text-right mt-4 font-bold text-lg">
+                    <div className="text-right mt-4 font-bold text-lg border-t pt-4">
                         Total Payroll: PKR {totalBulkSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                 </ScrollArea>
