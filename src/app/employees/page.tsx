@@ -35,6 +35,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 
+const DEFAULT_SALARY_MAP: Record<string, number> = {
+    'Asmat Ullah': 15000,
+    'Zeeshan': 15000,
+    'Shahzad': 15000,
+    'Kamran': 5000,
+    'Neemat Ullah': 25000,
+    'Younas Shah': 20000,
+};
+
 const salaryPaymentSchema = z.object({
   employeeId: z.string().optional(),
   salaryMonth: z.string().min(1, "Salary month is required."),
@@ -175,8 +184,19 @@ export default function SalaryPaymentPage() {
   };
 
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
-    const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
+    let sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
     
+    // Inject default salary if no history exists for specific employees
+    if (sortedHistory.length === 0) {
+        const defaultAmount = DEFAULT_SALARY_MAP[employee.name.trim()];
+        if (defaultAmount !== undefined) {
+            sortedHistory = [{
+                amount: defaultAmount,
+                effectiveDate: employee.hireDate || new Date(0).toISOString()
+            }];
+        }
+    }
+
     const salaryMonthDate = parse(`${data.salaryMonth} ${data.salaryYear}`, 'MMMM yyyy', new Date());
     const firstDayOfMonth = startOfMonth(salaryMonthDate);
     const lastDayOfMonth = endOfMonth(salaryMonthDate);
@@ -201,6 +221,14 @@ export default function SalaryPaymentPage() {
                 presentDays: totalPresentDays,
                 subtotal: totalSalary,
                 effectiveDate: latestSalaryEntry.effectiveDate,
+            });
+        } else {
+            calculationParts.push({
+                period: `Manual entry: ${totalPresentDays} days (No salary rate defined)`,
+                salary: 0,
+                presentDays: totalPresentDays,
+                subtotal: 0,
+                effectiveDate: new Date().toISOString(),
             });
         }
 
@@ -265,6 +293,16 @@ export default function SalaryPaymentPage() {
                 effectiveDate: effectiveDate,
             });
         });
+        
+        if (calculationParts.length === 0 && totalPresentDays > 0) {
+             calculationParts.push({
+                period: `Attendance found but no applicable salary rate defined.`,
+                salary: 0,
+                presentDays: totalPresentDays,
+                subtotal: 0,
+                effectiveDate: new Date().toISOString(),
+            });
+        }
     }
     
     const totalSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
@@ -294,57 +332,23 @@ export default function SalaryPaymentPage() {
             return;
         }
         
-        if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
-            toast({ variant: 'destructive', title: 'Salary History Not Found', description: `Cannot calculate salary for ${employee.name} because no salary history is set.` });
-            return;
-        }
-
         const paymentDetails = calculateSalaryForEmployee(employee, data);
-
-        if (paymentDetails && paymentDetails.calculation.total > 0) {
-            setPaymentToConfirm([paymentDetails]);
-        } else {
-             toast({ title: 'Zero Salary Calculated', description: `Salary for ${employee.name} is calculated to zero, likely due to no attendance in the selected period.` });
-        }
+        setPaymentToConfirm([paymentDetails]);
+        
     } else { // Bulk mode
         const paymentsToConfirm: SalaryPaymentConfirmation[] = [];
-        const employeesWithoutSalaryHistory: string[] = [];
-        const employeesWithZeroSalary: string[] = [];
 
         activeEmployees.forEach(employee => {
-            if (!employee.salaryHistory || employee.salaryHistory.length === 0) {
-                employeesWithoutSalaryHistory.push(employee.name);
-                return;
-            }
             const paymentDetails = calculateSalaryForEmployee(employee, data);
-            if (paymentDetails && paymentDetails.calculation.total > 0) {
-                paymentsToConfirm.push(paymentDetails);
-            } else {
-                employeesWithZeroSalary.push(employee.name);
-            }
+            paymentsToConfirm.push(paymentDetails);
         });
-        
-        if (employeesWithoutSalaryHistory.length > 0) {
-            toast({
-                variant: 'destructive',
-                title: 'Salary History Not Found',
-                description: `Cannot process salary for: ${employeesWithoutSalaryHistory.join(', ')}. Please set their salary history.`,
-            });
-        }
-        
-        if (employeesWithZeroSalary.length > 0) {
-            toast({
-                title: 'Zero Salary Calculated',
-                description: `Salary is zero for: ${employeesWithZeroSalary.join(', ')} (check attendance).`,
-            });
-        }
         
         if (paymentsToConfirm.length > 0) {
             setPaymentToConfirm(paymentsToConfirm);
-        } else if (employeesWithoutSalaryHistory.length === 0 && employeesWithZeroSalary.length === 0) {
+        } else {
             toast({
-                title: 'Nothing to Pay',
-                description: 'No active employees with salaries and attendance found to process.',
+                title: 'No Active Employees',
+                description: 'No active employees found to process.',
             });
         }
     }
@@ -357,6 +361,8 @@ export default function SalaryPaymentPage() {
         const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName } = payment;
         const salaryAmount = payment.calculation.total;
         
+        if (salaryAmount <= 0) continue; // Skip zero payments
+
         const salaryDescription = `Salary for ${employeeName} (${salaryMonth} ${salaryYear})`;
         const paymentNotes = notes ? `${salaryDescription} - ${notes}` : salaryDescription;
 
@@ -398,8 +404,8 @@ export default function SalaryPaymentPage() {
     localStorage.setItem('global_lastTransactionDate', paymentToConfirm[0].postingDate.toISOString());
 
     toast({
-      title: `${paymentToConfirm.length} Salaries Paid`,
-      description: `Salaries for ${paymentToConfirm.length} employees have been successfully recorded.`,
+      title: `${paymentToConfirm.filter(p => p.calculation.total > 0).length} Salaries Paid`,
+      description: `Salaries have been successfully recorded for all employees with non-zero amounts.`,
     });
     
     setPaymentToConfirm(null);
@@ -632,7 +638,7 @@ export default function SalaryPaymentPage() {
                         <span>{paymentToConfirm[0].salaryMonth} {paymentToConfirm[0].salaryYear}</span>
                     </div>
                     <Separator />
-                    {paymentToConfirm[0].calculation.parts.map((part, index) => (
+                    {paymentToConfirm[0].calculation.parts.length > 0 ? paymentToConfirm[0].calculation.parts.map((part, index) => (
                         <div key={index} className="space-y-1 border-b pb-2">
                             <p className="font-medium">{part.period}</p>
                             <div className="flex justify-between text-muted-foreground">
@@ -644,7 +650,9 @@ export default function SalaryPaymentPage() {
                                 <span className="font-mono">PKR {part.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                         </div>
-                    ))}
+                    )) : (
+                        <div className="py-2 text-destructive font-medium italic">No salary rate or attendance found for this period.</div>
+                    )}
                     <Separator />
                     <div className="flex justify-between text-lg font-bold pt-2">
                         <span>Total Present Days:</span>
@@ -717,7 +725,7 @@ export default function SalaryPaymentPage() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleProcessSalaryPayment}>
-              {paymentToConfirm && paymentToConfirm.length > 1 ? `Confirm & Pay ${paymentToConfirm.length} Salaries` : 'Confirm & Post Payment'}
+              {paymentToConfirm && paymentToConfirm.length > 1 ? `Confirm & Pay ${paymentToConfirm.filter(p => p.calculation.total > 0).length} Salaries` : 'Confirm & Post Payment'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

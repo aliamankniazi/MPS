@@ -23,6 +23,14 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Employee } from '@/lib/types';
 
+const DEFAULT_SALARY_MAP: Record<string, number> = {
+    'Asmat Ullah': 15000,
+    'Zeeshan': 15000,
+    'Shahzad': 15000,
+    'Kamran': 5000,
+    'Neemat Ullah': 25000,
+    'Younas Shah': 20000,
+};
 
 // New interface for breakdown
 interface SalaryCalculationPart {
@@ -118,7 +126,18 @@ export default function SalaryReportPage() {
         return employees
             .filter(emp => emp.name.toLowerCase().includes(searchTerm.toLowerCase()))
             .map(employee => {
-                const sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime());
+                let sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime());
+
+                // Default salary logic for specific names if no history is provided
+                if (sortedHistory.length === 0) {
+                    const defaultAmount = DEFAULT_SALARY_MAP[employee.name.trim()];
+                    if (defaultAmount !== undefined) {
+                        sortedHistory = [{
+                            amount: defaultAmount,
+                            effectiveDate: employee.hireDate || new Date(0).toISOString()
+                        }];
+                    }
+                }
 
                 let subtotalForRate: { [key: string]: { salary: number; days: number; total: number } } = {};
                 let totalPresentDays = 0;
@@ -184,11 +203,11 @@ export default function SalaryReportPage() {
                     employeeName: employee.name,
                     position: employee.position,
                     hireDate: employee.hireDate,
-                    baseSalary: employee.salary,
+                    baseSalary: sortedHistory[0]?.amount || employee.salary,
                     presentDays: totalPresentDays,
                     totalDaysInPeriod: daysInPeriodArray.length,
                     calculatedSalary: totalCalculatedSalary,
-                    salaryHistory: [...(employee.salaryHistory || [])].sort((a,b) => new Date(b.effectiveDate).getTime() - new Date(a.effectiveDate).getTime()),
+                    salaryHistory: sortedHistory,
                     calculationParts: calculationParts,
                 };
             });
