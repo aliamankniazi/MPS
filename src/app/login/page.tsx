@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -188,7 +187,7 @@ export default function LoginPage() {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
     
-    // Log to console for the user/developer since we aren't showing it in the toast anymore
+    // Log to console for testing without showing code on device
     console.log('--- 2FA OTP CODE ---');
     console.log(`The code is: ${code}`);
     console.log('--------------------');
@@ -196,7 +195,7 @@ export default function LoginPage() {
     const email = getValues('email');
     toast({
         title: 'OTP Sent To Email',
-        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox. (Prototyping Note: You can also use the Master PIN 0200)`,
+        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox.`,
         duration: 10000,
     });
   };
@@ -320,7 +319,7 @@ export default function LoginPage() {
                         <ShieldCheck className="h-12 w-12 text-green-600" />
                     </div>
                     <CardTitle className="text-xl">Two-Step Verification</CardTitle>
-                    <CardDescription>Enter the verification code sent to your registered email or use your Master PIN.</CardDescription>
+                    <CardDescription>Enter the verification code sent to your registered email.</CardDescription>
                 </div>
 
                 <div className="space-y-2">
