@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, Mic } from 'lucide-react';
+import { UserPlus, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, Mic, ShieldCheck } from 'lucide-react';
 import type { Transaction, Product, Purchase, FuelType } from '@/lib/types';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -41,6 +42,7 @@ const transactionSchema = z.object({
   invoiceDate: z.date({ required_error: "An invoice date is required."}),
   notes: z.string().optional(),
   vehicleNumber: z.string().optional(),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
@@ -356,6 +358,15 @@ export default function SalesPage() {
       return;
     }
 
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const isoDate = data.invoiceDate.toISOString();
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
@@ -420,6 +431,7 @@ export default function SalesPage() {
         invoiceDate: data.invoiceDate,
         notes: '',
         vehicleNumber: '',
+        pin: '',
     });
     resetItem();
     setCart([]);
@@ -819,6 +831,13 @@ export default function SalesPage() {
                                 </Select>
                             </div>
                         )}
+                      
+                      <div className="space-y-2 border-t pt-4">
+                          <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                          <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                          {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                      </div>
+
                       <div className="space-y-1 text-sm">
                           <div className="flex justify-between font-semibold text-lg">
                               <span>Total</span>

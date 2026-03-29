@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle } from 'lucide-react';
+import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -28,6 +28,7 @@ const incomeSchema = z.object({
   category: z.enum(INCOME_CATEGORIES, { required_error: 'Please select a category.' }),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type IncomeFormValues = z.infer<typeof incomeSchema>;
@@ -36,7 +37,7 @@ export default function OtherIncomesPage() {
   const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange } = useDatabase();
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
-  const [password, setPassword] = useState('');
+  const [deletePin, setDeletePin] = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
@@ -51,31 +52,49 @@ export default function OtherIncomesPage() {
   }, [reset, dateRange]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     addOtherIncome({
-        ...data,
+        description: data.description,
+        category: data.category,
+        amount: data.amount,
         timestamp: data.date.toISOString(),
     });
     toast({
       title: 'Income Recorded',
       description: `Income of PKR ${data.amount} for "${data.description}" has been logged.`,
     });
-    reset();
+    reset({
+        description: '',
+        category: 'Other',
+        amount: 0,
+        date: data.date,
+        pin: '',
+    });
   };
   
   const handleDeleteIncome = () => {
     if (!incomeToDelete) return;
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+
+    if (deletePin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
+
     deleteOtherIncome(incomeToDelete.id);
     toast({
       title: 'Income Deleted',
       description: `The income entry for "${incomeToDelete.description}" has been removed.`,
     });
     setIncomeToDelete(null);
-    setPassword('');
+    setDeletePin('');
   };
 
   return (
@@ -154,6 +173,12 @@ export default function OtherIncomesPage() {
                   {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
 
+              <div className="space-y-2 border-t pt-4">
+                  <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                  <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                  {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+              </div>
+
               <Button type="submit" className="w-full">Record Income</Button>
             </form>
           </CardContent>
@@ -209,7 +234,7 @@ export default function OtherIncomesPage() {
         </Card>
       </div>
     </div>
-    <AlertDialog open={!!incomeToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setIncomeToDelete(null); setPassword(''); } }}>
+    <AlertDialog open={!!incomeToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setIncomeToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -217,19 +242,19 @@ export default function OtherIncomesPage() {
               This action cannot be undone. This will permanently delete the income entry for: <br />
               <strong className="font-medium text-foreground">{incomeToDelete?.description}</strong>
               <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-password-income">Enter password to confirm deletion:</Label>
+                <Label htmlFor="delete-pin-income">Enter PIN to confirm deletion:</Label>
                 <Input
-                  id="delete-password-income"
+                  id="delete-pin-income"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password required"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
                 />
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setIncomeToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteIncome} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>

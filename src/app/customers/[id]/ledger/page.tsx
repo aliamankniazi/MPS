@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download, AlertTriangle } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,6 +71,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     to: endOfMonth(new Date()),
   });
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
+  const [deletePin, setDeletePin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
@@ -149,7 +151,6 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
           type: 'Sale Return',
           debit: 0,
-          shift: sr.totalRefund,
           credit: sr.totalRefund, 
           original: sr
         }));
@@ -257,6 +258,16 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
+
+    if (deletePin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect PIN.',
+      });
+      return;
+    }
+
     const [prefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         if (prefix === 'tx') deleteTransaction(id);
@@ -269,6 +280,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         toast({ title: 'Entry Deleted' });
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
     setEntryToDelete(null);
+    setDeletePin('');
   };
 
   if (!isLoaded) return (
@@ -373,14 +385,26 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         </Card>
       </div>
 
-      <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
+      <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setEntryToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete: {entryToDelete?.description}</AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Delete Entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete: <strong>{entryToDelete?.description}</strong>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="ledger-delete-pin">Enter PIN to confirm deletion:</Label>
+                <Input
+                  id="ledger-delete-pin"
+                  type="password"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
+                />
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setEntryToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

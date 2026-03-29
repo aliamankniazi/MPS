@@ -6,6 +6,8 @@ import { useDatabase } from '@/hooks/use-database';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Trash2, History, AlertTriangle, RotateCw } from 'lucide-react';
 import { format } from 'date-fns';
 import {
@@ -27,6 +29,7 @@ export default function RecycleBinPage() {
     const [itemToDelete, setItemToDelete] = useState<RecycledItem | null>(null);
     const [selectedItems, setSelectedItems] = useState<string[]>([]);
     const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
+    const [pin, setPin] = useState('');
     const { toast } = useToast();
 
     const handleRestore = async (item: RecycledItem) => {
@@ -47,6 +50,16 @@ export default function RecycleBinPage() {
     
     const handlePermanentDelete = async () => {
         if (!itemToDelete) return;
+
+        if (pin !== '0200') {
+          toast({
+            variant: 'destructive',
+            title: 'Incorrect PIN',
+            description: 'Verification failed. Incorrect PIN.',
+          });
+          return;
+        }
+
         try {
             await deletePermanently(itemToDelete.id);
             toast({
@@ -61,11 +74,22 @@ export default function RecycleBinPage() {
             });
         } finally {
             setItemToDelete(null);
+            setPin('');
         }
     };
 
     const handlePermanentDeleteSelected = async () => {
         if (selectedItems.length === 0) return;
+
+        if (pin !== '0200') {
+          toast({
+            variant: 'destructive',
+            title: 'Incorrect PIN',
+            description: 'Verification failed. Incorrect PIN.',
+          });
+          return;
+        }
+
         try {
             for (const id of selectedItems) {
                 await deletePermanently(id);
@@ -83,6 +107,7 @@ export default function RecycleBinPage() {
             });
         } finally {
             setShowDeleteSelectedDialog(false);
+            setPin('');
         }
     };
 
@@ -107,7 +132,6 @@ export default function RecycleBinPage() {
     
     const getItemType = (item: RecycledItem): string => {
         const path = item.originalPath.split('/')[0];
-        // Simple mapping from collection name to a user-friendly type
         const typeMap: Record<string, string> = {
             transactions: 'Sale',
             purchases: 'Purchase',
@@ -115,7 +139,6 @@ export default function RecycleBinPage() {
             customers: 'Customer',
             suppliers: 'Supplier',
             customerPayments: 'Customer Payment',
-            // Add more mappings as needed
         };
         return typeMap[path] || path;
     }
@@ -210,7 +233,7 @@ export default function RecycleBinPage() {
             </Card>
         </div>
 
-        <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => !isOpen && setItemToDelete(null)}>
+        <AlertDialog open={!!itemToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setItemToDelete(null); setPin(''); } }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
@@ -218,10 +241,20 @@ export default function RecycleBinPage() {
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         This action cannot be undone. This will permanently delete the item.
+                        <div className="mt-4 space-y-2">
+                          <Label htmlFor="permanent-delete-pin">Enter PIN to confirm deletion:</Label>
+                          <Input
+                            id="permanent-delete-pin"
+                            type="password"
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value)}
+                            placeholder="Enter 4-digit PIN"
+                          />
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => { setItemToDelete(null); setPin(''); }}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handlePermanentDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                         Yes, delete permanently
                     </AlertDialogAction>
@@ -229,7 +262,7 @@ export default function RecycleBinPage() {
             </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+        <AlertDialog open={showDeleteSelectedDialog} onOpenChange={(isOpen) => { if (!isOpen) { setShowDeleteSelectedDialog(false); setPin(''); } }}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">
@@ -237,10 +270,20 @@ export default function RecycleBinPage() {
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         This will permanently delete the selected {selectedItems.length} items. This action cannot be undone.
+                        <div className="mt-4 space-y-2">
+                          <Label htmlFor="multi-permanent-delete-pin">Enter PIN to confirm deletion:</Label>
+                          <Input
+                            id="multi-permanent-delete-pin"
+                            type="password"
+                            value={pin}
+                            onChange={(e) => setPin(e.target.value)}
+                            placeholder="Enter 4-digit PIN"
+                          />
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogCancel onClick={() => { setShowDeleteSelectedDialog(false); setPin(''); }}>Cancel</AlertDialogCancel>
                     <AlertDialogAction onClick={handlePermanentDeleteSelected} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                         Yes, delete selected
                     </AlertDialogAction>

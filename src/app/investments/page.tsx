@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, PlusCircle, List, Calendar as CalendarIcon, Users, Percent, Edit, Trash2, AlertTriangle, BookText, Phone, ArrowUp, ArrowDown, Banknote, TrendingUp, TrendingDown, Clock, Download, Upload, Search, Mic } from 'lucide-react';
+import { PiggyBank, PlusCircle, Calendar as CalendarIcon, Edit, Trash2, AlertTriangle, Banknote, TrendingUp, TrendingDown, Clock, Upload, Search, Mic, ShieldCheck } from 'lucide-react';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,11 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { BusinessPartner } from '@/lib/types';
-import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 
@@ -32,6 +28,7 @@ const investmentSchema = z.object({
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   notes: z.string().optional(),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type InvestmentFormValues = z.infer<typeof investmentSchema>;
@@ -85,10 +82,7 @@ export default function InvestmentsPage() {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.error("Speech Recognition API not supported in this browser.");
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
@@ -134,12 +128,24 @@ export default function InvestmentsPage() {
   };
   
   const onInvestmentSubmit: SubmitHandler<InvestmentFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const partner = businessPartners.find(p => p.id === data.partnerId);
     if (!partner) return;
 
     addInvestment({ 
-        ...data, 
+        partnerId: data.partnerId, 
         partnerName: partner.name,
+        type: data.type,
+        amount: data.amount,
+        notes: data.notes,
         timestamp: data.date.toISOString() 
     });
     toast({
@@ -147,7 +153,7 @@ export default function InvestmentsPage() {
       description: `${data.type} of PKR ${data.amount} by ${partner.name} has been logged.`,
     });
     setTransactionPartner(null);
-    resetInvestment({ partnerId: '', amount: 0, notes: '', date: new Date(), type: 'Investment' });
+    resetInvestment({ partnerId: '', amount: 0, notes: '', date: new Date(), type: 'Investment', pin: '' });
   };
   
   const onPartnerSubmit: SubmitHandler<PartnerFormValues> = (data) => {
@@ -173,9 +179,8 @@ export default function InvestmentsPage() {
   const handleDeletePartner = () => {
     if (!partnerToDelete) return;
     
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+    if (password !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
 
@@ -187,7 +192,7 @@ export default function InvestmentsPage() {
 
   const openTransactionDialog = (partner: BusinessPartner, type: 'Investment' | 'Withdrawal') => {
     setTransactionPartner(partner);
-    resetInvestment({ partnerId: partner.id, amount: 0, notes: '', date: new Date(), type: type });
+    resetInvestment({ partnerId: partner.id, amount: 0, notes: '', date: new Date(), type: type, pin: '' });
   };
   
   const partnerSummary = useMemo(() => {
@@ -482,6 +487,12 @@ export default function InvestmentsPage() {
                 />
                 {investmentErrors.date && <p className="text-sm text-destructive">{investmentErrors.date.message}</p>}
               </div>
+
+              <div className="space-y-2 border-t pt-4">
+                  <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                  <Input id="pin" type="password" {...registerInvestment('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                  {investmentErrors.pin && <p className="text-sm text-destructive">{investmentErrors.pin.message}</p>}
+              </div>
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setTransactionPartner(null)}>Cancel</Button>
@@ -501,19 +512,19 @@ export default function InvestmentsPage() {
               <strong className="font-medium text-foreground">{partnerToDelete?.name}</strong>.
               All associated investment transactions will remain but will no longer be linked to a permanent partner.
               <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-password-partner">Enter password to confirm deletion:</Label>
+                <Label htmlFor="delete-pin-partner">Enter PIN to confirm deletion:</Label>
                 <Input
-                  id="delete-password-partner"
+                  id="delete-pin-partner"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password required"
+                  placeholder="Enter 4-digit PIN"
                 />
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setPartnerToDelete(null); setPassword(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeletePartner} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete partner
             </AlertDialogAction>

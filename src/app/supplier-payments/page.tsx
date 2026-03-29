@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Landmark } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Landmark, ShieldCheck } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,6 +29,7 @@ const supplierPaymentSchema = z.object({
   paymentMethod: z.enum(['Cash', 'Card', 'Mobile', 'Bank Transfer'], { required_error: 'Please select a payment method.' }),
   notes: z.string().optional(),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type SupplierPaymentFormValues = z.infer<typeof supplierPaymentSchema>;
@@ -93,6 +94,15 @@ export default function SupplierPaymentsPage() {
   }, [reset]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
@@ -119,6 +129,7 @@ export default function SupplierPaymentsPage() {
       amount: undefined,
       paymentMethod: 'Bank Transfer',
       notes: '',
+      pin: '',
     });
   };
 
@@ -259,6 +270,12 @@ export default function SupplierPaymentsPage() {
                     )}
                   />
                   {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
                 </div>
 
                 {supplierId && (

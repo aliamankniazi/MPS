@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Mic } from 'lucide-react';
+import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Mic, ShieldCheck } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,6 +29,7 @@ const customerPaymentSchema = z.object({
   paymentMethod: z.enum(['Cash', 'Card', 'Mobile'], { required_error: 'Please select a payment method.' }),
   notes: z.string().optional(),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type CustomerPaymentFormValues = z.infer<typeof customerPaymentSchema>;
@@ -160,6 +161,15 @@ export default function CustomerPaymentsPage() {
   }, [isLoaded, customers, setValue]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
 
@@ -187,7 +197,8 @@ export default function CustomerPaymentsPage() {
         paymentMethod: data.paymentMethod,
         customerId: data.customerId,
         amount: undefined,
-        notes: ''
+        notes: '',
+        pin: '',
     });
   };
 
@@ -353,6 +364,12 @@ export default function CustomerPaymentsPage() {
                 {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
               </div>
               
+              <div className="space-y-2 border-t pt-4">
+                  <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                  <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                  {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+              </div>
+
                 {selectedCustomerId && (
                     <div className="border-t pt-4 mt-4 space-y-1 text-sm">
                         <h4 className="font-semibold mb-2">Customer Account</h4>
@@ -377,5 +394,3 @@ export default function CustomerPaymentsPage() {
     </div>
   );
 }
-
-    

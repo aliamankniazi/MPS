@@ -66,7 +66,7 @@ export default function CustomersPage() {
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
@@ -188,7 +188,7 @@ export default function CustomersPage() {
   }, [allPeople, searchTerm]);
 
   const onAddSubmit: SubmitHandler<CustomerFormValues> = (data) => {
-    addCustomer({ ...data, isPartner: false });
+    addCustomer({ ...data, isPartner: false, timestamp: new Date().toISOString() });
     toast({
       title: 'Customer Added',
       description: `${data.name} has been added to your customer list.`,
@@ -216,8 +216,6 @@ export default function CustomersPage() {
             sharePercentage: data.sharePercentage || 0,
             contact: data.contact,
         };
-        // This will create if not exists, or update if it does.
-        // Requires a flexible backend function (e.g., using set with merge).
         updateBusinessPartner(customerToEdit.id, partnerData);
     } else if (isAlreadyPartner) {
         deleteBusinessPartner(customerToEdit.id);
@@ -232,9 +230,8 @@ export default function CustomersPage() {
 
   const handleDeleteCustomer = () => {
     if (!customerToDelete) return;
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+    if (pin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
     deleteCustomer(customerToDelete.id);
@@ -243,7 +240,7 @@ export default function CustomersPage() {
         description: `${customerToDelete.name} has been removed.`,
     });
     setCustomerToDelete(null);
-    setPassword('');
+    setPin('');
   };
 
   const openEditDialog = (customer: Customer) => {
@@ -260,7 +257,6 @@ export default function CustomersPage() {
   }
   
   const handleRowClick = (customerId: string, e: React.MouseEvent) => {
-    // Prevent navigation if the click was on a button or an interactive element
     const target = e.target as HTMLElement;
     if (target.closest('button') || target.closest('a')) {
       return;
@@ -521,7 +517,7 @@ export default function CustomersPage() {
         </DialogContent>
     </Dialog>
 
-    <AlertDialog open={!!customerToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setCustomerToDelete(null); setPassword(''); } }}>
+    <AlertDialog open={!!customerToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setCustomerToDelete(null); setPin(''); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -530,19 +526,19 @@ export default function CustomersPage() {
             <strong className="font-medium text-foreground">{customerToDelete?.name}</strong>.
             All their associated transactions will remain but will no longer be linked to them.
             <div className="mt-4 space-y-2">
-              <Label htmlFor="delete-password-customer">Enter password to confirm deletion:</Label>
+              <Label htmlFor="delete-customer-pin">Enter PIN to confirm deletion:</Label>
               <Input
-                id="delete-password-customer"
+                id="delete-customer-pin"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password required"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="Enter 4-digit PIN"
               />
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => { setCustomerToDelete(null); setPin(''); }}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteCustomer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Yes, delete customer
           </AlertDialogAction>

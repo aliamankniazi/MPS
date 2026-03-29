@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X, AlertTriangle } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -22,13 +22,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import * as XLSX from 'xlsx';
 import type { Transaction, OtherIncome, Expense, DateRange, MachineReading } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { DateRangePicker } from '@/components/date-range-picker';
 
 type LedgerEntry = {
@@ -119,6 +119,7 @@ export default function LedgerPage() {
   } = useDatabase();
 
   const [entryToDelete, setEntryToDelete] = useState<LedgerEntry | null>(null);
+  const [deletePin, setDeletePin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('');
   const [showJournal, setShowJournal] = useState(true);
@@ -543,6 +544,16 @@ export default function LedgerPage() {
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
+
+    if (deletePin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect PIN.',
+      });
+      return;
+    }
+
     const [typePrefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         switch(typePrefix) {
@@ -560,9 +571,19 @@ export default function LedgerPage() {
         toast({ title: 'Entry Deleted' });
     } catch (error: any) { toast({ variant: 'destructive', title: 'Error Deleting' }); }
     setEntryToDelete(null);
+    setDeletePin('');
   };
 
   const handleDeleteSelectedEntries = () => {
+    if (deletePin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect PIN.',
+      });
+      return;
+    }
+
     selectedEntries.forEach(entryId => {
         const [typePrefix, id] = entryId.split(/-(.*)/s);
         try {
@@ -583,6 +604,7 @@ export default function LedgerPage() {
     toast({ title: 'Entries Deleted' });
     setSelectedEntries([]);
     setShowDeleteSelectedDialog(false);
+    setDeletePin('');
   };
 
   const clearFilters = () => { setSearchTerm(''); setLocalDateRange(undefined); setSelectedType(''); }
@@ -730,7 +752,7 @@ export default function LedgerPage() {
                                     <div>
                                         <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenditure</h4>
                                         <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
-                                        <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
                                         <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
                                     </div>
                                     <div className="col-span-2 md:col-span-1">
@@ -815,27 +837,52 @@ export default function LedgerPage() {
       </Card>
     </div>
     
-    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
+    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setEntryToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone. Permanently delete: <strong>{entryToDelete?.description}</strong></AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the entry: <br />
+              <strong>{entryToDelete?.description}</strong>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="delete-pin">Enter PIN to confirm deletion:</Label>
+                <Input
+                  id="delete-pin"
+                  type="password"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
+                />
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setEntryToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, delete entry</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={setShowDeleteSelectedDialog}>
+      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={(isOpen) => { if (!isOpen) { setShowDeleteSelectedDialog(false); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedEntries.length} entries?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently delete the selected entries.</AlertDialogDescription>
+            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Delete {selectedEntries.length} entries?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the selected entries. This action cannot be undone.
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="multi-delete-pin">Enter PIN to confirm deletion:</Label>
+                <Input
+                  id="multi-delete-pin"
+                  type="password"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
+                />
+              </div>
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setShowDeleteSelectedDialog(false); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteSelectedEntries} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Yes, delete {selectedEntries.length} entries</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

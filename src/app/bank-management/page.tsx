@@ -33,7 +33,7 @@ export default function BankManagementPage() {
   const [accountToEdit, setAccountToEdit] = useState<BankAccount | null>(null);
   const [accountToDelete, setAccountToDelete] = useState<BankAccount | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [password, setPassword] = useState('');
+  const [pin, setPin] = useState('');
 
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<BankAccountFormValues>({
@@ -53,7 +53,7 @@ export default function BankManagementPage() {
   }, [bankAccounts, searchTerm]);
 
   const onAddSubmit: SubmitHandler<BankAccountFormValues> = (data) => {
-    addBankAccount(data);
+    addBankAccount({ ...data, timestamp: new Date().toISOString() });
     toast({
       title: 'Bank Account Added',
       description: `${data.bankName} account has been added successfully.`,
@@ -74,13 +74,12 @@ export default function BankManagementPage() {
   const handleDeleteAccount = () => {
     if (!accountToDelete) return;
 
-    if (password !== '03006555459') {
+    if (pin !== '0200') {
       toast({
         variant: 'destructive',
-        title: 'Incorrect Password',
-        description: 'The password to delete is incorrect.',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect PIN.',
       });
-      setPassword('');
       return;
     }
 
@@ -90,7 +89,7 @@ export default function BankManagementPage() {
         description: `${accountToDelete.bankName} account has been removed.`,
     });
     setAccountToDelete(null);
-    setPassword('');
+    setPin('');
   };
 
   useEffect(() => {
@@ -244,7 +243,7 @@ export default function BankManagementPage() {
         </DialogContent>
     </Dialog>
 
-    <AlertDialog open={!!accountToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAccountToDelete(null); setPassword(''); } }}>
+    <AlertDialog open={!!accountToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAccountToDelete(null); setPin(''); } }}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -252,19 +251,19 @@ export default function BankManagementPage() {
             This action cannot be undone. This will permanently delete the account: <br />
             <strong className="font-medium text-foreground">{accountToDelete?.bankName} ({accountToDelete?.accountNumber})</strong>.
             <div className="mt-4 space-y-2">
-              <Label htmlFor="delete-password-bank">Enter password to confirm deletion:</Label>
+              <Label htmlFor="delete-bank-pin">Enter PIN to confirm deletion:</Label>
               <Input
-                id="delete-password-bank"
+                id="delete-bank-pin"
                 type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password required"
+                value={pin}
+                onChange={(e) => setPin(e.target.value)}
+                placeholder="Enter 4-digit PIN"
               />
             </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => { setAccountToDelete(null); setPin(''); }}>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
             Yes, delete account
           </AlertDialogAction>

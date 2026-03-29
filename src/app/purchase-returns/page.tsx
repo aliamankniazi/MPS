@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown } from 'lucide-react';
+import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, ShieldCheck } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,6 +29,7 @@ const purchaseReturnSchema = z.object({
   totalRefund: z.coerce.number().min(0.01, 'Total refund must be greater than 0'),
   reason: z.string().min(1, 'Reason for return is required'),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type PurchaseReturnFormValues = z.infer<typeof purchaseReturnSchema>;
@@ -97,6 +98,15 @@ export default function PurchaseReturnsPage() {
   }, [reset]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
@@ -105,8 +115,12 @@ export default function PurchaseReturnsPage() {
     localStorage.setItem('global_date_to', isoDate);
 
     addPurchaseReturn({ 
-        ...data, 
-        supplier: supplier.name, // Pass name for display
+        supplierId: data.supplierId,
+        supplier: supplier.name, 
+        fuelType: data.fuelType,
+        volume: data.volume,
+        totalRefund: data.totalRefund,
+        reason: data.reason,
         timestamp: data.date.toISOString() 
     });
     toast({
@@ -120,7 +134,8 @@ export default function PurchaseReturnsPage() {
       fuelType: undefined,
       volume: undefined,
       totalRefund: undefined,
-      reason: ''
+      reason: '',
+      pin: '',
     });
   };
 
@@ -272,7 +287,13 @@ export default function PurchaseReturnsPage() {
                         )}
                     />
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-                    </div>
+                </div>
+
+                <div className="space-y-2 border-t pt-4">
+                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                </div>
                 
                 {supplierId && (
                     <div className="border-t pt-4 mt-4 space-y-1 text-sm">

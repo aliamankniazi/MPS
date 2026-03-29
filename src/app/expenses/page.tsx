@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X, Sun, Calendar as CalendarIcon } from 'lucide-react';
+import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X, Sun, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -31,6 +31,7 @@ const expenseSchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES, { required_error: 'Please select a category.' }),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -72,11 +73,11 @@ export default function ExpensesPage() {
   const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [deletePin, setDeletePin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
-  const [password, setPassword] = useState('');
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
@@ -121,12 +122,23 @@ export default function ExpensesPage() {
   };
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     const isoDate = data.date.toISOString();
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
     
     addExpense({
-      ...data,
+      description: data.description,
+      category: data.category,
+      amount: data.amount,
       timestamp: data.date.toISOString(),
     });
 
@@ -140,15 +152,15 @@ export default function ExpensesPage() {
         category: 'Utilities',
         amount: 0,
         date: data.date,
+        pin: '',
     });
   };
   
   const handleDeleteExpense = () => {
     if (!expenseToDelete) return;
 
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+    if (deletePin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
     
@@ -158,15 +170,14 @@ export default function ExpensesPage() {
       description: `The expense for "${expenseToDelete.description}" has been moved to the recycle bin.`,
     });
     setExpenseToDelete(null);
-    setPassword('');
+    setDeletePin('');
   };
 
   const handleDeleteSelectedExpenses = () => {
     if (selectedExpenses.length === 0) return;
     
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+    if (deletePin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
 
@@ -177,7 +188,7 @@ export default function ExpensesPage() {
     });
     setSelectedExpenses([]);
     setShowDeleteSelectedDialog(false);
-    setPassword('');
+    setDeletePin('');
   };
   
   const totalExpenses = useMemo(() => {
@@ -276,6 +287,11 @@ export default function ExpensesPage() {
                         {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                       </div>
 
+                    <div className="space-y-2 border-t pt-4">
+                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                        {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                    </div>
 
                     <Button type="submit" className="w-full">Record Expense</Button>
                   </form>
@@ -406,7 +422,7 @@ export default function ExpensesPage() {
           </div>
         </main>
       </div>
-      <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setExpenseToDelete(null); setPassword(''); } }}>
+      <AlertDialog open={!!expenseToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setExpenseToDelete(null); setDeletePin(''); } }}>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -414,19 +430,19 @@ export default function ExpensesPage() {
                 This action cannot be undone. This will move the expense entry to the recycle bin: <br />
                 <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
                 <div className="mt-4 space-y-2">
-                  <Label htmlFor="delete-password-expense">Enter password to confirm deletion:</Label>
+                  <Label htmlFor="delete-pin-expense">Enter PIN to confirm deletion:</Label>
                   <Input
-                    id="delete-password-expense"
+                    id="delete-pin-expense"
                     type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Password required"
+                    value={deletePin}
+                    onChange={(e) => setDeletePin(e.target.value)}
+                    placeholder="Enter 4-digit PIN"
                   />
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => { setExpenseToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleDeleteExpense} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 Yes, delete entry
               </AlertDialogAction>
@@ -434,26 +450,26 @@ export default function ExpensesPage() {
           </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={(isOpen) => { if (!isOpen) { setShowDeleteSelectedDialog(false); setPassword(''); } }}>
+      <AlertDialog open={showDeleteSelectedDialog} onOpenChange={(isOpen) => { if (!isOpen) { setShowDeleteSelectedDialog(false); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will move {selectedExpenses.length} expense entries to the recycle bin.
               <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-password-multi-expense">Enter password to confirm deletion:</Label>
+                <Label htmlFor="multi-delete-pin-expense">Enter PIN to confirm deletion:</Label>
                 <Input
-                  id="delete-password-multi-expense"
+                  id="multi-delete-pin-expense"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password required"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
                 />
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setShowDeleteSelectedDialog(false); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteSelectedExpenses} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete selected
             </AlertDialogAction>

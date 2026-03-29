@@ -10,8 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle, Mic } from 'lucide-react';
-import { format, getDaysInMonth, getYear, getMonth, getDate, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, subDays, isBefore, isEqual } from 'date-fns';
+import { Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, AlertTriangle, Mic, ShieldCheck } from 'lucide-react';
+import { format, getDaysInMonth, isValid, parse, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, parseISO, startOfDay, isBefore, isEqual } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -51,6 +51,7 @@ const salaryPaymentSchema = z.object({
   postingDate: z.date({ required_error: "A posting date is required."}),
   notes: z.string().optional(),
   manualPresentDays: z.coerce.number().optional(),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type SalaryPaymentFormValues = z.infer<typeof salaryPaymentSchema>;
@@ -117,6 +118,7 @@ export default function SalaryPaymentPage() {
   const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
+  const [confirmPin, setConfirmPin] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   const { register, handleSubmit, reset, control, getValues, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
@@ -186,7 +188,6 @@ export default function SalaryPaymentPage() {
  const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
     let sortedHistory = [...(employee.salaryHistory || [])].sort((a, b) => a.effectiveDate.localeCompare(b.effectiveDate));
     
-    // Inject default salary if no history exists for specific employees
     if (sortedHistory.length === 0) {
         const defaultAmount = DEFAULT_SALARY_MAP[employee.name.trim()];
         if (defaultAmount !== undefined) {
@@ -321,6 +322,15 @@ export default function SalaryPaymentPage() {
   }
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     if (paymentMode === 'single') {
         if (!data.employeeId) {
             toast({ variant: 'destructive', title: 'Error', description: 'Please select an employee.' });
@@ -356,6 +366,15 @@ export default function SalaryPaymentPage() {
 
   const handleProcessSalaryPayment = async () => {
     if (!paymentToConfirm) return;
+
+    if (confirmPin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
 
     for (const payment of paymentToConfirm) {
         const { employeeId, salaryMonth, salaryYear, postingDate, notes, employeeName } = payment;
@@ -409,6 +428,7 @@ export default function SalaryPaymentPage() {
     });
     
     setPaymentToConfirm(null);
+    setConfirmPin('');
 
     const savedDate = localStorage.getItem('global_lastTransactionDate');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
@@ -420,6 +440,7 @@ export default function SalaryPaymentPage() {
       employeeId: '',
       notes: '',
       manualPresentDays: undefined,
+      pin: '',
     });
   };
   
@@ -505,7 +526,7 @@ export default function SalaryPaymentPage() {
                                                 {e.name} - {e.position}
                                             </CommandItem>
                                             )) : <CommandItem disabled>Loading...</CommandItem>}
-                                        </CommandGroup>
+                                        </Group>
                                         </CommandList>
                                     </Command>
                                     </PopoverContent>
@@ -610,6 +631,12 @@ export default function SalaryPaymentPage() {
                          <p className="text-xs text-muted-foreground">If provided, uses the latest salary rate for the entire period.</p>
                     </div>
 
+                    <div className="space-y-2 border-t pt-4">
+                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                        {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                    </div>
+
                     <Button type="submit" className="w-full">Calculate & Confirm Salary</Button>
                 </form>
             </CardContent>
@@ -618,7 +645,7 @@ export default function SalaryPaymentPage() {
       </main>
     </div>
 
-    <AlertDialog open={!!paymentToConfirm} onOpenChange={(isOpen) => !isOpen && setPaymentToConfirm(null)}>
+    <AlertDialog open={!!paymentToConfirm} onOpenChange={(isOpen) => { if (!isOpen) { setPaymentToConfirm(null); setConfirmPin(''); } }}>
         <AlertDialogContent className="max-w-3xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/> Confirm Salary Payment</AlertDialogTitle>
@@ -722,8 +749,12 @@ export default function SalaryPaymentPage() {
                 </ScrollArea>
             )
           )}
+          <div className="py-4 space-y-2 border-t">
+              <Label htmlFor="confirm-pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN to Post</Label>
+              <Input id="confirm-pin" type="password" value={confirmPin} onChange={(e) => setConfirmPin(e.target.value)} placeholder="Enter 4-digit PIN" maxLength={4} />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setPaymentToConfirm(null); setConfirmPin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleProcessSalaryPayment}>
               {paymentToConfirm && paymentToConfirm.length > 1 ? `Confirm & Pay ${paymentToConfirm.filter(p => p.calculation.total > 0).length} Salaries` : 'Confirm & Post Payment'}
             </AlertDialogAction>

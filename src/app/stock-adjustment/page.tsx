@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Package, Edit, List, Trash2, AlertTriangle, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { Package, Edit, List, Trash2, AlertTriangle, Sun, Check, ChevronsUpDown, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { FuelType, StockAdjustment } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -38,6 +38,7 @@ const adjustmentSchema = z.object({
   supplierId: z.string().optional(),
   adjustment: z.coerce.number(),
   date: z.date({ required_error: "A date is required."}),
+  pin: z.string().length(4, "PIN must be 4 digits"),
 });
 
 type AdjustmentFormValues = z.infer<typeof adjustmentSchema>;
@@ -88,8 +89,8 @@ export default function StockAdjustmentPage() {
   } = useDatabase();
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
+  const [deletePin, setDeletePin] = React.useState('');
   const [supplierComboboxOpen, setSupplierComboboxOpen] = React.useState(false);
-  const [password, setPassword] = React.useState('');
 
 
   const mainProducts = React.useMemo(() => {
@@ -97,7 +98,7 @@ export default function StockAdjustmentPage() {
     return products.filter(p => p.category === 'Main Product');
   }, [products]);
 
-  const { register, handleSubmit, control, reset, watch } = useForm<AdjustmentFormValues>({
+  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
   });
 
@@ -133,6 +134,15 @@ export default function StockAdjustmentPage() {
 
 
   const onAdjustmentSubmit: SubmitHandler<AdjustmentFormValues> = (data) => {
+    if (data.pin !== '0200') {
+      toast({
+        variant: 'destructive',
+        title: 'Incorrect PIN',
+        description: 'Verification failed. Incorrect Security PIN.',
+      });
+      return;
+    }
+
     if (newStock < 0) {
       toast({
         variant: 'destructive',
@@ -166,15 +176,15 @@ export default function StockAdjustmentPage() {
         supplierId: undefined,
         adjustment: 0,
         date: data.date,
+        pin: '',
     });
   };
   
   const handleDeleteAdjustment = () => {
     if (!adjustmentToDelete) return;
 
-    if (password !== '03006555459') {
-      toast({ variant: 'destructive', title: 'Incorrect Password', description: 'The password to delete is incorrect.' });
-      setPassword('');
+    if (deletePin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect Security PIN.' });
       return;
     }
 
@@ -184,7 +194,7 @@ export default function StockAdjustmentPage() {
       description: `The stock adjustment has been moved to the recycle bin.`,
     });
     setAdjustmentToDelete(null);
-    setPassword('');
+    setDeletePin('');
   };
 
 
@@ -270,7 +280,7 @@ export default function StockAdjustmentPage() {
                                                 {s.name}
                                             </CommandItem>
                                             )) : <CommandItem disabled>Loading...</CommandItem>}
-                                        </CommandGroup>
+                                        </Group>
                                         </CommandList>
                                     </Command>
                                     </PopoverContent>
@@ -291,34 +301,41 @@ export default function StockAdjustmentPage() {
                             <Input id="newStock" type="number" value={selectedFuelType ? newStock.toFixed(2) : "..."} readOnly disabled className="bg-muted/50 font-bold" />
                         </div>
                     </div>
-                     <div className="space-y-2 max-w-xs">
-                        <Label>Date</Label>
-                         <Controller
-                            name="date"
-                            control={control}
-                            render={({ field }) => (
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
-                                    </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={field.value}
-                                        onSelect={field.onChange}
-                                        defaultMonth={field.value}
-                                        initialFocus
-                                    />
-                                    </PopoverContent>
-                                </Popover>
-                            )}
-                        />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                        <div className="space-y-2">
+                            <Label>Date</Label>
+                            <Controller
+                                name="date"
+                                control={control}
+                                render={({ field }) => (
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
+                                        </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={field.value}
+                                            onSelect={field.onChange}
+                                            defaultMonth={field.value}
+                                            initialFocus
+                                        />
+                                        </PopoverContent>
+                                    </Popover>
+                                )}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                            <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                            {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                        </div>
                     </div>
                     <Button type="submit" disabled={!selectedFuelType || !isLoaded} className="flex items-center gap-2"><Edit /> Adjust Stock</Button>
                 </form>
@@ -385,7 +402,7 @@ export default function StockAdjustmentPage() {
       </main>
     </div>
 
-      <AlertDialog open={!!adjustmentToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAdjustmentToDelete(null); setPassword(''); } }}>
+      <AlertDialog open={!!adjustmentToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setAdjustmentToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you absolutely sure?</AlertDialogTitle>
@@ -393,19 +410,19 @@ export default function StockAdjustmentPage() {
               This will move the stock adjustment entry to the recycle bin: <br/>
               <strong className="font-medium text-foreground">{adjustmentToDelete?.adjustment.toFixed(2)}L of {adjustmentToDelete?.fuelType} on {adjustmentToDelete && format(new Date(adjustmentToDelete.timestamp), 'dd-MMM-yyyy')}</strong>
               <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-password-adj">Enter password to confirm deletion:</Label>
+                <Label htmlFor="delete-pin-adj">Enter PIN to confirm deletion:</Label>
                 <Input
-                  id="delete-password-adj"
+                  id="delete-pin-adj"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password required"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  placeholder="Enter 4-digit PIN"
                 />
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setPassword('')}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => { setAdjustmentToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAdjustment} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Yes, delete entry
             </AlertDialogAction>
