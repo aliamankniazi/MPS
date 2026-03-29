@@ -9,13 +9,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Fuel, KeyRound, ShieldCheck } from 'lucide-react';
+import { LogIn, Fuel, Mail, ShieldCheck, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { AuthFormValues } from '@/lib/types';
 import { differenceInDays, startOfDay } from 'date-fns';
+import { sendEmailVerification } from 'firebase/auth';
 
 
 const loginSchema = z.object({
@@ -23,18 +24,11 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-const otpSchema = z.object({
-  code: z.string().min(1, 'Verification code is required'),
-});
-
-type OtpFormValues = z.infer<typeof otpSchema>;
-
 const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
   const year = date.getFullYear();
-  const month = date.getMonth(); // 0-11
+  const month = date.getMonth(); 
   const day = date.getDate();
 
-  // Based on Bikrami calendar for Punjab
   const monthData = [
       { name: 'چیت', length: 31, start: { m: 2, d: 14 } },
       { name: 'وساکھ', length: 31, start: { m: 3, d: 14 } },
@@ -112,7 +106,7 @@ const getNextRamadanInfo = (currentDate: Date) => {
 
 
 export default function LoginPage() {
-  const { signIn, resetPassword } = useAuth();
+  const { user, signIn, resetPassword } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -121,9 +115,8 @@ export default function LoginPage() {
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [isClient, setIsClient] = useState(false);
   
-  // 2FA States
   const [step, setStep] = useState<1 | 2>(1);
-  const [generatedOtp, setGeneratedOtp] = useState('');
+  const checkInterval = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -175,39 +168,53 @@ export default function LoginPage() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isClient]);
+
+  const pollVerificationStatus = async () => {
+    if (user) {
+      await user.reload();
+      if (user.emailVerified) {
+        if (checkInterval.current) clearInterval(checkInterval.current);
+        sessionStorage.setItem('pumppal_2fa_verified', 'true');
+        toast({
+            title: 'Approved',
+            description: 'Your email has been verified. Welcome back!',
+        });
+        router.push('/');
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (step === 2) {
+      checkInterval.current = setInterval(pollVerificationStatus, 3000);
+    }
+    return () => {
+      if (checkInterval.current) clearInterval(checkInterval.current);
+    };
+  }, [step, user]);
   
   const { register, handleSubmit, getValues, formState: { errors } } = useForm<AuthFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
-  const { register: registerOtp, handleSubmit: handleOtpSubmit, formState: { errors: otpErrors } } = useForm<OtpFormValues>({
-    resolver: zodResolver(otpSchema),
-  });
-
-  const generateOtp = () => {
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    setGeneratedOtp(code);
-    
-    // Log to console for testing without showing code on device
-    console.log('--- 2FA OTP CODE ---');
-    console.log(`The code is: ${code}`);
-    console.log('--------------------');
-
-    const email = getValues('email');
-    toast({
-        title: 'Verification Required',
-        description: `A 6-digit verification code has been sent to ${email}.`,
-        duration: 10000,
-    });
-  };
-
   const onSubmit: SubmitHandler<AuthFormValues> = async (data) => {
     setLoading(true);
     try {
-      await signIn(data);
-      // Success Step 1 - move to 2FA
-      generateOtp();
-      setStep(2);
+      const userCredential = await signIn(data);
+      const user = userCredential.user;
+
+      if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        toast({
+            title: 'Approval Required',
+            description: `An approval email has been sent to ${data.email}. Please click the link to login.`,
+            duration: 10000,
+        });
+        setStep(2);
+      } else {
+        sessionStorage.setItem('pumppal_2fa_verified', 'true');
+        router.push('/');
+      }
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -216,24 +223,6 @@ export default function LoginPage() {
       });
     } finally {
         setLoading(false);
-    }
-  };
-
-  const onOtpSubmit: SubmitHandler<OtpFormValues> = (data) => {
-    // Check for Master PIN 0200 as a bypass for prototype testing
-    if (data.code === generatedOtp || data.code === '0200') {
-        sessionStorage.setItem('pumppal_2fa_verified', 'true');
-        toast({
-            title: 'Verification Successful',
-            description: 'Welcome back!',
-        });
-        router.push('/');
-    } else {
-        toast({
-            variant: 'destructive',
-            title: 'Invalid Code',
-            description: 'The verification code you entered is incorrect.',
-        });
     }
   };
 
@@ -314,35 +303,34 @@ export default function LoginPage() {
                 </Button>
             </form>
           ) : (
-            <form onSubmit={handleOtpSubmit(onOtpSubmit)} className="space-y-6">
-                <div className="text-center space-y-2">
-                    <div className="flex justify-center">
-                        <ShieldCheck className="h-12 w-12 text-green-600" />
-                    </div>
-                    <CardTitle className="text-xl">Two-Step Verification</CardTitle>
-                    <CardDescription>Enter the verification code sent to your registered email.</CardDescription>
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="otp" className="text-pink-600">Verification Code</Label>
-                    <Input 
-                        id="otp" 
-                        type="password"
-                        {...registerOtp('code')} 
-                        placeholder="••••••" 
-                        className="text-center text-2xl tracking-[0.5em] font-bold h-14" 
-                    />
-                    {otpErrors.code && <p className="text-sm text-destructive text-center">{otpErrors.code.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                    <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">Verify & Continue</Button>
-                    <div className="flex justify-between items-center px-1">
-                        <Button type="button" variant="ghost" className="text-xs" onClick={() => setStep(1)}>Back to Login</Button>
-                        <Button type="button" variant="link" className="text-xs" onClick={generateOtp}>Resend Code</Button>
+            <div className="space-y-6 text-center">
+                <div className="flex justify-center">
+                    <div className="p-4 bg-primary/10 rounded-full animate-pulse">
+                        <Mail className="h-12 w-12 text-primary" />
                     </div>
                 </div>
-            </form>
+                <div className="space-y-2">
+                    <CardTitle className="text-xl">Waiting for Approval</CardTitle>
+                    <CardDescription>
+                        We've sent an approval link to <strong>{getValues('email')}</strong>. 
+                        Please click the link in the email to complete your login.
+                    </CardDescription>
+                </div>
+
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking approval status...
+                </div>
+
+                <div className="space-y-2 pt-4">
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setStep(1)}>
+                        Back to Login
+                    </Button>
+                    <Button type="button" variant="link" className="text-xs" onClick={() => user && sendEmailVerification(user)}>
+                        Resend Approval Email
+                    </Button>
+                </div>
+            </div>
           )}
           
           {step === 1 && (
