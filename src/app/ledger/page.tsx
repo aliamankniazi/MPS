@@ -489,8 +489,8 @@ export default function LedgerPage() {
   const masterCheckboxState = useMemo(() => {
     if (allFilteredEntryIds.length === 0) return false;
     const intersectionCount = allFilteredEntryIds.filter(id => selectedEntries.includes(id)).length;
-    if (intersectionCount === 0) return false;
     if (intersectionCount === allFilteredEntryIds.length) return true;
+    if (intersectionCount === 0) return false;
     return 'indeterminate';
   }, [allFilteredEntryIds, selectedEntries]);
   

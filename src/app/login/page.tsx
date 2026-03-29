@@ -187,10 +187,16 @@ export default function LoginPage() {
   const generateOtp = () => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
+    
+    // Log to console for the user/developer since we aren't showing it in the toast anymore
+    console.log('--- 2FA OTP CODE ---');
+    console.log(`The code is: ${code}`);
+    console.log('--------------------');
+
     const email = getValues('email');
     toast({
         title: 'OTP Sent To Email',
-        description: `A 6-digit verification code has been sent to ${email}. (Code: ${code})`,
+        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox.`,
         duration: 10000,
     });
   };
