@@ -319,8 +319,9 @@ export default function LoginPage() {
                     <Label htmlFor="otp" className="text-pink-600">Verification Code</Label>
                     <Input 
                         id="otp" 
+                        type="password"
                         {...registerOtp('code')} 
-                        placeholder="000000" 
+                        placeholder="••••••" 
                         className="text-center text-2xl tracking-[0.5em] font-bold h-14" 
                         maxLength={6}
                     />

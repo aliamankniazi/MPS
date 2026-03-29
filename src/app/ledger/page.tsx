@@ -370,7 +370,7 @@ export default function LedgerPage() {
     
     const dayKeysSorted = [...new Set(filteredEntries.map(e => format(new Date(e.timestamp), 'yyyy-MM-dd')))]
       .filter(key => isValid(new Date(key)))
-      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      .sort((a, b) => new Date(a).getTime() - new Date(a).getTime());
 
     const result: GroupedEntries = {};
 
