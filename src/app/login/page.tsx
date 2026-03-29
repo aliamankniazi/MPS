@@ -187,9 +187,10 @@ export default function LoginPage() {
   const generateOtp = () => {
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     setGeneratedOtp(code);
+    const email = getValues('email');
     toast({
-        title: 'Verification Code Sent',
-        description: `Your 2-Step Verification Code is: ${code}`,
+        title: 'OTP Sent To Email',
+        description: `A 6-digit verification code has been sent to ${email}. (Code: ${code})`,
         duration: 10000,
     });
   };
@@ -312,7 +313,7 @@ export default function LoginPage() {
                         <ShieldCheck className="h-12 w-12 text-green-600" />
                     </div>
                     <CardTitle className="text-xl">Two-Step Verification</CardTitle>
-                    <CardDescription>Enter the 6-digit code sent to your registered device.</CardDescription>
+                    <CardDescription>Enter the 6-digit code sent to your registered email.</CardDescription>
                 </div>
 
                 <div className="space-y-2">
