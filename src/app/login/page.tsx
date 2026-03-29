@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -194,8 +195,8 @@ export default function LoginPage() {
 
     const email = getValues('email');
     toast({
-        title: 'OTP Sent To Email',
-        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox.`,
+        title: 'Verification Required',
+        description: `A 6-digit verification code has been sent to ${email}.`,
         duration: 10000,
     });
   };
