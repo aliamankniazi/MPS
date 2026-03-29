@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
@@ -421,7 +422,7 @@ export default function LedgerPage() {
       };
     }
     return result;
-  }, [filteredEntries, allEntries, localDateRange, machineReadings]);
+  }, [filteredEntries, allEntries, machineReadings, localDateRange]);
 
   const profitSummary = useMemo(() => {
     if (!isLoaded) return null;

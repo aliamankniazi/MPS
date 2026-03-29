@@ -24,7 +24,7 @@ const loginSchema = z.object({
 });
 
 const otpSchema = z.object({
-  code: z.string().length(6, 'Code must be exactly 6 digits'),
+  code: z.string().min(1, 'Verification code is required'),
 });
 
 type OtpFormValues = z.infer<typeof otpSchema>;
@@ -196,7 +196,7 @@ export default function LoginPage() {
     const email = getValues('email');
     toast({
         title: 'OTP Sent To Email',
-        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox.`,
+        description: `A 6-digit verification code has been sent to ${email}. Please check your email inbox. (Prototyping Note: You can also use the Master PIN 0200)`,
         duration: 10000,
     });
   };
@@ -220,7 +220,8 @@ export default function LoginPage() {
   };
 
   const onOtpSubmit: SubmitHandler<OtpFormValues> = (data) => {
-    if (data.code === generatedOtp) {
+    // Check for Master PIN 0200 as a bypass for prototype testing
+    if (data.code === generatedOtp || data.code === '0200') {
         sessionStorage.setItem('pumppal_2fa_verified', 'true');
         toast({
             title: 'Verification Successful',
@@ -319,7 +320,7 @@ export default function LoginPage() {
                         <ShieldCheck className="h-12 w-12 text-green-600" />
                     </div>
                     <CardTitle className="text-xl">Two-Step Verification</CardTitle>
-                    <CardDescription>Enter the 6-digit code sent to your registered email.</CardDescription>
+                    <CardDescription>Enter the verification code sent to your registered email or use your Master PIN.</CardDescription>
                 </div>
 
                 <div className="space-y-2">
@@ -330,7 +331,6 @@ export default function LoginPage() {
                         {...registerOtp('code')} 
                         placeholder="••••••" 
                         className="text-center text-2xl tracking-[0.5em] font-bold h-14" 
-                        maxLength={6}
                     />
                     {otpErrors.code && <p className="text-sm text-destructive text-center">{otpErrors.code.message}</p>}
                 </div>
