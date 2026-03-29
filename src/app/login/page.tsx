@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -8,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Fuel } from 'lucide-react';
+import { LogIn, Fuel, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -40,7 +41,7 @@ const getPunjabiDate = (date: Date): { day: number; month: string; year: number 
       { name: 'مگھر', length: 30, start: { m: 10, d: 14 } },
       { name: 'پوہ', length: 30, start: { m: 11, d: 14 } },
       { name: 'ماگھ', length: 30, start: { m: 0, d: 13 } },
-      { name: 'پھگਣ', length: 30, start: { m: 1, d: 12 } }
+      { name: 'پھگڻ', length: 30, start: { m: 1, d: 12 } }
   ];
 
   let bikramiYear = year + 57;
@@ -105,7 +106,7 @@ const getNextRamadanInfo = (currentDate: Date) => {
 
 
 export default function LoginPage() {
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -165,7 +166,7 @@ export default function LoginPage() {
     return () => clearInterval(timer);
   }, [isClient]);
   
-  const { register, handleSubmit, formState: { errors } } = useForm<AuthFormValues>({
+  const { register, handleSubmit, getValues, formState: { errors } } = useForm<AuthFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
@@ -186,6 +187,32 @@ export default function LoginPage() {
       });
     } finally {
         setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = getValues('email');
+    if (!email || !z.string().email().safeParse(email).success) {
+      toast({
+        variant: 'destructive',
+        title: 'Email Required',
+        description: 'Please enter a valid email address first to reset your password.',
+      });
+      return;
+    }
+
+    try {
+      await resetPassword(email);
+      toast({
+        title: 'Email Sent',
+        description: `A password reset link has been sent to ${email}.`,
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to send reset email.',
+      });
     }
   };
 
@@ -219,7 +246,17 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-pink-600">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-pink-600">Password</Label>
+                <Button 
+                  type="button" 
+                  variant="link" 
+                  className="px-0 font-normal h-auto text-xs text-muted-foreground"
+                  onClick={handleForgotPassword}
+                >
+                  Forgot password?
+                </Button>
+              </div>
               <Input id="password" type="password" {...register('password')} />
               {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
             </div>
@@ -239,4 +276,3 @@ export default function LoginPage() {
     </div>
   );
 }
-    
