@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -5,13 +6,20 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AppLayout } from '@/components/app-layout';
 import { PrintStyles } from '@/components/print-styles';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const isAuthPage = pathname === '/login' || pathname === '/signup';
+  
+  const [is2faVerified, setIs2faVerified] = useState(false);
+
+  useEffect(() => {
+    const verified = sessionStorage.getItem('pumppal_2fa_verified') === 'true';
+    setIs2faVerified(verified);
+  }, [pathname]);
 
   useEffect(() => {
     if (loading) return; // Don't redirect while loading
@@ -19,10 +27,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     if (!user && !isAuthPage) {
         router.push('/login');
     }
-    if (user && isAuthPage) {
+    
+    // Only redirect to dashboard if user exists AND 2FA is complete
+    if (user && isAuthPage && is2faVerified) {
         router.push('/');
     }
-  }, [user, loading, isAuthPage, router]);
+
+    // Redirect to login if user exists but 2FA is not complete (and not on login page)
+    if (user && !isAuthPage && !is2faVerified) {
+        router.push('/login');
+    }
+  }, [user, loading, isAuthPage, is2faVerified, router]);
 
   if (loading && !isAuthPage) {
     return (
@@ -36,7 +51,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     <>
       <PrintStyles />
       <FirebaseErrorListener />
-      {user && !isAuthPage ? (
+      {user && !isAuthPage && is2faVerified ? (
         <AppLayout>{children}</AppLayout>
       ) : (
         children

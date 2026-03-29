@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Fuel, KeyRound } from 'lucide-react';
+import { LogIn, Fuel, KeyRound, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
@@ -22,6 +22,12 @@ const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
+
+const otpSchema = z.object({
+  code: z.string().length(6, 'Code must be exactly 6 digits'),
+});
+
+type OtpFormValues = z.infer<typeof otpSchema>;
 
 const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
   const year = date.getFullYear();
@@ -114,6 +120,10 @@ export default function LoginPage() {
   const [islamicDateString, setIslamicDateString] = useState('');
   const [ramadanCountdown, setRamadanCountdown] = useState('');
   const [isClient, setIsClient] = useState(false);
+  
+  // 2FA States
+  const [step, setStep] = useState<1 | 2>(1);
+  const [generatedOtp, setGeneratedOtp] = useState('');
 
   useEffect(() => {
     setIsClient(true);
@@ -170,15 +180,27 @@ export default function LoginPage() {
     resolver: zodResolver(loginSchema),
   });
 
+  const { register: registerOtp, handleSubmit: handleOtpSubmit, formState: { errors: otpErrors } } = useForm<OtpFormValues>({
+    resolver: zodResolver(otpSchema),
+  });
+
+  const generateOtp = () => {
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setGeneratedOtp(code);
+    toast({
+        title: 'Verification Code Sent',
+        description: `Your 2-Step Verification Code is: ${code}`,
+        duration: 10000,
+    });
+  };
+
   const onSubmit: SubmitHandler<AuthFormValues> = async (data) => {
     setLoading(true);
     try {
       await signIn(data);
-      toast({
-        title: 'Login Successful',
-        description: 'Welcome back!',
-      });
-      router.push('/');
+      // Success Step 1 - move to 2FA
+      generateOtp();
+      setStep(2);
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -187,6 +209,23 @@ export default function LoginPage() {
       });
     } finally {
         setLoading(false);
+    }
+  };
+
+  const onOtpSubmit: SubmitHandler<OtpFormValues> = (data) => {
+    if (data.code === generatedOtp) {
+        sessionStorage.setItem('pumppal_2fa_verified', 'true');
+        toast({
+            title: 'Verification Successful',
+            description: 'Welcome back!',
+        });
+        router.push('/');
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Code',
+            description: 'The verification code you entered is incorrect.',
+        });
     }
   };
 
@@ -238,39 +277,74 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">Mobile: 0333-5425401, 0322-5824444</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-pink-600">Email</Label>
-              <Input id="email" type="email" {...register('email')} placeholder="you@example.com" />
-              {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
-            </div>
+          {step === 1 ? (
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                <div className="space-y-2">
+                <Label htmlFor="email" className="text-pink-600">Email</Label>
+                <Input id="email" type="email" {...register('email')} placeholder="you@example.com" />
+                {errors.email && <p className="text-sm text-destructive">{errors.email.message}</p>}
+                </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-pink-600">Password</Label>
-                <Button 
-                  type="button" 
-                  variant="link" 
-                  className="px-0 font-normal h-auto text-xs text-muted-foreground"
-                  onClick={handleForgotPassword}
-                >
-                  Forgot password?
+                <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <Label htmlFor="password" className="text-pink-600">Password</Label>
+                    <Button 
+                    type="button" 
+                    variant="link" 
+                    className="px-0 font-normal h-auto text-xs text-muted-foreground"
+                    onClick={handleForgotPassword}
+                    >
+                    Forgot password?
+                    </Button>
+                </div>
+                <Input id="password" type="password" {...register('password')} />
+                {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
+                </div>
+
+                <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? 'Logging in...' : 'Login'}
                 </Button>
-              </div>
-              <Input id="password" type="password" {...register('password')} />
-              {errors.password && <p className="text-sm text-destructive">{errors.password.message}</p>}
-            </div>
+            </form>
+          ) : (
+            <form onSubmit={handleOtpSubmit(onOtpSubmit)} className="space-y-6">
+                <div className="text-center space-y-2">
+                    <div className="flex justify-center">
+                        <ShieldCheck className="h-12 w-12 text-green-600" />
+                    </div>
+                    <CardTitle className="text-xl">Two-Step Verification</CardTitle>
+                    <CardDescription>Enter the 6-digit code sent to your registered device.</CardDescription>
+                </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Logging in...' : 'Login'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm text-pink-600">
-            Don't have an account?{' '}
-            <Link href="/signup" className="underline">
-              Sign up
-            </Link>
-          </div>
+                <div className="space-y-2">
+                    <Label htmlFor="otp" className="text-pink-600">Verification Code</Label>
+                    <Input 
+                        id="otp" 
+                        {...registerOtp('code')} 
+                        placeholder="000000" 
+                        className="text-center text-2xl tracking-[0.5em] font-bold h-14" 
+                        maxLength={6}
+                    />
+                    {otpErrors.code && <p className="text-sm text-destructive text-center">{otpErrors.code.message}</p>}
+                </div>
+
+                <div className="space-y-2">
+                    <Button type="submit" className="w-full bg-green-600 hover:bg-green-700">Verify & Continue</Button>
+                    <div className="flex justify-between items-center px-1">
+                        <Button type="button" variant="ghost" className="text-xs" onClick={() => setStep(1)}>Back to Login</Button>
+                        <Button type="button" variant="link" className="text-xs" onClick={generateOtp}>Resend Code</Button>
+                    </div>
+                </div>
+            </form>
+          )}
+          
+          {step === 1 && (
+            <div className="mt-4 text-center text-sm text-pink-600">
+                Don't have an account?{' '}
+                <Link href="/signup" className="underline">
+                Sign up
+                </Link>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -730,7 +730,7 @@ export default function LedgerPage() {
                                     <div>
                                         <h4 className="font-semibold border-b pb-1 mb-1 text-destructive">Expenditure</h4>
                                         <div className="flex justify-between"><span>Credit Sale:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
-                                        <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.cashAdvance.toLocaleString()}</span></div>
+                                        <div className="flex justify-between"><span>Cash Advance:</span> <span className="font-mono">{dayData.dailySummary.creditSale.toLocaleString()}</span></div>
                                         <div className="flex justify-between"><span>Expenses:</span> <span className="font-mono">{dayData.dailySummary.expenses.toLocaleString()}</span></div>
                                     </div>
                                     <div className="col-span-2 md:col-span-1">
