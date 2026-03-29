@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -526,7 +525,7 @@ export default function SalaryPaymentPage() {
                                                 {e.name} - {e.position}
                                             </CommandItem>
                                             )) : <CommandItem disabled>Loading...</CommandItem>}
-                                        </Group>
+                                        </CommandGroup>
                                         </CommandList>
                                     </Command>
                                     </PopoverContent>

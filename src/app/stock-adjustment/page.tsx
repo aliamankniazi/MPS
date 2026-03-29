@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -280,7 +279,7 @@ export default function StockAdjustmentPage() {
                                                 {s.name}
                                             </CommandItem>
                                             )) : <CommandItem disabled>Loading...</CommandItem>}
-                                        </Group>
+                                        </CommandGroup>
                                         </CommandList>
                                     </Command>
                                     </PopoverContent>
