@@ -4,7 +4,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2, AlertTriangle } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -38,6 +38,7 @@ type CombinedEntry = {
   debit: number;
   credit: number;
   balance?: number;
+  notes?: string;
 };
 
 export default function PartnerLedgerPage() {
@@ -96,6 +97,7 @@ export default function PartnerLedgerPage() {
           description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
           debit: tx.totalAmount,
           credit: isCredit ? 0 : tx.totalAmount, // Cash sales are Debit and Credit (wash)
+          notes: tx.notes
         });
       }
     });
@@ -111,6 +113,7 @@ export default function PartnerLedgerPage() {
         description: `Payment Received (${p.paymentMethod})`,
         debit: 0,
         credit: p.amount,
+        notes: p.notes
       });
     });
 
@@ -125,6 +128,7 @@ export default function PartnerLedgerPage() {
         description: ca.notes || 'Cash Advance',
         debit: ca.amount,
         credit: 0,
+        notes: ca.notes
       });
     });
     
@@ -167,6 +171,7 @@ export default function PartnerLedgerPage() {
             description: inv.notes || inv.type,
             debit: inv.type === 'Withdrawal' ? inv.amount : 0,
             credit: inv.type === 'Investment' ? inv.amount : 0,
+            notes: inv.notes
         });
     });
 
@@ -181,6 +186,7 @@ export default function PartnerLedgerPage() {
             description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
             debit: 0,
             credit: sr.totalRefund,
+            notes: sr.reason
         });
     });
 
@@ -195,6 +201,7 @@ export default function PartnerLedgerPage() {
             description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
             debit: pr.totalRefund,
             credit: 0,
+            notes: pr.reason
         });
     });
 
@@ -306,7 +313,7 @@ export default function PartnerLedgerPage() {
       <Card><CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
         <CardContent>
           {isLoaded && entries.length > 0 ? (
-            <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
+            <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead>Notes</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
                 {entries.map(entry => {
                     const date = new Date(entry.timestamp);
@@ -315,16 +322,24 @@ export default function PartnerLedgerPage() {
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'PP pp') : 'Invalid'}</TableCell>
                           <TableCell><div>{entry.entityName}</div><div className="text-xs text-muted-foreground">{entry.entityType}</div></TableCell>
                           <TableCell>{entry.description}</TableCell>
+                          <TableCell className="text-xs italic text-muted-foreground max-w-[150px] truncate">{entry.notes || ''}</TableCell>
                           <TableCell className="text-center"><Badge variant={getBadgeVariant(entry.type)}>{entry.type}</Badge></TableCell>
                           <TableCell className="text-right font-mono text-destructive">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
                           <TableCell className="text-right font-mono text-green-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
                           <TableCell className={cn("text-right font-semibold font-mono", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600')}>{entry.balance?.toFixed(2)}</TableCell>
-                          <TableCell className="text-center"><Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)}><Trash2 className="w-4 h-4" /></Button></TableCell>
+                          <TableCell className="text-center space-x-1">
+                            <Button asChild variant="ghost" size="icon" title="Edit">
+                                <Link href={entry.entityType === 'Supplier' ? '/settings' : '/customers'}>
+                                    <Pencil className="w-4 h-4" />
+                                </Link>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)}><Trash2 className="w-4 h-4" /></Button>
+                          </TableCell>
                         </TableRow>
                     )
                 })}
               </TableBody>
-               <TableFooter><TableRow><TableCell colSpan={4} className="font-bold text-right">Totals</TableCell><TableCell className="text-right font-bold text-destructive">PKR {totals.debit.toFixed(2)}</TableCell><TableCell className="text-right font-bold text-green-600">PKR {totals.credit.toFixed(2)}</TableCell><TableCell colSpan={2} /></TableRow></TableFooter>
+               <TableFooter><TableRow><TableCell colSpan={5} className="font-bold text-right">Totals</TableCell><TableCell className="text-right font-bold text-destructive">PKR {totals.debit.toFixed(2)}</TableCell><TableCell className="text-right font-bold text-green-600">PKR {totals.credit.toFixed(2)}</TableCell><TableCell colSpan={2} /></TableRow></TableFooter>
             </Table>
           ) : <div className="text-center p-8 text-muted-foreground">No transactions found.</div>}
         </CardContent>

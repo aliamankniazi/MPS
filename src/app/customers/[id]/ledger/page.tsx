@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect, use } from 'react';
@@ -39,6 +40,7 @@ type LedgerEntry = {
   balance: number;
   original: any;
   category?: string;
+  notes?: string;
 };
 
 export default function CustomerLedgerPage(props: { params: Promise<{ id: string }>, searchParams: Promise<any> }) {
@@ -117,7 +119,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             debit,
             credit,
             original: tx,
-            category: 'FUEL PURCHASE (SALE TYPE)'
+            category: 'FUEL PURCHASE (SALE TYPE)',
+            notes: tx.notes
           });
         });
 
@@ -131,7 +134,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               debit: 0,
               credit: p.amount,
               original: p,
-              category: isSalary ? 'EMPLOYEE BENEFITS' : 'FINANCIAL CLEARANCE'
+              category: isSalary ? 'EMPLOYEE BENEFITS' : 'FINANCIAL CLEARANCE',
+              notes: p.notes
             })
         });
         
@@ -144,7 +148,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               debit: ca.amount,
               credit: 0,
               original: ca,
-              category: 'CASH DISBURSEMENT'
+              category: 'CASH DISBURSEMENT',
+              notes: ca.notes
             })
         });
         
@@ -156,7 +161,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           debit: 0,
           credit: sr.totalRefund, 
           original: sr,
-          category: 'INVENTORY REVERSAL'
+          category: 'INVENTORY REVERSAL',
+          notes: sr.reason
         }));
 
     } else if (entityType === 'Supplier') {
@@ -190,15 +196,13 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             combined.push({
                 id: `inv-${inv.id}`,
                 timestamp: inv.timestamp,
-                entityId: inv.partnerId,
-                entityName: inv.partnerName,
-                entityType: 'Partner',
                 type: inv.type,
                 description: inv.notes || inv.type,
                 debit: inv.type === 'Withdrawal' ? inv.amount : 0,
                 credit: inv.type === 'Investment' ? inv.amount : 0,
                 original: inv,
-                category: 'EQUITY TRANSACTION'
+                category: 'EQUITY TRANSACTION',
+                notes: inv.notes
             });
         });
     }
@@ -268,6 +272,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         '#': index + 1,
         'Date': isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
         'Description': entry.description,
+        'Notes': entry.notes || '',
         'Type': entry.type,
         'Debit': entry.debit > 0 ? entry.debit.toFixed(2) : '',
         'Credit': entry.credit > 0 ? entry.credit.toFixed(2) : '',
@@ -377,9 +382,11 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                             <TableHead className="w-12 px-4"></TableHead>
                             <TableHead>Date</TableHead>
                             <TableHead>Description</TableHead>
+                            <TableHead>Notes</TableHead>
                             <TableHead>Type</TableHead>
                             <TableHead className="text-right">Debit (-)</TableHead>
                             <TableHead className="text-right">Credit (+)</TableHead>
+                            <TableHead className="text-right">Balance</TableHead>
                             <TableHead className="text-center print:hidden">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -400,7 +407,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                         return (
                             <React.Fragment key={dateKey}>
                                 <TableRow className="bg-red-500 hover:bg-red-600 border-none">
-                                    <TableCell colSpan={7} className="py-2 px-4 text-white font-bold h-10 align-middle">
+                                    <TableCell colSpan={9} className="py-2 px-4 text-white font-bold h-10 align-middle">
                                         <div className="flex items-center gap-2">
                                             <span>{displayDate}</span>
                                             {gapText && (
@@ -427,6 +434,9 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                                                     {entry.category && <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{entry.category}</span>}
                                                 </div>
                                             </TableCell>
+                                            <TableCell className="align-middle text-xs italic text-muted-foreground max-w-[200px] truncate">
+                                                {entry.notes || ''}
+                                            </TableCell>
                                             <TableCell className="align-middle">
                                                 <Badge variant="outline" className="text-[9px] h-5 uppercase border-primary/20 text-primary">
                                                     {entry.type === 'Credit Sale' ? 'DEBT' : entry.type === 'Payment' ? 'CLEAR' : 'LOSS'}
@@ -438,10 +448,15 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                                             <TableCell className="text-right font-mono text-green-600 font-bold align-middle">
                                                 {entry.credit > 0 ? `Rs ${entry.credit.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
                                             </TableCell>
+                                            <TableCell className={cn("text-right font-mono font-bold align-middle", balanceColor(entry.balance))}>
+                                                Rs {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </TableCell>
                                             <TableCell className="text-center print:hidden align-middle">
                                                 <div className="flex justify-center gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                        <Pencil className="w-4 h-4" />
+                                                    <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
+                                                        <Link href={entityType === 'Supplier' ? '/settings' : '/customers'}>
+                                                            <Pencil className="w-4 h-4" />
+                                                        </Link>
                                                     </Button>
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
                                                         <Trash2 className="w-4 h-4" />

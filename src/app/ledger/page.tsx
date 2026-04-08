@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, isSameDay, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X, AlertTriangle } from 'lucide-react';
+import { BookOpen, DollarSign, Trash2, TrendingUp, TrendingDown, Printer, Download, Package, X, AlertTriangle, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -626,6 +626,12 @@ export default function LedgerPage() {
     return notes;
   };
 
+  const getEditLink = (entry: LedgerEntry) => {
+    if (entry.type === 'Purchase' || entry.type === 'Purchase Return' || entry.type === 'Supplier Payment') return '/settings';
+    if (entry.type === 'Expense' || entry.type === 'Salary' || entry.type === 'Salary Expense') return '/employees';
+    return '/customers';
+  };
+
   return (
     <>
     <div className="p-4 md:p-8 space-y-6">
@@ -781,6 +787,7 @@ export default function LedgerPage() {
                                                 <TableHead>Date & Time</TableHead>
                                                 <TableHead>Partner</TableHead>
                                                 <TableHead>Particulars</TableHead>
+                                                <TableHead>Notes</TableHead>
                                                 <TableHead className="text-right">Debit</TableHead>
                                                 <TableHead className="text-right">Credit</TableHead>
                                                 <TableHead className="text-right">Balance</TableHead>
@@ -811,13 +818,20 @@ export default function LedgerPage() {
                                                         </TableCell>
                                                         <TableCell style={{ color }}>
                                                             <div className="font-medium">{entry.description}</div>
-                                                            {notesToDisplay && <div className="text-xs opacity-70 italic">{notesToDisplay}</div>}
                                                             <Badge className="mt-1 text-[10px]" style={{ backgroundColor: `${color}20`, color, borderColor: `${color}40` }}>{typeLabel}</Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-xs italic text-muted-foreground" style={{ color }}>
+                                                            {notesToDisplay}
                                                         </TableCell>
                                                         <TableCell className="text-right font-mono" style={{ color }}>{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
                                                         <TableCell className="text-right font-mono" style={{ color }}>{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
                                                         <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>{entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
-                                                        <TableCell className="text-center">
+                                                        <TableCell className="text-center space-x-1">
+                                                            <Button asChild variant="ghost" size="icon" title="Edit">
+                                                                <Link href={getEditLink(entry)}>
+                                                                    <Pencil className="w-4 h-4" />
+                                                                </Link>
+                                                            </Button>
                                                             <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(entry)} disabled={!entry.id.includes('-')}><Trash2 className="w-4 h-4" /></Button>
                                                         </TableCell>
                                                     </TableRow>
