@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -412,7 +411,7 @@ export default function StockAdjustmentPage() {
               <div className="mt-4 space-y-2">
                 <Label htmlFor="delete-pin-adj">Enter PIN to confirm deletion:</Label>
                 <Input
-                  id="delete-pin-adj"
+                  id="ledger-delete-pin"
                   type="password"
                   value={deletePin}
                   onChange={(e) => setDeletePin(e.target.value)}
