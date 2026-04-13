@@ -22,6 +22,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const customerPaymentSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -67,7 +68,10 @@ function PageHeader() {
 }
 
 export default function CustomerPaymentsPage() {
-  const { customers, addCustomerPayment, isLoaded, colorSettings } = useDatabase();
+  const { customers, addCustomerPayment, updateCustomerPayment, customerPayments, isLoaded, colorSettings } = useDatabase();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
@@ -88,7 +92,19 @@ export default function CustomerPaymentsPage() {
   const newBalance = useMemo(() => customerBalance - (Number(paymentAmount) || 0), [customerBalance, paymentAmount]);
 
   useEffect(() => {
-    // SpeechRecognition is a browser-only API
+    if (isLoaded && editId) {
+        const p = customerPayments.find(item => item.id === editId);
+        if (p) {
+            setValue('customerId', p.customerId);
+            setValue('amount', p.amount);
+            setValue('paymentMethod', p.paymentMethod as any);
+            setValue('notes', p.notes || '');
+            setValue('date', new Date(p.timestamp));
+        }
+    }
+  }, [isLoaded, editId, customerPayments, setValue]);
+
+  useEffect(() => {
     if (typeof window === 'undefined' || !('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
         return;
     }
@@ -109,11 +125,6 @@ export default function CustomerPaymentsPage() {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error', event.error);
-      toast({
-          variant: 'destructive',
-          title: 'Voice Error',
-          description: `Speech recognition error: ${event.error}`,
-      });
       setIsListening(false);
     };
     
@@ -139,17 +150,19 @@ export default function CustomerPaymentsPage() {
   };
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    
-    reset({
-        date: initialDate,
-        paymentMethod: 'Cash'
-    });
-  }, [reset]);
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        
+        reset({
+            date: initialDate,
+            paymentMethod: 'Cash'
+        });
+    }
+  }, [reset, editId]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !editId) {
       const savedCustomerId = localStorage.getItem('global_lastCustomerId');
       if (savedCustomerId) {
         const customer = customers.find(c => c.id === savedCustomerId);
@@ -158,7 +171,7 @@ export default function CustomerPaymentsPage() {
         }
       }
     }
-  }, [isLoaded, customers, setValue]);
+  }, [isLoaded, customers, setValue, editId]);
 
   const onSubmit: SubmitHandler<CustomerPaymentFormValues> = (data) => {
     if (data.pin !== '0200') {
@@ -178,28 +191,41 @@ export default function CustomerPaymentsPage() {
     localStorage.setItem('global_date_to', isoDate);
     localStorage.setItem('global_lastCustomerId', data.customerId);
 
-    addCustomerPayment({
-      customerId: data.customerId,
-      customerName: customer.name,
-      amount: data.amount,
-      paymentMethod: data.paymentMethod,
-      timestamp: data.date.toISOString(),
-      notes: data.notes,
-    });
-    
-    toast({
-      title: 'Payment Recorded',
-      description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
-    });
+    if (editId) {
+        updateCustomerPayment(editId, {
+            customerId: data.customerId,
+            customerName: customer.name,
+            amount: data.amount,
+            paymentMethod: data.paymentMethod,
+            timestamp: data.date.toISOString(),
+            notes: data.notes,
+        });
+        toast({ title: 'Payment Updated', description: 'The payment record has been saved.' });
+        router.push('/ledger');
+    } else {
+        addCustomerPayment({
+          customerId: data.customerId,
+          customerName: customer.name,
+          amount: data.amount,
+          paymentMethod: data.paymentMethod,
+          timestamp: data.date.toISOString(),
+          notes: data.notes,
+        });
+        
+        toast({
+          title: 'Payment Recorded',
+          description: `Payment of PKR ${data.amount} from ${customer.name} has been logged.`,
+        });
 
-    reset({
-        date: data.date,
-        paymentMethod: data.paymentMethod,
-        customerId: data.customerId,
-        amount: undefined,
-        notes: '',
-        pin: '',
-    });
+        reset({
+            date: data.date,
+            paymentMethod: data.paymentMethod,
+            customerId: data.customerId,
+            amount: undefined,
+            notes: '',
+            pin: '',
+        });
+    }
   };
 
   return (
@@ -210,8 +236,8 @@ export default function CustomerPaymentsPage() {
       <div className="max-w-2xl mx-auto">
         <Card>
           <CardHeader>
-            <CardTitle style={{ color: colorSettings['Customer Payment'] || '#14B8A6' }}>New Customer Payment</CardTitle>
-            <CardDescription>Record a payment received from a customer.</CardDescription>
+            <CardTitle style={{ color: colorSettings['Customer Payment'] || '#14B8A6' }}>{editId ? 'Edit Customer Payment' : 'New Customer Payment'}</CardTitle>
+            <CardDescription>{editId ? 'Modify the details of this payment.' : 'Record a payment received from a customer.'}</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -232,7 +258,7 @@ export default function CustomerPaymentsPage() {
                           {field.value
                             ? customers.find((c) => c.id === field.value)?.name
                             : "Select a person..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
@@ -385,7 +411,8 @@ export default function CustomerPaymentsPage() {
                 )}
 
 
-              <Button type="submit" className="w-full">Record Payment</Button>
+              <Button type="submit" className="w-full">{editId ? 'Update Payment' : 'Record Payment'}</Button>
+              {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
             </form>
           </CardContent>
         </Card>

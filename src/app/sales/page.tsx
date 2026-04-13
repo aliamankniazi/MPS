@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Calendar } from '@/components/ui/calendar';
 import { TransactionNav } from '@/components/transaction-nav';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -80,7 +81,10 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock } = useDatabase();
+  const { customers, addTransaction, updateTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock } = useDatabase();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
@@ -112,6 +116,43 @@ export default function SalesPage() {
   const { productId, quantity, price, totalAmount } = watchItem();
   
   const isWalkIn = !customerId || customerId === 'walkin';
+
+  // Load transaction for editing
+  useEffect(() => {
+    if (isLoaded && editId) {
+        const tx = transactions.find(t => t.id === editId);
+        if (tx) {
+            const product = products.find(p => p.name === (tx.product || tx.fuelType));
+            if (product) {
+                setItemValue('productId', product.id);
+                setItemValue('productName', product.name);
+                setItemValue('unit', product.unit);
+                setItemValue('quantity', tx.volume);
+                setItemValue('price', tx.pricePerLitre);
+                setItemValue('totalAmount', tx.totalAmount);
+                
+                // Add to cart so the summary works
+                setCart([{
+                    productId: product.id,
+                    productName: product.name,
+                    unit: product.unit,
+                    quantity: tx.volume,
+                    price: tx.pricePerLitre,
+                    totalAmount: tx.totalAmount
+                }]);
+            }
+            setValue('customerId', tx.customerId || 'walkin');
+            setValue('invoiceDate', new Date(tx.timestamp));
+            setValue('paymentMethod', tx.paymentMethod);
+            setValue('notes', tx.notes || '');
+            
+            if (tx.notes && tx.notes.includes('Vehicle: ')) {
+                const match = tx.notes.match(/Vehicle: ([^,]+)/);
+                if (match) setValue('vehicleNumber', match[1]);
+            }
+        }
+    }
+  }, [isLoaded, editId, transactions, products, setItemValue, setValue]);
 
   const updateSessionPrice = useCallback((productId: string, price: number) => {
     setSessionPrices(prevPrices => {
@@ -146,13 +187,15 @@ export default function SalesPage() {
   }, []);
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    setValue('invoiceDate', initialDate);
-  }, [setValue]);
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        setValue('invoiceDate', initialDate);
+    }
+  }, [setValue, editId]);
   
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !editId) {
       const savedCustomerId = localStorage.getItem('global_lastCustomerId');
       if (savedCustomerId) {
         const customer = customers.find(c => c.id === savedCustomerId);
@@ -169,10 +212,10 @@ export default function SalesPage() {
         setValue('customerId', 'walkin');
       }
     }
-  }, [isLoaded, customers, setValue]);
+  }, [isLoaded, customers, setValue, editId]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !editId) {
       const savedProductId = localStorage.getItem('global_lastSaleProductId');
       if (savedProductId) {
         const product = products.find(p => p.id === savedProductId);
@@ -182,7 +225,7 @@ export default function SalesPage() {
         }
       }
     }
-  }, [isLoaded, products, setItemValue, handleProductSelect]);
+  }, [isLoaded, products, setItemValue, handleProductSelect, editId]);
 
   useEffect(() => {
     if (isWalkIn) {
@@ -235,8 +278,8 @@ export default function SalesPage() {
     if (!selectedProduct) return 0;
     const itemQuantity = Number(quantity) || 0;
     const cartQuantity = cart.filter(item => item.productId === selectedProduct.id).reduce((sum, item) => sum + item.quantity, 0);
-    return currentStockValue - cartQuantity - itemQuantity;
-  }, [currentStockValue, quantity, selectedProduct, cart]);
+    return currentStockValue - (editId ? 0 : cartQuantity) - itemQuantity;
+  }, [currentStockValue, quantity, selectedProduct, cart, editId]);
 
 
   useEffect(() => {
@@ -347,9 +390,15 @@ export default function SalesPage() {
 
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
-    setCart(currentCart => [...currentCart, data]);
+    if (editId) {
+        setCart([data]); // Replace cart in edit mode
+    } else {
+        setCart(currentCart => [...currentCart, data]);
+    }
     updateSessionPrice(data.productId, data.price);
-    resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
+    if (!editId) {
+        resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
+    }
   };
   
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
@@ -384,7 +433,8 @@ export default function SalesPage() {
     
     const finalInvoiceDate = data.invoiceDate.toISOString();
 
-    cart.forEach(item => {
+    if (editId) {
+        const item = cart[0];
         const product = products.find(p => p.id === item.productId);
         let costPrice = 0;
         if (product) {
@@ -402,7 +452,7 @@ export default function SalesPage() {
             }
         }
 
-        const transactionData = {
+        const updateData = {
           fuelType: item.productName,
           volume: item.quantity,
           pricePerLitre: item.price,
@@ -420,21 +470,62 @@ export default function SalesPage() {
           journalColumn: isWalkIn ? 'credit' : 'debit',
           colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
         };
-        addTransaction(transactionData as any);
-    });
+        updateTransaction(editId, updateData as any);
+        toast({ title: 'Sale Updated', description: `Record for ${item.productName} updated successfully.` });
+        router.push('/ledger');
+    } else {
+        cart.forEach(item => {
+            const product = products.find(p => p.id === item.productId);
+            let costPrice = 0;
+            if (product) {
+                if (product.category === 'Main Product') {
+                    const saleTime = new Date(data.invoiceDate).getTime();
+                    const latestPurchase = purchases
+                        .filter(p => p.fuelType === item.productName && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
+                        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                    if (latestPurchase && latestPurchase.volume > 0) {
+                        const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
+                        costPrice = costPerLitre * item.quantity;
+                    }
+                } else {
+                    costPrice = (product.purchasePrice || 0) * item.quantity;
+                }
+            }
 
-    toast({ title: 'Sale Complete', description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.` });
-    
-    reset({
-        customerId: data.customerId,
-        paymentMethod: isWalkIn ? 'Cash' : 'Credit',
-        invoiceDate: data.invoiceDate,
-        notes: '',
-        vehicleNumber: '',
-        pin: '',
-    });
-    resetItem();
-    setCart([]);
+            const transactionData = {
+              fuelType: item.productName,
+              volume: item.quantity,
+              pricePerLitre: item.price,
+              product: item.productName,
+              totalAmount: item.totalAmount,
+              costPrice: costPrice,
+              paymentMethod: isWalkIn ? 'Cash' : 'Credit',
+              customerId: data.customerId,
+              customerName: selectedCustomer?.name || 'Walk-in Customer',
+              notes: finalNotes,
+              timestamp: finalInvoiceDate,
+              isWalkIn: isWalkIn,
+              saleType: isWalkIn ? 'cash' : 'credit',
+              entryType: isWalkIn ? 'cash_sale' : 'credit_sale',
+              journalColumn: isWalkIn ? 'credit' : 'debit',
+              colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
+            };
+            addTransaction(transactionData as any);
+        });
+
+        toast({ title: 'Sale Complete', description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.` });
+        
+        reset({
+            customerId: data.customerId,
+            paymentMethod: isWalkIn ? 'Cash' : 'Credit',
+            invoiceDate: data.invoiceDate,
+            notes: '',
+            vehicleNumber: '',
+            pin: '',
+        });
+        resetItem();
+        setCart([]);
+    }
   };
 
   return (
@@ -445,7 +536,7 @@ export default function SalesPage() {
           <div className="lg:col-span-2 space-y-6">
               <Card>
                   <CardHeader>
-                      <CardTitle style={{ color: colorSettings['Sale'] }}>Add Items to Sale</CardTitle>
+                      <CardTitle style={{ color: colorSettings['Sale'] }}>{editId ? 'Edit Sale Item' : 'Add Items to Sale'}</CardTitle>
                   </CardHeader>
                   <CardContent>
                       <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
@@ -553,7 +644,7 @@ export default function SalesPage() {
                                   <Input id="totalAmount" type="number" {...registerItem('totalAmount')} step="any" className="bg-muted/50 font-bold" onFocus={() => lastUserEditedField.current = 'totalAmount'} />
                               </div>
                                <div className="md:col-span-1 flex items-end">
-                                  <Button type="submit" className="w-full">Add to Cart</Button>
+                                  <Button type="submit" className="w-full">{editId ? 'Apply Changes' : 'Add to Cart'}</Button>
                               </div>
                           </div>
                       </form>
@@ -658,7 +749,7 @@ export default function SalesPage() {
                                         {field.value && field.value !== 'walkin'
                                           ? customers.find((c) => c.id === field.value)?.name
                                           : "Walk-in Customer"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                       </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
@@ -864,8 +955,11 @@ export default function SalesPage() {
                       )}
                   </CardContent>
                   <CardFooter className="flex flex-col gap-2">
-                      <Button type="submit" size="lg" className="w-full">Complete &amp; Print Invoice</Button>
-                      <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { reset(); resetItem(); setCart([]); }}>Discard</Button>
+                      <Button type="submit" size="lg" className="w-full">{editId ? 'Update Transaction' : 'Complete & Print Invoice'}</Button>
+                      <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { 
+                          if (editId) router.push('/ledger');
+                          else { reset(); resetItem(); setCart([]); }
+                      }}>Discard</Button>
                   </CardFooter>
               </Card>
               </form>

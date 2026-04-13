@@ -157,16 +157,22 @@ interface ProcessedDatabaseState extends Omit<DatabaseState, 'isLoaded' | 'setti
 
 interface DatabaseActions {
     addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction | null>;
+    updateTransaction: (id: string, updates: Partial<Transaction>) => void;
     deleteTransaction: (id: string) => void;
     addPurchase: (purchase: Omit<Purchase, 'id'>) => Promise<Purchase | null>;
+    updatePurchase: (id: string, updates: Partial<Purchase>) => void;
     deletePurchase: (id: string) => void;
     addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id'>) => Promise<PurchaseReturn | null>;
+    updatePurchaseReturn: (id: string, updates: Partial<PurchaseReturn>) => void;
     deletePurchaseReturn: (id: string) => void;
     addSaleReturn: (sr: Omit<SaleReturn, 'id'>) => Promise<SaleReturn | null>;
+    updateSaleReturn: (id: string, updates: Partial<SaleReturn>) => void;
     deleteSaleReturn: (id: string) => void;
     addExpense: (expense: Omit<Expense, 'id'>) => Promise<Expense | null>;
+    updateExpense: (id: string, updates: Partial<Expense>) => void;
     deleteExpense: (id: string) => void;
     addOtherIncome: (income: Omit<OtherIncome, 'id'>) => Promise<OtherIncome | null>;
+    updateOtherIncome: (id: string, updates: Partial<OtherIncome>) => void;
     deleteOtherIncome: (id: string) => void;
     addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer | null>;
     updateCustomer: (id: string, updates: Partial<Customer>) => void;
@@ -181,10 +187,13 @@ interface DatabaseActions {
     updateEmployee: (id: string, updates: Partial<Employee> & { terminationDate?: string | null }) => void;
     deleteEmployee: (id: string) => void;
     addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => Promise<CustomerPayment | null>;
+    updateCustomerPayment: (id: string, updates: Partial<CustomerPayment>) => void;
     deleteCustomerPayment: (id: string) => void;
     addSupplierPayment: (payment: Omit<SupplierPayment, 'id'>) => Promise<SupplierPayment | null>;
+    updateSupplierPayment: (id: string, updates: Partial<SupplierPayment>) => void;
     deleteSupplierPayment: (id: string) => void;
     addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => Promise<CashAdvance | null>;
+    updateCashAdvance: (id: string, updates: Partial<CashAdvance>) => void;
     deleteCashAdvance: (id: string) => void;
     addMachine: (machine: Omit<Machine, 'id'>) => Promise<Machine | null>;
     deleteMachine: (id: string) => void;
@@ -192,11 +201,13 @@ interface DatabaseActions {
     updateMachineReading: (id: string, updates: Partial<MachineReading>) => void;
     deleteMachineReading: (id: string) => void;
     addInvestment: (investment: Omit<Investment, 'id'>) => Promise<Investment | null>;
+    updateInvestment: (id: string, updates: Partial<Investment>) => void;
     deleteInvestment: (id: string) => void;
     addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => Promise<void>;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'value'>) => void;
+    updateStockAdjustment: (id: string, updates: Partial<StockAdjustment>) => void;
     deleteStockAdjustment: (id: string) => void;
     addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
@@ -488,13 +499,21 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             return Promise.resolve();
         }
         const docRef = doc(firestore, path, id);
-        return updateDoc(docRef, updates).catch(error => {
+        const dataToSend = { ...updates };
+        // If updating a date field, convert back to JS Date if it's a valid string
+        const dateFields = ['timestamp', 'date', 'hireDate', 'terminationDate', 'deletedAt', 'transactionDate', 'postingDate', 'invoiceDate', 'createdAt'];
+        for (const field of dateFields) {
+            if (dataToSend[field] && typeof dataToSend[field] === 'string' && isValid(new Date(dataToSend[field]))) {
+                dataToSend[field] = new Date(dataToSend[field]);
+            }
+        }
+
+        return updateDoc(docRef, dataToSend).catch(error => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: docRef.path,
                 operation: 'update',
-                requestResourceData: updates,
+                requestResourceData: dataToSend,
             }));
-            // Do not throw the error to prevent unhandled promise rejections
         });
     }, [firestore]);
 
@@ -577,21 +596,27 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     
     // Specific Actions
     const addTransaction = (t: Omit<Transaction, 'id'>) => addEntity<Transaction>(FIRESTORE_PATHS.transactions, t);
+    const updateTransaction = (id: string, u: Partial<Transaction>) => updateEntity(FIRESTORE_PATHS.transactions, id, u);
     const deleteTransaction = (id: string) => deleteEntity(FIRESTORE_PATHS.transactions, id);
     
     const addPurchase = (p: Omit<Purchase, 'id'>) => addEntity<Purchase>(FIRESTORE_PATHS.purchases, p);
+    const updatePurchase = (id: string, u: Partial<Purchase>) => updateEntity(FIRESTORE_PATHS.purchases, id, u);
     const deletePurchase = (id: string) => deleteEntity(FIRESTORE_PATHS.purchases, id);
 
     const addPurchaseReturn = (pr: Omit<PurchaseReturn, 'id'>) => addEntity<PurchaseReturn>(FIRESTORE_PATHS.purchaseReturns, pr);
+    const updatePurchaseReturn = (id: string, u: Partial<PurchaseReturn>) => updateEntity(FIRESTORE_PATHS.purchaseReturns, id, u);
     const deletePurchaseReturn = (id: string) => deleteEntity(FIRESTORE_PATHS.purchaseReturns, id);
 
     const addSaleReturn = (sr: Omit<SaleReturn, 'id'>) => addEntity<SaleReturn>(FIRESTORE_PATHS.saleReturns, sr);
+    const updateSaleReturn = (id: string, u: Partial<SaleReturn>) => updateEntity(FIRESTORE_PATHS.saleReturns, id, u);
     const deleteSaleReturn = (id: string) => deleteEntity(FIRESTORE_PATHS.saleReturns, id);
 
     const addExpense = (e: Omit<Expense, 'id'>) => addEntity<Expense>(FIRESTORE_PATHS.expenses, e);
+    const updateExpense = (id: string, u: Partial<Expense>) => updateEntity(FIRESTORE_PATHS.expenses, id, u);
     const deleteExpense = (id: string) => deleteEntity(FIRESTORE_PATHS.expenses, id);
 
     const addOtherIncome = (i: Omit<OtherIncome, 'id'>) => addEntity<OtherIncome>(FIRESTORE_PATHS.otherIncomes, i);
+    const updateOtherIncome = (id: string, u: Partial<OtherIncome>) => updateEntity(FIRESTORE_PATHS.otherIncomes, id, u);
     const deleteOtherIncome = (id: string) => deleteEntity(FIRESTORE_PATHS.otherIncomes, id);
 
     const addCustomer = (c: Omit<Customer, 'id'>) => addEntity<Customer>(FIRESTORE_PATHS.customers, c);
@@ -611,12 +636,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteEmployee = (id: string) => deleteEntity(FIRESTORE_PATHS.employees, id);
 
     const addCustomerPayment = (p: Omit<CustomerPayment, 'id'>) => addEntity<CustomerPayment>(FIRESTORE_PATHS.customerPayments, p);
+    const updateCustomerPayment = (id: string, u: Partial<CustomerPayment>) => updateEntity(FIRESTORE_PATHS.customerPayments, id, u);
     const deleteCustomerPayment = (id: string) => deleteEntity(FIRESTORE_PATHS.customerPayments, id);
 
     const addSupplierPayment = (p: Omit<SupplierPayment, 'id'>) => addEntity<SupplierPayment>(FIRESTORE_PATHS.supplierPayments, p);
+    const updateSupplierPayment = (id: string, u: Partial<SupplierPayment>) => updateEntity(FIRESTORE_PATHS.supplierPayments, id, u);
     const deleteSupplierPayment = (id: string) => deleteEntity(FIRESTORE_PATHS.supplierPayments, id);
 
     const addCashAdvance = (a: Omit<CashAdvance, 'id'>) => addEntity<CashAdvance>(FIRESTORE_PATHS.cashAdvances, a);
+    const updateCashAdvance = (id: string, u: Partial<CashAdvance>) => updateEntity(FIRESTORE_PATHS.cashAdvances, id, u);
     const deleteCashAdvance = (id: string) => deleteEntity(FIRESTORE_PATHS.cashAdvances, id);
     
     const addMachine = (m: Omit<Machine, 'id'>) => addEntity<Machine>(FIRESTORE_PATHS.machines, m);
@@ -627,6 +655,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const deleteMachineReading = (id: string) => deleteEntity(FIRESTORE_PATHS.machineReadings, id);
     
     const addInvestment = (i: Omit<Investment, 'id'>) => addEntity<Investment>(FIRESTORE_PATHS.investments, i);
+    const updateInvestment = (id: string, u: Partial<Investment>) => updateEntity(FIRESTORE_PATHS.investments, id, u);
     const deleteInvestment = (id: string) => deleteEntity(FIRESTORE_PATHS.investments, id);
 
     const addStockAdjustment = async (adj: Omit<StockAdjustment, 'id' | 'value'>) => {
@@ -642,6 +671,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
         await addEntity(FIRESTORE_PATHS.stockAdjustments, { ...adj, value });
     };
+    const updateStockAdjustment = (id: string, u: Partial<StockAdjustment>) => updateEntity(FIRESTORE_PATHS.stockAdjustments, id, u);
     const deleteStockAdjustment = (id: string) => deleteEntity(FIRESTORE_PATHS.stockAdjustments, id);
 
     const addProduct = async (productData: Partial<Omit<Product, 'id' | 'currentStock' | 'createdAt'>>) => {
@@ -832,16 +862,22 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         fuelStock,
         dateRange,
         addTransaction,
+        updateTransaction,
         deleteTransaction,
         addPurchase,
+        updatePurchase,
         deletePurchase,
         addPurchaseReturn,
+        updatePurchaseReturn,
         deletePurchaseReturn,
         addSaleReturn,
+        updateSaleReturn,
         deleteSaleReturn,
         addExpense,
+        updateExpense,
         deleteExpense,
         addOtherIncome,
+        updateOtherIncome,
         deleteOtherIncome,
         addCustomer,
         updateCustomer,
@@ -856,10 +892,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateEmployee,
         deleteEmployee,
         addCustomerPayment,
+        updateCustomerPayment,
         deleteCustomerPayment,
         addSupplierPayment,
+        updateSupplierPayment,
         deleteSupplierPayment,
         addCashAdvance,
+        updateCashAdvance,
         deleteCashAdvance,
         addMachine,
         deleteMachine,
@@ -867,11 +906,13 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         updateMachineReading,
         deleteMachineReading,
         addInvestment,
+        updateInvestment,
         deleteInvestment,
         addBusinessPartner,
         updateBusinessPartner,
         deleteBusinessPartner,
         addStockAdjustment,
+        updateStockAdjustment,
         deleteStockAdjustment,
         addAttendance,
         setFuelStock,

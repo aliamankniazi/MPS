@@ -627,9 +627,21 @@ export default function LedgerPage() {
   };
 
   const getEditLink = (entry: LedgerEntry) => {
-    if (entry.type === 'Purchase' || entry.type === 'Purchase Return' || entry.type === 'Supplier Payment') return '/settings';
-    if (entry.type === 'Expense' || entry.type === 'Salary' || entry.type === 'Salary Expense') return '/employees';
-    return '/customers';
+    const [prefix, id] = entry.id.split(/-(.*)/s);
+    switch(prefix) {
+        case 'tx': return `/sales?edit=${id}`;
+        case 'pur': return `/purchases?edit=${id}`;
+        case 'cp': return `/customer-payments?edit=${id}`;
+        case 'sp': return `/supplier-payments?edit=${id}`;
+        case 'exp': return `/expenses?edit=${id}`;
+        case 'sr': return `/sale-returns?edit=${id}`;
+        case 'oi': return `/other-incomes?edit=${id}`;
+        case 'inv':
+        case 'wdr': return `/investments?edit=${id}`;
+        case 'ca': return `/cash-advances?edit=${id}`;
+        case 'adj': return `/stock-adjustment?edit=${id}`;
+        default: return '#';
+    }
   };
 
   return (
@@ -801,6 +813,7 @@ export default function LedgerPage() {
                                                 const typeLabel = entry.type === 'cash_sale' ? 'Cash Sale – Walk-in' : entry.type === 'credit_sale' ? 'Credit Sale' : entry.type;
                                                 const link = getEntryLink(entry);
                                                 const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
+                                                const editLink = getEditLink(entry);
                                                 
                                                 // Find global index for Sr #
                                                 const globalIndex = filteredEntries.findIndex(e => e.id === entry.id);
@@ -828,7 +841,7 @@ export default function LedgerPage() {
                                                         <TableCell className={cn("font-semibold font-mono text-right", entry.balance >= 0 ? 'text-primary' : 'text-destructive')}>{entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</TableCell>
                                                         <TableCell className="text-center space-x-1">
                                                             <Button asChild variant="ghost" size="icon" title="Edit">
-                                                                <Link href={getEditLink(entry)}>
+                                                                <Link href={editLink}>
                                                                     <Pencil className="w-4 h-4" />
                                                                 </Link>
                                                             </Button>

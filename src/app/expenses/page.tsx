@@ -22,6 +22,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { TransactionNav } from '@/components/transaction-nav';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
@@ -70,7 +71,10 @@ function PageHeader() {
 }
 
 export default function ExpensesPage() {
-  const { expenses, addExpense, deleteExpense, dateRange, setDateRange } = useDatabase();
+  const { expenses, addExpense, updateExpense, deleteExpense, isLoaded, dateRange, setDateRange } = useDatabase();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [deletePin, setDeletePin] = useState('');
@@ -79,7 +83,7 @@ export default function ExpensesPage() {
   const [showDeleteSelectedDialog, setShowDeleteSelectedDialog] = useState(false);
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<ExpenseFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
         category: 'Utilities',
@@ -87,13 +91,27 @@ export default function ExpensesPage() {
   });
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-        category: 'Utilities',
-        date: initialDate,
-    });
-  }, [reset]);
+    if (isLoaded && editId) {
+        const exp = expenses.find(e => e.id === editId);
+        if (exp) {
+            setValue('description', exp.description);
+            setValue('category', exp.category);
+            setValue('amount', exp.amount);
+            setValue('date', new Date(exp.timestamp));
+        }
+    }
+  }, [isLoaded, editId, expenses, setValue]);
+
+  useEffect(() => {
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        reset({
+            category: 'Utilities',
+            date: initialDate,
+        });
+    }
+  }, [reset, editId]);
 
   const filteredExpenses = useMemo(() => {
     let currentExpenses = expenses;
@@ -135,25 +153,31 @@ export default function ExpensesPage() {
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
     
-    addExpense({
-      description: data.description,
-      category: data.category,
-      amount: data.amount,
-      timestamp: data.date.toISOString(),
-    });
-
-    toast({
-      title: 'Expense Recorded',
-      description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.`,
-    });
-
-    reset({
-        description: '',
-        category: 'Utilities',
-        amount: 0,
-        date: data.date,
-        pin: '',
-    });
+    if (editId) {
+        updateExpense(editId, {
+            description: data.description,
+            category: data.category,
+            amount: data.amount,
+            timestamp: data.date.toISOString(),
+        });
+        toast({ title: 'Expense Updated', description: 'The record has been updated successfully.' });
+        router.push('/ledger');
+    } else {
+        addExpense({
+          description: data.description,
+          category: data.category,
+          amount: data.amount,
+          timestamp: data.date.toISOString(),
+        });
+        toast({ title: 'Expense Recorded', description: `Expense of PKR ${data.amount} for "${data.description}" has been logged.` });
+        reset({
+            description: '',
+            category: 'Utilities',
+            amount: 0,
+            date: data.date,
+            pin: '',
+        });
+    }
   };
   
   const handleDeleteExpense = () => {
@@ -214,9 +238,9 @@ export default function ExpensesPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <WalletCards /> New Expense
+                    <WalletCards /> {editId ? 'Edit Expense' : 'New Expense'}
                   </CardTitle>
-                  <CardDescription>Record a new business expense.</CardDescription>
+                  <CardDescription>{editId ? 'Update the details of this business expense.' : 'Record a new business expense.'}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -293,7 +317,8 @@ export default function ExpensesPage() {
                         {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
                     </div>
 
-                    <Button type="submit" className="w-full">Record Expense</Button>
+                    <Button type="submit" className="w-full">{editId ? 'Update Expense' : 'Record Expense'}</Button>
+                    {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                   </form>
                 </CardContent>
               </Card>
@@ -395,7 +420,10 @@ export default function ExpensesPage() {
                               <TableCell>{e.description}</TableCell>
                               <TableCell>{e.category}</TableCell>
                               <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                              <TableCell className="text-center">
+                              <TableCell className="text-center space-x-1">
+                                  <Button variant="ghost" size="icon" title="Edit" asChild>
+                                      <Link href={`/expenses?edit=${e.id}`}><Pencil className="w-4 h-4"/></Link>
+                                  </Button>
                                   <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setExpenseToDelete(e)}>
                                       <Trash2 className="w-4 h-4" />
                                   </Button>

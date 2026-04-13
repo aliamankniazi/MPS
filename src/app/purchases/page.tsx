@@ -21,6 +21,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useSupplierBalance } from '@/hooks/use-supplier-balance';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const purchaseSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -67,7 +68,10 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, suppliers, purchases, products, isLoaded, colorSettings } = useDatabase();
+  const { addPurchase, updatePurchase, suppliers, purchases, products, isLoaded, colorSettings } = useDatabase();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [purchaseDateCalendarOpen, setPurchaseDateCalendarOpen] = useState(false);
@@ -81,6 +85,21 @@ export default function PurchasesPage() {
   
   const { balance: supplierBalance } = useSupplierBalance(supplierId);
   const newBalance = useMemo(() => supplierBalance + (Number(totalCost) || 0), [supplierBalance, totalCost]);
+
+  // Load purchase for editing
+  useEffect(() => {
+    if (isLoaded && editId) {
+        const p = purchases.find(item => item.id === editId);
+        if (p) {
+            setValue('supplierId', p.supplierId);
+            setValue('fuelType', p.fuelType);
+            setValue('volume', p.volume);
+            setValue('pricePerLitre', p.volume > 0 ? p.totalCost / p.volume : 0);
+            setValue('totalCost', p.totalCost);
+            setValue('date', new Date(p.timestamp));
+        }
+    }
+  }, [isLoaded, editId, purchases, setValue]);
 
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
@@ -100,28 +119,30 @@ export default function PurchasesPage() {
   }, [totalCost, pricePerLitre, setValue]);
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    const savedSupplierId = localStorage.getItem('global_lastSupplierId');
-    const savedProductId = localStorage.getItem('global_lastPurchaseProductId');
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        const savedSupplierId = localStorage.getItem('global_lastSupplierId');
+        const savedProductId = localStorage.getItem('global_lastPurchaseProductId');
 
-    const defaultValues: Partial<PurchaseFormValues> = {
-      date: initialDate,
-    };
-    
-    if (savedSupplierId && suppliers.find(s => s.id === savedSupplierId)) {
-        defaultValues.supplierId = savedSupplierId;
-    }
-    
-    if (savedProductId && products.find(p => p.name === savedProductId)) {
-        defaultValues.fuelType = savedProductId;
-    }
+        const defaultValues: Partial<PurchaseFormValues> = {
+          date: initialDate,
+        };
+        
+        if (savedSupplierId && suppliers.find(s => s.id === savedSupplierId)) {
+            defaultValues.supplierId = savedSupplierId;
+        }
+        
+        if (savedProductId && products.find(p => p.name === savedProductId)) {
+            defaultValues.fuelType = savedProductId;
+        }
 
-    reset(defaultValues);
-  }, [reset, suppliers, products]);
+        reset(defaultValues);
+    }
+  }, [reset, suppliers, products, editId]);
 
   useEffect(() => {
-    if (fuelType && purchases.length > 0) {
+    if (fuelType && purchases.length > 0 && !editId) {
       const lastPurchaseOfSameType = purchases
         .filter((p) => p.fuelType === fuelType)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -132,7 +153,7 @@ export default function PurchasesPage() {
         lastUserEditedField.current = 'price';
       }
     }
-  }, [fuelType, purchases, setValue]);
+  }, [fuelType, purchases, setValue, editId]);
 
 
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
@@ -162,25 +183,26 @@ export default function PurchasesPage() {
         timestamp: data.date.toISOString(),
     };
 
-    addPurchase({
-      ...purchaseData,
-      supplier: supplier.name, 
-    });
-
-    toast({
-      title: 'Purchase Recorded',
-      description: `Delivery from ${supplier.name} has been logged.`,
-    });
-
-    reset({
-        date: data.date,
-        supplierId: data.supplierId,
-        fuelType: data.fuelType,
-        volume: undefined,
-        pricePerLitre: data.pricePerLitre,
-        totalCost: undefined,
-        pin: '',
-    });
+    if (editId) {
+        updatePurchase(editId, { ...purchaseData, supplier: supplier.name });
+        toast({ title: 'Purchase Updated', description: 'The delivery record has been updated.' });
+        router.push('/ledger');
+    } else {
+        addPurchase({
+          ...purchaseData,
+          supplier: supplier.name, 
+        });
+        toast({ title: 'Purchase Recorded', description: `Delivery from ${supplier.name} has been logged.` });
+        reset({
+            date: data.date,
+            supplierId: data.supplierId,
+            fuelType: data.fuelType,
+            volume: undefined,
+            pricePerLitre: data.pricePerLitre,
+            totalCost: undefined,
+            pin: '',
+        });
+    }
   };
 
   return (
@@ -191,8 +213,8 @@ export default function PurchasesPage() {
         <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle style={{ color: colorSettings['Purchase'] || '#14B8A6' }}>New Purchase</CardTitle>
-                <CardDescription>Record a new fuel delivery from a supplier.</CardDescription>
+                <CardTitle style={{ color: colorSettings['Purchase'] || '#14B8A6' }}>{editId ? 'Edit Purchase' : 'New Purchase'}</CardTitle>
+                <CardDescription>{editId ? 'Modify the details of this fuel delivery.' : 'Record a new fuel delivery from a supplier.'}</CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -347,7 +369,8 @@ export default function PurchasesPage() {
                     </div>
                 )}
 
-                <Button type="submit" className="w-full">Record Purchase</Button>
+                <Button type="submit" className="w-full">{editId ? 'Update Purchase' : 'Record Purchase'}</Button>
+                {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                 </form>
             </CardContent>
             </Card>
