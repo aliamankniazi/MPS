@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect, use } from 'react';
@@ -454,7 +453,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                                             <TableCell className="text-center print:hidden align-middle">
                                                 <div className="flex justify-center gap-1">
                                                     <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                        <Link href={entityType === 'Supplier' ? '/settings' : '/customers'}>
+                                                        <Link href={getEditLink(entry)}>
                                                             <Pencil className="w-4 h-4" />
                                                         </Link>
                                                     </Button>
@@ -502,4 +501,18 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       </AlertDialog>
     </div>
   );
+
+  function getEditLink(e: LedgerEntry) {
+    const [prefix, id] = e.id.split(/-(.*)/s);
+    switch(prefix) {
+        case 'tx': return `/sales?edit=${id}`; 
+        case 'pur': return `/purchases?edit=${id}`;
+        case 'pay': return `/customer-payments?edit=${id}`; 
+        case 'adv': return `/cash-advances?edit=${id}`;
+        case 'sr': return `/sale-returns?edit=${id}`;
+        case 'inv': return `/investments?edit=${id}`;
+        case 'spay': return `/supplier-payments?edit=${id}`;
+        default: return '#';
+    }
+  }
 }

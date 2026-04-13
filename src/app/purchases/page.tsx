@@ -134,10 +134,26 @@ export default function PurchasesPage() {
     localStorage.setItem('global_lastSupplierId', data.supplierId);
     localStorage.setItem('global_lastPurchaseProductId', data.fuelType);
 
-    const purchaseData = { supplierId: data.supplierId, supplier: supplier.name, fuelType: data.fuelType, volume: data.volume, totalCost: data.totalCost, timestamp: data.date.toISOString() };
+    const purchaseData: any = { 
+        supplierId: data.supplierId, 
+        supplier: supplier.name, 
+        fuelType: data.fuelType, 
+        volume: data.volume, 
+        totalCost: data.totalCost, 
+        timestamp: data.date.toISOString() 
+    };
 
-    if (editId) { updatePurchase(editId, purchaseData); toast({ title: 'Purchase Updated' }); router.push('/ledger'); }
-    else { addPurchase(purchaseData); toast({ title: 'Purchase Recorded' }); reset({ date: data.date, supplierId: data.supplierId, fuelType: data.fuelType, pricePerLitre: data.pricePerLitre }); }
+    if (editId) { 
+        // Maintain old color code if update exists
+        updatePurchase(editId, purchaseData); 
+        toast({ title: 'Purchase Updated' }); 
+        router.push('/ledger'); 
+    }
+    else { 
+        addPurchase(purchaseData); 
+        toast({ title: 'Purchase Recorded' }); 
+        reset({ date: data.date, supplierId: data.supplierId, fuelType: data.fuelType, pricePerLitre: data.pricePerLitre }); 
+    }
   };
 
   return (

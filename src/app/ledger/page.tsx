@@ -115,13 +115,6 @@ export default function LedgerPage() {
     return result;
   }, [filteredEntries, allEntries, localDateRange]);
 
-  const profitSummary = useMemo(() => {
-    if (!isLoaded) return null;
-    const rev = filteredEntries.filter(e => ['cash_sale', 'credit_sale', 'Other Income'].includes(e.type)).reduce((s, e) => s + (e.credit || e.debit), 0);
-    const exp = filteredEntries.filter(e => ['Expense', 'Salary'].includes(e.type)).reduce((s, e) => s + e.debit, 0);
-    return { totalRevenue: rev, totalExpenses: exp, netProfit: rev - exp };
-  }, [isLoaded, filteredEntries]);
-
   useEffect(() => {
     if (isLoaded && !localDateRange) setLocalDateRange({ from: startOfToday(), to: endOfToday() });
   }, [isLoaded, localDateRange]);

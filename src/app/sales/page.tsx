@@ -248,17 +248,6 @@ export default function SalesPage() {
 
   const { balance: customerBalance } = useCustomerBalance(customerId || null);
   const cartTotal = useMemo(() => cart.reduce((t, i) => t + i.totalAmount, 0), [cart]);
-  const salesTodayByFuelType = useMemo(() => {
-    if (!isLoaded) return {};
-    const today = startOfDay(new Date());
-    const totals: Record<string, number> = {};
-    transactions.forEach(tx => {
-      if (tx.timestamp && isValid(new Date(tx.timestamp)) && startOfDay(new Date(tx.timestamp)).getTime() === today.getTime()) {
-        if (tx.fuelType && tx.volume) totals[tx.fuelType] = (totals[tx.fuelType] || 0) + tx.volume;
-      }
-    });
-    return totals;
-  }, [isLoaded, transactions]);
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
     if (editId) setCart([data]); else setCart(prev => [...prev, data]);
@@ -298,10 +287,30 @@ export default function SalesPage() {
             } else costPrice = (product.purchasePrice || 0) * item.quantity;
         }
 
-        const txData = {
-          fuelType: item.productName, volume: item.quantity, pricePerLitre: item.price, product: item.productName, totalAmount: item.totalAmount, costPrice, paymentMethod: isWalkIn ? 'Cash' : 'Credit', customerId: data.customerId, customerName: (customers.find(c => c.id === data.customerId)?.name) || 'Walk-in Customer', notes: finalNotes, timestamp: isoDate, isWalkIn, saleType: isWalkIn ? 'cash' : 'credit', entryType: isWalkIn ? 'cash_sale' : 'credit_sale', journalColumn: isWalkIn ? 'credit' : 'debit', colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
+        const txData: any = {
+          fuelType: item.productName, 
+          volume: item.quantity, 
+          pricePerLitre: item.price, 
+          product: item.productName, 
+          totalAmount: item.totalAmount, 
+          costPrice, 
+          paymentMethod: isWalkIn ? 'Cash' : 'Credit', 
+          customerId: data.customerId, 
+          customerName: (customers.find(c => c.id === data.customerId)?.name) || 'Walk-in Customer', 
+          notes: finalNotes, 
+          timestamp: isoDate, 
+          isWalkIn, 
+          saleType: isWalkIn ? 'cash' : 'credit', 
+          entryType: isWalkIn ? 'cash_sale' : 'credit_sale', 
+          journalColumn: isWalkIn ? 'credit' : 'debit'
         };
-        if (editId) updateTransaction(editId, txData as any); else addTransaction(txData as any);
+
+        // Maintain old color code if editing
+        if (!editId) {
+            txData.colorCode = isWalkIn ? '#22C55E' : '#3B82F6';
+        }
+
+        if (editId) updateTransaction(editId, txData); else addTransaction(txData);
     });
 
     toast({ title: editId ? 'Sale Updated' : 'Sale Complete' });

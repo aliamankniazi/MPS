@@ -150,6 +150,11 @@ export default function SalaryPaymentPage() {
     setPaymentToConfirm(null); setConfirmPinVal(''); reset();
   };
 
+  const totalBulkSalary = useMemo(() => {
+    if (!paymentToConfirm) return 0;
+    return paymentToConfirm.reduce((sum, p) => sum + p.calculation.total, 0);
+  }, [paymentToConfirm]);
+
   return (
     <div className="bg-muted/30 min-h-screen">
       <PageHeader /><TransactionNav />
