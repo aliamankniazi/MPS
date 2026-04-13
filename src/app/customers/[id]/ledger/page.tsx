@@ -1,9 +1,10 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect, use } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, isSameDay, differenceInDays } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download, AlertTriangle, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -47,24 +48,10 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
   const entityId = resolvedParams.id;
   
   const { 
-    customers, 
-    suppliers, 
-    businessPartners, 
-    transactions, 
-    customerPayments, 
-    cashAdvances, 
-    purchases, 
-    supplierPayments, 
-    investments,
-    saleReturns,
-    deleteTransaction, 
-    deletePurchase, 
-    deleteCustomerPayment, 
-    deleteCashAdvance, 
-    deleteSupplierPayment, 
-    deleteInvestment,
-    deleteSaleReturn,
-    isLoaded,
+    customers, suppliers, businessPartners, transactions, customerPayments, 
+    cashAdvances, purchases, supplierPayments, investments, saleReturns,
+    deleteTransaction, deletePurchase, deleteCustomerPayment, deleteCashAdvance, 
+    deleteSupplierPayment, deleteInvestment, deleteSaleReturn, isLoaded,
   } = useDatabase();
   
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
@@ -87,8 +74,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     return { entity: null, entityType: null };
   }, [entityId, customers, suppliers, businessPartners, isLoaded]);
 
-  const { entries, finalBalance, totalDebit, totalCredit } = useMemo(() => {
-    if (!entity) return { entries: [], finalBalance: 0, totalDebit: 0, totalCredit: 0 };
+  const { entries, totalDebit, totalCredit, finalBalance } = useMemo(() => {
+    if (!entity) return { entries: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
@@ -98,27 +85,19 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
 
         customerTransactions.forEach(tx => {
-          const isWalkIn = tx.isWalkIn ?? (tx.customerName === 'Walk-in Customer' || !tx.customerId || tx.customerId === 'walkin');
-          
-          let debit = 0;
-          let credit = 0;
-          if ((tx as any).journalColumn) {
-            debit = (tx as any).journalColumn === 'debit' ? tx.totalAmount : 0;
-            credit = (tx as any).journalColumn === 'credit' ? tx.totalAmount : 0;
-          } else {
-            debit = tx.totalAmount;
-            credit = isWalkIn ? tx.totalAmount : 0;
-          }
+          const isWalkIn = tx.isWalkIn ?? (!tx.customerId || tx.customerId === 'walkin');
+          let debit = tx.totalAmount;
+          let credit = isWalkIn ? tx.totalAmount : 0;
 
           combined.push({
             id: `tx-${tx.id}`,
             timestamp: tx.timestamp,
             description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-            type: isWalkIn ? 'Cash Sale – Walk-in' : 'Credit Sale',
+            type: isWalkIn ? 'Cash Sale' : 'Credit Sale',
             debit,
             credit,
             original: tx,
-            category: 'FUEL PURCHASE (SALE TYPE)',
+            category: 'FUEL SALE',
             notes: tx.notes
           });
         });
@@ -128,12 +107,12 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             combined.push({
               id: `pay-${p.id}`,
               timestamp: p.timestamp,
-              description: p.notes || (isSalary ? `Salary to ${p.customerName}` : `Payment from ${p.customerName}`),
+              description: p.notes || (isSalary ? `Salary payment` : `Payment Received`),
               type: isSalary ? 'Salary' : 'Payment',
               debit: 0,
               credit: p.amount,
               original: p,
-              category: isSalary ? 'EMPLOYEE BENEFITS' : 'FINANCIAL CLEARANCE',
+              category: isSalary ? 'EMPLOYEE BENEFITS' : 'PAYMENT',
               notes: p.notes
             })
         });
@@ -147,7 +126,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               debit: ca.amount,
               credit: 0,
               original: ca,
-              category: 'CASH DISBURSEMENT',
+              category: 'CASH ADVANCE',
               notes: ca.notes
             })
         });
@@ -160,26 +139,23 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           debit: 0,
           credit: sr.totalRefund, 
           original: sr,
-          category: 'INVENTORY REVERSAL',
+          category: 'RETURN',
           notes: sr.reason
         }));
 
     } else if (entityType === 'Supplier') {
-        const supplierPurchases = purchases.filter(p => p.supplierId === entityId);
-        const supplierPaymentsMade = supplierPayments.filter(sp => sp.supplierId === entityId);
-
-        supplierPurchases.forEach(p => combined.push({
+        purchases.filter(p => p.supplierId === entityId).forEach(p => combined.push({
             id: `pur-${p.id}`,
             timestamp: p.timestamp,
-            description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : (p.fuelType || 'General Purchase'),
+            description: `${p.volume.toFixed(2)}L of ${p.fuelType}`,
             type: 'Purchase',
             credit: p.totalCost,
             debit: 0,
             original: p,
-            category: 'STOCK ACQUISITION'
+            category: 'PURCHASE'
         }));
 
-        supplierPaymentsMade.forEach(sp => combined.push({
+        supplierPayments.filter(sp => sp.supplierId === entityId).forEach(sp => combined.push({
             id: `spay-${sp.id}`,
             timestamp: sp.timestamp,
             description: `Payment Made (${sp.paymentMethod})`,
@@ -187,11 +163,10 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             debit: sp.amount,
             credit: 0,
             original: sp,
-            category: 'PAYABLE CLEARANCE'
+            category: 'PAYMENT'
         }));
     } else if (entityType === 'Partner') {
-        const partnerInvestments = investments.filter(inv => inv.partnerId === entityId);
-        partnerInvestments.forEach(inv => {
+        investments.filter(inv => inv.partnerId === entityId).forEach(inv => {
             combined.push({
                 id: `inv-${inv.id}`,
                 timestamp: inv.timestamp,
@@ -200,7 +175,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                 debit: inv.type === 'Withdrawal' ? inv.amount : 0,
                 credit: inv.type === 'Investment' ? inv.amount : 0,
                 original: inv,
-                category: 'EQUITY TRANSACTION',
+                category: 'CAPITAL',
                 notes: inv.notes
             });
         });
@@ -227,11 +202,11 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       : combined;
   
     const filteredEntries = searchTerm
-      ? filteredByDate.filter(entry => entry.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      ? filteredByDate.filter(entry => 
+          entry.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (entry.notes && entry.notes.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
       : filteredByDate;
-
-    const totalDebitForPeriod = filteredEntries.reduce((sum, e) => sum + e.debit, 0);
-    const totalCreditForPeriod = filteredEntries.reduce((sum, e) => sum + e.credit, 0);
 
     let runningBalance = rangeFrom ? balanceBeforeRange : openingBalance;
     const entriesWithBalance: LedgerEntry[] = filteredEntries.map(entry => {
@@ -240,10 +215,12 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       return { ...entry, balance: runningBalance };
     });
 
-    return { entries: entriesWithBalance.reverse(), finalBalance: runningBalance, totalDebit: totalDebitForPeriod, totalCredit: totalCreditForPeriod };
+    const debit = filteredEntries.reduce((s, e) => s + e.debit, 0);
+    const credit = filteredEntries.reduce((s, e) => s + e.credit, 0);
+
+    return { entries: entriesWithBalance.reverse(), totalDebit: debit, totalCredit: credit, finalBalance: runningBalance };
   }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
 
-  // Group entries by date for display headers
   const groupedEntries = useMemo(() => {
     const groups: Record<string, LedgerEntry[]> = {};
     entries.forEach(entry => {
@@ -262,39 +239,15 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     else if (value === 'last-month') {
         const lastMonth = startOfMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1));
         setDateRange({ from: lastMonth, to: endOfMonth(lastMonth) });
-    } else if (value === 'this-year') setDateRange({ from: new Date(now.getFullYear(), 0, 1), to: new Date(now.getFullYear(), 11, 31) });
-    else if (value === 'all-time') setDateRange(undefined);
-  };
-
-  const handleExportExcel = () => {
-    const dataToExport = entries.slice().reverse().map((entry, index) => ({
-        '#': index + 1,
-        'Date': isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
-        'Description': entry.description,
-        'Notes': entry.notes || '',
-        'Type': entry.type,
-        'Debit': entry.debit > 0 ? entry.debit.toFixed(2) : '',
-        'Credit': entry.credit > 0 ? entry.credit.toFixed(2) : '',
-        'Balance': entry.balance.toFixed(2),
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Ledger');
-    XLSX.writeFile(workbook, `${entity?.name}_Ledger.xlsx`);
+    } else if (value === 'all-time') setDateRange(undefined);
   };
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
-
     if (deletePin !== '0200') {
-      toast({
-        variant: 'destructive',
-        title: 'Incorrect PIN',
-        description: 'Verification failed. Incorrect PIN.',
-      });
+      toast({ variant: 'destructive', title: 'Incorrect PIN' });
       return;
     }
-
     const [prefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         if (prefix === 'tx') deleteTransaction(id);
@@ -310,199 +263,10 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     setDeletePin('');
   };
 
-  if (!isLoaded) return (
-    <div className="p-4 md:p-8 space-y-8">
-        <Skeleton className="h-8 w-64"/>
-        <Skeleton className="h-24 w-full"/>
-        <Card>
-            <CardContent className="pt-6">
-                <Skeleton className="h-96 w-full" />
-            </CardContent>
-        </Card>
-    </div>
-  );
+  if (!isLoaded) return <div className="p-8"><Skeleton className="h-96 w-full" /></div>;
+  if (!entity) return <div className="p-8 text-center text-destructive">Entity Not Found</div>;
 
-  if (!entity) return (
-    <div className="p-8 text-center">
-        <h2 className="text-2xl font-bold text-destructive">Not Found</h2>
-        <Button asChild className="mt-4"><Link href="/partner-ledger">Back</Link></Button>
-    </div>
-  );
-
-  const balanceColor = (bal: number) => entityType === 'Customer' ? (bal > 0 ? 'text-destructive' : 'text-green-600') : (bal >= 0 ? 'text-green-600' : 'text-destructive');
-
-  return (
-    <div className="p-4 md:p-8 space-y-8">
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4 print:hidden">
-        <div>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2"><BookUser /> {entityType} Ledger: <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></CardTitle>
-          <CardDescription>A record of all transactions for this {entityType.toLowerCase()}.</CardDescription>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48" />
-          <Select onValueChange={handleQuickPeriod}>
-            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Quick Period"/></SelectTrigger>
-            <SelectContent>
-                <SelectItem value="this-month">This Month</SelectItem>
-                <SelectItem value="last-month">Last Month</SelectItem>
-                <SelectItem value="this-year">This Year</SelectItem>
-                <SelectItem value="all-time">All Time</SelectItem>
-            </SelectContent>
-          </Select>
-          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-          <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print</Button>
-          <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Excel</Button>
-          <Button asChild variant="outline"><Link href="/partner-ledger"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
-        </div>
-      </div>
-
-      <div id="ledger-content" className="space-y-8">
-        <Card>
-          <CardHeader><CardTitle className="flex items-center gap-3"><User /> {entityType} Details</CardTitle></CardHeader>
-          <CardContent className="grid sm:grid-cols-3 gap-4 text-sm">
-            <div><strong>Name:</strong> <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></div>
-            {'contact' in entity && <div><strong>Contact:</strong> {(entity as any).contact}</div>}
-            {entityType === 'Customer' && 'vehicleNumber' in entity && <div><strong>Vehicle No:</strong> {(entity as any).vehicleNumber}</div>}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="pt-6">
-            <div className="grid gap-4 sm:grid-cols-3 mb-6">
-                <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Debit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString()}</div></CardContent></Card>
-                <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
-                <Card className="bg-muted/50 border-2 border-primary/20"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Final Balance</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(finalBalance))}>PKR {finalBalance.toLocaleString()}</div></CardContent></Card>
-            </div>
-
-            <div className="rounded-md border overflow-hidden">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="w-12 px-4"></TableHead>
-                            <TableHead>Date</TableHead>
-                            <TableHead>Description</TableHead>
-                            <TableHead>Notes</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead className="text-right">Debit (-)</TableHead>
-                            <TableHead className="text-right">Credit (+)</TableHead>
-                            <TableHead className="text-right">Balance</TableHead>
-                            <TableHead className="text-center print:hidden">Actions</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sortedDateKeys.map((dateKey, dateIndex) => {
-                        const dateEntries = groupedEntries[dateKey];
-                        const displayDate = format(new Date(dateKey), 'EEEE, dd MMMM yyyy');
-                        
-                        let gapText = '';
-                        if (dateIndex < sortedDateKeys.length - 1) {
-                            const nextDateKey = sortedDateKeys[dateIndex + 1];
-                            const diff = differenceInDays(new Date(dateKey), new Date(nextDateKey));
-                            if (diff > 1) {
-                                gapText = `+${diff - 1}d Gap`;
-                            }
-                        }
-
-                        return (
-                            <React.Fragment key={dateKey}>
-                                <TableRow className="bg-red-500 hover:bg-red-600 border-none">
-                                    <TableCell colSpan={9} className="py-2 px-4 text-white font-bold h-10 align-middle">
-                                        <div className="flex items-center gap-2">
-                                            <span>{displayDate}</span>
-                                            {gapText && (
-                                                <Badge variant="secondary" className="bg-white/20 text-white border-none text-[10px] h-5 py-0">
-                                                    {gapText}
-                                                </Badge>
-                                            )}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                                {dateEntries.map((entry) => {
-                                    const date = new Date(entry.timestamp);
-                                    return (
-                                        <TableRow key={entry.id} className="group">
-                                            <TableCell className="px-4 py-3 align-middle">
-                                                <div className="w-4 h-4 rounded-full border-2 border-primary/30 group-hover:border-primary transition-colors" />
-                                            </TableCell>
-                                            <TableCell className="font-medium whitespace-nowrap align-middle">
-                                                {format(date, 'dd-MMM-yyyy')}
-                                            </TableCell>
-                                            <TableCell className="align-middle">
-                                                <div className="flex flex-col">
-                                                    <span className="font-bold text-red-500">{entry.description}</span>
-                                                    {entry.category && <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{entry.category}</span>}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="align-middle text-xs italic text-muted-foreground max-w-[200px] truncate">
-                                                {entry.notes || ''}
-                                            </TableCell>
-                                            <TableCell className="align-middle">
-                                                <Badge variant="outline" className="text-[9px] h-5 uppercase border-primary/20 text-primary">
-                                                    {entry.type === 'Credit Sale' ? 'DEBT' : entry.type === 'Payment' ? 'CLEAR' : 'LOSS'}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-red-600 font-bold align-middle">
-                                                {entry.debit > 0 ? `Rs ${entry.debit.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-green-600 font-bold align-middle">
-                                                {entry.credit > 0 ? `Rs ${entry.credit.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '-'}
-                                            </TableCell>
-                                            <TableCell className={cn("text-right font-mono font-bold align-middle", balanceColor(entry.balance))}>
-                                                Rs {entry.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </TableCell>
-                                            <TableCell className="text-center print:hidden align-middle">
-                                                <div className="flex justify-center gap-1">
-                                                    <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary">
-                                                        <Link href={getEditLink(entry)}>
-                                                            <Pencil className="w-4 h-4" />
-                                                        </Link>
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </React.Fragment>
-                        );
-                      })}
-                    </TableBody>
-                </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setEntryToDelete(null); setDeletePin(''); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Delete Entry?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete: <strong>{entryToDelete?.description}</strong>
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="ledger-delete-pin">Enter PIN to confirm deletion:</Label>
-                <Input
-                  id="ledger-delete-pin"
-                  type="password"
-                  value={deletePin}
-                  onChange={(e) => setDeletePin(e.target.value)}
-                  placeholder="Enter 4-digit PIN"
-                />
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setEntryToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-
-  function getEditLink(e: LedgerEntry) {
+  const getEditLink = (e: LedgerEntry) => {
     const [prefix, id] = e.id.split(/-(.*)/s);
     switch(prefix) {
         case 'tx': return `/sales?edit=${id}`; 
@@ -514,5 +278,124 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         case 'spay': return `/supplier-payments?edit=${id}`;
         default: return '#';
     }
-  }
+  };
+
+  const balanceColor = (bal: number) => entityType === 'Customer' ? (bal > 0 ? 'text-destructive' : 'text-green-600') : (bal >= 0 ? 'text-green-600' : 'text-destructive');
+
+  return (
+    <div className="p-4 md:p-8 space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4 print:hidden">
+        <div>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2"><BookUser /> {entityType} Ledger: <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></CardTitle>
+          <CardDescription>All transactions for this account.</CardDescription>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48" />
+          <Select onValueChange={handleQuickPeriod}>
+            <SelectTrigger className="w-[150px]"><SelectValue placeholder="Quick Period"/></SelectTrigger>
+            <SelectContent>
+                <SelectItem value="this-month">This Month</SelectItem>
+                <SelectItem value="last-month">Last Month</SelectItem>
+                <SelectItem value="all-time">All Time</SelectItem>
+            </SelectContent>
+          </Select>
+          <DateRangePicker date={dateRange} onDateChange={setDateRange} />
+          <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+          <Button asChild variant="outline"><Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-3 mb-6">
+          <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Debit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString()}</div></CardContent></Card>
+          <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
+          <Card className="bg-muted/50 border-2 border-primary/20"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Account Balance</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(finalBalance))}>PKR {finalBalance.toLocaleString()}</div></CardContent></Card>
+      </div>
+
+      <div className="rounded-md border overflow-hidden">
+          <Table>
+              <TableHeader className="bg-muted/50">
+                  <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="text-right">Debit</TableHead>
+                      <TableHead className="text-right">Credit</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                      <TableHead className="text-center print:hidden">Actions</TableHead>
+                  </TableRow>
+              </TableHeader>
+              <TableBody>
+                {sortedDateKeys.map((dateKey, dateIndex) => {
+                  const dayEntries = groupedEntries[dateKey];
+                  const displayDate = format(new Date(dateKey), 'EEEE, dd MMMM yyyy');
+                  
+                  let gapText = '';
+                  if (dateIndex < sortedDateKeys.length - 1) {
+                      const nextDateKey = sortedDateKeys[dateIndex + 1];
+                      const diff = differenceInDays(new Date(dateKey), new Date(nextDateKey));
+                      if (diff > 1) gapText = `+${diff - 1}d Gap`;
+                  }
+
+                  return (
+                      <React.Fragment key={dateKey}>
+                          <TableRow className="bg-red-500 hover:bg-red-600 border-none">
+                              <TableCell colSpan={7} className="py-2 px-4 text-white font-bold h-10 align-middle">
+                                  <div className="flex items-center justify-between">
+                                      <span>{displayDate}</span>
+                                      {gapText && <Badge variant="secondary" className="bg-white/20 text-white border-none">{gapText}</Badge>}
+                                  </div>
+                              </TableCell>
+                          </TableRow>
+                          {dayEntries.map((entry) => (
+                              <TableRow key={entry.id} className="group">
+                                  <TableCell className="font-medium whitespace-nowrap">{format(new Date(entry.timestamp), 'hh:mm a')}</TableCell>
+                                  <TableCell>
+                                      <div className="flex flex-col">
+                                          <span className="font-bold text-red-500">{entry.description}</span>
+                                          {entry.category && <span className="text-[10px] text-muted-foreground uppercase">{entry.category}</span>}
+                                      </div>
+                                  </TableCell>
+                                  <TableCell className="text-xs italic text-muted-foreground max-w-[200px] truncate">{entry.notes || ''}</TableCell>
+                                  <TableCell className="text-right font-mono text-red-600 font-bold">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
+                                  <TableCell className="text-right font-mono text-green-600 font-bold">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                                  <TableCell className={cn("text-right font-mono font-bold", balanceColor(entry.balance))}>{entry.balance.toFixed(2)}</TableCell>
+                                  <TableCell className="text-center print:hidden">
+                                      <div className="flex justify-center gap-1">
+                                          <Button asChild variant="ghost" size="icon" className="h-8 w-8 hover:text-primary">
+                                              <Link href={getEditLink(entry)}><Pencil className="w-4 h-4" /></Link>
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setEntryToDelete(entry)}>
+                                              <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                      </div>
+                                  </TableCell>
+                              </TableRow>
+                          ))}
+                      </React.Fragment>
+                  );
+                })}
+              </TableBody>
+          </Table>
+      </div>
+
+      <AlertDialog open={!!entryToDelete} onOpenChange={(o) => { if (!o) { setEntryToDelete(null); setDeletePin(''); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Permanently delete: <strong>{entryToDelete?.description}</strong>
+              <div className="mt-4 space-y-2">
+                <Label>Security PIN Required:</Label>
+                <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="0200" maxLength={4} />
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
 }

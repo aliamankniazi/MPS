@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -30,7 +31,6 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { useAuth } from '@/hooks/use-auth';
@@ -79,18 +79,19 @@ export default function SalaryPaymentPage() {
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
   const [paymentToConfirm, setPaymentToConfirm] = useState<SalaryPaymentConfirmation[] | null>(null);
   const [paymentMode, setPaymentMode] = useState<'single' | 'bulk'>('single');
-  const [isListening, setIsListening] = useState(false);
-  const [language, setLanguage] = useState('en-US');
   const [confirmPinVal, setConfirmPinVal] = useState('');
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
-  const { register, handleSubmit, reset, control, getValues, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<SalaryPaymentFormValues>({
     resolver: zodResolver(salaryPaymentSchema),
   });
 
   useEffect(() => {
     const savedDate = localStorage.getItem('global_lastTransactionDate');
-    reset({ salaryMonth: format(new Date(), 'MMMM'), salaryYear: new Date().getFullYear().toString(), postingDate: savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date() });
+    reset({ 
+      salaryMonth: format(new Date(), 'MMMM'), 
+      salaryYear: new Date().getFullYear().toString(), 
+      postingDate: savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date() 
+    });
   }, [reset]);
 
   const calculateSalaryForEmployee = (employee: typeof employees[0], data: SalaryPaymentFormValues) => {
@@ -158,28 +159,116 @@ export default function SalaryPaymentPage() {
   return (
     <div className="bg-muted/30 min-h-screen">
       <PageHeader /><TransactionNav />
-      <main className="container mx-auto p-4"><div className="max-w-2xl mx-auto"><Card><CardHeader><CardTitle>Salary Payment</CardTitle></CardHeader><CardContent><form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                    <RadioGroup defaultValue="single" onValueChange={(v: 'single' | 'bulk') => setPaymentMode(v)} className="flex space-x-4"><div className="flex items-center space-x-2"><RadioGroupItem value="single" id="single" /><Label htmlFor="single">Single</Label></div><div className="flex items-center space-x-2"><RadioGroupItem value="bulk" id="bulk" /><Label htmlFor="bulk">All Active</Label></div></RadioGroup>
-                    {paymentMode === 'single' && (<div className="space-y-2"><Label>Employee</Label><Controller name="employeeId" control={control} render={({ field }) => (<Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-between">{field.value ? employees.find(e => e.id === field.value)?.name : "Select..."}<ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Search..." /><CommandList><CommandEmpty>None.</CommandEmpty><CommandGroup>{isLoaded && employees.filter(e => !e.terminationDate).map(e => (<CommandItem key={e.id} value={e.name} onSelect={() => { field.onChange(e.id); setEmployeeComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", field.value === e.id ? "opacity-100" : "opacity-0")} />{e.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>)}/></div>)}
-                    <div className="grid grid-cols-2 gap-4"><div className="space-y-2"><Label>Month</Label><Controller name="salaryMonth" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>)}/></div><div className="space-y-2"><Label>Year</Label><Controller name="salaryYear" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent></Select>)}/></div></div>
-                    <div className="space-y-2"><Label>Posting Date</Label><Controller name="postingDate" control={control} render={({ field }) => (<Popover><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP") : "Pick date"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover>)}/></div>
-                    <div className="space-y-2"><Label>Manual Days (Opt)</Label><Input type="number" {...register('manualPresentDays')} /></div>
-                    
-                    {!isPinVerified() && (
-                        <div className="space-y-2 border-t pt-4">
-                            <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                            <Input type="password" {...register('pin')} placeholder="PIN" maxLength={4} />
-                        </div>
-                    )}
+      <main className="container mx-auto p-4">
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardHeader><CardTitle>Salary Payment</CardTitle></CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <RadioGroup defaultValue="single" onValueChange={(v: 'single' | 'bulk') => setPaymentMode(v)} className="flex space-x-4">
+                  <div className="flex items-center space-x-2"><RadioGroupItem value="single" id="single" /><Label htmlFor="single">Single</Label></div>
+                  <div className="flex items-center space-x-2"><RadioGroupItem value="bulk" id="bulk" /><Label htmlFor="bulk">All Active</Label></div>
+                </RadioGroup>
+                {paymentMode === 'single' && (
+                  <div className="space-y-2">
+                    <Label>Employee</Label>
+                    <Controller name="employeeId" control={control} render={({ field }) => (
+                      <Popover open={employeeComboboxOpen} onOpenChange={setEmployeeComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between">
+                            {field.value ? employees.find(e => e.id === field.value)?.name : "Select..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                          <Command>
+                            <CommandInput placeholder="Search..." />
+                            <CommandList>
+                              <CommandEmpty>None.</CommandEmpty>
+                              <CommandGroup>
+                                {isLoaded && employees.filter(e => !e.terminationDate).map(e => (
+                                  <CommandItem key={e.id} value={e.name} onSelect={() => { field.onChange(e.id); setEmployeeComboboxOpen(false); }}>
+                                    <Check className={cn("mr-2 h-4 w-4", field.value === e.id ? "opacity-100" : "opacity-0")} />
+                                    {e.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    )}/>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Month</Label>
+                    <Controller name="salaryMonth" control={control} render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>{months.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )}/>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Year</Label>
+                    <Controller name="salaryYear" control={control} render={({ field }) => (
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <SelectTrigger><SelectValue/></SelectTrigger>
+                        <SelectContent>{years.map(y => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+                      </Select>
+                    )}/>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Posting Date</Label>
+                  <Controller name="postingDate" control={control} render={({ field }) => (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal">
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? format(field.value, "dd-MMM-yyyy") : "Pick date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                  )}/>
+                </div>
+                <div className="space-y-2"><Label>Manual Days (Opt)</Label><Input type="number" {...register('manualPresentDays')} /></div>
+                
+                {!isPinVerified() && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input type="password" {...register('pin')} placeholder="PIN" maxLength={4} />
+                    </div>
+                )}
 
-                    <Button type="submit" className="w-full">Confirm Salary</Button>
-                </form></CardContent></Card></div></main>
+                <Button type="submit" className="w-full">Confirm Salary</Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      </main>
       <AlertDialog open={!!paymentToConfirm} onOpenChange={(o) => { if (!o) { setPaymentToConfirm(null); setConfirmPinVal(''); } }}>
-        <AlertDialogContent className="max-w-3xl"><AlertDialogHeader><AlertDialogTitle>Process Payment</AlertDialogTitle></AlertDialogHeader>
-          <ScrollArea className="max-h-[50vh] p-4 bg-muted rounded-md">{paymentToConfirm?.map(p => (<div key={p.employeeId} className="flex justify-between py-2 border-b"><span>{p.employeeName}</span><span className="font-bold">PKR {p.calculation.total.toFixed(2)}</span></div>))}</ScrollArea>
+        <AlertDialogContent className="max-w-3xl">
+          <AlertDialogHeader><AlertDialogTitle>Process Payment</AlertDialogTitle></AlertDialogHeader>
+          <ScrollArea className="max-h-[50vh] p-4 bg-muted rounded-md">
+            {paymentToConfirm?.map(p => (
+              <div key={p.employeeId} className="flex justify-between py-2 border-b">
+                <span>{p.employeeName}</span>
+                <span className="font-bold">PKR {p.calculation.total.toFixed(2)}</span>
+              </div>
+            ))}
+          </ScrollArea>
           <div className="py-4 space-y-2 border-t font-bold text-lg text-right">Total: PKR {totalBulkSalary.toFixed(2)}</div>
-          {!isPinVerified() && (<div className="py-2"><Label>Security PIN:</Label><Input type="password" value={confirmPinVal} onChange={(e) => setConfirmPinVal(e.target.value)} placeholder="0200" /></div>)}
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleProcess}>Post Payments</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+          {!isPinVerified() && (<div className="py-2"><Label>Security PIN:</Label><Input type="password" value={confirmPinVal} onChange={(e) => setConfirmPinVal(e.target.value)} placeholder="0200" maxLength={4} /></div>)}
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleProcess}>Post Payments</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );
