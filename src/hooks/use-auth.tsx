@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -17,14 +16,10 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
-import { usePathname, useRouter } from 'next/navigation';
-import { AppLayout } from '@/components/app-layout';
-import { useDatabase } from './use-database';
-import { collection, onSnapshot, doc, setDoc, getDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useFirebase } from '@/firebase';
-
 
 const ROLES_COLLECTION = 'roles';
 const USER_ROLES_COLLECTION = 'userRoles';
@@ -42,7 +37,6 @@ const DEFAULT_ROLES: Role[] = [
     }
 ];
 
-
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -57,6 +51,9 @@ interface AuthContextType {
   hasPermission: (permission: Permission) => boolean;
   updateUserRole: (userId: string, roleId: RoleId) => void;
   resetPassword: (email: string) => Promise<void>;
+  isPinVerified: () => boolean;
+  confirmPin: (pin: string) => boolean;
+  pinVerifiedAt: number;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,14 +63,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<RoleId | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
+  const [pinVerifiedAt, setPinVerifiedAt] = useState<number>(0);
 
-  // Effect for fetching roles from Firestore
   useEffect(() => {
-    // Wait until auth state is confirmed before fetching roles.
-    if (authLoading) {
-        return;
+    const saved = sessionStorage.getItem('pumppal_pin_verified_at');
+    if (saved) setPinVerifiedAt(parseInt(saved, 10));
+  }, []);
+
+  const isPinVerified = useCallback(() => {
+    if (pinVerifiedAt === 0) return false;
+    return (Date.now() - pinVerifiedAt) < 180000; // 3 minutes
+  }, [pinVerifiedAt]);
+
+  const confirmPin = useCallback((pin: string) => {
+    if (pin === '0200') {
+      const now = Date.now();
+      setPinVerifiedAt(now);
+      sessionStorage.setItem('pumppal_pin_verified_at', now.toString());
+      return true;
     }
-    // No user, no roles to fetch.
+    return false;
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
     if (!user) {
         setRoles([]);
         setRolesLoading(false);
@@ -87,7 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const rolesCollectionRef = collection(firestore, ROLES_COLLECTION);
     const unsubscribe = onSnapshot(rolesCollectionRef, async (snapshot) => {
         if (snapshot.empty) {
-            // If no roles in DB, set default roles
             const batch = writeBatch(firestore);
             DEFAULT_ROLES.forEach(r => {
                 const roleRef = doc(firestore, ROLES_COLLECTION, r.id);
@@ -102,29 +114,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRolesLoading(false);
     }, (error) => {
         console.error("Error fetching roles:", error);
-        const contextualError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
             operation: 'list',
             path: ROLES_COLLECTION,
-        });
-        errorEmitter.emit('permission-error', contextualError);
+        }));
         setRolesLoading(false);
     });
     return () => unsubscribe();
-  }, [user, authLoading, firestore]); // Depend on user and authLoading
+  }, [user, authLoading, firestore]);
 
-  // Effect for tracking user role from Firestore
   useEffect(() => {
     if (user && firestore) {
       const userRoleDocRef = doc(firestore, USER_ROLES_COLLECTION, user.uid);
       const unsubscribe = onSnapshot(userRoleDocRef, (docSnap) => {
         setUserRole(docSnap.exists() ? (docSnap.data().roleId as RoleId) : null);
       }, (error) => {
-          console.error("Error fetching user role:", error);
-          const contextualError = new FirestorePermissionError({
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
               operation: 'get',
               path: userRoleDocRef.path,
-          });
-          errorEmitter.emit('permission-error', contextualError);
+          }));
       });
       return () => unsubscribe();
     } else {
@@ -134,7 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = useCallback((permission: Permission): boolean => {
       if (!userRole) return false;
-      if (userRole === 'admin') return true; // Admin has all permissions
+      if (userRole === 'admin') return true;
       const role = roles.find(r => r.id === userRole);
       if (!role) return false;
       return role.permissions.includes(permission);
@@ -178,12 +186,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const assignRoleToUser = useCallback((userId: string, roleId: RoleId, email: string) => {
     if (!firestore) return;
     const userRoleRef = doc(firestore, USER_ROLES_COLLECTION, userId);
-    const roleData = { roleId, email };
-    setDoc(userRoleRef, roleData).catch(error => {
+    setDoc(userRoleRef, { roleId, email }).catch(error => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
             path: userRoleRef.path,
             operation: 'create',
-            requestResourceData: roleData,
+            requestResourceData: { roleId, email },
         }));
     });
   }, [firestore]);
@@ -212,45 +219,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(async (data: AuthFormValues) => {
     if (!auth || !firestore) throw new Error("Firebase is not configured.");
-
     const userRolesCollectionRef = collection(firestore, USER_ROLES_COLLECTION);
-    
-    let hasUsers = false;
-    try {
-        const snapshot = await getDocs(userRolesCollectionRef);
-        hasUsers = !snapshot.empty;
-    } catch (error) {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-            path: userRolesCollectionRef.path,
-            operation: 'list',
-        }));
-        // Re-throw to prevent further execution and let the caller handle it.
-        throw error;
-    }
-    
+    const snapshot = await getDocs(userRolesCollectionRef);
+    const hasUsers = !snapshot.empty;
     const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-    
-    // First user to sign up becomes an admin
-    if (!hasUsers) {
-      assignRoleToUser(userCredential.user.uid, 'admin', data.email);
-    } else {
-      assignRoleToUser(userCredential.user.uid, 'attendant', data.email); // Default role for subsequent users
-    }
-    
+    assignRoleToUser(userCredential.user.uid, hasUsers ? 'attendant' : 'admin', data.email);
     return userCredential;
   }, [auth, firestore, assignRoleToUser]);
 
   const signOut = useCallback(async () => {
     if (auth) {
       await firebaseSignOut(auth);
+      setPinVerifiedAt(0);
+      sessionStorage.removeItem('pumppal_pin_verified_at');
     }
   }, [auth]);
   
-  const isLoading = authLoading || rolesLoading;
-
   const value = {
     user,
-    loading: isLoading,
+    loading: authLoading || rolesLoading,
     signIn,
     signUp,
     signOut,
@@ -262,19 +249,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     hasPermission,
     updateUserRole,
     resetPassword,
+    isPinVerified,
+    confirmPin,
+    pinVerifiedAt,
   };
 
-  return (
-      <AuthContext.Provider value={value}>
-        {children}
-      </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

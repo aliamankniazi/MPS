@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
@@ -25,6 +24,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Calendar } from '@/components/ui/calendar';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const saleItemSchema = z.object({
   productId: z.string().min(1, "Product is required"),
@@ -43,14 +43,13 @@ const transactionSchema = z.object({
   invoiceDate: z.date({ required_error: "An invoice date is required."}),
   notes: z.string().optional(),
   vehicleNumber: z.string().optional(),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type TransactionFormValues = z.infer<typeof transactionSchema>;
 
 function PageHeader() {
     const [currentTime, setCurrentTime] = useState('');
-    
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date().toLocaleString('en-US', {
@@ -64,16 +63,13 @@ function PageHeader() {
         }, 1000);
         return () => clearInterval(timer);
     }, []);
-
     return (
       <header className="bg-background shadow-sm sticky top-0 z-20">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
                 <span className="text-sm">ziakniazi@gmail.com</span>
-                <Button variant="ghost" size="icon">
-                    <Sun className="h-5 w-5" />
-                </Button>
+                <Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button>
             </div>
         </div>
       </header>
@@ -82,21 +78,19 @@ function PageHeader() {
 
 export default function SalesPage() {
   const { customers, addTransaction, updateTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get('edit');
-  
   const [cart, setCart] = useState<SaleItemFormValues[]>([]);
   const { toast } = useToast();
   const lastUserEditedField = useRef<'quantity' | 'price' | 'totalAmount' | null>(null);
-
   const [productComboboxOpen, setProductComboboxOpen] = useState(false);
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [invoiceDateCalendarOpen, setInvoiceDateCalendarOpen] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
-  
   const [sessionPrices, setSessionPrices] = useState<Record<string, number>>({});
 
   const { register: registerItem, handleSubmit: handleItemSubmit, watch: watchItem, setValue: setItemValue, reset: resetItem, control: controlItem, formState: { errors: itemErrors } } = useForm<SaleItemFormValues>({
@@ -105,19 +99,13 @@ export default function SalesPage() {
 
   const { register, handleSubmit, control, watch, setValue, reset, formState: { errors } } = useForm<TransactionFormValues>({
     resolver: zodResolver(transactionSchema),
-    defaultValues: {
-        paymentMethod: 'Cash',
-        notes: '',
-        vehicleNumber: '',
-    },
+    defaultValues: { paymentMethod: 'Cash', notes: '', vehicleNumber: '' },
   });
 
   const { customerId } = watch();
   const { productId, quantity, price, totalAmount } = watchItem();
-  
   const isWalkIn = !customerId || customerId === 'walkin';
 
-  // Load transaction for editing
   useEffect(() => {
     if (isLoaded && editId) {
         const tx = transactions.find(t => t.id === editId);
@@ -130,22 +118,12 @@ export default function SalesPage() {
                 setItemValue('quantity', tx.volume);
                 setItemValue('price', tx.pricePerLitre);
                 setItemValue('totalAmount', tx.totalAmount);
-                
-                // Add to cart so the summary works
-                setCart([{
-                    productId: product.id,
-                    productName: product.name,
-                    unit: product.unit,
-                    quantity: tx.volume,
-                    price: tx.pricePerLitre,
-                    totalAmount: tx.totalAmount
-                }]);
+                setCart([{ productId: product.id, productName: product.name, unit: product.unit, quantity: tx.volume, price: tx.pricePerLitre, totalAmount: tx.totalAmount }]);
             }
             setValue('customerId', tx.customerId || 'walkin');
             setValue('invoiceDate', new Date(tx.timestamp));
             setValue('paymentMethod', tx.paymentMethod);
             setValue('notes', tx.notes || '');
-            
             if (tx.notes && tx.notes.includes('Vehicle: ')) {
                 const match = tx.notes.match(/Vehicle: ([^,]+)/);
                 if (match) setValue('vehicleNumber', match[1]);
@@ -155,814 +133,240 @@ export default function SalesPage() {
   }, [isLoaded, editId, transactions, products, setItemValue, setValue]);
 
   const updateSessionPrice = useCallback((productId: string, price: number) => {
-    setSessionPrices(prevPrices => {
-        const newPrices = { ...prevPrices, [productId]: price };
+    setSessionPrices(prev => {
+        const newPrices = { ...prev, [productId]: price };
         localStorage.setItem('session_product_prices', JSON.stringify(newPrices));
         return newPrices;
     });
   }, []);
 
   const handleProductSelect = useCallback((product: Product) => {
-    const lastTransactionForProduct = transactions
-        .filter(t => t.product === product.name)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-    const sessionPrice = sessionPrices[product.id];
-    const priceToSet = sessionPrice ?? lastTransactionForProduct?.pricePerLitre ?? product.salePrice;
-
+    const lastTx = transactions.filter(t => t.product === product.name).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+    const priceToSet = sessionPrices[product.id] ?? lastTx?.pricePerLitre ?? product.salePrice;
     setItemValue('price', priceToSet);
     setItemValue('unit', product.unit);
     setItemValue('productName', product.name);
   }, [transactions, setItemValue, sessionPrices]);
 
   useEffect(() => {
-    const savedPrices = localStorage.getItem('session_product_prices');
-    if (savedPrices) {
-        try {
-            setSessionPrices(JSON.parse(savedPrices));
-        } catch (e) {
-            console.error("Failed to parse session prices from localStorage", e);
-        }
-    }
+    const saved = localStorage.getItem('session_product_prices');
+    if (saved) try { setSessionPrices(JSON.parse(saved)); } catch (e) {}
   }, []);
 
   useEffect(() => {
     if (!editId) {
         const savedDate = localStorage.getItem('global_date_from');
-        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-        setValue('invoiceDate', initialDate);
+        setValue('invoiceDate', savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date());
     }
   }, [setValue, editId]);
   
   useEffect(() => {
     if (isLoaded && !editId) {
-      const savedCustomerId = localStorage.getItem('global_lastCustomerId');
-      if (savedCustomerId) {
-        const customer = customers.find(c => c.id === savedCustomerId);
+      const savedId = localStorage.getItem('global_lastCustomerId');
+      if (savedId) {
+        const customer = customers.find(c => c.id === savedId);
         if (customer) {
           setValue('customerId', customer.id);
-          if (customer.vehicleNumber && typeof customer.vehicleNumber === 'string') {
-            const vehicle = customer.vehicleNumber.split(/[,\n]/)[0].trim();
-            setValue('vehicleNumber', vehicle);
-          }
-        } else {
-          setValue('customerId', 'walkin');
-        }
-      } else {
-        setValue('customerId', 'walkin');
-      }
+          if (customer.vehicleNumber) setValue('vehicleNumber', String(customer.vehicleNumber).split(/[,\n]/)[0].trim());
+        } else setValue('customerId', 'walkin');
+      } else setValue('customerId', 'walkin');
     }
   }, [isLoaded, customers, setValue, editId]);
 
   useEffect(() => {
     if (isLoaded && !editId) {
-      const savedProductId = localStorage.getItem('global_lastSaleProductId');
-      if (savedProductId) {
-        const product = products.find(p => p.id === savedProductId);
-        if (product) {
-          setItemValue('productId', product.id);
-          handleProductSelect(product);
-        }
+      const savedProdId = localStorage.getItem('global_lastSaleProductId');
+      if (savedProdId) {
+        const product = products.find(p => p.id === savedProdId);
+        if (product) { setItemValue('productId', product.id); handleProductSelect(product); }
       }
     }
   }, [isLoaded, products, setItemValue, handleProductSelect, editId]);
 
   useEffect(() => {
-    if (isWalkIn) {
-      setValue('paymentMethod', 'Cash');
-    } else {
-      setValue('paymentMethod', 'Credit');
-    }
+    setValue('paymentMethod', isWalkIn ? 'Cash' : 'Credit');
   }, [isWalkIn, setValue]);
 
   const allUnits = useMemo(() => {
     const defaultUnits = ['Ltr', 'Pcs', 'Kg', 'Box', 'Bottle'];
     const unitsFromProducts = products.map(p => p.unit).filter(Boolean) as string[];
-    const combinedUnits = [...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase());
-    const uniqueUnits = [...new Set(combinedUnits)];
-    return uniqueUnits.map(lowerUnit => {
-        const originalCasing = unitsFromProducts.find(u => u.toLowerCase() === lowerUnit) || defaultUnits.find(u => u.toLowerCase() === lowerUnit);
-        return originalCasing || lowerUnit;
-    }).filter(Boolean);
+    const combined = [...new Set([...defaultUnits, ...unitsFromProducts].map(u => u.toLowerCase()))];
+    return combined.map(l => unitsFromProducts.find(u => u.toLowerCase() === l) || defaultUnits.find(u => u.toLowerCase() === l) || l).filter(Boolean);
   }, [products]);
 
   const sortedProducts = useMemo(() => {
-    if (!products || !transactions) return [];
-
-    const salesCounts = transactions.reduce<Record<string, number>>((acc, tx) => {
-        const productName = tx.product || tx.fuelType;
-        if (productName) {
-            acc[productName] = (acc[productName] || 0) + 1;
-        }
+    if (!products) return [];
+    const counts = transactions.reduce<Record<string, number>>((acc, tx) => {
+        const name = tx.product || tx.fuelType;
+        if (name) acc[name] = (acc[name] || 0) + 1;
         return acc;
     }, {});
-
-    return [...products].sort((a, b) => {
-        const countA = salesCounts[a.name] || 0;
-        const countB = salesCounts[b.name] || 0;
-        return countB - countA;
-    });
+    return [...products].sort((a, b) => (counts[b.name] || 0) - (counts[a.name] || 0));
   }, [products, transactions]);
 
-  const selectedProduct = useMemo(() => {
-    if (!productId) return null;
-    return products.find(p => p.id === productId);
-  }, [productId, products]);
-
-  const currentStockValue = useMemo(() => {
-    if (!selectedProduct) return 0;
-    return fuelStock[selectedProduct.name as FuelType] || 0;
-  }, [selectedProduct, fuelStock]);
-
+  const selectedProduct = useMemo(() => products.find(p => p.id === productId), [productId, products]);
+  const currentStockValue = useMemo(() => selectedProduct ? (fuelStock[selectedProduct.name as FuelType] || 0) : 0, [selectedProduct, fuelStock]);
   const stockAfterSale = useMemo(() => {
     if (!selectedProduct) return 0;
-    const itemQuantity = Number(quantity) || 0;
-    const cartQuantity = cart.filter(item => item.productId === selectedProduct.id).reduce((sum, item) => sum + item.quantity, 0);
-    return currentStockValue - (editId ? 0 : cartQuantity) - itemQuantity;
+    const cartQty = cart.filter(i => i.productId === selectedProduct.id).reduce((s, i) => s + i.quantity, 0);
+    return currentStockValue - (editId ? 0 : cartQty) - (Number(quantity) || 0);
   }, [currentStockValue, quantity, selectedProduct, cart, editId]);
-
 
   useEffect(() => {
     const qty = Number(quantity) || 0;
     const prc = Number(price) || 0;
     const total = Number(totalAmount) || 0;
-    const epsilon = 0.001;
-  
     if (lastUserEditedField.current === 'quantity' || lastUserEditedField.current === 'price') {
-      const newTotal = qty * prc;
-      if (Math.abs(total - newTotal) > epsilon) {
-        setItemValue('totalAmount', newTotal, { shouldValidate: true });
-      }
+      setItemValue('totalAmount', qty * prc, { shouldValidate: true });
     } else if (lastUserEditedField.current === 'totalAmount') {
-      if (prc > 0) {
-        const newQuantity = total / prc;
-        if (Math.abs(qty - newQuantity) > epsilon / prc) {
-          setItemValue('quantity', newQuantity, { shouldValidate: true });
-        }
-      } else if (qty > 0) {
-        const newPrice = total / qty;
-        if (Math.abs(prc - newPrice) > epsilon) {
-          setItemValue('price', newPrice, { shouldValidate: true });
-        }
-      }
+      if (prc > 0) setItemValue('quantity', total / prc, { shouldValidate: true });
+      else if (qty > 0) setItemValue('price', total / qty, { shouldValidate: true });
     }
   }, [quantity, price, totalAmount, setItemValue]);
   
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
-
-    const recognition = new SpeechRecognition();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = language;
-
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+    const recognition = new SR();
+    recognition.continuous = false; recognition.interimResults = false; recognition.lang = language;
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      const currentNotes = watch('notes') || '';
-      setValue('notes', currentNotes + ' ' + transcript);
+      setValue('notes', (watch('notes') || '') + ' ' + transcript);
       setIsListening(false);
     };
-
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      setIsListening(false);
-    };
-    
-    recognition.onend = () => {
-        setIsListening(false);
-    };
-
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
     recognitionRef.current = recognition;
   }, [language, watch, setValue]);
 
   const handleToggleListening = () => {
-    const recognition = recognitionRef.current;
-    if (!recognition) return;
-    if (isListening) {
-      recognition.stop();
-      setIsListening(false);
-    } else {
-      recognition.start();
-      setIsListening(true);
-    }
+    if (!recognitionRef.current) return;
+    if (isListening) recognitionRef.current.stop(); else recognitionRef.current.start();
+    setIsListening(!isListening);
   };
 
-  const selectedCustomer = useMemo(() => {
-    return customers.find(c => c.id === customerId);
-  }, [customerId, customers]);
-
   const { balance: customerBalance } = useCustomerBalance(customerId || null);
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => total + item.totalAmount, 0);
-  }, [cart]);
-
-  const invoiceBalance = useMemo(() => {
-    return cartTotal;
-  }, [cartTotal]);
-  
-  const newAccountBalance = useMemo(() => {
-    return customerBalance + invoiceBalance;
-  }, [customerBalance, invoiceBalance]);
-
+  const cartTotal = useMemo(() => cart.reduce((t, i) => t + i.totalAmount, 0), [cart]);
   const salesTodayByFuelType = useMemo(() => {
     if (!isLoaded) return {};
-    const today = new Date();
-    const startDate = startOfDay(today);
-    const endDate = endOfDay(today);
-
+    const today = startOfDay(new Date());
     const totals: Record<string, number> = {};
-
     transactions.forEach(tx => {
-      if (tx.timestamp && isValid(new Date(tx.timestamp))) {
-        const txDate = new Date(tx.timestamp);
-        if (txDate >= startDate && txDate <= endDate) {
-          if (tx.fuelType && tx.volume) {
-            totals[tx.fuelType] = (totals[tx.fuelType] || 0) + tx.volume;
-          }
-        }
+      if (tx.timestamp && isValid(new Date(tx.timestamp)) && startOfDay(new Date(tx.timestamp)).getTime() === today.getTime()) {
+        if (tx.fuelType && tx.volume) totals[tx.fuelType] = (totals[tx.fuelType] || 0) + tx.volume;
       }
     });
     return totals;
   }, [isLoaded, transactions]);
 
-
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {
-    if (editId) {
-        setCart([data]); // Replace cart in edit mode
-    } else {
-        setCart(currentCart => [...currentCart, data]);
-    }
+    if (editId) setCart([data]); else setCart(prev => [...prev, data]);
     updateSessionPrice(data.productId, data.price);
-    if (!editId) {
-        resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
-    }
+    if (!editId) resetItem({ productId: '', productName: '', unit: '', quantity: undefined, price: undefined, totalAmount: undefined });
   };
   
   const onSubmit: SubmitHandler<TransactionFormValues> = (data) => {
     if (cart.length === 0) {
-      toast({ variant: 'destructive', title: 'Empty Cart', description: 'Please add at least one item to the cart.' });
+      toast({ variant: 'destructive', title: 'Empty Cart', description: 'Please add items.' });
       return;
     }
 
-    if (data.pin !== '0200') {
-      toast({
-        variant: 'destructive',
-        title: 'Incorrect PIN',
-        description: 'Verification failed. Incorrect Security PIN.',
-      });
+    const pinToVerify = data.pin;
+    if (!isPinVerified() && pinToVerify !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN' });
       return;
     }
+    if (pinToVerify === '0200') confirmPin('0200');
 
     const isoDate = data.invoiceDate.toISOString();
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
-    if (data.customerId) {
-        localStorage.setItem('global_lastCustomerId', data.customerId);
-    }
-    if (cart[0]?.productId) {
-      localStorage.setItem('global_lastSaleProductId', cart[0].productId);
-    }
+    if (data.customerId) localStorage.setItem('global_lastCustomerId', data.customerId);
+    if (cart[0]?.productId) localStorage.setItem('global_lastSaleProductId', cart[0].productId);
 
     let finalNotes = data.notes || '';
-    if (data.vehicleNumber && !isWalkIn) {
-        finalNotes = finalNotes ? `Vehicle: ${data.vehicleNumber}, ${finalNotes}` : `Vehicle: ${data.vehicleNumber}`;
-    }
+    if (data.vehicleNumber && !isWalkIn) finalNotes = `Vehicle: ${data.vehicleNumber}${finalNotes ? ', ' + finalNotes : ''}`;
     
-    const finalInvoiceDate = data.invoiceDate.toISOString();
-
-    if (editId) {
-        const item = cart[0];
+    cart.forEach(item => {
         const product = products.find(p => p.id === item.productId);
         let costPrice = 0;
         if (product) {
             if (product.category === 'Main Product') {
-                const saleTime = new Date(data.invoiceDate).getTime();
-                const latestPurchase = purchases
-                    .filter(p => p.fuelType === item.productName && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
-                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                if (latestPurchase && latestPurchase.volume > 0) {
-                    const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
-                    costPrice = costPerLitre * item.quantity;
-                }
-            } else {
-                costPrice = (product.purchasePrice || 0) * item.quantity;
-            }
+                const latest = purchases.filter(p => p.fuelType === item.productName && isValid(new Date(p.timestamp)) && new Date(p.timestamp) <= data.invoiceDate).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+                if (latest && latest.volume > 0) costPrice = (latest.totalCost / latest.volume) * item.quantity;
+            } else costPrice = (product.purchasePrice || 0) * item.quantity;
         }
 
-        const updateData = {
-          fuelType: item.productName,
-          volume: item.quantity,
-          pricePerLitre: item.price,
-          product: item.productName,
-          totalAmount: item.totalAmount,
-          costPrice: costPrice,
-          paymentMethod: isWalkIn ? 'Cash' : 'Credit',
-          customerId: data.customerId,
-          customerName: selectedCustomer?.name || 'Walk-in Customer',
-          notes: finalNotes,
-          timestamp: finalInvoiceDate,
-          isWalkIn: isWalkIn,
-          saleType: isWalkIn ? 'cash' : 'credit',
-          entryType: isWalkIn ? 'cash_sale' : 'credit_sale',
-          journalColumn: isWalkIn ? 'credit' : 'debit',
-          colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
+        const txData = {
+          fuelType: item.productName, volume: item.quantity, pricePerLitre: item.price, product: item.productName, totalAmount: item.totalAmount, costPrice, paymentMethod: isWalkIn ? 'Cash' : 'Credit', customerId: data.customerId, customerName: (customers.find(c => c.id === data.customerId)?.name) || 'Walk-in Customer', notes: finalNotes, timestamp: isoDate, isWalkIn, saleType: isWalkIn ? 'cash' : 'credit', entryType: isWalkIn ? 'cash_sale' : 'credit_sale', journalColumn: isWalkIn ? 'credit' : 'debit', colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
         };
-        updateTransaction(editId, updateData as any);
-        toast({ title: 'Sale Updated', description: `Record for ${item.productName} updated successfully.` });
-        router.push('/ledger');
-    } else {
-        cart.forEach(item => {
-            const product = products.find(p => p.id === item.productId);
-            let costPrice = 0;
-            if (product) {
-                if (product.category === 'Main Product') {
-                    const saleTime = new Date(data.invoiceDate).getTime();
-                    const latestPurchase = purchases
-                        .filter(p => p.fuelType === item.productName && isValid(new Date(p.timestamp)) && new Date(p.timestamp).getTime() <= saleTime)
-                        .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-                    if (latestPurchase && latestPurchase.volume > 0) {
-                        const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
-                        costPrice = costPerLitre * item.quantity;
-                    }
-                } else {
-                    costPrice = (product.purchasePrice || 0) * item.quantity;
-                }
-            }
+        if (editId) updateTransaction(editId, txData as any); else addTransaction(txData as any);
+    });
 
-            const transactionData = {
-              fuelType: item.productName,
-              volume: item.quantity,
-              pricePerLitre: item.price,
-              product: item.productName,
-              totalAmount: item.totalAmount,
-              costPrice: costPrice,
-              paymentMethod: isWalkIn ? 'Cash' : 'Credit',
-              customerId: data.customerId,
-              customerName: selectedCustomer?.name || 'Walk-in Customer',
-              notes: finalNotes,
-              timestamp: finalInvoiceDate,
-              isWalkIn: isWalkIn,
-              saleType: isWalkIn ? 'cash' : 'credit',
-              entryType: isWalkIn ? 'cash_sale' : 'credit_sale',
-              journalColumn: isWalkIn ? 'credit' : 'debit',
-              colorCode: isWalkIn ? '#22C55E' : '#3B82F6'
-            };
-            addTransaction(transactionData as any);
-        });
-
-        toast({ title: 'Sale Complete', description: `Sale of PKR ${cartTotal.toFixed(2)} recorded.` });
-        
-        reset({
-            customerId: data.customerId,
-            paymentMethod: isWalkIn ? 'Cash' : 'Credit',
-            invoiceDate: data.invoiceDate,
-            notes: '',
-            vehicleNumber: '',
-            pin: '',
-        });
-        resetItem();
-        setCart([]);
-    }
+    toast({ title: editId ? 'Sale Updated' : 'Sale Complete' });
+    if (editId) router.push('/ledger'); else { reset({ customerId: data.customerId, paymentMethod: isWalkIn ? 'Cash' : 'Credit', invoiceDate: data.invoiceDate, notes: '', vehicleNumber: '', pin: '' }); resetItem(); setCart([]); }
   };
 
   return (
     <div className="bg-muted/30 min-h-screen">
-      <PageHeader />
-      <TransactionNav />
+      <PageHeader /><TransactionNav />
       <main className="container mx-auto p-4 grid lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
               <Card>
-                  <CardHeader>
-                      <CardTitle style={{ color: colorSettings['Sale'] }}>{editId ? 'Edit Sale Item' : 'Add Items to Sale'}</CardTitle>
-                  </CardHeader>
+                  <CardHeader><CardTitle>{editId ? 'Edit Sale' : 'Add to Sale'}</CardTitle></CardHeader>
                   <CardContent>
                       <form onSubmit={handleItemSubmit(onAddItemToCart)} className="space-y-4">
                           <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-start">
                               <div className="md:col-span-2 space-y-2">
-                                  <Label htmlFor="product">Product</Label>
-                                   <Controller
-                                    name="productId"
-                                    control={controlItem}
-                                    render={({ field }) => (
+                                  <Label>Product</Label>
+                                   <Controller name="productId" control={controlItem} render={({ field }) => (
                                       <Popover open={productComboboxOpen} onOpenChange={setProductComboboxOpen}>
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            role="combobox"
-                                            aria-expanded={productComboboxOpen}
-                                            className="w-full justify-between"
-                                          >
-                                            {field.value
-                                              ? products.find((p) => p.id === field.value)?.name
-                                              : "Select a product..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                          <Command>
-                                            <CommandInput placeholder="Search product..." />
-                                            <CommandList>
-                                              <CommandEmpty>No product found.</CommandEmpty>
-                                              <CommandGroup>
-                                                {isLoaded && sortedProducts ? sortedProducts.map(p => (
-                                                  <CommandItem
-                                                    key={p.id}
-                                                    value={p.name}
-                                                    onSelect={() => {
-                                                      field.onChange(p.id);
-                                                      handleProductSelect(p);
-                                                      setProductComboboxOpen(false);
-                                                    }}
-                                                  >
-                                                    <Check
-                                                      className={cn(
-                                                        "mr-2 h-4 w-4",
-                                                        field.value === p.id ? "opacity-100" : "opacity-0"
-                                                      )}
-                                                    />
-                                                    {p.name}
-                                                  </CommandItem>
-                                                )) : <CommandItem disabled>Loading...</CommandItem>}
-                                              </CommandGroup>
-                                            </CommandList>
-                                          </Command>
-                                        </PopoverContent>
+                                        <PopoverTrigger asChild><Button variant="outline" className="w-full justify-between">{field.value ? products.find(p => p.id === field.value)?.name : "Select product..."}<ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" /></Button></PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Search..." /><CommandList><CommandEmpty>Not found.</CommandEmpty><CommandGroup>{isLoaded && sortedProducts.map(p => (<CommandItem key={p.id} value={p.name} onSelect={() => { field.onChange(p.id); handleProductSelect(p); setProductComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", field.value === p.id ? "opacity-100" : "opacity-0")} />{p.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent>
                                       </Popover>
-                                    )}
-                                  />
-                                  {itemErrors.productId && <p className="text-sm text-destructive">{itemErrors.productId.message}</p>}
+                                   )}/>
                                   {selectedProduct && (
-                                    <div className="grid grid-cols-2 gap-2 pt-1">
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">Current Stock</p>
-                                            <p className="text-sm font-semibold">{currentStockValue.toFixed(2)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs text-muted-foreground">After Sale</p>
-                                            <p className={cn("text-sm font-semibold", stockAfterSale < 0 && 'text-destructive')}>{stockAfterSale.toFixed(2)}</p>
-                                        </div>
+                                    <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+                                        <div><p className="text-muted-foreground font-medium">Stock</p><p className="font-bold">{currentStockValue.toFixed(2)}</p></div>
+                                        <div><p className="text-muted-foreground font-medium">Remaining</p><p className={cn("font-bold", stockAfterSale < 0 && 'text-destructive')}>{stockAfterSale.toFixed(2)}</p></div>
                                     </div>
                                   )}
                               </div>
-                              <div className="space-y-2">
-                                  <Label htmlFor="unit">Unit</Label>
-                                   <Controller
-                                      name="unit"
-                                      control={controlItem}
-                                      render={({ field }) => (
-                                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                                              <SelectTrigger>
-                                                  <SelectValue placeholder="Select unit..." />
-                                              </SelectTrigger>
-                                              <SelectContent>
-                                                  {allUnits.map(unit => (
-                                                      <SelectItem key={unit} value={unit}>{unit}</SelectItem>
-                                                  ))}
-                                              </SelectContent>
-                                          </Select>
-                                      )}
-                                  />
-                                  {itemErrors.unit && <p className="text-sm text-destructive">{itemErrors.unit.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                  <Label htmlFor="quantity">Quantity</Label>
-                                  <Input id="quantity" type="number" {...registerItem('quantity')} step="any" onFocus={() => lastUserEditedField.current = 'quantity'} />
-                                  {itemErrors.quantity && <p className="text-sm text-destructive">{itemErrors.quantity.message}</p>}
-                              </div>
-                               <div className="space-y-2">
-                                  <Label htmlFor="price">Price</Label>
-                                  <Input id="price" type="number" {...registerItem('price')} step="any" onFocus={() => lastUserEditedField.current = 'price'} />
-                                   {itemErrors.price && <p className="text-sm text-destructive">{itemErrors.price.message}</p>}
-                              </div>
+                              <div className="space-y-2"><Label>Unit</Label><Controller name="unit" control={controlItem} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value || ''}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{allUnits.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent></Select>)}/></div>
+                              <div className="space-y-2"><Label>Qty</Label><Input type="number" {...registerItem('quantity')} step="any" onFocus={() => lastUserEditedField.current = 'quantity'} /></div>
+                              <div className="space-y-2"><Label>Price</Label><Input type="number" {...registerItem('price')} step="any" onFocus={() => lastUserEditedField.current = 'price'} /></div>
                           </div>
                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
-                              <div className="md:col-span-2 space-y-2">
-                                  <Label htmlFor="totalAmount">Total Amount</Label>
-                                  <Input id="totalAmount" type="number" {...registerItem('totalAmount')} step="any" className="bg-muted/50 font-bold" onFocus={() => lastUserEditedField.current = 'totalAmount'} />
-                              </div>
-                               <div className="md:col-span-1 flex items-end">
-                                  <Button type="submit" className="w-full">{editId ? 'Apply Changes' : 'Add to Cart'}</Button>
-                              </div>
+                              <div className="md:col-span-2 space-y-2"><Label>Total</Label><Input type="number" {...registerItem('totalAmount')} step="any" className="bg-muted font-bold" onFocus={() => lastUserEditedField.current = 'totalAmount'} /></div>
+                              <div className="md:col-span-1"><Button type="submit" className="w-full">{editId ? 'Apply' : 'Add'}</Button></div>
                           </div>
                       </form>
                   </CardContent>
               </Card>
-
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Current Cart</CardTitle>
-                      <CardDescription>Items to be included in the sale.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                      <div className="border rounded-md">
-                          <Table>
-                              <TableHeader>
-                                  <TableRow>
-                                      <TableHead>Item</TableHead>
-                                      <TableHead className="text-right">Qty</TableHead>
-                                      <TableHead className="text-right">Price</TableHead>
-                                      <TableHead className="text-right">Total</TableHead>
-                                  </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                  {cart.length > 0 ? cart.map((item, index) => (
-                                      <TableRow key={index}>
-                                          <TableCell>{item.productName}</TableCell>
-                                          <TableCell className="text-right">{item.quantity} {item.unit}</TableCell>
-                                          <TableCell className="text-right">{item.price.toFixed(2)}</TableCell>
-                                          <TableCell className="text-right font-medium">{item.totalAmount.toFixed(2)}</TableCell>
-                                      </TableRow>
-                                  )) : (
-                                      <TableRow>
-                                          <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                                              List is empty
-                                          </TableCell>
-                                      </TableRow>
-                                  )}
-                              </TableBody>
-                          </Table>
-                      </div>
-                  </CardContent>
-              </Card>
-               <Card>
-                <CardHeader>
-                    <CardTitle>Today's Sales by Fuel</CardTitle>
-                    <CardDescription>Total volume sold for each fuel type today.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Fuel Type</TableHead>
-                                <TableHead className="text-right">Volume Sold (Ltr)</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {Object.keys(salesTodayByFuelType).length > 0 ? (
-                                Object.entries(salesTodayByFuelType).map(([fuelType, volume]) => (
-                                    <TableRow key={fuelType}>
-                                        <TableCell className="font-medium">{fuelType}</TableCell>
-                                        <TableCell className="text-right font-mono font-semibold text-green-600">
-                                            {volume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            ) : (
-                                <TableRow>
-                                    <TableCell colSpan={2} className="text-center h-24 text-muted-foreground">
-                                        No sales recorded today.
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-              </Card>
+              <Card><CardHeader><CardTitle>Cart</CardTitle></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Item</TableHead><TableHead className="text-right">Qty</TableHead><TableHead className="text-right">Price</TableHead><TableHead className="text-right">Total</TableHead></TableRow></TableHeader><TableBody>{cart.length > 0 ? cart.map((i, idx) => (<TableRow key={idx}><TableCell>{i.productName}</TableCell><TableCell className="text-right">{i.quantity} {i.unit}</TableCell><TableCell className="text-right">{i.price.toFixed(2)}</TableCell><TableCell className="text-right font-bold">{i.totalAmount.toFixed(2)}</TableCell></TableRow>)) : <TableRow><TableCell colSpan={4} className="text-center h-24 text-muted-foreground">Empty</TableCell></TableRow>}</TableBody></Table></CardContent></Card>
           </div>
-
           <div className="lg:col-span-1">
-              <form onSubmit={handleSubmit(onSubmit)}>
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Customer &amp; Payment</CardTitle>
-                      <CardDescription>Select customer and finalize payment details.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="space-y-2">
-                          <Label>Customer</Label>
-                          <div className="flex gap-2">
-                               <Controller
-                                name="customerId"
-                                control={control}
-                                render={({ field }) => (
-                                  <Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={customerComboboxOpen}
-                                        className="w-full justify-between"
-                                      >
-                                        {field.value && field.value !== 'walkin'
-                                          ? customers.find((c) => c.id === field.value)?.name
-                                          : "Walk-in Customer"}
-                                        <Check className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                      <Command>
-                                        <CommandInput placeholder="Search customer..." />
-                                        <CommandList>
-                                          <CommandEmpty>No customer found.</CommandEmpty>
-                                          <CommandGroup>
-                                            <CommandItem
-                                                key="walkin"
-                                                value="Walk-in Customer"
-                                                onSelect={() => {
-                                                  field.onChange('walkin');
-                                                  setCustomerComboboxOpen(false);
-                                                }}
-                                              >
-                                                <Check
-                                                  className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0"
-                                                  )}
-                                                />
-                                                Walk-in Customer
-                                              </CommandItem>
-                                            {isLoaded ? customers.map(c => (
-                                              <CommandItem
-                                                key={c.id}
-                                                value={c.name}
-                                                onSelect={() => {
-                                                  field.onChange(c.id);
-                                                  setCustomerComboboxOpen(false);
-                                                }}
-                                              >
-                                                <Check
-                                                  className={cn(
-                                                    "mr-2 h-4 w-4",
-                                                    field.value === c.id ? "opacity-100" : "opacity-0"
-                                                  )}
-                                                />
-                                                {c.name}
-                                              </CommandItem>
-                                            )) : <CommandItem disabled>Loading...</CommandItem>}
-                                          </CommandGroup>
-                                        </CommandList>
-                                      </Command>
-                                    </PopoverContent>
-                                  </Popover>
-                                )}
-                              />
-                              <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
-                          </div>
-                      </div>
-                      {!isWalkIn && (
-                        <div className="space-y-2">
-                            <Label>Vehicle Number</Label>
-                            {selectedCustomer && selectedCustomer.vehicleNumber ? (
-                              <Controller
-                                  name="vehicleNumber"
-                                  control={control}
-                                  render={({ field }) => (
-                                      <Select onValueChange={field.onChange} value={field.value || ''}>
-                                          <SelectTrigger>
-                                              <SelectValue placeholder="Select vehicle..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                              {String(selectedCustomer.vehicleNumber).split(/[,\n]/).map(v => v.trim()).filter(Boolean).map(v => (
-                                                  <SelectItem key={v} value={v}>{v}</SelectItem>
-                                              ))}
-                                          </SelectContent>
-                                      </Select>
-                                  )}
-                              />
-                            ) : (
-                              <Input {...register('vehicleNumber')} placeholder="Enter vehicle number... (optional)" />
-                            )}
+              <form onSubmit={handleSubmit(onSubmit)}><Card><CardHeader><CardTitle>Payment</CardTitle></CardHeader><CardContent className="space-y-4">
+                      <div className="space-y-2"><Label>Customer</Label><div className="flex gap-2"><Controller name="customerId" control={control} render={({ field }) => (<Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-between">{field.value && field.value !== 'walkin' ? customers.find(c => c.id === field.value)?.name : "Walk-in Customer"}<ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Search..." /><CommandList><CommandEmpty>None.</CommandEmpty><CommandGroup><CommandItem value="Walk-in Customer" onSelect={() => { field.onChange('walkin'); setCustomerComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0")} />Walk-in</CommandItem>{isLoaded && customers.map(c => (<CommandItem key={c.id} value={c.name} onSelect={() => { field.onChange(c.id); setCustomerComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", field.value === c.id ? "opacity-100" : "opacity-0")} />{c.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>)}/><Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button></div></div>
+                      {!isWalkIn && <div className="space-y-2"><Label>Vehicle</Label>{(customers.find(c => c.id === customerId)?.vehicleNumber) ? <Controller name="vehicleNumber" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value || ''}><SelectTrigger><SelectValue placeholder="Select vehicle..." /></SelectTrigger><SelectContent>{String(customers.find(c => c.id === customerId)!.vehicleNumber).split(/[,\n]/).map(v => v.trim()).filter(Boolean).map(v => (<SelectItem key={v} value={v}>{v}</SelectItem>))}</SelectContent></Select>)}/> : <Input {...register('vehicleNumber')} placeholder="Optional" />}</div>}
+                      <div className="space-y-2"><Label>Method</Label><Controller name="paymentMethod" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value} disabled><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{isWalkIn ? <SelectItem value="Cash">Cash</SelectItem> : <SelectItem value="Credit">Credit (Udhar)</SelectItem>}</SelectContent></Select>)}/><p className="text-[10px] text-muted-foreground italic">Automatic based on customer type.</p></div>
+                      <div className="space-y-2"><Label>Date</Label><Controller name="invoiceDate" control={control} render={({ field }) => (<Popover open={invoiceDateCalendarOpen} onOpenChange={setInvoiceDateCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "dd-MMM-yyyy") : "Pick date"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => { field.onChange(d); setInvoiceDateCalendarOpen(false); }} initialFocus /></PopoverContent></Popover>)}/></div>
+                      <div className="space-y-2"><Label>Notes</Label><div className="relative"><Textarea {...register('notes')} placeholder="Notes..." className="pr-12"/><Button type="button" size="icon" variant={isListening ? "destructive" : "ghost"} className="absolute right-1 top-1 h-8 w-8" onClick={handleToggleListening}><Mic className="h-4 w-4" /></Button></div></div>
+                      
+                      {!isPinVerified() && (
+                        <div className="space-y-2 border-t pt-4">
+                            <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                            <Input type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
                         </div>
                       )}
-                       <div className="space-y-2">
-                          <Label>Payment Method</Label>
-                          <Controller
-                            name="paymentMethod"
-                            control={control}
-                            render={({ field }) => (
-                              <Select onValueChange={field.onChange} value={field.value} disabled={true}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select payment method" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {isWalkIn ? (
-                                    <>
-                                      <SelectItem value="Cash">Cash Sale – Walk-in</SelectItem>
-                                      <SelectItem value="Card">Card</SelectItem>
-                                      <SelectItem value="Mobile">Mobile Wallet</SelectItem>
-                                    </>
-                                  ) : (
-                                    <SelectItem value="Credit">Credit Sale (Udhar)</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            )}
-                          />
-                          <p className="text-[10px] text-muted-foreground italic">Payment method is automatically locked based on customer type.</p>
-                      </div>
-                      <div className="space-y-2">
-                          <Label>Invoice Date</Label>
-                            <Controller
-                            name="invoiceDate"
-                            control={control}
-                            render={({ field }) => (
-                                <Popover open={invoiceDateCalendarOpen} onOpenChange={setInvoiceDateCalendarOpen}>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                    variant={"outline"}
-                                    className={cn(
-                                        "w-full justify-start text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                    )}
-                                    >
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        key="sales-calendar"
-                                        mode="single"
-                                        selected={field.value}
-                                        defaultMonth={field.value}
-                                        onSelect={(date) => {
-                                            field.onChange(date);
-                                            setInvoiceDateCalendarOpen(false);
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                                </Popover>
-                            )}
-                            />
-                            {errors.invoiceDate && <p className="text-sm text-destructive">{errors.invoiceDate.message}</p>}
-                      </div>
-                      <div className="space-y-2">
-                          <Label htmlFor="notes">Notes</Label>
-                          <div className="relative">
-                            <Textarea id="notes" {...register('notes')} placeholder="Add any notes for the invoice..." className="pr-12"/>
-                             {recognitionRef.current && (
-                                <Button
-                                    type="button"
-                                    size="icon"
-                                    variant={isListening ? "destructive" : "ghost"}
-                                    className="absolute right-1 top-1 h-8 w-8"
-                                    onClick={handleToggleListening}
-                                    title="Toggle voice input"
-                                >
-                                    <Mic className="h-4 w-4" />
-                                </Button>
-                             )}
-                          </div>
-                      </div>
-                        {recognitionRef.current && (
-                            <div className="space-y-2">
-                                <Label htmlFor="language">Voice Language</Label>
-                                <Select value={language} onValueChange={setLanguage}>
-                                    <SelectTrigger id="language">
-                                        <SelectValue placeholder="Select language" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="en-US">English (US)</SelectItem>
-                                        <SelectItem value="ur-PK">Urdu (Pakistan)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-                      
-                      <div className="space-y-2 border-t pt-4">
-                          <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                          <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                          {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                      </div>
 
-                      <div className="space-y-1 text-sm">
-                          <div className="flex justify-between font-semibold text-lg">
-                              <span>Total</span>
-                              <span>{cartTotal.toFixed(2)}</span>
-                          </div>
-                           <div className="flex justify-between font-bold text-red-500 text-lg">
-                              <span>Invoice Balance</span>
-                              <span>{invoiceBalance.toFixed(2)}</span>
-                          </div>
+                      <div className="space-y-1 text-sm pt-4 border-t">
+                          <div className="flex justify-between font-bold text-lg"><span>Invoice Total</span><span>PKR {cartTotal.toFixed(2)}</span></div>
+                          {customerId && customerId !== 'walkin' && (<div className="space-y-1 mt-4 p-3 bg-muted rounded-md text-xs"><div className="flex justify-between text-muted-foreground"><span>Prev Balance</span><span>{customerBalance.toFixed(2)}</span></div><div className="flex justify-between font-bold text-sm"><span>New Balance</span><span className="text-destructive">{(customerBalance + cartTotal).toFixed(2)}</span></div></div>)}
                       </div>
-                      
-                      {selectedCustomer && (
-                          <div className="border-t pt-4 mt-4 space-y-1 text-sm">
-                               <h4 className="font-semibold mb-2">Customer Account</h4>
-                               <div className="flex justify-between">
-                                  <span className="text-muted-foreground">Previous Balance</span>
-                                  <span>{customerBalance.toFixed(2)}</span>
-                              </div>
-                               <div className="flex justify-between font-bold text-lg">
-                                  <span>New Account Balance</span>
-                                  <span>{newAccountBalance.toFixed(2)}</span>
-                              </div>
-                          </div>
-                      )}
                   </CardContent>
-                  <CardFooter className="flex flex-col gap-2">
-                      <Button type="submit" size="lg" className="w-full">{editId ? 'Update Transaction' : 'Complete & Print Invoice'}</Button>
-                      <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => { 
-                          if (editId) router.push('/ledger');
-                          else { reset(); resetItem(); setCart([]); }
-                      }}>Discard</Button>
-                  </CardFooter>
-              </Card>
-              </form>
+                  <CardFooter className="flex flex-col gap-2"><Button type="submit" size="lg" className="w-full">{editId ? 'Update' : 'Complete & Print'}</Button><Button type="button" variant="outline" className="w-full" onClick={() => { if (editId) router.push('/ledger'); else { reset(); setCart([]); } }}>Discard</Button></CardFooter></Card></form>
           </div>
       </main>
     </div>

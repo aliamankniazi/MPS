@@ -20,11 +20,10 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, CalendarCheck, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Sun, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
-import { SheetTitle } from './ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   AlertDialog,
@@ -36,7 +35,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-
 
 const navGroups = [
     {
@@ -106,8 +104,8 @@ const AppLogo = () => (
       <div className="bg-primary rounded-lg p-2 text-primary-foreground">
         <Fuel className="w-6 h-6" />
       </div>
-      <div className="flex flex-col">
-        <h2 className="text-lg font-bold tracking-tighter text-primary">Mianwali Petroleum Service</h2>
+      <div className="flex flex-col text-left">
+        <h2 className="text-lg font-bold tracking-tighter text-primary leading-tight">Mianwali<br/>Petroleum</h2>
       </div>
     </Link>
 );
@@ -127,17 +125,13 @@ const SESSION_DURATION_SECONDS = SESSION_DURATION_MINUTES * 60;
 const WARNING_TIME_SECONDS = 60;
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { signOut, user } = useAuth();
+  const { signOut, user, isPinVerified, pinVerifiedAt } = useAuth();
   const pathname = usePathname();
   
   const [remainingTime, setRemainingTime] = React.useState(SESSION_DURATION_SECONDS);
+  const [pinRemaining, setPinRemaining] = React.useState(0);
   const [showWarning, setShowWarning] = React.useState(false);
   const intervalRef = React.useRef<NodeJS.Timeout>();
-
-  const isLinkActive = (href: string) => {
-    if (href === '/') return pathname === '/';
-    return pathname.startsWith(href) && href !== '/';
-  }
 
   const resetTimer = React.useCallback(() => {
     setRemainingTime(SESSION_DURATION_SECONDS);
@@ -147,9 +141,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll'];
     events.forEach(event => window.addEventListener(event, resetTimer));
-    return () => {
-      events.forEach(event => window.removeEventListener(event, resetTimer));
-    };
+    return () => events.forEach(event => window.removeEventListener(event, resetTimer));
   }, [resetTimer]);
 
   React.useEffect(() => {
@@ -160,15 +152,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           signOut();
           return 0;
         }
-        if (prev <= WARNING_TIME_SECONDS + 1) {
-          setShowWarning(true);
-        }
+        if (prev <= WARNING_TIME_SECONDS + 1) setShowWarning(true);
         return prev - 1;
       });
+
+      if (pinVerifiedAt > 0) {
+        const remaining = Math.max(0, 180 - Math.floor((Date.now() - pinVerifiedAt) / 1000));
+        setPinRemaining(remaining);
+      } else {
+        setPinRemaining(0);
+      }
     }, 1000);
 
     return () => clearInterval(intervalRef.current!);
-  }, [signOut]);
+  }, [signOut, pinVerifiedAt]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -187,7 +184,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <SidebarMenu>
               {topNavItems.map(item => (
                 <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label} className={cn(item.href === '/' && 'text-green-600 hover:text-green-700 data-[active=true]:text-green-700')}>
+                    <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.label} className={cn(item.href === '/' && 'text-green-600 hover:text-green-700 data-[active=true]:text-green-700')}>
                         <Link href={item.href}>
                             <item.icon />
                             <span>{item.label}</span>
@@ -213,12 +210,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                           <SidebarMenuSub>
                               {group.links.map(link => (
                               <SidebarMenuSubItem key={link.href}>
-                                  <SidebarMenuSubButton
-                                      asChild
-                                      isActive={isLinkActive(link.href)}
-                                      target={(link as any).target || '_self'}
-                                      rel={(link as any).target === '_blank' ? 'noopener noreferrer' : undefined}
-                                  >
+                                  <SidebarMenuSubButton asChild isActive={pathname.startsWith(link.href)}>
                                       <Link href={link.href}>
                                           <link.icon/>
                                           <span>{link.label}</span>
@@ -235,9 +227,17 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </SidebarContent>
           <SidebarFooter>
             <SidebarMenu>
+              {pinRemaining > 0 && (
+                <SidebarMenuItem>
+                    <div className="flex items-center justify-center gap-2 px-2 py-1.5 text-xs text-green-600 font-bold bg-green-50 rounded-md mx-2 mb-2">
+                        <ShieldCheck className="size-3" />
+                        <span>PIN active: {formatTime(pinRemaining)}</span>
+                    </div>
+                </SidebarMenuItem>
+              )}
               {bottomNavItems.map(item => (
                 <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton asChild isActive={isLinkActive(item.href)} tooltip={item.label}>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith(item.href)} tooltip={item.label}>
                         <Link href={item.href}>
                             <item.icon />
                             <span>{item.label}</span>
@@ -248,7 +248,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <SidebarMenuItem>
                 <div className="flex items-center justify-center gap-2 px-2 py-1.5 text-xs text-sidebar-foreground/70">
                   <Clock className="size-3" />
-                  <span>Session expires in: {formatTime(remainingTime)}</span>
+                  <span>Session: {formatTime(remainingTime)}</span>
                 </div>
               </SidebarMenuItem>
               <SidebarMenuItem>
@@ -271,10 +271,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <AlertDialog open={showWarning} onOpenChange={setShowWarning}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Session Expiration Warning</AlertDialogTitle>
-            <AlertDialogDescription>
-              You will be logged out due to inactivity in about a minute. Do you want to stay logged in?
-            </AlertDialogDescription>
+            <AlertDialogTitle>Session Expiring</AlertDialogTitle>
+            <AlertDialogDescription>You will be logged out in about a minute. Stay logged in?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel onClick={signOut}>Logout</AlertDialogCancel>

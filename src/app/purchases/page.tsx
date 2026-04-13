@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -22,6 +21,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { TransactionNav } from '@/components/transaction-nav';
 import { useSupplierBalance } from '@/hooks/use-supplier-balance';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const purchaseSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -30,14 +30,13 @@ const purchaseSchema = z.object({
   pricePerLitre: z.coerce.number().min(0.01, 'Price must be greater than 0'),
   totalCost: z.coerce.number().min(0.01, 'Total cost must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type PurchaseFormValues = z.infer<typeof purchaseSchema>;
 
 function PageHeader() {
     const [currentTime, setCurrentTime] = useState('');
-    
     useEffect(() => {
         const timer = setInterval(() => {
             setCurrentTime(new Date().toLocaleString('en-US', {
@@ -51,16 +50,13 @@ function PageHeader() {
         }, 1000);
         return () => clearInterval(timer);
     }, []);
-
     return (
       <header className="bg-background shadow-sm sticky top-0 z-20">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
                 <span className="text-sm">ziakniazi@gmail.com</span>
-                <Button variant="ghost" size="icon">
-                    <Sun className="h-5 w-5" />
-                </Button>
+                <Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button>
             </div>
         </div>
       </header>
@@ -68,7 +64,8 @@ function PageHeader() {
 }
 
 export default function PurchasesPage() {
-  const { addPurchase, updatePurchase, suppliers, purchases, products, isLoaded, colorSettings } = useDatabase();
+  const { addPurchase, updatePurchase, suppliers, purchases, products, isLoaded } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get('edit');
@@ -82,20 +79,15 @@ export default function PurchasesPage() {
   });
 
   const { volume, pricePerLitre, totalCost, fuelType, supplierId } = watch();
-  
   const { balance: supplierBalance } = useSupplierBalance(supplierId);
   const newBalance = useMemo(() => supplierBalance + (Number(totalCost) || 0), [supplierBalance, totalCost]);
 
-  // Load purchase for editing
   useEffect(() => {
     if (isLoaded && editId) {
         const p = purchases.find(item => item.id === editId);
         if (p) {
-            setValue('supplierId', p.supplierId);
-            setValue('fuelType', p.fuelType);
-            setValue('volume', p.volume);
-            setValue('pricePerLitre', p.volume > 0 ? p.totalCost / p.volume : 0);
-            setValue('totalCost', p.totalCost);
+            setValue('supplierId', p.supplierId); setValue('fuelType', p.fuelType); setValue('volume', p.volume);
+            setValue('pricePerLitre', p.volume > 0 ? p.totalCost / p.volume : 0); setValue('totalCost', p.totalCost);
             setValue('date', new Date(p.timestamp));
         }
     }
@@ -103,18 +95,13 @@ export default function PurchasesPage() {
 
   useEffect(() => {
     if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
-      const newTotal = (Number(volume) || 0) * (Number(pricePerLitre) || 0);
-      setValue('totalCost', newTotal, { shouldValidate: true });
+      setValue('totalCost', (Number(volume) || 0) * (Number(pricePerLitre) || 0), { shouldValidate: true });
     }
   }, [volume, pricePerLitre, setValue]);
 
   useEffect(() => {
     if (lastUserEditedField.current === 'total') {
-      const numPrice = Number(pricePerLitre) || 0;
-      if (numPrice > 0) {
-        const newVolume = (Number(totalCost) || 0) / numPrice;
-        setValue('volume', newVolume, { shouldValidate: true });
-      }
+      if ((Number(pricePerLitre) || 0) > 0) setValue('volume', (Number(totalCost) || 0) / (Number(pricePerLitre) || 0), { shouldValidate: true });
     }
   }, [totalCost, pricePerLitre, setValue]);
 
@@ -122,260 +109,61 @@ export default function PurchasesPage() {
     if (!editId) {
         const savedDate = localStorage.getItem('global_date_from');
         const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-        const savedSupplierId = localStorage.getItem('global_lastSupplierId');
-        const savedProductId = localStorage.getItem('global_lastPurchaseProductId');
-
-        const defaultValues: Partial<PurchaseFormValues> = {
-          date: initialDate,
-        };
-        
-        if (savedSupplierId && suppliers.find(s => s.id === savedSupplierId)) {
-            defaultValues.supplierId = savedSupplierId;
-        }
-        
-        if (savedProductId && products.find(p => p.name === savedProductId)) {
-            defaultValues.fuelType = savedProductId;
-        }
-
-        reset(defaultValues);
+        reset({ date: initialDate, supplierId: localStorage.getItem('global_lastSupplierId') || '', fuelType: localStorage.getItem('global_lastPurchaseProductId') || '' });
     }
-  }, [reset, suppliers, products, editId]);
+  }, [reset, editId]);
 
   useEffect(() => {
     if (fuelType && purchases.length > 0 && !editId) {
-      const lastPurchaseOfSameType = purchases
-        .filter((p) => p.fuelType === fuelType)
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-
-      if (lastPurchaseOfSameType && lastPurchaseOfSameType.volume > 0) {
-        const lastPrice = lastPurchaseOfSameType.totalCost / lastPurchaseOfSameType.volume;
-        setValue('pricePerLitre', lastPrice);
-        lastUserEditedField.current = 'price';
-      }
+      const lastP = purchases.filter(p => p.fuelType === fuelType).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+      if (lastP && lastP.volume > 0) { setValue('pricePerLitre', lastP.totalCost / lastP.volume); lastUserEditedField.current = 'price'; }
     }
   }, [fuelType, purchases, setValue, editId]);
 
-
   const onSubmit: SubmitHandler<PurchaseFormValues> = (data) => {
-    if (data.pin !== '0200') {
-      toast({
-        variant: 'destructive',
-        title: 'Incorrect PIN',
-        description: 'Verification failed. Incorrect Security PIN.',
-      });
+    if (!isPinVerified() && data.pin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN' });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
 
-    const isoDate = data.date.toISOString();
-    localStorage.setItem('global_date_from', isoDate);
-    localStorage.setItem('global_date_to', isoDate);
+    localStorage.setItem('global_date_from', data.date.toISOString());
     localStorage.setItem('global_lastSupplierId', data.supplierId);
     localStorage.setItem('global_lastPurchaseProductId', data.fuelType);
 
-    const purchaseData: Omit<Purchase, 'id' | 'supplier'> = {
-        supplierId: data.supplierId,
-        fuelType: data.fuelType,
-        volume: data.volume,
-        totalCost: data.totalCost,
-        timestamp: data.date.toISOString(),
-    };
+    const purchaseData = { supplierId: data.supplierId, supplier: supplier.name, fuelType: data.fuelType, volume: data.volume, totalCost: data.totalCost, timestamp: data.date.toISOString() };
 
-    if (editId) {
-        updatePurchase(editId, { ...purchaseData, supplier: supplier.name });
-        toast({ title: 'Purchase Updated', description: 'The delivery record has been updated.' });
-        router.push('/ledger');
-    } else {
-        addPurchase({
-          ...purchaseData,
-          supplier: supplier.name, 
-        });
-        toast({ title: 'Purchase Recorded', description: `Delivery from ${supplier.name} has been logged.` });
-        reset({
-            date: data.date,
-            supplierId: data.supplierId,
-            fuelType: data.fuelType,
-            volume: undefined,
-            pricePerLitre: data.pricePerLitre,
-            totalCost: undefined,
-            pin: '',
-        });
-    }
+    if (editId) { updatePurchase(editId, purchaseData); toast({ title: 'Purchase Updated' }); router.push('/ledger'); }
+    else { addPurchase(purchaseData); toast({ title: 'Purchase Recorded' }); reset({ date: data.date, supplierId: data.supplierId, fuelType: data.fuelType, pricePerLitre: data.pricePerLitre }); }
   };
 
   return (
     <div className="bg-muted/30 min-h-screen">
-      <PageHeader />
-      <TransactionNav />
+      <PageHeader /><TransactionNav />
       <main className="container mx-auto p-4">
-        <div className="max-w-2xl mx-auto">
-            <Card>
-            <CardHeader>
-                <CardTitle style={{ color: colorSettings['Purchase'] || '#14B8A6' }}>{editId ? 'Edit Purchase' : 'New Purchase'}</CardTitle>
-                <CardDescription>{editId ? 'Modify the details of this fuel delivery.' : 'Record a new fuel delivery from a supplier.'}</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                <div className="space-y-2">
-                    <Label htmlFor="supplierId">Supplier</Label>
-                    <Controller
-                    name="supplierId"
-                    control={control}
-                    render={({ field }) => (
-                      <Popover open={supplierComboboxOpen} onOpenChange={setSupplierComboboxOpen}>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            aria-expanded={supplierComboboxOpen}
-                            className="w-full justify-between"
-                          >
-                            {field.value
-                              ? suppliers.find((s) => s.id === field.value)?.name
-                              : "Select a supplier..."}
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                          <Command>
-                            <CommandInput placeholder="Search supplier..." />
-                            <CommandList>
-                              <CommandEmpty>No supplier found.</CommandEmpty>
-                              <CommandGroup>
-                                {isLoaded ? suppliers.map(s => (
-                                  <CommandItem
-                                    key={s.id}
-                                    value={s.name}
-                                    onSelect={() => {
-                                      field.onChange(s.id);
-                                      setSupplierComboboxOpen(false);
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        field.value === s.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    {s.name}
-                                  </CommandItem>
-                                )) : <CommandItem disabled>Loading...</CommandItem>}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                    )}
-                    />
-                    {errors.supplierId && <p className="text-sm text-destructive">{errors.supplierId.message}</p>}
-                </div>
-
-                <div className="space-y-2">
-                    <Label>Product</Label>
-                    <Controller
-                    name="fuelType"
-                    control={control}
-                    render={({ field }) => (
-                        <Select onValueChange={field.onChange} value={field.value} defaultValue="">
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select a product" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {products.map(product => (
-                            <SelectItem key={product.id} value={product.name}>{product.name}</SelectItem>
-                            ))}
-                        </SelectContent>
-                        </Select>
-                    )}
-                    />
-                    {errors.fuelType && <p className="text-sm text-destructive">{errors.fuelType.message}</p>}
-                </div>
-
+        <div className="max-w-2xl mx-auto"><Card><CardHeader><CardTitle>{editId ? 'Edit Purchase' : 'New Purchase'}</CardTitle></CardHeader><CardContent><form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-2"><Label>Supplier</Label><Controller name="supplierId" control={control} render={({ field }) => (<Popover open={supplierComboboxOpen} onOpenChange={setSupplierComboboxOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-between">{field.value ? suppliers.find(s => s.id === field.value)?.name : "Select supplier..."}<ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Search..." /><CommandList><CommandEmpty>None.</CommandEmpty><CommandGroup>{isLoaded && suppliers.map(s => (<CommandItem key={s.id} value={s.name} onSelect={() => { field.onChange(s.id); setSupplierComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", field.value === s.id ? "opacity-100" : "opacity-0")} />{s.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>)}/></div>
+                <div className="space-y-2"><Label>Product</Label><Controller name="fuelType" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value}><SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger><SelectContent>{products.map(p => (<SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>))}</SelectContent></Select>)}/></div>
                 <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                    <Label htmlFor="volume">Volume (Litres)</Label>
-                    <Input id="volume" type="number" {...register('volume')} placeholder="e.g., 5000" step="any" onChangeCapture={() => lastUserEditedField.current = 'volume'} />
-                    {errors.volume && <p className="text-sm text-destructive">{errors.volume.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                    <Label htmlFor="pricePerLitre">Price / Litre</Label>
-                    <Input id="pricePerLitre" type="number" {...register('pricePerLitre')} placeholder="e.g., 200" step="any" onChangeCapture={() => lastUserEditedField.current = 'price'} />
-                    {errors.pricePerLitre && <p className="text-sm text-destructive">{errors.pricePerLitre.message}</p>}
-                    </div>
-                    <div className="space-y-2">
-                    <Label htmlFor="totalCost">Total Cost (PKR)</Label>
-                    <Input id="totalCost" type="number" {...register('totalCost')} placeholder="e.g., 1000000" step="any" onChangeCapture={() => lastUserEditedField.current = 'total'} />
-                    {errors.totalCost && <p className="text-sm text-destructive">{errors.totalCost.message}</p>}
-                    </div>
+                    <div className="space-y-2"><Label>Litres</Label><Input type="number" {...register('volume')} step="any" onChangeCapture={() => lastUserEditedField.current = 'volume'} /></div>
+                    <div className="space-y-2"><Label>Price</Label><Input type="number" {...register('pricePerLitre')} step="any" onChangeCapture={() => lastUserEditedField.current = 'price'} /></div>
+                    <div className="space-y-2"><Label>Total Cost</Label><Input type="number" {...register('totalCost')} step="any" onChangeCapture={() => lastUserEditedField.current = 'total'} /></div>
                 </div>
-
-                <div className="space-y-2">
-                    <Label>Date</Label>
-                    <Controller
-                        name="date"
-                        control={control}
-                        render={({ field }) => (
-                        <Popover open={purchaseDateCalendarOpen} onOpenChange={setPurchaseDateCalendarOpen}>
-                            <PopoverTrigger asChild>
-                            <Button
-                                variant={"outline"}
-                                className={cn(
-                                "w-full justify-start text-left font-normal",
-                                !field.value && "text-muted-foreground"
-                                )}
-                            >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {field.value ? format(field.value, "dd-MMM-yyyy") : <span>Pick a date</span>}
-                            </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                key="purchases-calendar"
-                                mode="single"
-                                selected={field.value}
-                                defaultMonth={field.value}
-                                onSelect={(date) => {
-                                    field.onChange(date);
-                                    setPurchaseDateCalendarOpen(false);
-                                }}
-                                initialFocus
-                            />
-                            </PopoverContent>
-                        </Popover>
-                        )}
-                    />
-                    {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
-                </div>
+                <div className="space-y-2"><Label>Date</Label><Controller name="date" control={control} render={({ field }) => (<Popover open={purchaseDateCalendarOpen} onOpenChange={setPurchaseDateCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "dd-MMM-yyyy") : "Pick date"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => { field.onChange(d); setPurchaseDateCalendarOpen(false); }} initialFocus /></PopoverContent></Popover>)}/></div>
                 
-                <div className="space-y-2 border-t pt-4">
-                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                </div>
-
-                {supplierId && (
-                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
-                        <h4 className="font-semibold mb-2">Supplier Account</h4>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Previous Balance</span>
-                            <span>{supplierBalance.toFixed(2)} PKR</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-lg">
-                            <span>New Account Balance</span>
-                            <span className={cn(newBalance > 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
-                        </div>
+                {!isPinVerified() && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
                     </div>
                 )}
 
-                <Button type="submit" className="w-full">{editId ? 'Update Purchase' : 'Record Purchase'}</Button>
+                {supplierId && (<div className="border-t pt-4 mt-4 space-y-1 text-sm font-semibold"><span>Account Balance: </span><span className={cn(newBalance > 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span></div>)}
+                <Button type="submit" className="w-full">{editId ? 'Update' : 'Record'}</Button>
                 {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
-                </form>
-            </CardContent>
-            </Card>
-        </div>
-      </main>
-    </div>
+                </form></CardContent></Card></div></main></div>
   );
 }
