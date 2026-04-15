@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfToday, endOfToday, startOfYear, endOfYear } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -312,6 +312,8 @@ export default function LedgerPage() {
     return result;
   }, [filteredEntries, allEntries, localDateRange]);
 
+  const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
+
   useEffect(() => {
     if (isLoaded && !localDateRange) {
       const now = new Date();
@@ -398,9 +400,14 @@ export default function LedgerPage() {
           <CardDescription>Transactions grouped by date.</CardDescription>
         </CardHeader>
         <CardContent>
-            {Object.keys(groupedEntries).length > 0 ? (
-                <Accordion type="multiple" className="w-full space-y-4" defaultValue={[format(new Date(), 'yyyy-MM-dd')]}>
-                    {Object.keys(groupedEntries).sort((a,b) => b.localeCompare(a)).map(key => {
+            {sortedDateKeys.length > 0 ? (
+                <Accordion 
+                  key={sortedDateKeys.join(',')} 
+                  type="multiple" 
+                  className="w-full space-y-4" 
+                  defaultValue={sortedDateKeys}
+                >
+                    {sortedDateKeys.map(key => {
                        const day = groupedEntries[key];
                         return (
                         <AccordionItem value={key} key={key} className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
