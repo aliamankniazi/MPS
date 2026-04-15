@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfToday, endOfToday } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfToday, endOfToday, startOfYear, endOfYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -315,7 +314,8 @@ export default function LedgerPage() {
 
   useEffect(() => {
     if (isLoaded && !localDateRange) {
-      setLocalDateRange({ from: startOfToday(), to: endOfToday() });
+      const now = new Date();
+      setLocalDateRange({ from: startOfYear(now), to: endOfYear(now) });
     }
   }, [isLoaded, localDateRange]);
 
