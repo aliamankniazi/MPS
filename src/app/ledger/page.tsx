@@ -73,7 +73,7 @@ export default function LedgerPage() {
   const { 
     transactions, purchases, expenses, purchaseReturns, saleReturns, 
     otherIncomes, supplierPayments, investments, customerPayments, 
-    cashAdvances, customers, colorSettings, isLoaded, 
+    cashAdvances, colorSettings, isLoaded, 
     deleteTransaction, deletePurchase, deleteExpense, deleteSaleReturn, 
     deleteOtherIncome, deleteSupplierPayment, deleteInvestment, 
     deleteCustomerPayment, deleteCashAdvance 
@@ -260,7 +260,7 @@ export default function LedgerPage() {
       bal += e.debit - e.credit; 
       return { ...e, balance: bal }; 
     });
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, customers]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances]);
 
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
