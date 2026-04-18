@@ -40,6 +40,7 @@ type LedgerEntry = {
   original: any;
   category?: string;
   notes?: string;
+  entityId?: string;
 };
 
 export default function CustomerLedgerPage(props: { params: Promise<{ id: string }>, searchParams: Promise<any> }) {
@@ -97,7 +98,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             credit,
             original: tx,
             category: 'FUEL SALE',
-            notes: tx.notes
+            notes: tx.notes,
+            entityId: tx.customerId
           });
         });
 
@@ -112,7 +114,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               credit: p.amount,
               original: p,
               category: isSalary ? 'EMPLOYEE BENEFITS' : 'PAYMENT',
-              notes: p.notes
+              notes: p.notes,
+              entityId: p.customerId
             })
         });
         
@@ -126,7 +129,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               credit: 0,
               original: ca,
               category: 'CASH ADVANCE',
-              notes: ca.notes
+              notes: ca.notes,
+              entityId: ca.customerId
             })
         });
         
@@ -139,7 +143,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           credit: sr.totalRefund, 
           original: sr,
           category: 'RETURN',
-          notes: sr.reason
+          notes: sr.reason,
+          entityId: sr.customerId
         }));
 
     } else if (entityType === 'Supplier') {
@@ -151,7 +156,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             credit: p.totalCost,
             debit: 0,
             original: p,
-            category: 'PURCHASE'
+            category: 'PURCHASE',
+            entityId: p.supplierId
         }));
 
         supplierPayments.filter(sp => sp.supplierId === entityId).forEach(sp => combined.push({
@@ -162,7 +168,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
             debit: sp.amount,
             credit: 0,
             original: sp,
-            category: 'PAYMENT'
+            category: 'PAYMENT',
+            entityId: sp.supplierId
         }));
     } else if (entityType === 'Partner') {
         investments.filter(inv => inv.partnerId === entityId).forEach(inv => {
@@ -175,7 +182,8 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                 credit: inv.type === 'Investment' ? inv.amount : 0,
                 original: inv,
                 category: 'CAPITAL',
-                notes: inv.notes
+                notes: inv.notes,
+                entityId: inv.partnerId
             });
         });
     }
