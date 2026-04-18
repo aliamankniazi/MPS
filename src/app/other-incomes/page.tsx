@@ -11,15 +11,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { DollarSign, ListChecks, WalletCards, Calendar as CalendarIcon, Trash2, AlertTriangle, ShieldCheck, Pencil } from 'lucide-react';
 import type { OtherIncomeCategory, OtherIncome } from '@/lib/types';
-import { format, isValid } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
+import Link from 'next/link';
 
 const INCOME_CATEGORIES: OtherIncomeCategory[] = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'];
 
@@ -28,31 +31,49 @@ const incomeSchema = z.object({
   category: z.enum(INCOME_CATEGORIES, { required_error: 'Please select a category.' }),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type IncomeFormValues = z.infer<typeof incomeSchema>;
 
 export default function OtherIncomesPage() {
-  const { otherIncomes, addOtherIncome, deleteOtherIncome, dateRange } = useDatabase();
+  const { otherIncomes, addOtherIncome, updateOtherIncome, deleteOtherIncome, isLoaded, dateRange } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [incomeToDelete, setIncomeToDelete] = useState<OtherIncome | null>(null);
   const [deletePin, setDeletePin] = useState('');
 
-  const { register, handleSubmit, reset, control, formState: { errors } } = useForm<IncomeFormValues>({
+  const { register, handleSubmit, reset, control, setValue, formState: { errors } } = useForm<IncomeFormValues>({
     resolver: zodResolver(incomeSchema),
   });
 
   useEffect(() => {
-    if (dateRange?.from) {
-      reset({
-        date: dateRange.from,
-      });
+    if (isLoaded && editId) {
+        const oi = otherIncomes.find(item => item.id === editId);
+        if (oi) {
+            setValue('description', oi.description);
+            setValue('category', oi.category);
+            setValue('amount', oi.amount);
+            setValue('date', new Date(oi.timestamp));
+        }
     }
-  }, [reset, dateRange]);
+  }, [isLoaded, editId, otherIncomes, setValue]);
+
+  useEffect(() => {
+    if (!editId) {
+        const initialDate = dateRange?.from && isValid(new Date(dateRange.from)) ? new Date(dateRange.from) : new Date();
+        reset({
+            date: initialDate,
+            category: 'Other',
+        });
+    }
+  }, [reset, dateRange, editId]);
 
   const onSubmit: SubmitHandler<IncomeFormValues> = (data) => {
-    if (data.pin !== '0200') {
+    if (!isPinVerified() && data.pin !== '0200') {
       toast({
         variant: 'destructive',
         title: 'Incorrect PIN',
@@ -60,33 +81,40 @@ export default function OtherIncomesPage() {
       });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
-    addOtherIncome({
+    const incomeData = {
         description: data.description,
         category: data.category,
         amount: data.amount,
         timestamp: data.date.toISOString(),
-    });
-    toast({
-      title: 'Income Recorded',
-      description: `Income of PKR ${data.amount} for "${data.description}" has been logged.`,
-    });
-    reset({
-        description: '',
-        category: 'Other',
-        amount: 0,
-        date: data.date,
-        pin: '',
-    });
+    };
+
+    if (editId) {
+        updateOtherIncome(editId, incomeData);
+        toast({ title: 'Income Updated' });
+        router.push('/ledger');
+    } else {
+        addOtherIncome(incomeData);
+        toast({ title: 'Income Recorded' });
+        reset({
+            description: '',
+            category: 'Other',
+            amount: 0,
+            date: data.date,
+            pin: '',
+        });
+    }
   };
   
   const handleDeleteIncome = () => {
     if (!incomeToDelete) return;
 
-    if (deletePin !== '0200') {
+    if (!isPinVerified() && deletePin !== '0200') {
       toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
+    if (deletePin === '0200') confirmPin('0200');
 
     deleteOtherIncome(incomeToDelete.id);
     toast({
@@ -104,7 +132,7 @@ export default function OtherIncomesPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <WalletCards /> New Income
+              <WalletCards /> {editId ? 'Edit Income' : 'New Income'}
             </CardTitle>
             <CardDescription>Record a new source of income.</CardDescription>
           </CardHeader>
@@ -173,13 +201,15 @@ export default function OtherIncomesPage() {
                   {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
 
-              <div className="space-y-2 border-t pt-4">
-                  <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                  <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                  {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-              </div>
+              {!isPinVerified() && (
+                  <div className="space-y-2 border-t pt-4">
+                      <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                      <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                  </div>
+              )}
 
-              <Button type="submit" className="w-full">Record Income</Button>
+              <Button type="submit" className="w-full">{editId ? 'Update Income' : 'Record Income'}</Button>
+              {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
             </form>
           </CardContent>
         </Card>
@@ -214,7 +244,10 @@ export default function OtherIncomesPage() {
                         <TableCell>{e.description}</TableCell>
                         <TableCell>{e.category}</TableCell>
                         <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-center space-x-1">
+                            <Button asChild variant="ghost" size="icon" title="Edit">
+                                <Link href={`/other-incomes?edit=${e.id}`}><Pencil className="w-4 h-4"/></Link>
+                            </Button>
                             <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setIncomeToDelete(e)}>
                                 <Trash2 className="w-4 h-4" />
                             </Button>
@@ -241,16 +274,18 @@ export default function OtherIncomesPage() {
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the income entry for: <br />
               <strong className="font-medium text-foreground">{incomeToDelete?.description}</strong>
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-pin-income">Enter PIN to confirm deletion:</Label>
-                <Input
-                  id="delete-pin-income"
-                  type="password"
-                  value={deletePin}
-                  onChange={(e) => setDeletePin(e.target.value)}
-                  placeholder="Enter 4-digit PIN"
-                />
-              </div>
+              {!isPinVerified() && (
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="delete-pin-income">Enter PIN to confirm deletion:</Label>
+                    <Input
+                      id="delete-pin-income"
+                      type="password"
+                      value={deletePin}
+                      onChange={(e) => setDeletePin(e.target.value)}
+                      placeholder="Enter 4-digit PIN"
+                    />
+                  </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

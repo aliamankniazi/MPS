@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -31,6 +32,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { useAuth } from '@/hooks/use-auth';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const adjustmentSchema = z.object({
   fuelType: z.string().min(1, 'Please select a fuel type.'),
@@ -66,26 +68,54 @@ function PageHeader() {
 }
 
 export default function StockAdjustmentPage() {
-  const { fuelStock, stockAdjustments, addStockAdjustment, deleteStockAdjustment, isLoaded, products, suppliers } = useDatabase();
+  const { fuelStock, stockAdjustments, addStockAdjustment, updateStockAdjustment, deleteStockAdjustment, isLoaded, products, suppliers } = useDatabase();
   const { isPinVerified, confirmPin } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [adjustmentToDelete, setAdjustmentToDelete] = React.useState<StockAdjustment | null>(null);
   const [deletePin, setDeletePin] = React.useState('');
   const [supplierComboboxOpen, setSupplierComboboxOpen] = React.useState(false);
 
-  const { register, handleSubmit, control, reset, watch, formState: { errors } } = useForm<AdjustmentFormValues>({
+  const { register, handleSubmit, control, reset, watch, setValue, formState: { errors } } = useForm<AdjustmentFormValues>({
     resolver: zodResolver(adjustmentSchema),
   });
 
   React.useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    reset({ adjustment: 0, date: savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date() });
-  }, [reset]);
+    if (isLoaded && editId) {
+        const adj = stockAdjustments.find(a => a.id === editId);
+        if (adj) {
+            setValue('fuelType', adj.fuelType);
+            setValue('supplierId', adj.supplierId || '');
+            setValue('adjustment', adj.adjustment);
+            setValue('date', new Date(adj.timestamp));
+        }
+    }
+  }, [isLoaded, editId, stockAdjustments, setValue]);
+
+  React.useEffect(() => {
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        reset({ adjustment: 0, date: savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date() });
+    }
+  }, [reset, editId]);
 
   const selectedFuelType = watch('fuelType');
   const adjustmentValue = watch('adjustment');
   const currentStock = selectedFuelType ? (fuelStock[selectedFuelType] || 0) : 0;
-  const newStock = Number(currentStock) + (Number(adjustmentValue) || 0);
+  
+  // When editing, we should account for the current adjustment in the "current" display to avoid confusion
+  const displayCurrentStock = React.useMemo(() => {
+      if (!editId || !selectedFuelType) return currentStock;
+      const originalAdj = stockAdjustments.find(a => a.id === editId);
+      if (originalAdj && originalAdj.fuelType === selectedFuelType) {
+          return currentStock - originalAdj.adjustment;
+      }
+      return currentStock;
+  }, [editId, selectedFuelType, currentStock, stockAdjustments]);
+
+  const newStock = Number(displayCurrentStock) + (Number(adjustmentValue) || 0);
 
   const onAdjustmentSubmit: SubmitHandler<AdjustmentFormValues> = (data) => {
     if (!isPinVerified() && data.pin !== '0200') {
@@ -100,9 +130,24 @@ export default function StockAdjustmentPage() {
     }
 
     const supplier = data.supplierId ? suppliers.find(s => s.id === data.supplierId) : null;
-    addStockAdjustment({ fuelType: data.fuelType, supplierId: data.supplierId, supplierName: supplier?.name, adjustment: data.adjustment, newStock: newStock, timestamp: data.date.toISOString() });
-    toast({ title: 'Stock Adjusted' });
-    reset({ fuelType: '', supplierId: '', adjustment: 0, date: data.date, pin: '' });
+    const adjustmentData = { 
+        fuelType: data.fuelType, 
+        supplierId: data.supplierId, 
+        supplierName: supplier?.name, 
+        adjustment: data.adjustment, 
+        newStock: newStock, 
+        timestamp: data.date.toISOString() 
+    };
+
+    if (editId) {
+        updateStockAdjustment(editId, adjustmentData);
+        toast({ title: 'Adjustment Updated' });
+        router.push('/ledger');
+    } else {
+        addStockAdjustment(adjustmentData);
+        toast({ title: 'Stock Adjusted' });
+        reset({ fuelType: '', supplierId: '', adjustment: 0, date: data.date, pin: '' });
+    }
   };
   
   const handleDeleteAdjustment = () => {
@@ -125,7 +170,7 @@ export default function StockAdjustmentPage() {
         <div className="space-y-8">
           <Card>
             <CardHeader>
-              <CardTitle>Stock Adjustment</CardTitle>
+              <CardTitle>{editId ? 'Edit Stock Adjustment' : 'Stock Adjustment'}</CardTitle>
               <CardDescription>Manually correct fuel stock levels.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -183,7 +228,7 @@ export default function StockAdjustmentPage() {
                             )}
                           />
                         </div>
-                        <div className="space-y-2"><Label>Current</Label><Input value={currentStock.toFixed(2)} readOnly disabled className="bg-muted" /></div>
+                        <div className="space-y-2"><Label>Current</Label><Input value={displayCurrentStock.toFixed(2)} readOnly disabled className="bg-muted" /></div>
                         <div className="space-y-2"><Label>Adj (Ltr)</Label><Input type="number" {...register('adjustment')} step="any" /></div>
                         <div className="space-y-2"><Label>New Level</Label><Input value={newStock.toFixed(2)} readOnly disabled className="bg-muted font-bold" /></div>
                     </div>
@@ -215,7 +260,8 @@ export default function StockAdjustmentPage() {
                             </div>
                         )}
                     </div>
-                    <Button type="submit" disabled={!selectedFuelType || !isLoaded} className="w-full">Adjust Stock</Button>
+                    <Button type="submit" disabled={!selectedFuelType || !isLoaded} className="w-full">{editId ? 'Update Adjustment' : 'Adjust Stock'}</Button>
+                    {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                 </form>
             </CardContent>
           </Card>

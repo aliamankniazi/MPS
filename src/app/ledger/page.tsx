@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -85,7 +86,10 @@ export default function LedgerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const { toast } = useToast();
-  const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
+  const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>({
+      from: startOfYear(new Date()),
+      to: endOfYear(new Date())
+  });
 
   const allEntries = useMemo(() => {
     if (!isLoaded) return [];
@@ -313,13 +317,6 @@ export default function LedgerPage() {
   }, [filteredEntries, allEntries, localDateRange]);
 
   const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
-
-  useEffect(() => {
-    if (isLoaded && !localDateRange) {
-      const now = new Date();
-      setLocalDateRange({ from: startOfYear(now), to: endOfYear(now) });
-    }
-  }, [isLoaded, localDateRange]);
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;

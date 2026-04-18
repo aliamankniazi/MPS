@@ -21,14 +21,15 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { TransactionNav } from '@/components/transaction-nav';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
-
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const cashAdvanceSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   notes: z.string().optional(),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type CashAdvanceFormValues = z.infer<typeof cashAdvanceSchema>;
@@ -67,7 +68,11 @@ function PageHeader() {
 }
 
 export default function CashAdvancesPage() {
-  const { customers, addCashAdvance, isLoaded } = useDatabase();
+  const { customers, addCashAdvance, updateCashAdvance, cashAdvances, isLoaded } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [dateCalendarOpen, setDateCalendarOpen] = useState(false);
@@ -84,6 +89,17 @@ export default function CashAdvancesPage() {
   const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
   const newBalance = useMemo(() => customerBalance + (Number(advanceAmount) || 0), [customerBalance, advanceAmount]);
 
+  useEffect(() => {
+    if (isLoaded && editId) {
+        const ca = cashAdvances.find(item => item.id === editId);
+        if (ca) {
+            setValue('customerId', ca.customerId);
+            setValue('amount', ca.amount);
+            setValue('notes', ca.notes || '');
+            setValue('date', new Date(ca.timestamp));
+        }
+    }
+  }, [isLoaded, editId, cashAdvances, setValue]);
 
   useEffect(() => {
     // SpeechRecognition is a browser-only API
@@ -137,26 +153,28 @@ export default function CashAdvancesPage() {
   };
 
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-        date: initialDate,
-    });
-  }, [reset]);
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        reset({
+            date: initialDate,
+        });
+    }
+  }, [reset, editId]);
 
   useEffect(() => {
-    if (isLoaded) {
+    if (isLoaded && !editId) {
       const savedCustomerId = localStorage.getItem('global_lastCustomerId');
       if (savedCustomerId && customers.find(c => c.id === savedCustomerId)) {
         setValue('customerId', savedCustomerId);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoaded, setValue]);
+  }, [isLoaded, setValue, editId]);
 
 
   const onSubmit: SubmitHandler<CashAdvanceFormValues> = (data) => {
-    if (data.pin !== '0200') {
+    if (!isPinVerified() && data.pin !== '0200') {
       toast({
         variant: 'destructive',
         title: 'Incorrect PIN',
@@ -164,6 +182,7 @@ export default function CashAdvancesPage() {
       });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
     const customer = customers.find(c => c.id === data.customerId);
     if (!customer) return;
@@ -173,26 +192,33 @@ export default function CashAdvancesPage() {
     localStorage.setItem('global_date_to', isoDate);
     localStorage.setItem('global_lastCustomerId', data.customerId);
 
-    addCashAdvance({ 
+    const advanceData = { 
       customerId: data.customerId,
       customerName: customer.name,
       amount: data.amount,
       notes: data.notes,
       timestamp: data.date.toISOString(),
-    });
-    
-    toast({
-      title: 'Cash Advance Recorded',
-      description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
-    });
+    };
 
-    reset({
-        date: data.date,
-        customerId: data.customerId,
-        amount: undefined,
-        notes: '',
-        pin: '',
-    });
+    if (editId) {
+        updateCashAdvance(editId, advanceData);
+        toast({ title: 'Cash Advance Updated' });
+        router.push('/ledger');
+    } else {
+        addCashAdvance(advanceData);
+        toast({
+          title: 'Cash Advance Recorded',
+          description: `Cash advance of PKR ${data.amount} to ${customer.name} has been logged.`,
+        });
+
+        reset({
+            date: data.date,
+            customerId: data.customerId,
+            amount: undefined,
+            notes: '',
+            pin: '',
+        });
+    }
   };
 
   return (
@@ -203,7 +229,7 @@ export default function CashAdvancesPage() {
         <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle>New Cash Advance</CardTitle>
+                <CardTitle>{editId ? 'Edit Cash Advance' : 'New Cash Advance'}</CardTitle>
                 <CardDescription>Record a cash payment made to a customer or employee.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -337,11 +363,12 @@ export default function CashAdvancesPage() {
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
 
-                <div className="space-y-2 border-t pt-4">
-                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                </div>
+                {!isPinVerified() && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                    </div>
+                )}
 
                 {selectedCustomerId && (
                     <div className="border-t pt-4 mt-4 space-y-1 text-sm">
@@ -358,7 +385,8 @@ export default function CashAdvancesPage() {
                 )}
 
 
-                <Button type="submit" className="w-full">Record Cash Advance</Button>
+                <Button type="submit" className="w-full">{editId ? 'Update Cash Advance' : 'Record Cash Advance'}</Button>
+                {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                 </form>
             </CardContent>
             </Card>

@@ -21,6 +21,8 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -30,7 +32,7 @@ const saleReturnSchema = z.object({
   totalRefund: z.coerce.number().min(0.01, 'Total refund must be greater than 0'),
   reason: z.string().min(1, 'Reason for return is required'),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type SaleReturnFormValues = z.infer<typeof saleReturnSchema>;
@@ -68,7 +70,11 @@ function PageHeader() {
 }
 
 export default function SaleReturnsPage() {
-  const { addSaleReturn, customers, isLoaded, products, fuelStock } = useDatabase();
+  const { saleReturns, addSaleReturn, updateSaleReturn, customers, isLoaded, products, fuelStock } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [customerComboboxOpen, setCustomerComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
@@ -87,21 +93,32 @@ export default function SaleReturnsPage() {
   const { volume, pricePerLitre, totalRefund } = watch();
 
   useEffect(() => {
-    if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
-      const newTotal = (Number(volume) || 0) * (Number(pricePerLitre) || 0);
-      setValue('totalRefund', newTotal, { shouldValidate: true });
+    if (isLoaded && editId) {
+        const sr = saleReturns.find(item => item.id === editId);
+        if (sr) {
+            setValue('customerId', sr.customerId);
+            setValue('fuelType', sr.fuelType);
+            setValue('volume', sr.volume);
+            setValue('totalRefund', sr.totalRefund);
+            setValue('reason', sr.reason);
+            setValue('date', new Date(sr.timestamp));
+            // Try to infer price if not stored
+            setValue('pricePerLitre', sr.totalRefund / sr.volume);
+        }
     }
-  }, [volume, pricePerLitre, setValue]);
+  }, [isLoaded, editId, saleReturns, setValue]);
 
   useEffect(() => {
-    if (lastUserEditedField.current === 'total') {
-      const numPrice = Number(pricePerLitre) || 0;
-      if (numPrice > 0) {
-        const newVolume = (Number(totalRefund) || 0) / numPrice;
-        setValue('volume', newVolume, { shouldValidate: true });
-      }
+    const qty = Number(volume) || 0;
+    const prc = Number(pricePerLitre) || 0;
+    const total = Number(totalRefund) || 0;
+
+    if (lastUserEditedField.current === 'volume' || lastUserEditedField.current === 'price') {
+      setValue('totalRefund', qty * prc, { shouldValidate: true });
+    } else if (lastUserEditedField.current === 'total') {
+      if (prc > 0) setValue('volume', total / prc, { shouldValidate: true });
     }
-  }, [totalRefund, pricePerLitre, setValue]);
+  }, [volume, pricePerLitre, totalRefund, setValue]);
 
   const mainProducts = useMemo(() => {
     if (!products) return [];
@@ -109,15 +126,17 @@ export default function SaleReturnsPage() {
   }, [products]);
   
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-        date: initialDate,
-    });
-  }, [reset]);
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        reset({
+            date: initialDate,
+        });
+    }
+  }, [reset, editId]);
 
   const onSubmit: SubmitHandler<SaleReturnFormValues> = (data) => {
-    if (data.pin !== '0200') {
+    if (!isPinVerified() && data.pin !== '0200') {
       toast({
         variant: 'destructive',
         title: 'Incorrect PIN',
@@ -125,17 +144,14 @@ export default function SaleReturnsPage() {
       });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
     const isWalkin = data.customerId === 'walkin';
     const customer = !isWalkin ? customers.find(c => c.id === data.customerId) : null;
     const customerName = isWalkin ? 'Walk-in Customer' : customer?.name;
 
     if (!customerName) {
-        toast({
-            variant: "destructive",
-            title: "Error",
-            description: "Could not determine customer name.",
-        });
+        toast({ variant: "destructive", title: "Error", description: "Could not determine customer name." });
         return;
     }
 
@@ -143,7 +159,7 @@ export default function SaleReturnsPage() {
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
 
-    addSaleReturn({ 
+    const returnData = { 
         customerId: isWalkin ? 'walkin' : data.customerId,
         customerName: customerName,
         fuelType: data.fuelType,
@@ -151,21 +167,29 @@ export default function SaleReturnsPage() {
         totalRefund: data.totalRefund,
         reason: data.reason,
         timestamp: data.date.toISOString() 
-    });
-    toast({
-      title: 'Sale Return Recorded',
-      description: `Return from ${customerName} has been logged.`,
-    });
-    reset({
-      date: data.date,
-      customerId: '',
-      fuelType: undefined,
-      volume: undefined,
-      pricePerLitre: undefined,
-      totalRefund: undefined,
-      reason: '',
-      pin: '',
-    });
+    };
+
+    if (editId) {
+        updateSaleReturn(editId, returnData);
+        toast({ title: 'Sale Return Updated' });
+        router.push('/ledger');
+    } else {
+        addSaleReturn(returnData);
+        toast({
+          title: 'Sale Return Recorded',
+          description: `Return from ${customerName} has been logged.`,
+        });
+        reset({
+          date: data.date,
+          customerId: '',
+          fuelType: undefined,
+          volume: undefined,
+          pricePerLitre: undefined,
+          totalRefund: undefined,
+          reason: '',
+          pin: '',
+        });
+    }
   };
 
   return (
@@ -176,7 +200,7 @@ export default function SaleReturnsPage() {
             <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle>New Sale Return</CardTitle>
+                <CardTitle>{editId ? 'Edit Sale Return' : 'New Sale Return'}</CardTitle>
                 <CardDescription>Record a fuel return from a customer.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -339,11 +363,12 @@ export default function SaleReturnsPage() {
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                     </div>
 
-                <div className="space-y-2 border-t pt-4">
-                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                </div>
+                {!isPinVerified() && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                    </div>
+                )}
 
                 {selectedCustomerId && selectedCustomerId !== 'walkin' && (
                     <div className="border-t pt-4 mt-4 space-y-1 text-sm">
@@ -359,7 +384,8 @@ export default function SaleReturnsPage() {
                     </div>
                 )}
 
-                <Button type="submit" className="w-full">Record Return</Button>
+                <Button type="submit" className="w-full">{editId ? 'Update Return' : 'Record Return'}</Button>
+                {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                 </form>
             </CardContent>
             </Card>

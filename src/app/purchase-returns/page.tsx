@@ -21,6 +21,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useSupplierBalance } from '@/hooks/use-supplier-balance';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 const purchaseReturnSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -29,7 +31,7 @@ const purchaseReturnSchema = z.object({
   totalRefund: z.coerce.number().min(0.01, 'Total refund must be greater than 0'),
   reason: z.string().min(1, 'Reason for return is required'),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type PurchaseReturnFormValues = z.infer<typeof purchaseReturnSchema>;
@@ -68,12 +70,16 @@ function PageHeader() {
 }
 
 export default function PurchaseReturnsPage() {
-  const { addPurchaseReturn, suppliers, isLoaded, products, fuelStock } = useDatabase();
+  const { purchaseReturns, addPurchaseReturn, updatePurchaseReturn, suppliers, isLoaded, products, fuelStock } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const { toast } = useToast();
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [returnDateCalendarOpen, setReturnDateCalendarOpen] = useState(false);
 
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<PurchaseReturnFormValues>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PurchaseReturnFormValues>({
     resolver: zodResolver(purchaseReturnSchema),
   });
   
@@ -84,21 +90,37 @@ export default function PurchaseReturnsPage() {
 
   const selectedFuelType = watch('fuelType');
 
+  useEffect(() => {
+    if (isLoaded && editId) {
+        const pr = purchaseReturns.find(item => item.id === editId);
+        if (pr) {
+            setValue('supplierId', pr.supplierId);
+            setValue('fuelType', pr.fuelType);
+            setValue('volume', pr.volume);
+            setValue('totalRefund', pr.totalRefund);
+            setValue('reason', pr.reason);
+            setValue('date', new Date(pr.timestamp));
+        }
+    }
+  }, [isLoaded, editId, purchaseReturns, setValue]);
+
   const mainProducts = useMemo(() => {
     if (!products) return [];
     return products.filter(p => p.category === 'Main Product');
   }, [products]);
   
   useEffect(() => {
-    const savedDate = localStorage.getItem('global_date_from');
-    const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
-    reset({
-      date: initialDate,
-    });
-  }, [reset]);
+    if (!editId) {
+        const savedDate = localStorage.getItem('global_date_from');
+        const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
+        reset({
+            date: initialDate,
+        });
+    }
+  }, [reset, editId]);
 
   const onSubmit: SubmitHandler<PurchaseReturnFormValues> = (data) => {
-    if (data.pin !== '0200') {
+    if (!isPinVerified() && data.pin !== '0200') {
       toast({
         variant: 'destructive',
         title: 'Incorrect PIN',
@@ -106,6 +128,7 @@ export default function PurchaseReturnsPage() {
       });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
     const supplier = suppliers.find(s => s.id === data.supplierId);
     if (!supplier) return;
@@ -114,7 +137,7 @@ export default function PurchaseReturnsPage() {
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
 
-    addPurchaseReturn({ 
+    const returnData = { 
         supplierId: data.supplierId,
         supplier: supplier.name, 
         fuelType: data.fuelType,
@@ -122,21 +145,29 @@ export default function PurchaseReturnsPage() {
         totalRefund: data.totalRefund,
         reason: data.reason,
         timestamp: data.date.toISOString() 
-    });
-    toast({
-      title: 'Purchase Return Recorded',
-      description: `Return to ${supplier.name} has been logged.`,
-    });
-    
-    reset({
-      date: data.date,
-      supplierId: '',
-      fuelType: undefined,
-      volume: undefined,
-      totalRefund: undefined,
-      reason: '',
-      pin: '',
-    });
+    };
+
+    if (editId) {
+        updatePurchaseReturn(editId, returnData);
+        toast({ title: 'Purchase Return Updated' });
+        router.push('/ledger');
+    } else {
+        addPurchaseReturn(returnData);
+        toast({
+          title: 'Purchase Return Recorded',
+          description: `Return to ${supplier.name} has been logged.`,
+        });
+        
+        reset({
+          date: data.date,
+          supplierId: '',
+          fuelType: undefined,
+          volume: undefined,
+          totalRefund: undefined,
+          reason: '',
+          pin: '',
+        });
+    }
   };
 
   return (
@@ -147,7 +178,7 @@ export default function PurchaseReturnsPage() {
             <div className="max-w-2xl mx-auto">
             <Card>
             <CardHeader>
-                <CardTitle>New Purchase Return</CardTitle>
+                <CardTitle>{editId ? 'Edit Purchase Return' : 'New Purchase Return'}</CardTitle>
                 <CardDescription>Record a fuel return to a supplier.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -289,11 +320,12 @@ export default function PurchaseReturnsPage() {
                     {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                 </div>
 
-                <div className="space-y-2 border-t pt-4">
-                    <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                    <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                    {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                </div>
+                {!isPinVerified() && (
+                    <div className="space-y-2 border-t pt-4">
+                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                    </div>
+                )}
                 
                 {supplierId && (
                     <div className="border-t pt-4 mt-4 space-y-1 text-sm">
@@ -310,7 +342,8 @@ export default function PurchaseReturnsPage() {
                 )}
 
 
-                <Button type="submit" className="w-full">Record Return</Button>
+                <Button type="submit" className="w-full">{editId ? 'Update Return' : 'Record Return'}</Button>
+                {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
                 </form>
             </CardContent>
             </Card>
