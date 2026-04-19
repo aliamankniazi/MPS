@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler } from 'react-hook-form';
@@ -174,7 +173,7 @@ export default function LoginPage() {
       await user.reload();
       if (user.emailVerified) {
         if (checkInterval.current) clearInterval(checkInterval.current);
-        sessionStorage.setItem('pumppal_2fa_verified', 'true');
+        localStorage.setItem('pumppal_2fa_verified', 'true');
         toast({
             title: 'Approved',
             description: 'Your email has been verified. Welcome back!',
@@ -207,12 +206,12 @@ export default function LoginPage() {
         await sendEmailVerification(user);
         toast({
             title: 'Approval Required',
-            description: `An approval email has been sent to ${data.email}. Please click the link to login.`,
+            description: `An approval email has been sent to ${data.email}. Please click the link in the email to complete your login.`,
             duration: 10000,
         });
         setStep(2);
       } else {
-        sessionStorage.setItem('pumppal_2fa_verified', 'true');
+        localStorage.setItem('pumppal_2fa_verified', 'true');
         router.push('/');
       }
     } catch (error: any) {

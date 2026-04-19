@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useAuth } from '@/hooks/use-auth';
@@ -17,7 +16,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const [is2faVerified, setIs2faVerified] = useState(false);
 
   useEffect(() => {
-    const verified = sessionStorage.getItem('pumppal_2fa_verified') === 'true';
+    const verified = localStorage.getItem('pumppal_2fa_verified') === 'true';
     setIs2faVerified(verified);
   }, [pathname]);
 

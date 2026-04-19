@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -105,7 +104,6 @@ export default function StockAdjustmentPage() {
   const adjustmentValue = watch('adjustment');
   const currentStock = selectedFuelType ? (fuelStock[selectedFuelType] || 0) : 0;
   
-  // When editing, we should account for the current adjustment in the "current" display to avoid confusion
   const displayCurrentStock = React.useMemo(() => {
       if (!editId || !selectedFuelType) return currentStock;
       const originalAdj = stockAdjustments.find(a => a.id === editId);

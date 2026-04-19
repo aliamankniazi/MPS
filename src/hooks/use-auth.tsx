@@ -14,6 +14,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  setPersistence,
+  browserLocalPersistence,
 } from 'firebase/auth';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
 import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
@@ -64,6 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<Role[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [pinVerifiedAt, setPinVerifiedAt] = useState<number>(0);
+
+  useEffect(() => {
+    if (auth) {
+        setPersistence(auth, browserLocalPersistence).catch(console.error);
+    }
+  }, [auth]);
 
   useEffect(() => {
     const saved = sessionStorage.getItem('pumppal_pin_verified_at');
@@ -232,6 +240,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await firebaseSignOut(auth);
       setPinVerifiedAt(0);
       sessionStorage.removeItem('pumppal_pin_verified_at');
+      localStorage.removeItem('pumppal_2fa_verified');
     }
   }, [auth]);
   
