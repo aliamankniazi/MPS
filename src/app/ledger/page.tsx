@@ -422,6 +422,7 @@ export default function LedgerPage() {
                                     <Table>
                                         <TableHeader className="bg-muted/50">
                                             <TableRow>
+                                                <TableHead className="w-12">No.</TableHead>
                                                 <TableHead>Time</TableHead>
                                                 <TableHead>Partner</TableHead>
                                                 <TableHead>Particulars</TableHead>
@@ -433,10 +434,12 @@ export default function LedgerPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {day.entries.slice().reverse().map(e => {
+                                            {day.entries.slice().reverse().map((e, index) => {
                                               const color = e.type === 'credit_sale' ? '#3B82F6' : (colorSettings[e.type === 'cash_sale' ? 'Sale' : e.type] || '#6b7280');
+                                              const transactionNo = day.entries.length - index;
                                               return (
                                                 <TableRow key={e.id}>
+                                                    <TableCell className="text-xs font-mono text-muted-foreground">{transactionNo}</TableCell>
                                                     <TableCell className="whitespace-nowrap font-medium" style={{ color }}>
                                                       {format(new Date(e.timestamp), 'hh:mm a')}
                                                     </TableCell>
@@ -448,7 +451,7 @@ export default function LedgerPage() {
                                                     <TableCell className="text-right text-destructive font-mono font-bold">
                                                       {e.debit ? e.debit.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-right text-green-600 font-mono font-bold">
+                                                    <TableCell className="text-right font-green-600 font-mono font-bold">
                                                       {e.credit ? e.credit.toFixed(2) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-600')}>
