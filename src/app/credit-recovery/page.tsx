@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -281,13 +280,13 @@ And Also Use Account Number As A Raast ID`;
                                 {isLoaded && filteredReportData.map((row, index) => (
                                     <TableRow key={row.id}>
                                         <TableCell>{index + 1}</TableCell>
-                                        <TableCell className={cn("font-medium", row.currentBalance > 0 ? 'text-destructive' : 'text-green-600')}>{row.customer.name}</TableCell>
+                                        <TableCell className={cn("font-medium", row.currentBalance > 0 ? 'text-destructive' : 'text-green-800')}>{row.customer.name}</TableCell>
                                         <TableCell>{row.customer.area || 'N/A'}</TableCell>
                                         <TableCell>{row.customer.contact}</TableCell>
-                                        <TableCell className={cn("text-right font-mono", row.previousBalance > 0 ? 'text-destructive' : 'text-green-600')}>{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className={cn("text-right font-mono", row.previousBalance > 0 ? 'text-destructive' : 'text-green-800')}>{row.previousBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                         <TableCell className="text-right font-mono text-destructive">{row.sale.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className="text-right font-mono text-green-600">{row.recovery.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                                        <TableCell className={`text-right font-bold font-mono ${row.currentBalance < 0 ? 'text-green-600' : 'text-destructive'}`}>
+                                        <TableCell className="text-right font-mono text-green-800">{row.recovery.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                        <TableCell className={`text-right font-bold font-mono ${row.currentBalance < 0 ? 'text-green-800' : 'text-destructive'}`}>
                                             {row.currentBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                         </TableCell>
                                         <TableCell className="text-center">

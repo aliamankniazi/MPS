@@ -411,7 +411,7 @@ export default function LedgerPage() {
                                 <div className="flex justify-between w-full pr-4 items-center">
                                     <span className="font-semibold text-primary">{format(new Date(key), 'EEEE, dd MMMM yyyy')}</span>
                                     <div className="flex gap-4 text-sm font-mono">
-                                        <span className="text-green-600">Credit: {day.totalCredit.toLocaleString()}</span>
+                                        <span className="text-green-800">Credit: {day.totalCredit.toLocaleString()}</span>
                                         <span className="text-destructive">Debit: {day.totalDebit.toLocaleString()}</span>
                                         <span className="font-bold border-l pl-4">Closing: {day.closingBalance.toLocaleString()}</span>
                                     </div>
@@ -451,10 +451,10 @@ export default function LedgerPage() {
                                                     <TableCell className="text-right text-destructive font-mono font-bold">
                                                       {e.debit ? e.debit.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell className="text-right font-green-600 font-mono font-bold">
+                                                    <TableCell className="text-right text-green-800 font-mono font-bold">
                                                       {e.credit ? e.credit.toFixed(2) : '-'}
                                                     </TableCell>
-                                                    <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-600')}>
+                                                    <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-800')}>
                                                       {e.balance.toFixed(2)}
                                                     </TableCell>
                                                     <TableCell className="text-center space-x-1">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -138,7 +137,7 @@ export default function CashAndCustomerPaymentsPage() {
                 {filteredEntries.map(entry => {
                   const date = new Date(entry.timestamp);
                   const color = getEntryColor(entry);
-                  const amountColor = entry.type === 'Cash Advance' ? 'text-destructive' : 'text-green-600';
+                  const amountColor = entry.type === 'Cash Advance' ? 'text-destructive' : 'text-green-800';
 
                   return (
                     <TableRow key={entry.id}>

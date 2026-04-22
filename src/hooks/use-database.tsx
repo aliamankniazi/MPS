@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -97,9 +96,9 @@ const DEFAULT_FUEL_PRICES: Record<FuelType, number> = {
 };
 
 const DEFAULT_COLOR_SETTINGS: Record<string, string> = {
-    'Sale': '#22C55E', // green-500
+    'Sale': '#15803d', // green-700
     'Credit Sale': '#3B82F6', // blue-500
-    'Customer Payment': '#14B8A6', // teal-500
+    'Customer Payment': '#166534', // green-800 (Dark Green)
     'Purchase': '#14B8A6', // teal-500
     'Purchase Return': '#F97316', // orange-500
     'Sale Return': '#FBBF24', // yellow-500
@@ -107,8 +106,8 @@ const DEFAULT_COLOR_SETTINGS: Record<string, string> = {
     'Cash Advance': '#EF4444', // red-500
     'Salary': '#EC4899', // pink-500
     'Supplier Payment': '#EC4899', // pink-500
-    'Other Income': '#22C55E', // green-500
-    'Stock Surplus': '#22C55E', // green-500
+    'Other Income': '#15803d', // green-700
+    'Stock Surplus': '#15803d', // green-700
     'Stock Shortage': '#EF4444', // red-500
     'Investment': '#6366F1', // indigo-500
     'Withdrawal': '#8B5CF6', // purple-500
