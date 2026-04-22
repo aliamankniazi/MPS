@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -267,7 +268,7 @@ export default function DashboardPage() {
                 return totalCost + (costPerLitre * sale.volume);
             }
             return totalCost;
-        } else {
+        } else { // Supplementary Product
             const quantity = sale.volume || 0;
             const purchasePrice = productInfo.purchasePrice || 0;
             return totalCost + (purchasePrice * quantity);

@@ -78,7 +78,7 @@ export default function ExpensesPage() {
   const router = useRouter();
   const editId = searchParams.get('edit');
   const { toast } = useToast();
-  const [expenseToDelete, setExpenseToDelete] = setExpenseToDelete ? [expenseToDelete, setExpenseToDelete] : useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [deletePin, setDeletePin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
