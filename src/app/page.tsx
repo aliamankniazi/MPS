@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
@@ -110,7 +109,7 @@ const getNextRamadanInfo = (currentDate: Date) => {
         return { daysRemaining: null, isDuring: false };
     }
 
-    const daysRemaining = differenceInDays(startOfToday(), startOfDay(nextRamadanDate));
+    const daysRemaining = differenceInDays(today, startOfDay(nextRamadanDate));
     return { daysRemaining: Math.abs(daysRemaining), isDuring: false };
 };
 
