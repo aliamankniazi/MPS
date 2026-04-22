@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -43,6 +44,7 @@ type CombinedEntry = {
   isCreditSale?: boolean;
   profit?: number;
   notes?: string;
+  balance?: number;
 };
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
@@ -96,7 +98,7 @@ export default function AllTransactionsPage() {
       let latestPurchaseTime = 0;
   
       for (const p of allPurchases) {
-          if (p.fuelType && p.fuelType.toLowerCase() === sale.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
+          if (p.fuelType && p.fuelType.toLowerCase() === (sale.fuelType || sale.product || '').toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
               const purchaseTime = new Date(p.timestamp).getTime();
               if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
                   latestPurchaseTime = purchaseTime;
@@ -194,13 +196,27 @@ export default function AllTransactionsPage() {
       original: { ...pr },
     }));
 
-    return [...sales, ...allPurchases, ...returns, ...payments, ...advances, ...expenseEntries].sort((a, b) => {
+    const unsorted = [...sales, ...allPurchases, ...returns, ...payments, ...advances, ...expenseEntries].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
         if (!isValid(dateB)) return -1;
-        return dateB.getTime() - dateA.getTime()
+        return dateA.getTime() - dateB.getTime();
     });
+
+    let runningBal = 0;
+    return unsorted.map(e => {
+        // Logic for running balance (Debit - Credit)
+        // Debit: Sale(Credit), Cash Advance, Expense, Salary, Purchase Return
+        // Credit: Sale(Cash), Customer Payment, Purchase, Supplier Payment
+        const isDebit = e.type === 'Cash Advance' || e.type === 'Expense' || e.type === 'Salary' || e.type === 'Purchase Return' || (e.type === 'Sale' && e.isCreditSale);
+        const isCredit = e.type === 'Customer Payment' || e.type === 'Purchase' || (e.type === 'Sale' && !e.isCreditSale);
+        
+        if (isDebit) runningBal += e.amount;
+        if (isCredit) runningBal -= e.amount;
+        
+        return { ...e, balance: runningBal };
+    }).reverse();
   }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
 
   useEffect(() => {
@@ -223,13 +239,12 @@ export default function AllTransactionsPage() {
     const dataToExport = filteredEntries.map(entry => {
         const date = new Date(entry.timestamp);
         const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
-        const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
         return {
             'Date': isValid(date) ? format(date, 'dd-MMM-yyyy hh:mm a') : 'Invalid Date',
             'Type': typeLabel,
             'Partner': entry.partner,
             'Details': entry.details,
-            'Notes': notesToDisplay,
+            'Notes': entry.notes || '',
             'Amount (PKR)': entry.amount.toFixed(2),
             'Profit (PKR)': entry.type === 'Sale' && entry.profit ? entry.profit.toFixed(2) : '-'
         };
@@ -273,7 +288,7 @@ export default function AllTransactionsPage() {
     }, {} as Record<string, CombinedEntry[]>);
 
     for (const dateKey in groups) {
-        groups[dateKey].sort((a,b) => a.type.localeCompare(b.type));
+        groups[dateKey].sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     }
     return groups;
   }, [filteredEntries]);
@@ -309,9 +324,10 @@ export default function AllTransactionsPage() {
   }, [isLoaded, transactions, localDateRange]);
   
   const getEntryColor = (entry: CombinedEntry) => {
-    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6'; // FORCE BLUE FOR CREDIT SALE
+    if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6';
+    if (entry.type === 'Customer Payment') return '#166534'; // text-green-800
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
-    return colorSettings[type] || '#6b7280'; // default gray
+    return colorSettings[type] || '#6b7280';
   };
 
   const formatPhoneNumberForWhatsApp = (phone: string | number) => {
@@ -375,14 +391,6 @@ export default function AllTransactionsPage() {
     }
   };
 
-  const getDisplayNotes = (notes: string, type: string, isCredit: boolean) => {
-    if (!notes) return '';
-    if (type === 'Sale' && !isCredit) {
-        return notes.replace(/Vehicle: [^,]+,?\s*/, '').trim();
-    }
-    return notes;
-  };
-
   const getEditLink = (entry: CombinedEntry) => {
     switch(entry.type) {
         case 'Sale': return `/sales?edit=${entry.originalId}`;
@@ -444,8 +452,9 @@ export default function AllTransactionsPage() {
                                                 <TableHead>Type</TableHead>
                                                 <TableHead>Partner</TableHead>
                                                 <TableHead>Details</TableHead>
+                                                <TableHead>Notes</TableHead>
                                                 <TableHead className="text-right">Amount (PKR)</TableHead>
-                                                <TableHead className="text-right">Profit (PKR)</TableHead>
+                                                <TableHead className="text-right">Balance</TableHead>
                                                 <TableHead className="text-center">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -456,8 +465,7 @@ export default function AllTransactionsPage() {
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
-                                                const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
-                                                const serialNo = dayEntries.length - index;
+                                                const serialNo = index + 1;
 
                                                 return (
                                                 <TableRow key={entry.id}>
@@ -483,13 +491,13 @@ export default function AllTransactionsPage() {
                                                         )}>
                                                             {entry.details}
                                                         </div>
-                                                        {notesToDisplay && <div className="text-[10px] text-muted-foreground italic mt-0.5">{notesToDisplay}</div>}
                                                     </TableCell>
+                                                    <TableCell className="text-xs italic text-muted-foreground min-w-[150px]">{entry.notes || ''}</TableCell>
                                                     <TableCell className="text-right font-semibold font-mono" style={{ color }}>
                                                         {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                                     </TableCell>
-                                                    <TableCell className="text-right font-mono text-blue-600">
-                                                    {entry.type === 'Sale' && typeof entry.profit === 'number' ? entry.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                                                    <TableCell className={cn("text-right font-mono text-xs", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-800')}>
+                                                        {entry.balance?.toFixed(2)}
                                                     </TableCell>
                                                     <TableCell className="text-center space-x-0.5">
                                                         <Button asChild variant="ghost" size="icon" title="Edit">

@@ -1,11 +1,12 @@
+
 'use client';
 
-import React, { useMemo, useState, useEffect, use } from 'react';
+import React, { useMemo, useState, use } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download, AlertTriangle, Pencil, ShieldCheck } from 'lucide-react';
+import { BookUser, ArrowLeft, Trash2, Printer, Pencil, ShieldCheck } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -27,7 +28,6 @@ import { Label } from '@/components/ui/label';
 import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import * as XLSX from 'xlsx';
 import { useAuth } from '@/hooks/use-auth';
 
 type LedgerEntry = {
@@ -192,7 +192,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
 
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const openingBalance = ('openingBalance' in entity && entity.openingBalance) ? (entity.openingBalance as number) : 0;
+    const openingBalance = ('openingBalance' in (entity as any) && (entity as any).openingBalance) ? ((entity as any).openingBalance as number) : 0;
     const rangeFrom = dateRange?.from ? startOfDay(dateRange.from) : null;
     const rangeTo = dateRange?.to ? endOfDay(dateRange.to) : (rangeFrom ? endOfDay(rangeFrom) : null);
 
@@ -337,25 +337,15 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                   </TableRow>
               </TableHeader>
               <TableBody>
-                {sortedDateKeys.map((dateKey, dateIndex) => {
+                {sortedDateKeys.map((dateKey) => {
                   const dayEntries = groupedEntries[dateKey];
                   const displayDate = format(new Date(dateKey), 'EEEE, dd MMMM yyyy');
                   
-                  let gapText = '';
-                  if (dateIndex < sortedDateKeys.length - 1) {
-                      const nextDateKey = sortedDateKeys[dateIndex + 1];
-                      const diff = differenceInDays(new Date(dateKey), new Date(nextDateKey));
-                      if (diff > 1) gapText = `+${diff - 1}d Gap`;
-                  }
-
                   return (
                       <React.Fragment key={dateKey}>
                           <TableRow className="bg-red-600 hover:bg-red-700 border-none">
                               <TableCell colSpan={8} className="py-2 px-4 text-white font-bold h-10 align-middle">
-                                  <div className="flex items-center justify-between">
-                                      <span>{displayDate}</span>
-                                      {gapText && <Badge variant="secondary" className="bg-white/20 text-white border-none">{gapText}</Badge>}
-                                  </div>
+                                  <span>{displayDate}</span>
                               </TableCell>
                           </TableRow>
                           {dayEntries.map((entry, index) => {
@@ -370,7 +360,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                                           {entry.category && <span className="text-[10px] text-muted-foreground uppercase">{entry.category}</span>}
                                       </div>
                                   </TableCell>
-                                  <TableCell className="text-xs italic text-muted-foreground max-w-[200px] truncate">{entry.notes || ''}</TableCell>
+                                  <TableCell className="text-xs italic text-muted-foreground min-w-[200px]">{entry.notes || ''}</TableCell>
                                   <TableCell className="text-right font-mono text-red-600 font-bold">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
                                   <TableCell className="text-right font-mono text-green-800 font-bold">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
                                   <TableCell className={cn("text-right font-mono font-bold", balanceColor(entry.balance))}>{entry.balance.toFixed(2)}</TableCell>

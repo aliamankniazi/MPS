@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -445,7 +446,7 @@ export default function LedgerPage() {
                                                     </TableCell>
                                                     <TableCell className="font-bold">{e.partnerName}</TableCell>
                                                     <TableCell>{e.description}</TableCell>
-                                                    <TableCell className="text-xs italic text-muted-foreground max-w-[150px] truncate">
+                                                    <TableCell className="text-xs italic text-muted-foreground min-w-[200px]">
                                                       {e.notes || ''}
                                                     </TableCell>
                                                     <TableCell className="text-right text-destructive font-mono font-bold">

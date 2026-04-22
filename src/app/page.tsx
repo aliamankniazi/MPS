@@ -1,18 +1,18 @@
 
 'use client';
 
-import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Calendar as CalendarIcon, Receipt, Fuel, BarChart2, UserX, BookText, Medal } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType, Transaction, Purchase, Customer, Product } from '@/lib/types';
+import type { DateRange, FuelType, Purchase } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -36,10 +36,9 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 
 const getPunjabiDate = (date: Date): { day: number; month: string; year: number } => {
   const year = date.getFullYear();
-  const month = date.getMonth(); // 0-11
+  const month = date.getMonth();
   const day = date.getDate();
 
-  // Based on Bikrami calendar for Punjab
   const monthData = [
       { name: 'ਚੇਤ', length: 31, start: { m: 2, d: 14 } },
       { name: 'ਵਸਾਖ', length: 31, start: { m: 3, d: 14 } },
@@ -111,8 +110,8 @@ const getNextRamadanInfo = (currentDate: Date) => {
         return { daysRemaining: null, isDuring: false };
     }
 
-    const daysRemaining = differenceInDays(startOfDay(nextRamadanDate), today);
-    return { daysRemaining, isDuring: false };
+    const daysRemaining = differenceInDays(startOfToday(), startOfDay(nextRamadanDate));
+    return { daysRemaining: Math.abs(daysRemaining), isDuring: false };
 };
 
 
@@ -131,14 +130,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setIsClient(true);
-    const timer = setInterval(() => setNow(new Date()), 60 * 1000); // update every minute
+    const timer = setInterval(() => setNow(new Date()), 60 * 1000);
     return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (!isClient) return;
 
-    // This effect handles the live-updating clock.
     const timeTimer = setInterval(() => {
       const date = new Date();
       const gregorianDate = date.toLocaleString('en-US', {
@@ -246,22 +244,17 @@ export default function DashboardPage() {
     const costOfGoodsSold = filteredTransactions.reduce((totalCost, sale) => {
         const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
 
-        if (!productInfo) {
-            return totalCost; 
-        }
+        if (!productInfo) return totalCost; 
 
         if (productInfo.category === 'Main Product') {
-            if (!sale.timestamp || !isValid(new Date(sale.timestamp)) || !sale.volume || sale.volume <= 0) {
-                return totalCost;
-            }
+            if (!sale.timestamp || !isValid(new Date(sale.timestamp)) || !sale.volume || sale.volume <= 0) return totalCost;
             
             const saleTime = new Date(sale.timestamp).getTime();
             let latestPurchase: Purchase | null = null;
             let latestPurchaseTime = 0;
 
-            // Use all purchases for accurate COGS calculation, not just filtered ones
             for (const p of purchases) {
-                if (p.fuelType && p.fuelType.toLowerCase() === sale.fuelType.toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
+                if (p.fuelType && p.fuelType.toLowerCase() === (sale.fuelType || sale.product || '').toLowerCase() && p.timestamp && isValid(new Date(p.timestamp))) {
                     const purchaseTime = new Date(p.timestamp).getTime();
                     if (purchaseTime <= saleTime && purchaseTime > latestPurchaseTime) {
                         latestPurchaseTime = purchaseTime;
@@ -274,9 +267,8 @@ export default function DashboardPage() {
                 const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
                 return totalCost + (costPerLitre * sale.volume);
             }
-
             return totalCost;
-        } else { // Supplementary Product
+        } else {
             const quantity = sale.volume || 0;
             const purchasePrice = productInfo.purchasePrice || 0;
             return totalCost + (purchasePrice * quantity);
@@ -325,7 +317,6 @@ export default function DashboardPage() {
     return {
       totalRevenue,
       totalPurchases: filteredPurchases.reduce((sum, p) => sum + p.totalCost, 0),
-      totalPurchasesVolume: filteredPurchases.reduce((sum, p) => sum + (p.volume || 0), 0),
       totalExpenses,
       totalOtherIncome,
       grossProfit,
@@ -361,19 +352,15 @@ export default function DashboardPage() {
       
       const lastPurchase = sortedPurchases[0];
       const lastPurchaseRate = lastPurchase && lastPurchase.volume > 0 ? lastPurchase.totalCost / lastPurchase.volume : 0;
-      
       const lastSaleRate = lastSale?.pricePerLitre ?? product.salePrice ?? 0;
-  
       const profitPerUnit = lastSaleRate > 0 && lastPurchaseRate > 0 ? lastSaleRate - lastPurchaseRate : 0;
   
       const totalProfit = allSalesForProduct
         .filter(t => t.volume && t.volume > 0 && t.timestamp && isValid(new Date(t.timestamp)))
         .reduce((sum, t) => {
           const saleTime = new Date(t.timestamp).getTime();
-          
           let latestPurchase: Purchase | null = null;
           let latestPurchaseTime = 0;
-      
           for (const p of allPurchasesForProduct) {
               if (p.timestamp && isValid(new Date(p.timestamp))) {
                   const purchaseTime = new Date(p.timestamp).getTime();
@@ -383,7 +370,6 @@ export default function DashboardPage() {
                   }
               }
           }
-          
           let transactionProfit = 0;
           if (latestPurchase && latestPurchase.volume > 0 && typeof t.pricePerLitre === 'number') {
               const costPerLitre = latestPurchase.totalCost / latestPurchase.volume;
@@ -407,9 +393,7 @@ export default function DashboardPage() {
 
   const salesChartData = useMemo(() => {
     if (!isLoaded || !chartEndDate) return [];
-    
     const endDate = chartEndDate;
-    
     const dailySales = transactions.reduce((acc, tx) => {
         const txDate = new Date(tx.timestamp);
         if (tx.timestamp && isValid(txDate)) {
@@ -428,14 +412,11 @@ export default function DashboardPage() {
             sales: dailySales[formattedDate] || 0,
         };
     });
-
   }, [isLoaded, transactions, chartEndDate]);
   
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
-
     const { transactions: filteredTransactions } = filteredData;
-
     const customerTotals = filteredTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
@@ -446,84 +427,52 @@ export default function DashboardPage() {
         }
         return acc;
     }, {} as Record<string, { id: string; name: string; total: number }>);
-    
-    return Object.values(customerTotals)
-        .sort((a,b) => b.total - a.total)
-        .slice(0, 5);
-
+    return Object.values(customerTotals).sort((a,b) => b.total - a.total).slice(0, 5);
   }, [isLoaded, filteredData]);
 
   const defaulterAndBlacklistedCustomers = useMemo(() => {
     if (!isLoaded || !customers || !transactions || !customerPayments || !cashAdvances) return [];
-    
     const thirtyDaysAgo = subDays(now, 30);
-
     const allCustomersWithDetails = customers.map(customer => {
-        // Calculate balance
         const openingBalance = customer.openingBalance || 0;
         const totalSales = transactions.filter(tx => tx.customerId === customer.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
         const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === customer.id).reduce((sum, ca) => sum + ca.amount, 0);
         const totalPayments = customerPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
         const balance = openingBalance + totalSales + totalCashAdvances - totalPayments;
-
-        if (balance <= 0 && !customer.isBlacklisted) {
-            return null; // Don't care about customers with zero or credit balance unless they are blacklisted
-        }
-
-        // Find last activity date
+        if (balance <= 0 && !customer.isBlacklisted) return null;
         const allTimestamps = [
             ...transactions.filter(tx => tx.customerId === customer.id).map(tx => new Date(tx.timestamp)),
             ...cashAdvances.filter(ca => ca.customerId === customer.id).map(ca => new Date(ca.timestamp)),
             ...customerPayments.filter(p => p.customerId === customer.id).map(p => new Date(p.timestamp)),
         ].filter(d => isValid(d));
-
         const lastActivityDate = allTimestamps.length > 0 ? new Date(Math.max.apply(null, allTimestamps as any)) : null;
-        
         const isDefaulter = balance > 0 && lastActivityDate && lastActivityDate < thirtyDaysAgo;
-
         if (customer.isBlacklisted || isDefaulter) {
-            return {
-                ...customer,
-                balance,
-                lastActivityDate,
-                isDefaulter: isDefaulter,
-                isTrulyBlacklisted: customer.isBlacklisted,
-            };
+            return { ...customer, balance, lastActivityDate, isDefaulter: isDefaulter, isTrulyBlacklisted: customer.isBlacklisted };
         }
         return null;
     });
-
     return allCustomersWithDetails.filter((c): c is NonNullable<typeof c> => c !== null);
-
   }, [isLoaded, customers, transactions, customerPayments, cashAdvances, now]);
 
   const dailyProductSales = useMemo(() => {
     if (!isLoaded || !products) return {};
-
     const { transactions: filteredTransactions } = filteredData;
-
     const salesByDayAndProduct = filteredTransactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');
-            if (!acc[date]) {
-                acc[date] = {};
-            }
+            if (!acc[date]) acc[date] = {};
             const productName = tx.product || tx.fuelType;
             if (!productName) return acc;
             if (!acc[date][productName]) {
                 const productInfo = products.find(p => p.name === productName);
-                acc[date][productName] = {
-                    totalVolume: 0,
-                    totalAmount: 0,
-                    unit: productInfo?.unit || 'Ltr',
-                };
+                acc[date][productName] = { totalVolume: 0, totalAmount: 0, unit: productInfo?.unit || 'Ltr' };
             }
             acc[date][productName].totalVolume += tx.volume || 0;
             acc[date][productName].totalAmount += tx.totalAmount;
         }
         return acc;
     }, {} as Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>>);
-
     return salesByDayAndProduct;
   }, [isLoaded, filteredData, products]);
 
@@ -544,14 +493,10 @@ export default function DashboardPage() {
     
     const getMedal = (index: number) => {
         switch (index) {
-        case 0:
-            return { name: 'Gold', color: 'text-[hsl(var(--chart-3))]' };
-        case 1:
-            return { name: 'Silver', color: 'text-muted-foreground' };
-        case 2:
-            return { name: 'Bronze', color: 'text-[hsl(var(--chart-4))]' };
-        default:
-            return null;
+        case 0: return { name: 'Gold', color: 'text-[hsl(var(--chart-3))]' };
+        case 1: return { name: 'Silver', color: 'text-muted-foreground' };
+        case 2: return { name: 'Bronze', color: 'text-[hsl(var(--chart-4))]' };
+        default: return null;
         }
     };
 
@@ -561,16 +506,10 @@ export default function DashboardPage() {
         <div>
             <div className="flex items-baseline gap-4 flex-wrap">
               <h1 className="text-3xl font-bold tracking-tight text-primary">Dashboard</h1>
-              {isClient ? 
-                <p className="text-xl font-medium text-muted-foreground">{currentTime}</p> 
-                : <Skeleton className="h-7 w-96" />
-              }
+              {isClient ? <p className="text-xl font-medium text-muted-foreground">{currentTime}</p> : <Skeleton className="h-7 w-96" />}
             </div>
              <div className="flex items-baseline gap-4 flex-wrap mt-1">
-                {isClient ? 
-                  <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p>
-                  : <Skeleton className="h-6 w-80" />
-                }
+                {isClient ? <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p> : <Skeleton className="h-6 w-80" />}
                 {isClient && ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
@@ -579,7 +518,6 @@ export default function DashboardPage() {
 
        <div className="grid gap-6 lg:grid-cols-5">
          <div className="lg:col-span-3 space-y-6">
-          {/* Stat Cards */}
           <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
@@ -599,79 +537,20 @@ export default function DashboardPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-[hsl(var(--chart-2))]">PKR {financialSummary?.totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                        For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
-                    </p>
+                    <p className="text-sm font-medium text-muted-foreground">For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} units Sold</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">
-                        Cost of Goods Sold
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-primary">Cost of Goods</CardTitle>
                     <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">
-                        PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}
-                    </div>
-                    <p className="text-sm font-medium text-muted-foreground">
-                        For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} products Sold
-                    </p>
+                    <div className="text-2xl font-bold text-[hsl(var(--chart-4))]">PKR {financialSummary?.costOfGoodsSold.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
+                    <p className="text-sm font-medium text-muted-foreground">For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} units Sold</p>
                   </CardContent>
                 </Card>
                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">Gross Profit</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className={`text-2xl font-bold ${financialSummary && financialSummary.grossProfit < 0 ? 'text-destructive' : 'text-[hsl(var(--chart-2))]'}`}>PKR {financialSummary?.grossProfit.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                    <p className="text-xs text-muted-foreground">Revenue minus COGS</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
-                    <Receipt className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-destructive">PKR {financialSummary?.totalExpenses.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                    <p className="text-xs text-muted-foreground">For selected period</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">Other Income</CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-[hsl(var(--chart-3))]">PKR {financialSummary?.totalOtherIncome.toLocaleString(undefined, { maximumFractionDigits: 0 }) || '...'}</div>
-                    <p className="text-xs text-muted-foreground">From other sources</p>
-                  </CardContent>
-                </Card>
-                 <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-primary">
-                        {financialSummary && financialSummary.netStockAdjustment >= 0 ? 'Stock Surplus' : 'Stock Loss'}
-                    </CardTitle>
-                    {financialSummary && financialSummary.netStockAdjustment >= 0 ? (
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                        <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    <div className={cn(
-                        "text-2xl font-bold",
-                        financialSummary && financialSummary.netStockAdjustment >= 0 ? 'text-[hsl(var(--chart-2))]' : 'text-destructive'
-                    )}>
-                        PKR {financialSummary ? Math.abs(financialSummary.netStockAdjustment).toLocaleString(undefined, { maximumFractionDigits: 0 }) : '...'}
-                    </div>
-                    <p className="text-xs text-muted-foreground">Net value from stock adjustments</p>
-                  </CardContent>
-                </Card>
-                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -684,6 +563,7 @@ export default function DashboardPage() {
               </div>
             </CardContent>
           </Card>
+
            <Card>
             <CardHeader>
               <CardTitle className="text-primary">Sales Chart</CardTitle>
@@ -702,12 +582,7 @@ export default function DashboardPage() {
                   <XAxis dataKey="date" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
                   <YAxis tickFormatter={(value) => `PKR ${Number(value) / 1000}k`} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickLine={false} axisLine={false} />
                   <Tooltip
-                      contentStyle={{
-                          backgroundColor: 'hsl(var(--background))',
-                          borderColor: 'hsl(var(--border))',
-                          borderRadius: 'var(--radius)',
-                          fontSize: '12px'
-                      }}
+                      contentStyle={{ backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: 'var(--radius)', fontSize: '12px' }}
                       labelStyle={{ fontWeight: 'bold' }}
                       formatter={(value) => [`PKR ${Number(value).toLocaleString()}`, 'Sales']}
                   />
@@ -716,86 +591,96 @@ export default function DashboardPage() {
               </ResponsiveContainer>
             </CardContent>
           </Card>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {productStats.map(stat => (
-                <Card key={stat.name}>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base font-medium flex items-center gap-2 text-primary">
-                          <Fuel size={16} />
-                          <span className={cn(
-                            stat.name.toLowerCase().includes('diesel') && 'text-green-600',
-                            (stat.name.toLowerCase().includes('unleaded') || stat.name.toLowerCase().includes('premium')) && 'text-destructive'
-                          )}>{stat.name}</span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-1 text-sm">
-                        <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-1))]">Stock Available</span>
-                            <span className="font-mono font-semibold">{stat.stock.toLocaleString(undefined, { maximumFractionDigits: 2 })} Ltr</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-2))]">Last Sale Rate</span>
-                            <span className="font-mono font-semibold">PKR {(stat.lastSaleRate || 0).toFixed(2)}</span>
-                        </div>
-                         <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-3))]">Last Purchase Rate</span>
-                            <span className="font-mono font-semibold">PKR {stat.lastPurchaseRate.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-4))]">Profit / Unit</span>
-                            <span className="font-mono font-semibold">PKR {stat.profitPerUnit.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between font-bold">
-                            <span className="text-[hsl(var(--chart-5))]">Total Profit</span>
-                            <span className="font-mono">PKR {stat.totalProfit.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-1))]">Last Sale</span>
-                            <span className="font-mono">{stat.lastSaleDate ? format(stat.lastSaleDate, 'dd MMM, yy') : 'N/A'}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-[hsl(var(--chart-2))]">Last Purchase</span>
-                            <span className="font-mono">{stat.lastPurchaseDate ? format(stat.lastPurchaseDate, 'dd MMM, yy') : 'N/A'}</span>
-                        </div>
-                    </CardContent>
-                </Card>
-            ))}
-            </div>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><Users/>Active Customers</CardTitle>
-                    <CardDescription>Total number of unique customers with transactions.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <div className="text-4xl font-bold">{financialSummary?.activeCustomers || '...'}</div>
-                 </CardContent>
-            </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><TrendingUp/>Best Sale Day</CardTitle>
-                    <CardDescription>The day with the highest recorded sales revenue.</CardDescription>
-                </CardHeader>
-                 <CardContent>
-                    <div className="text-2xl font-bold">{financialSummary?.bestSaleDay.date ? format(new Date(financialSummary.bestSaleDay.date), 'dd-MMM-yyyy') : 'N/A'}</div>
-                    <p className="text-muted-foreground">PKR {financialSummary?.bestSaleDay.amount.toLocaleString() || '0'}</p>
-                 </CardContent>
-            </Card>
+
+          <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary"><BarChart2 /> Daily Product Sales</CardTitle>
+                  <CardDescription>A breakdown of sales by product for each day of the current month.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  {sortedDailySalesKeys && sortedDailySalesKeys.length > 0 ? (
+                      <Accordion type="single" collapsible className="w-full">
+                          {sortedDailySalesKeys.map(date => (
+                              <AccordionItem value={date} key={date}>
+                                  <AccordionTrigger>{format(new Date(date), 'EEEE, dd MMMM yyyy')}</AccordionTrigger>
+                                  <AccordionContent>
+                                      <Table>
+                                          <TableHeader>
+                                              <TableRow>
+                                                  <TableHead className="w-12">No.</TableHead>
+                                                  <TableHead>Product</TableHead>
+                                                  <TableHead className="text-right">Volume Sold</TableHead>
+                                                  <TableHead className="text-right">Total Revenue</TableHead>
+                                              </TableRow>
+                                          </TableHeader>
+                                          <TableBody>
+                                              {Object.entries(dailyProductSales[date]).map(([productName, data], idx) => (
+                                                  <TableRow key={productName}>
+                                                      <TableCell className="text-xs font-mono text-muted-foreground">{idx + 1}</TableCell>
+                                                      <TableCell>{productName}</TableCell>
+                                                      <TableCell className="text-right">{data.totalVolume.toFixed(2)} {data.unit}</TableCell>
+                                                      <TableCell className="text-right font-mono">PKR {data.totalAmount.toFixed(2)}</TableCell>
+                                                  </TableRow>
+                                              ))}
+                                          </TableBody>
+                                      </Table>
+                                  </AccordionContent>
+                              </AccordionItem>
+                          ))}
+                      </Accordion>
+                  ) : <div className="text-center text-muted-foreground p-8">No sales data available.</div>}
+              </CardContent>
+          </Card>
+
+          <Card>
+              <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-primary"><ListOrdered /> Top 5 Customers</CardTitle>
+                  <CardDescription>Based on total sales in the selected period.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                  <Table>
+                      <TableBody>
+                          {topCustomers.map((customer, index) => {
+                              const medal = getMedal(index);
+                              return (
+                              <TableRow key={customer.id}>
+                                  <TableCell className="p-2">
+                                      <div className="flex items-center gap-3">
+                                          <Avatar className="h-8 w-8">
+                                              <AvatarFallback className={cn(
+                                                  index === 0 && 'bg-[hsl(var(--chart-3))] text-yellow-950',
+                                                  index === 1 && 'bg-muted text-muted-foreground',
+                                                  index === 2 && 'bg-[hsl(var(--chart-4))] text-orange-950',
+                                              )}>{index + 1}</AvatarFallback>
+                                          </Avatar>
+                                          <div>
+                                              <div className={cn("font-medium", index === 0 && 'text-[hsl(var(--chart-3))]', index === 1 && 'text-muted-foreground', index === 2 && 'text-[hsl(var(--chart-4))]')}>{customer.name}</div>
+                                              <div className={cn("text-sm", index === 0 && 'text-[hsl(var(--chart-3))]', index === 1 && 'text-muted-foreground', index === 2 && 'text-[hsl(var(--chart-4))]')}>Total: PKR {customer.total.toLocaleString()}</div>
+                                          </div>
+                                      </div>
+                                  </TableCell>
+                                  <TableCell className="p-2 text-right">
+                                      {medal && <div className={cn("flex items-center justify-end gap-2 font-semibold", medal.color)}><Medal className="h-5 w-5" /><span>{medal.name}</span></div>}
+                                  </TableCell>
+                              </TableRow>
+                          )})}
+                          {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer data.</TableCell></TableRow>}
+                      </TableBody>
+                  </Table>
+              </CardContent>
+          </Card>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center gap-2 flex-wrap justify-end">
                 <DateRangePicker date={dateRange} onDateChange={setDateRange} />
-                <Button asChild variant="outline">
-                    <Link href="/reports">View All Reports</Link>
-                </Button>
-                <Button asChild>
-                    <Link href="/sales">New Sale</Link>
-                </Button>
+                <Button asChild variant="outline"><Link href="/reports">View All Reports</Link></Button>
+                <Button asChild><Link href="/sales">New Sale</Link></Button>
             </div>
             <Card className="border-destructive">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted & Defaulter Customers</CardTitle>
-                    <CardDescription>Customers who are blacklisted or have not had a transaction in over 30 days and have an outstanding balance.</CardDescription>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted & Defaulters</CardTitle>
+                    <CardDescription>Customers who are blacklisted or inactive with balance.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {defaulterAndBlacklistedCustomers.length > 0 ? (
@@ -803,9 +688,8 @@ export default function DashboardPage() {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>Customer</TableHead>
-                                    <TableHead>Last Activity</TableHead>
                                     <TableHead className="text-right">Balance</TableHead>
-                                    <TableHead className="text-center">Actions</TableHead>
+                                    <TableHead className="text-center">Action</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -814,135 +698,45 @@ export default function DashboardPage() {
                                         <TableCell>
                                             <div className="font-medium flex items-center gap-2">
                                                 {customer.name}
-                                                {customer.isTrulyBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
-                                                {customer.isDefaulter && !customer.isTrulyBlacklisted && <Badge variant="outline">Defaulter</Badge>}
+                                                {customer.isTrulyBlacklisted && <Badge variant="destructive" className="h-4 px-1 text-[8px]">BL</Badge>}
                                             </div>
-                                            <div className="text-sm text-muted-foreground flex items-center gap-2">
+                                            <div className="text-[10px] text-muted-foreground flex items-center gap-2">
                                                 {customer.contact}
                                                 {customer.contact && (
-                                                    <a href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}?text=${generateWhatsAppMessage(customer)}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
-                                                        <WhatsAppIcon className="w-4 h-4" />
-                                                    </a>
+                                                    <a href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}?text=${generateWhatsAppMessage(customer)}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-600"><WhatsAppIcon className="w-3 h-3" /></a>
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {customer.lastActivityDate ? format(customer.lastActivityDate, 'dd-MMM-yyyy') : 'N/A'}
-                                        </TableCell>
-                                        <TableCell className="text-right font-mono text-destructive">
-                                            {customer.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Button asChild variant="ghost" size="icon" title="View Ledger">
-                                                <Link href={`/customers/${customer.id}/ledger`}>
-                                                    <BookText className="w-4 h-4" />
-                                                </Link>
-                                            </Button>
-                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-destructive text-xs">{customer.balance.toLocaleString()}</TableCell>
+                                        <TableCell className="text-center"><Button asChild variant="ghost" size="icon" className="h-7 w-7"><Link href={`/customers/${customer.id}/ledger`}><BookText className="w-4 h-4" /></Link></Button></TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
-                    ) : (
-                        <p className="text-center p-4 text-muted-foreground">No blacklisted or defaulter customers found.</p>
-                    )}
+                    ) : <p className="text-center p-4 text-muted-foreground text-sm">None found.</p>}
                 </CardContent>
             </Card>
-             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><BarChart2 /> Daily Product Sales</CardTitle>
-                    <CardDescription>A breakdown of sales by product for each day of the current month.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    {sortedDailySalesKeys && sortedDailySalesKeys.length > 0 ? (
-                        <Accordion type="single" collapsible className="w-full">
-                            {sortedDailySalesKeys.map(date => (
-                                <AccordionItem value={date} key={date}>
-                                    <AccordionTrigger>{format(new Date(date), 'EEEE, dd MMMM yyyy')}</AccordionTrigger>
-                                    <AccordionContent>
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow>
-                                                    <TableHead>Product</TableHead>
-                                                    <TableHead className="text-right">Volume Sold</TableHead>
-                                                    <TableHead className="text-right">Total Revenue</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {Object.entries(dailyProductSales[date]).map(([productName, data]) => (
-                                                    <TableRow key={productName}>
-                                                        <TableCell>{productName}</TableCell>
-                                                        <TableCell className="text-right">{data.totalVolume.toFixed(2)} {data.unit}</TableCell>
-                                                        <TableCell className="text-right font-mono">PKR {data.totalAmount.toFixed(2)}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            ))}
-                        </Accordion>
-                    ) : (
-                        <div className="text-center text-muted-foreground p-8">
-                            No sales data available for the current month.
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-primary"><ListOrdered /> Top 5 Customers</CardTitle>
-                    <CardDescription>Based on total sales in the selected period.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableBody>
-                            {topCustomers.map((customer, index) => {
-                                const medal = getMedal(index);
-                                return (
-                                <TableRow key={customer.id}>
-                                    <TableCell className="p-2">
-                                        <div className="flex items-center gap-3">
-                                            <Avatar className="h-8 w-8">
-                                                <AvatarFallback className={cn(
-                                                    index === 0 && 'bg-[hsl(var(--chart-3))] text-yellow-950',
-                                                    index === 1 && 'bg-muted text-muted-foreground',
-                                                    index === 2 && 'bg-[hsl(var(--chart-4))] text-orange-950',
-                                                )}>{index + 1}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <div className={cn("font-medium", 
-                                                    index === 0 && 'text-[hsl(var(--chart-3))]',
-                                                    index === 1 && 'text-muted-foreground',
-                                                    index === 2 && 'text-[hsl(var(--chart-4))]',
-                                                )}>{customer.name}</div>
-                                                <div className={cn("text-sm", 
-                                                    index === 0 && 'text-[hsl(var(--chart-3))]',
-                                                    index === 1 && 'text-muted-foreground',
-                                                    index === 2 && 'text-[hsl(var(--chart-4))]',
-                                                )}>Total: PKR {customer.total.toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="p-2 text-right">
-                                        {medal && (
-                                            <div className={cn("flex items-center justify-end gap-2 font-semibold", medal.color)}>
-                                                <Medal className="h-5 w-5" />
-                                                <span>{medal.name}</span>
-                                            </div>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
-                            )})}
-                            {topCustomers.length === 0 && <TableRow><TableCell colSpan={2} className="text-center text-muted-foreground p-8">No customer sales data available.</TableCell></TableRow>}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+
+            <div className="grid gap-4">
+                {productStats.map(stat => (
+                    <Card key={stat.name}>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-sm font-medium flex items-center gap-2 text-primary">
+                              <Fuel size={14} />
+                              <span className={cn(stat.name.toLowerCase().includes('diesel') && 'text-green-600', (stat.name.toLowerCase().includes('unleaded') || stat.name.toLowerCase().includes('premium')) && 'text-destructive')}>{stat.name}</span>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-1 text-xs">
+                            <div className="flex justify-between"><span>Stock</span><span className="font-mono font-semibold">{stat.stock.toLocaleString()} Ltr</span></div>
+                            <div className="flex justify-between text-muted-foreground"><span>Profit / Ltr</span><span className="font-mono">PKR {stat.profitPerUnit.toFixed(2)}</span></div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+
+            <Card><CardHeader><CardTitle className="text-sm">Active Customers</CardTitle></CardHeader><CardContent><div className="text-3xl font-bold">{financialSummary?.activeCustomers || '...'}</div></CardContent></Card>
         </div>
       </div>
     </div>
   );
 }
-
-    
