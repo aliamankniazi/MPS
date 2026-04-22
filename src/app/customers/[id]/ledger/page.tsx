@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download, AlertTriangle, Pencil } from 'lucide-react';
+import { BookUser, ArrowLeft, User, Trash2, Search, Printer, Download, AlertTriangle, Pencil, ShieldCheck } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -28,6 +28,7 @@ import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import * as XLSX from 'xlsx';
+import { useAuth } from '@/hooks/use-auth';
 
 type LedgerEntry = {
   id: string;
@@ -54,6 +55,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     deleteSupplierPayment, deleteInvestment, deleteSaleReturn, isLoaded,
   } = useDatabase();
   
+  const { isPinVerified, confirmPin } = useAuth();
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date()),
@@ -251,10 +253,12 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
 
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
-    if (deletePin !== '0200') {
+    if (!isPinVerified() && deletePin !== '0200') {
       toast({ variant: 'destructive', title: 'Incorrect PIN' });
       return;
     }
+    if (deletePin === '0200') confirmPin('0200');
+
     const [prefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         if (prefix === 'tx') deleteTransaction(id);
@@ -287,7 +291,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     }
   };
 
-  const balanceColor = (bal: number) => entityType === 'Customer' ? (bal > 0 ? 'text-destructive' : 'text-green-600') : (bal >= 0 ? 'text-green-600' : 'text-destructive');
+  const balanceColor = (bal: number) => entityType === 'Customer' ? (bal > 0 ? 'text-destructive' : 'text-green-800') : (bal >= 0 ? 'text-green-800' : 'text-destructive');
 
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -314,7 +318,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
 
       <div className="grid gap-4 sm:grid-cols-3 mb-6">
           <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Debit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString()}</div></CardContent></Card>
-          <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-600">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
+          <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-800">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
           <Card className="bg-muted/50 border-2 border-primary/20"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Account Balance</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(finalBalance))}>PKR {finalBalance.toLocaleString()}</div></CardContent></Card>
       </div>
 
@@ -322,6 +326,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           <Table>
               <TableHeader className="bg-muted/50">
                   <TableRow>
+                      <TableHead className="w-12">No.</TableHead>
                       <TableHead>Date</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Notes</TableHead>
@@ -345,26 +350,29 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
 
                   return (
                       <React.Fragment key={dateKey}>
-                          <TableRow className="bg-red-500 hover:bg-red-600 border-none">
-                              <TableCell colSpan={7} className="py-2 px-4 text-white font-bold h-10 align-middle">
+                          <TableRow className="bg-red-600 hover:bg-red-700 border-none">
+                              <TableCell colSpan={8} className="py-2 px-4 text-white font-bold h-10 align-middle">
                                   <div className="flex items-center justify-between">
                                       <span>{displayDate}</span>
                                       {gapText && <Badge variant="secondary" className="bg-white/20 text-white border-none">{gapText}</Badge>}
                                   </div>
                               </TableCell>
                           </TableRow>
-                          {dayEntries.map((entry) => (
+                          {dayEntries.map((entry, index) => {
+                              const serialNo = dayEntries.length - index;
+                              return (
                               <TableRow key={entry.id} className="group">
+                                  <TableCell className="text-xs font-mono text-muted-foreground">{serialNo}</TableCell>
                                   <TableCell className="font-medium whitespace-nowrap">{format(new Date(entry.timestamp), 'hh:mm a')}</TableCell>
                                   <TableCell>
                                       <div className="flex flex-col">
-                                          <span className="font-bold text-red-500">{entry.description}</span>
+                                          <span className="font-bold text-red-600">{entry.description}</span>
                                           {entry.category && <span className="text-[10px] text-muted-foreground uppercase">{entry.category}</span>}
                                       </div>
                                   </TableCell>
                                   <TableCell className="text-xs italic text-muted-foreground max-w-[200px] truncate">{entry.notes || ''}</TableCell>
                                   <TableCell className="text-right font-mono text-red-600 font-bold">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
-                                  <TableCell className="text-right font-mono text-green-600 font-bold">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                                  <TableCell className="text-right font-mono text-green-800 font-bold">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
                                   <TableCell className={cn("text-right font-mono font-bold", balanceColor(entry.balance))}>{entry.balance.toFixed(2)}</TableCell>
                                   <TableCell className="text-center print:hidden">
                                       <div className="flex justify-center gap-1">
@@ -377,7 +385,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                                       </div>
                                   </TableCell>
                               </TableRow>
-                          ))}
+                          )})}
                       </React.Fragment>
                   );
                 })}
@@ -388,13 +396,15 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
       <AlertDialog open={!!entryToDelete} onOpenChange={(o) => { if (!o) { setEntryToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Entry?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="text-destructive"/> Delete Entry?</AlertDialogTitle>
             <AlertDialogDescription>
               Permanently delete: <strong>{entryToDelete?.description}</strong>
-              <div className="mt-4 space-y-2">
-                <Label>Security PIN Required:</Label>
-                <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="0200" maxLength={4} />
-              </div>
+              {!isPinVerified() && (
+                <div className="mt-4 space-y-2">
+                    <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN Required:</Label>
+                    <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="0200" maxLength={4} />
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

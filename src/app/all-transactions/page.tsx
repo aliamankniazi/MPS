@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download } from 'lucide-react';
+import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download, ShieldCheck } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -29,6 +28,7 @@ import * as XLSX from 'xlsx';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/hooks/use-auth';
 
 
 type CombinedEntry = {
@@ -75,6 +75,7 @@ export default function AllTransactionsPage() {
     deleteCashAdvance,
     isLoaded,
   } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
   const [password, setPassword] = useState('');
@@ -334,15 +335,16 @@ export default function AllTransactionsPage() {
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
 
-    if (password !== '03006555459') {
+    if (!isPinVerified() && password !== '0200') {
       toast({
         variant: 'destructive',
-        title: 'Incorrect Password',
+        title: 'Incorrect PIN',
         description: 'The password to delete is incorrect.',
       });
       setPassword('');
       return;
     }
+    if (password === '0200') confirmPin('0200');
     
     try {
         switch(entryToDelete.type) {
@@ -379,6 +381,19 @@ export default function AllTransactionsPage() {
         return notes.replace(/Vehicle: [^,]+,?\s*/, '').trim();
     }
     return notes;
+  };
+
+  const getEditLink = (entry: CombinedEntry) => {
+    switch(entry.type) {
+        case 'Sale': return `/sales?edit=${entry.originalId}`;
+        case 'Purchase': return `/purchases?edit=${entry.originalId}`;
+        case 'Expense': return `/expenses?edit=${entry.originalId}`;
+        case 'Customer Payment': return `/customer-payments?edit=${entry.originalId}`;
+        case 'Cash Advance': return `/cash-advances?edit=${entry.originalId}`;
+        case 'Purchase Return': return `/purchase-returns?edit=${entry.originalId}`;
+        case 'Salary': return `/employees?edit=${entry.originalId}`;
+        default: return '#';
+    }
   };
 
 
@@ -424,6 +439,7 @@ export default function AllTransactionsPage() {
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
+                                                <TableHead className="w-12">No.</TableHead>
                                                 <TableHead>Time</TableHead>
                                                 <TableHead>Type</TableHead>
                                                 <TableHead>Partner</TableHead>
@@ -434,16 +450,18 @@ export default function AllTransactionsPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {dayEntries.map(entry => {
+                                            {dayEntries.map((entry, index) => {
                                                 const customer = getCustomerForEntry(entry);
                                                 const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase' || entry.type === 'Customer Payment' || entry.type === 'Cash Advance';
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
                                                 const notesToDisplay = getDisplayNotes(entry.notes || '', entry.type, !!entry.isCreditSale);
+                                                const serialNo = dayEntries.length - index;
 
                                                 return (
                                                 <TableRow key={entry.id}>
+                                                    <TableCell className="text-xs font-mono text-muted-foreground">{serialNo}</TableCell>
                                                     <TableCell className="font-medium whitespace-nowrap" style={{ color }}>
                                                         {isValid(date) ? format(date, 'hh:mm a') : 'Invalid Time'}
                                                     </TableCell>
@@ -475,7 +493,7 @@ export default function AllTransactionsPage() {
                                                     </TableCell>
                                                     <TableCell className="text-center space-x-0.5">
                                                         <Button asChild variant="ghost" size="icon" title="Edit">
-                                                            <Link href={entry.type === 'Purchase' ? '/settings' : '/customers'}>
+                                                            <Link href={getEditLink(entry)}>
                                                                 <Pencil className="w-4 h-4" />
                                                             </Link>
                                                         </Button>
@@ -581,16 +599,19 @@ export default function AllTransactionsPage() {
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete the entry: <br />
               <strong className="font-medium text-foreground">{entryToDelete?.type} for {entryToDelete?.partner} - {entryToDelete?.details}</strong>
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="delete-password">Enter password to confirm deletion:</Label>
-                <Input
-                  id="delete-password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Password required"
-                />
-              </div>
+              {!isPinVerified() && (
+                <div className="mt-4 space-y-2">
+                    <Label htmlFor="delete-password" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Enter Security PIN to confirm deletion:</Label>
+                    <Input
+                    id="delete-password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="PIN required"
+                    maxLength={4}
+                    />
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

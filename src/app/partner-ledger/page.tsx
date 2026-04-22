@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, isSameDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2, AlertTriangle } from 'lucide-react';
+import { HandCoins, XCircle, Calendar as CalendarIcon, X, TrendingUp, TrendingDown, Wallet, BookText, Pencil, Trash2, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -25,6 +24,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { useAuth } from '@/hooks/use-auth';
 
 
 type CombinedEntry = {
@@ -65,9 +67,11 @@ export default function PartnerLedgerPage() {
       deletePurchaseReturn,
   } = useDatabase();
   
+  const { isPinVerified, confirmPin } = useAuth();
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const [entryToDelete, setEntryToDelete] = useState<CombinedEntry | null>(null);
+  const [deletePin, setDeletePin] = useState('');
   const { toast } = useToast();
 
   const entities = useMemo(() => {
@@ -255,6 +259,12 @@ export default function PartnerLedgerPage() {
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
+    if (!isPinVerified() && deletePin !== '0200') {
+      toast({ variant: 'destructive', title: 'Incorrect PIN' });
+      return;
+    }
+    if (deletePin === '0200') confirmPin('0200');
+
     const [prefix, id] = entryToDelete.id.split(/-(.*)/s);
     try {
         if (prefix === 'tx') deleteTransaction(id);
@@ -268,6 +278,7 @@ export default function PartnerLedgerPage() {
         toast({ title: 'Entry Deleted' });
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
     setEntryToDelete(null);
+    setDeletePin('');
   };
 
   const getBadgeVariant = (type: CombinedEntry['type']) => {
@@ -278,6 +289,22 @@ export default function PartnerLedgerPage() {
   const clearFilters = () => { setSelectedEntityId(''); setSelectedDate(undefined); };
   const hasActiveFilters = selectedEntityId || selectedDate;
   const selectedEntity = entities.find(e => e.id === selectedEntityId);
+
+  const getEditLink = (entry: CombinedEntry) => {
+    const [prefix, id] = entry.id.split(/-(.*)/s);
+    switch(prefix) {
+        case 'tx': return `/sales?edit=${id}`;
+        case 'pur': return `/purchases?edit=${id}`;
+        case 'pay': return `/customer-payments?edit=${id}`;
+        case 'adv': return `/cash-advances?edit=${id}`;
+        case 'inv': return `/investments?edit=${id}`;
+        case 'sr': return `/sale-returns?edit=${id}`;
+        case 'pr': return `/purchase-returns?edit=${id}`;
+        case 'sp': return `/supplier-payments?edit=${id}`;
+        default: return '#';
+    }
+  };
+
 
   return (
     <>
@@ -302,10 +329,10 @@ export default function PartnerLedgerPage() {
             <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="p-4 bg-muted/50 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground"><Wallet /> Total Balance</div>
-                    <div className={`text-2xl font-bold ${specialReport.entityType === 'Partner' ? (specialReport.totalBalance >= 0 ? 'text-green-600' : 'text-destructive') : (specialReport.totalBalance > 0 ? 'text-destructive' : 'text-green-600')}`}>PKR {specialReport.totalBalance.toLocaleString()}</div>
+                    <div className={`text-2xl font-bold ${specialReport.entityType === 'Partner' ? (specialReport.totalBalance >= 0 ? 'text-green-800' : 'text-destructive') : (specialReport.totalBalance > 0 ? 'text-destructive' : 'text-green-800')}`}>PKR {specialReport.totalBalance.toLocaleString()}</div>
                 </div>
                 <div className="p-4 bg-muted/50 rounded-lg"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingDown /> Last Debit</div><div className="text-2xl font-bold text-destructive">PKR {specialReport.lastDebit.toLocaleString()}</div></div>
-                <div className="p-4 bg-muted/50 rounded-lg"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp /> Last Credit</div><div className="text-2xl font-bold text-green-600">PKR {specialReport.lastCredit.toLocaleString()}</div></div>
+                <div className="p-4 bg-muted/50 rounded-lg"><div className="flex items-center gap-2 text-sm text-muted-foreground"><TrendingUp /> Last Credit</div><div className="text-2xl font-bold text-green-800">PKR {specialReport.lastCredit.toLocaleString()}</div></div>
             </CardContent>
         </Card>
       )}
@@ -313,23 +340,25 @@ export default function PartnerLedgerPage() {
       <Card><CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
         <CardContent>
           {isLoaded && entries.length > 0 ? (
-            <Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead>Notes</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
+            <Table><TableHeader><TableRow><TableHead className="w-12">No.</TableHead><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead>Notes</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
-                {entries.map(entry => {
+                {entries.map((entry, index) => {
                     const date = new Date(entry.timestamp);
+                    const serialNo = entries.length - index;
                     return (
                         <TableRow key={entry.id}>
+                          <TableCell className="text-xs font-mono text-muted-foreground">{serialNo}</TableCell>
                           <TableCell className="font-medium whitespace-nowrap">{isValid(date) ? format(date, 'PP pp') : 'Invalid'}</TableCell>
                           <TableCell><div>{entry.entityName}</div><div className="text-xs text-muted-foreground">{entry.entityType}</div></TableCell>
                           <TableCell>{entry.description}</TableCell>
                           <TableCell className="text-xs italic text-muted-foreground max-w-[150px] truncate">{entry.notes || ''}</TableCell>
                           <TableCell className="text-center"><Badge variant={getBadgeVariant(entry.type)}>{entry.type}</Badge></TableCell>
                           <TableCell className="text-right font-mono text-destructive">{entry.debit > 0 ? entry.debit.toFixed(2) : '-'}</TableCell>
-                          <TableCell className="text-right font-mono text-green-600">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
-                          <TableCell className={cn("text-right font-semibold font-mono", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-600')}>{entry.balance?.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-mono text-green-800">{entry.credit > 0 ? entry.credit.toFixed(2) : '-'}</TableCell>
+                          <TableCell className={cn("text-right font-semibold font-mono", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-800')}>{entry.balance?.toFixed(2)}</TableCell>
                           <TableCell className="text-center space-x-1">
                             <Button asChild variant="ghost" size="icon" title="Edit">
-                                <Link href={entry.entityType === 'Supplier' ? '/settings' : '/customers'}>
+                                <Link href={getEditLink(entry)}>
                                     <Pencil className="w-4 h-4" />
                                 </Link>
                             </Button>
@@ -339,15 +368,22 @@ export default function PartnerLedgerPage() {
                     )
                 })}
               </TableBody>
-               <TableFooter><TableRow><TableCell colSpan={5} className="font-bold text-right">Totals</TableCell><TableCell className="text-right font-bold text-destructive">PKR {totals.debit.toFixed(2)}</TableCell><TableCell className="text-right font-bold text-green-600">PKR {totals.credit.toFixed(2)}</TableCell><TableCell colSpan={2} /></TableRow></TableFooter>
+               <TableFooter><TableRow><TableCell colSpan={6} className="font-bold text-right">Totals</TableCell><TableCell className="text-right font-bold text-destructive">PKR {totals.debit.toFixed(2)}</TableCell><TableCell className="text-right font-bold text-green-800">PKR {totals.credit.toFixed(2)}</TableCell><TableCell colSpan={2} /></TableRow></TableFooter>
             </Table>
           ) : <div className="text-center p-8 text-muted-foreground">No transactions found.</div>}
         </CardContent>
       </Card>
     </div>
-    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => !isOpen && setEntryToDelete(null)}>
-        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete Entry?</AlertDialogTitle><AlertDialogDescription>Delete: {entryToDelete?.description}</AlertDialogDescription></AlertDialogHeader>
-        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+    <AlertDialog open={!!entryToDelete} onOpenChange={(isOpen) => { if (!isOpen) { setEntryToDelete(null); setDeletePin(''); } }}>
+        <AlertDialogContent><AlertDialogHeader><AlertDialogTitle className="flex items-center gap-2"><Trash2 className="text-destructive"/> Delete Entry?</AlertDialogTitle><AlertDialogDescription>Delete: {entryToDelete?.description}
+        {!isPinVerified() && (
+            <div className="mt-4 space-y-2">
+                <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN Required:</Label>
+                <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="0200" maxLength={4} />
+            </div>
+        )}
+        </AlertDialogDescription></AlertDialogHeader>
+        <AlertDialogFooter><AlertDialogCancel onClick={() => setDeletePin('')}>Cancel</AlertDialogCancel><AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive text-destructive-foreground">Delete</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
     </AlertDialog>
     </>
   );
