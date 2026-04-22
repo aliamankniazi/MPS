@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X, Sun, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
+import { Receipt, ListChecks, WalletCards, Trash2, AlertTriangle, DollarSign, Search, X, Sun, Calendar as CalendarIcon, ShieldCheck, Pencil } from 'lucide-react';
 import type { ExpenseCategory, Expense } from '@/lib/types';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -23,6 +23,7 @@ import { TransactionNav } from '@/components/transaction-nav';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/use-auth';
 
 
 const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
@@ -32,7 +33,7 @@ const expenseSchema = z.object({
   category: z.enum(EXPENSE_CATEGORIES, { required_error: 'Please select a category.' }),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
-  pin: z.string().length(4, "PIN must be 4 digits"),
+  pin: z.string().optional(),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -72,11 +73,12 @@ function PageHeader() {
 
 export default function ExpensesPage() {
   const { expenses, addExpense, updateExpense, deleteExpense, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { isPinVerified, confirmPin } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
   const editId = searchParams.get('edit');
   const { toast } = useToast();
-  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = setExpenseToDelete ? [expenseToDelete, setExpenseToDelete] : useState<Expense | null>(null);
   const [deletePin, setDeletePin] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
@@ -140,7 +142,7 @@ export default function ExpensesPage() {
   };
 
   const onSubmit: SubmitHandler<ExpenseFormValues> = (data) => {
-    if (data.pin !== '0200') {
+    if (!isPinVerified() && data.pin !== '0200') {
       toast({
         variant: 'destructive',
         title: 'Incorrect PIN',
@@ -148,6 +150,7 @@ export default function ExpensesPage() {
       });
       return;
     }
+    if (data.pin === '0200') confirmPin('0200');
 
     const isoDate = data.date.toISOString();
     localStorage.setItem('global_date_from', isoDate);
@@ -183,10 +186,11 @@ export default function ExpensesPage() {
   const handleDeleteExpense = () => {
     if (!expenseToDelete) return;
 
-    if (deletePin !== '0200') {
+    if (!isPinVerified() && deletePin !== '0200') {
       toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
+    if (deletePin === '0200') confirmPin('0200');
     
     deleteExpense(expenseToDelete.id);
     toast({
@@ -200,10 +204,11 @@ export default function ExpensesPage() {
   const handleDeleteSelectedExpenses = () => {
     if (selectedExpenses.length === 0) return;
     
-    if (deletePin !== '0200') {
+    if (!isPinVerified() && deletePin !== '0200') {
       toast({ variant: 'destructive', title: 'Incorrect PIN', description: 'Verification failed. Incorrect PIN.' });
       return;
     }
+    if (deletePin === '0200') confirmPin('0200');
 
     selectedExpenses.forEach(id => deleteExpense(id));
     toast({
@@ -311,11 +316,13 @@ export default function ExpensesPage() {
                         {errors.date && <p className="text-sm text-destructive">{errors.date.message}</p>}
                       </div>
 
-                    <div className="space-y-2 border-t pt-4">
-                        <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
-                        <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
-                        {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
-                    </div>
+                    {!isPinVerified() && (
+                        <div className="space-y-2 border-t pt-4">
+                            <Label htmlFor="pin" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN</Label>
+                            <Input id="pin" type="password" {...register('pin')} placeholder="Enter 4-digit PIN" maxLength={4} />
+                            {errors.pin && <p className="text-sm text-destructive">{errors.pin.message}</p>}
+                        </div>
+                    )}
 
                     <Button type="submit" className="w-full">{editId ? 'Update Expense' : 'Record Expense'}</Button>
                     {editId && <Button type="button" variant="outline" className="w-full" onClick={() => router.push('/ledger')}>Cancel</Button>}
@@ -325,11 +332,11 @@ export default function ExpensesPage() {
 
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Expenses</CardTitle>
+                  <CardTitle className="text-sm font-medium text-primary">Total Expenses</CardTitle>
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">
+                  <div className="text-2xl font-bold text-destructive">
                     PKR {totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -419,7 +426,7 @@ export default function ExpensesPage() {
                               <TableCell className="font-medium">{isValid(date) ? format(date, 'dd-MMM-yyyy') : 'Invalid Date'}</TableCell>
                               <TableCell>{e.description}</TableCell>
                               <TableCell>{e.category}</TableCell>
-                              <TableCell className="text-right">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                              <TableCell className="text-right font-mono font-bold text-destructive">PKR {e.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                               <TableCell className="text-center space-x-1">
                                   <Button variant="ghost" size="icon" title="Edit" asChild>
                                       <Link href={`/expenses?edit=${e.id}`}><Pencil className="w-4 h-4"/></Link>
@@ -457,16 +464,19 @@ export default function ExpensesPage() {
               <AlertDialogDescription>
                 This action cannot be undone. This will move the expense entry to the recycle bin: <br />
                 <strong className="font-medium text-foreground">{expenseToDelete?.description}</strong>
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="delete-pin-expense">Enter PIN to confirm deletion:</Label>
-                  <Input
-                    id="delete-pin-expense"
-                    type="password"
-                    value={deletePin}
-                    onChange={(e) => setDeletePin(e.target.value)}
-                    placeholder="Enter 4-digit PIN"
-                  />
-                </div>
+                {!isPinVerified() && (
+                  <div className="mt-4 space-y-2">
+                    <Label htmlFor="delete-pin-expense" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN Required:</Label>
+                    <Input
+                      id="delete-pin-expense"
+                      type="password"
+                      value={deletePin}
+                      onChange={(e) => setDeletePin(e.target.value)}
+                      placeholder="Enter 4-digit PIN"
+                      maxLength={4}
+                    />
+                  </div>
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -484,16 +494,19 @@ export default function ExpensesPage() {
             <AlertDialogTitle className="flex items-center gap-2"><AlertTriangle/>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
               This will move {selectedExpenses.length} expense entries to the recycle bin.
-              <div className="mt-4 space-y-2">
-                <Label htmlFor="multi-delete-pin-expense">Enter PIN to confirm deletion:</Label>
-                <Input
-                  id="multi-delete-pin-expense"
-                  type="password"
-                  value={deletePin}
-                  onChange={(e) => setDeletePin(e.target.value)}
-                  placeholder="Enter 4-digit PIN"
-                />
-              </div>
+              {!isPinVerified() && (
+                <div className="mt-4 space-y-2">
+                  <Label htmlFor="multi-delete-pin-expense" className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN Required:</Label>
+                  <Input
+                    id="multi-delete-pin-expense"
+                    type="password"
+                    value={deletePin}
+                    onChange={(e) => setDeletePin(e.target.value)}
+                    placeholder="Enter 4-digit PIN"
+                    maxLength={4}
+                  />
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
