@@ -105,7 +105,7 @@ export default function CashCreditSalesReportPage() {
         deleteMachineReading,
         updateMachineReading
     } = useDatabase();
-    const [searchTerm, setSearchTerm] = setSearchTerm ? [searchTerm, setSearchTerm] : useState('');
+    const [searchTerm, setSearchTerm] = useState('');
     const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
     const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
     const [editDatePopoverOpen, setEditDatePopoverOpen] = useState(false);
