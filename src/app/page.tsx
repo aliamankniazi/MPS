@@ -22,6 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -511,6 +512,7 @@ export default function DashboardPage() {
              <div className="flex items-baseline gap-4 flex-wrap mt-1">
                 {isClient ? <p className="text-lg font-medium text-muted-foreground">{islamicDateString}</p> : <Skeleton className="h-6 w-80" />}
                 {isClient && ramadanCountdown && <p className="text-lg font-semibold text-green-600">{ramadanCountdown}</p>}
+                <ThemeToggle />
             </div>
             <p className="text-muted-foreground">A quick overview of your business performance.</p>
         </div>
