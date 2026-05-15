@@ -633,7 +633,7 @@ export default function CashCreditSalesReportPage() {
                 <DialogHeader>
                     <DialogTitle>Edit Machine Reading for {readingToEdit?.machineName}</DialogTitle>
                     <DialogDescription>
-                        Update the closing reading volume and date.
+                        selection  or change date not working
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmitReading(onEditReadingSubmit)}>
@@ -653,18 +653,20 @@ export default function CashCreditSalesReportPage() {
                                         <PopoverTrigger asChild>
                                             <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {field.value && isValid(field.value) ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                {field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar 
                                                 mode="single" 
-                                                selected={field.value} 
+                                                selected={field.value instanceof Date ? field.value : (field.value ? new Date(field.value) : undefined)} 
                                                 onSelect={(date) => {
-                                                    field.onChange(date);
-                                                    setEditDatePopoverOpen(false);
+                                                    if (date) {
+                                                        field.onChange(date);
+                                                        setEditDatePopoverOpen(false);
+                                                    }
                                                 }} 
-                                                defaultMonth={field.value instanceof Date ? field.value : new Date()}
+                                                defaultMonth={field.value instanceof Date ? field.value : (field.value ? new Date(field.value) : new Date())}
                                                 initialFocus 
                                             />
                                         </PopoverContent>
