@@ -261,7 +261,10 @@ export default function CustomerPaymentsPage() {
                               ? customers.find((c) => c.id === field.value)?.name
                               : "Select a person..."}</span>
                             {field.value && (
-                                <span className="text-[10px] text-muted-foreground font-mono">
+                                <span className={cn(
+                                    "text-[10px] font-mono",
+                                    customerBalance > 0 ? "text-red-600" : customerBalance < 0 ? "text-green-600" : "text-muted-foreground"
+                                )}>
                                     Bal: PKR {customerBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </span>
                             )}
@@ -413,11 +416,11 @@ export default function CustomerPaymentsPage() {
                         </div>
                         <div className="flex justify-between text-muted-foreground">
                             <span>Previous Balance (Running)</span>
-                            <span>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className={cn(customerBalance > 0 ? "text-red-600" : customerBalance < 0 ? "text-green-600" : "")}>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                         <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2">
                             <span>New Account Balance</span>
-                            <span className={cn(newBalance < 0 ? "text-green-600" : "text-destructive")}>PKR {newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className={cn(newBalance < 0 ? "text-green-600" : newBalance > 0 ? "text-red-600" : "")}>PKR {newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                     </div>
                 )}

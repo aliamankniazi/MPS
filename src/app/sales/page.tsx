@@ -373,7 +373,10 @@ export default function SalesPage() {
                                         : "Walk-in Customer"}
                                     </span>
                                     {field.value && field.value !== 'walkin' && (
-                                      <span className="text-[10px] text-muted-foreground font-mono">
+                                      <span className={cn(
+                                          "text-[10px] font-mono",
+                                          customerBalance > 0 ? "text-red-600" : customerBalance < 0 ? "text-green-600" : "text-muted-foreground"
+                                      )}>
                                         Bal: PKR {customerBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                       </span>
                                     )}
@@ -429,11 +432,11 @@ export default function SalesPage() {
                                 </div>
                                 <div className="flex justify-between text-muted-foreground">
                                   <span>Previous Balance</span>
-                                  <span>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  <span className={cn(customerBalance > 0 ? "text-red-600" : customerBalance < 0 ? "text-green-600" : "")}>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between font-bold text-sm border-t pt-1 mt-1">
                                   <span>New Balance</span>
-                                  <span className="text-destructive">PKR {(customerBalance + cartTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                  <span className={cn((customerBalance + cartTotal) > 0 ? "text-red-600" : (customerBalance + cartTotal) < 0 ? "text-green-600" : "")}>PKR {(customerBalance + cartTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                           )}
