@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -88,6 +87,8 @@ export default function CashAdvancesPage() {
   const advanceAmount = watch('amount');
   const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
   const newBalance = useMemo(() => customerBalance + (Number(advanceAmount) || 0), [customerBalance, advanceAmount]);
+  
+  const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);
 
   useEffect(() => {
     if (isLoaded && editId) {
@@ -246,11 +247,18 @@ export default function CashAdvancesPage() {
                               variant="outline"
                               role="combobox"
                               aria-expanded={customerComboboxOpen}
-                              className="w-full justify-between"
+                              className="w-full justify-between h-auto py-2"
                             >
-                              {field.value
-                                ? customers.find((c) => c.id === field.value)?.name
-                                : "Select a person..."}
+                              <div className="flex flex-col items-start">
+                                <span>{field.value
+                                    ? customers.find((c) => c.id === field.value)?.name
+                                    : "Select a person..."}</span>
+                                {field.value && (
+                                    <span className="text-[10px] text-muted-foreground font-mono">
+                                        Bal: PKR {customerBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </span>
+                                )}
+                              </div>
                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                           </PopoverTrigger>
@@ -371,15 +379,19 @@ export default function CashAdvancesPage() {
                 )}
 
                 {selectedCustomerId && (
-                    <div className="border-t pt-4 mt-4 space-y-1 text-sm">
-                        <h4 className="font-semibold mb-2">Customer Account</h4>
-                        <div className="flex justify-between">
-                            <span className="text-muted-foreground">Previous Balance</span>
-                            <span>{customerBalance.toFixed(2)} PKR</span>
+                    <div className="border-t pt-4 mt-4 space-y-1 text-sm bg-muted/50 p-4 rounded-md">
+                        <h4 className="font-semibold mb-2">Customer Account Summary</h4>
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Account Opening Bal (Profile)</span>
+                            <span>PKR {selectedCustomerData?.openingBalance?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</span>
                         </div>
-                        <div className="flex justify-between font-bold text-lg">
+                        <div className="flex justify-between text-muted-foreground">
+                            <span>Previous Balance (Running)</span>
+                            <span>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-lg pt-2 border-t mt-2">
                             <span>New Account Balance</span>
-                            <span className={cn(newBalance < 0 ? "text-green-600" : "text-destructive")}>{newBalance.toFixed(2)} PKR</span>
+                            <span className={cn(newBalance < 0 ? "text-green-600" : "text-destructive")}>PKR {newBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                         </div>
                     </div>
                 )}

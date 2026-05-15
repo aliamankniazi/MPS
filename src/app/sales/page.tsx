@@ -105,6 +105,8 @@ export default function SalesPage() {
   const { customerId } = watch();
   const { productId, quantity, price, totalAmount } = watchItem();
   const isWalkIn = !customerId || customerId === 'walkin';
+  
+  const selectedCustomerData = useMemo(() => customers.find(c => c.id === customerId), [customerId, customers]);
 
   useEffect(() => {
     if (isLoaded && editId) {
@@ -357,7 +359,53 @@ export default function SalesPage() {
           </div>
           <div className="lg:col-span-1">
               <form onSubmit={handleSubmit(onSubmit)}><Card><CardHeader><CardTitle>Payment</CardTitle></CardHeader><CardContent className="space-y-4">
-                      <div className="space-y-2"><Label>Customer</Label><div className="flex gap-2"><Controller name="customerId" control={control} render={({ field }) => (<Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-between">{field.value && field.value !== 'walkin' ? customers.find(c => c.id === field.value)?.name : "Walk-in Customer"}<ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Search..." /><CommandList><CommandEmpty>None.</CommandEmpty><CommandGroup><CommandItem value="Walk-in Customer" onSelect={() => { field.onChange('walkin'); setCustomerComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0")} />Walk-in</CommandItem>{isLoaded && customers.map(c => (<CommandItem key={c.id} value={c.name} onSelect={() => { field.onChange(c.id); setCustomerComboboxOpen(false); }}><Check className={cn("mr-2 h-4 w-4", field.value === c.id ? "opacity-100" : "opacity-0")} />{c.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>)}/><Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button></div></div>
+                      <div className="space-y-2">
+                        <Label>Customer</Label>
+                        <div className="flex gap-2">
+                          <Controller name="customerId" control={control} render={({ field }) => (
+                            <Popover open={customerComboboxOpen} onOpenChange={setCustomerComboboxOpen}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" role="combobox" aria-expanded={customerComboboxOpen} className="w-full justify-between h-auto py-2">
+                                  <div className="flex flex-col items-start">
+                                    <span className="truncate max-w-[180px]">
+                                      {field.value && field.value !== 'walkin' 
+                                        ? customers.find((c) => c.id === field.value)?.name 
+                                        : "Walk-in Customer"}
+                                    </span>
+                                    {field.value && field.value !== 'walkin' && (
+                                      <span className="text-[10px] text-muted-foreground font-mono">
+                                        Bal: PKR {customerBalance.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                  <CommandInput placeholder="Search..." />
+                                  <CommandList>
+                                    <CommandEmpty>None.</CommandEmpty>
+                                    <CommandGroup>
+                                      <CommandItem value="Walk-in Customer" onSelect={() => { field.onChange('walkin'); setCustomerComboboxOpen(false); }}>
+                                        <Check className={cn("mr-2 h-4 w-4", (field.value === 'walkin' || !field.value) ? "opacity-100" : "opacity-0")} />
+                                        Walk-in
+                                      </CommandItem>
+                                      {isLoaded && customers.map(c => (
+                                        <CommandItem key={c.id} value={c.name} onSelect={() => { field.onChange(c.id); setCustomerComboboxOpen(false); }}>
+                                          <Check className={cn("mr-2 h-4 w-4", field.value === c.id ? "opacity-100" : "opacity-0")} />
+                                          {c.name}
+                                        </CommandItem>
+                                      ))}
+                                    </CommandGroup>
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          )} />
+                          <Button variant="outline" size="icon" asChild><Link href="/customers"><UserPlus/></Link></Button>
+                        </div>
+                      </div>
                       {!isWalkIn && <div className="space-y-2"><Label>Vehicle</Label>{(customers.find(c => c.id === customerId)?.vehicleNumber) ? <Controller name="vehicleNumber" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value || ''}><SelectTrigger><SelectValue placeholder="Select vehicle..." /></SelectTrigger><SelectContent>{String(customers.find(c => c.id === customerId)!.vehicleNumber).split(/[,\n]/).map(v => v.trim()).filter(Boolean).map(v => (<SelectItem key={v} value={v}>{v}</SelectItem>))}</SelectContent></Select>)}/> : <Input {...register('vehicleNumber')} placeholder="Optional" />}</div>}
                       <div className="space-y-2"><Label>Method</Label><Controller name="paymentMethod" control={control} render={({ field }) => (<Select onValueChange={field.onChange} value={field.value} disabled><SelectTrigger><SelectValue/></SelectTrigger><SelectContent>{isWalkIn ? <SelectItem value="Cash">Cash</SelectItem> : <SelectItem value="Credit">Credit (Udhar)</SelectItem>}</SelectContent></Select>)}/><p className="text-[10px] text-muted-foreground italic">Automatic based on customer type.</p></div>
                       <div className="space-y-2"><Label>Date</Label><Controller name="invoiceDate" control={control} render={({ field }) => (<Popover open={invoiceDateCalendarOpen} onOpenChange={setInvoiceDateCalendarOpen}><PopoverTrigger asChild><Button variant="outline" className="w-full justify-start text-left font-normal"><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "dd-MMM-yyyy") : "Pick date"}</Button></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={(d) => { field.onChange(d); setInvoiceDateCalendarOpen(false); }} initialFocus /></PopoverContent></Popover>)}/></div>
@@ -372,7 +420,23 @@ export default function SalesPage() {
 
                       <div className="space-y-1 text-sm pt-4 border-t">
                           <div className="flex justify-between font-bold text-lg"><span>Invoice Total</span><span>PKR {cartTotal.toFixed(2)}</span></div>
-                          {customerId && customerId !== 'walkin' && (<div className="space-y-1 mt-4 p-3 bg-muted rounded-md text-xs"><div className="flex justify-between text-muted-foreground"><span>Prev Balance</span><span>{customerBalance.toFixed(2)}</span></div><div className="flex justify-between font-bold text-sm"><span>New Balance</span><span className="text-destructive">{(customerBalance + cartTotal).toFixed(2)}</span></div></div>)}
+                          {customerId && customerId !== 'walkin' && (
+                            <div className="space-y-1 mt-4 p-3 bg-muted rounded-md text-xs">
+                                <h4 className="font-semibold mb-2">Account Summary</h4>
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Opening Bal (Profile)</span>
+                                  <span>PKR {selectedCustomerData?.openingBalance?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00'}</span>
+                                </div>
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Previous Balance</span>
+                                  <span>PKR {customerBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-sm border-t pt-1 mt-1">
+                                  <span>New Balance</span>
+                                  <span className="text-destructive">PKR {(customerBalance + cartTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                            </div>
+                          )}
                       </div>
                   </CardContent>
                   <CardFooter className="flex flex-col gap-2"><Button type="submit" size="lg" className="w-full">{editId ? 'Update' : 'Complete & Print'}</Button><Button type="button" variant="outline" className="w-full" onClick={() => { if (editId) router.push('/ledger'); else { reset(); setCart([]); } }}>Discard</Button></CardFooter></Card></form>
