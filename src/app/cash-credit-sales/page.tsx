@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -109,6 +108,7 @@ export default function CashCreditSalesReportPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
     const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
+    const [editDatePopoverOpen, setEditDatePopoverOpen] = useState(false);
     const { toast } = useToast();
     const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
     const isInitialDateSet = useRef(false);
@@ -648,7 +648,7 @@ export default function CashCreditSalesReportPage() {
                                 name="date"
                                 control={controlReading}
                                 render={({ field }) => (
-                                    <Popover>
+                                    <Popover open={editDatePopoverOpen} onOpenChange={setEditDatePopoverOpen}>
                                         <PopoverTrigger asChild>
                                             <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                                                 <CalendarIcon className="mr-2 h-4 w-4" />
@@ -656,7 +656,15 @@ export default function CashCreditSalesReportPage() {
                                             </Button>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0">
-                                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                                            <Calendar 
+                                                mode="single" 
+                                                selected={field.value} 
+                                                onSelect={(date) => {
+                                                    field.onChange(date);
+                                                    setEditDatePopoverOpen(false);
+                                                }} 
+                                                initialFocus 
+                                            />
                                         </PopoverContent>
                                     </Popover>
                                 )}
