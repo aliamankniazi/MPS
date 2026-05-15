@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
-import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth, isSameDay } from 'date-fns';
+import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth, isSameDay, parseISO } from 'date-fns';
 import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment, DateRange } from '@/lib/types';
 import {
@@ -39,8 +39,6 @@ import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
@@ -85,7 +83,7 @@ type GroupedReport = {
 
 const machineReadingEditSchema = z.object({
   volume: z.coerce.number().min(0, "Volume cannot be negative."),
-  date: z.date({ required_error: "A date is required."}),
+  date: z.string().min(1, "A date is required."),
 });
 type MachineReadingEditFormValues = z.infer<typeof machineReadingEditSchema>;
 
@@ -109,7 +107,6 @@ export default function CashCreditSalesReportPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [readingToEdit, setReadingToEdit] = useState<ProcessedReading | null>(null);
     const [readingToDelete, setReadingToDelete] = useState<ProcessedReading | null>(null);
-    const [editDatePopoverOpen, setEditDatePopoverOpen] = useState(false);
     const { toast } = useToast();
     const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
     const isInitialDateSet = useRef(false);
@@ -130,25 +127,31 @@ export default function CashCreditSalesReportPage() {
       }
     }, [isLoaded, transactions]);
 
-     const { register: registerReading, handleSubmit: handleSubmitReading, control: controlReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
+     const { register: registerReading, handleSubmit: handleSubmitReading, reset: resetReading, formState: { errors: readingErrors } } = useForm<MachineReadingEditFormValues>({
         resolver: zodResolver(machineReadingEditSchema),
     });
 
     useEffect(() => {
         if (readingToEdit) {
+            const dateObj = readingToEdit.timestamp ? new Date(readingToEdit.timestamp) : new Date();
             resetReading({
                 volume: readingToEdit.volume,
-                date: readingToEdit.timestamp ? new Date(readingToEdit.timestamp) : new Date(),
+                date: isValid(dateObj) ? dateObj.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             });
         }
     }, [readingToEdit, resetReading]);
 
     const onEditReadingSubmit: SubmitHandler<MachineReadingEditFormValues> = (data) => {
         if (!readingToEdit) return;
+        
+        // Convert the date string (YYYY-MM-DD) to a standard ISO string for database consistency
+        const targetDate = new Date(data.date);
+        
         updateMachineReading(readingToEdit.id, {
           volume: data.volume,
-          timestamp: data.date.toISOString(),
+          timestamp: isValid(targetDate) ? targetDate.toISOString() : new Date().toISOString(),
         });
+
         toast({
           title: "Reading Updated",
           description: `The reading for ${readingToEdit.machineName} has been updated.`,
@@ -633,7 +636,7 @@ export default function CashCreditSalesReportPage() {
                 <DialogHeader>
                     <DialogTitle>Edit Machine Reading for {readingToEdit?.machineName}</DialogTitle>
                     <DialogDescription>
-                        selection  or change date not working
+                        Update the closing reading volume and date.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmitReading(onEditReadingSubmit)}>
@@ -643,35 +646,13 @@ export default function CashCreditSalesReportPage() {
                             <Input id="edit-reading-volume" type="number" step="any" {...registerReading('volume')} />
                             {readingErrors.volume && <p className="text-sm text-destructive">{readingErrors.volume.message}</p>}
                         </div>
-                            <div className="space-y-2">
-                            <Label>Date</Label>
-                            <Controller
-                                name="date"
-                                control={controlReading}
-                                render={({ field }) => (
-                                    <Popover open={editDatePopoverOpen} onOpenChange={setEditDatePopoverOpen}>
-                                        <PopoverTrigger asChild>
-                                            <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {field.value && isValid(new Date(field.value)) ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar 
-                                                mode="single" 
-                                                selected={field.value instanceof Date ? field.value : (field.value ? new Date(field.value) : undefined)} 
-                                                onSelect={(date) => {
-                                                    if (date) {
-                                                        field.onChange(date);
-                                                        setEditDatePopoverOpen(false);
-                                                    }
-                                                }} 
-                                                defaultMonth={field.value instanceof Date ? field.value : (field.value ? new Date(field.value) : new Date())}
-                                                initialFocus 
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                )}
+                        <div className="space-y-2">
+                            <Label htmlFor="edit-reading-date">Date</Label>
+                            <Input 
+                                id="edit-reading-date" 
+                                type="date" 
+                                {...registerReading('date')} 
+                                className="w-full"
                             />
                             {readingErrors.date && <p className="text-sm text-destructive">{readingErrors.date.message}</p>}
                         </div>
