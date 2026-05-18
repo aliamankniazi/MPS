@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { startOfDay, endOfDay, isValid, format, subDays, startOfMonth, endOfMonth, isSameDay, parseISO } from 'date-fns';
-import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon } from 'lucide-react';
+import { Fuel, Droplets, XCircle, Printer, Download, Search, Pencil, Trash2, AlertTriangle, Calendar as CalendarIcon, Undo, Redo } from 'lucide-react';
 import type { FuelType, MachineReading, Purchase, SaleReturn, PurchaseReturn, StockAdjustment, DateRange } from '@/lib/types';
 import {
   Accordion,
@@ -55,6 +55,8 @@ interface ReportRow {
     openingStock: number;
     cashSalesVolume: number;
     creditSalesVolume: number;
+    saleReturnsVolume: number;
+    purchaseReturnsVolume: number;
     closingStock: number;
 }
 
@@ -144,7 +146,6 @@ export default function CashCreditSalesReportPage() {
     const onEditReadingSubmit: SubmitHandler<MachineReadingEditFormValues> = (data) => {
         if (!readingToEdit) return;
         
-        // Convert the date string (YYYY-MM-DD) to a standard ISO string for database consistency
         const targetDate = new Date(data.date);
         
         updateMachineReading(readingToEdit.id, {
@@ -288,8 +289,10 @@ export default function CashCreditSalesReportPage() {
                     closingStock,
                     cashSalesVolume: salesSummary.cashSalesVolume,
                     creditSalesVolume: salesSummary.creditSalesVolume,
+                    saleReturnsVolume: saleReturnsVol,
+                    purchaseReturnsVolume: purchaseReturnsVol,
                 };
-            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0 || row.openingStock > 0).sort((a, b) => (b.cashSalesVolume + b.creditSalesVolume) - (a.cashSalesVolume + a.creditSalesVolume));
+            }).filter(row => row.cashSalesVolume > 0 || row.creditSalesVolume > 0 || row.saleReturnsVolume > 0 || row.purchaseReturnsVolume > 0 || row.openingStock > 0).sort((a, b) => (b.cashSalesVolume + b.creditSalesVolume) - (a.cashSalesVolume + a.creditSalesVolume));
 
 
             if (searchTerm) {
@@ -320,8 +323,8 @@ export default function CashCreditSalesReportPage() {
                 
                 if (!latestReadingForDay) return null;
 
-                let previousReading: MachineReading | undefined = machineReadings // use unfiltered list
-                    .filter(r => r.machineName === machineName && new Date(r.timestamp) < dayStart)
+                let previousReading: MachineReading | undefined = machineReadings 
+                    .filter(r => r.machineId === machineName && new Date(r.timestamp) < dayStart)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
                 let dispensed = 0;
@@ -331,7 +334,7 @@ export default function CashCreditSalesReportPage() {
                 } else {
                     const readingsForMachineOnDay = readingsOnDay
                         .filter(r => r.machineName === machineName)
-                        .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); // ASC
+                        .sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()); 
                     
                     if (readingsForMachineOnDay.length > 1) {
                         previousReading = readingsForMachineOnDay[0];
@@ -394,6 +397,8 @@ export default function CashCreditSalesReportPage() {
                 'Opening Stock (Liters)': row.openingStock.toFixed(2),
                 'Cash Sales (Liters)': row.cashSalesVolume.toFixed(2),
                 'Credit Sales (Liters)': row.creditSalesVolume.toFixed(2),
+                'Sale Returns (Liters)': row.saleReturnsVolume.toFixed(2),
+                'Purchase Returns (Liters)': row.purchaseReturnsVolume.toFixed(2),
                 'Total Sales (Liters)': (row.cashSalesVolume + row.creditSalesVolume).toFixed(2),
                 'Closing Stock (Liters)': row.closingStock.toFixed(2),
             }));
@@ -459,14 +464,16 @@ export default function CashCreditSalesReportPage() {
                                             <CardHeader>
                                                 <CardTitle className="text-destructive">Daily Sales Summary</CardTitle>
                                             </CardHeader>
-                                            <CardContent className="p-0">
+                                            <CardContent className="p-0 overflow-x-auto">
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
                                                             <TableHead>Fuel Type / Opening Stock</TableHead>
-                                                            <TableHead className="text-right text-green-600">Cash Sales (Liters)</TableHead>
-                                                            <TableHead className="text-right text-blue-600">Credit Sales (Liters)</TableHead>
-                                                            <TableHead className="text-right">Total Sales (Liters)</TableHead>
+                                                            <TableHead className="text-right text-green-600">Cash Sales (Ltr)</TableHead>
+                                                            <TableHead className="text-right text-blue-600">Credit Sales (Ltr)</TableHead>
+                                                            <TableHead className="text-right text-amber-600">Sale Returns (Ltr)</TableHead>
+                                                            <TableHead className="text-right text-teal-600">Purchase Returns (Ltr)</TableHead>
+                                                            <TableHead className="text-right">Total Net Sales (Ltr)</TableHead>
                                                             <TableHead className="text-right">Remaining Stock</TableHead>
                                                         </TableRow>
                                                     </TableHeader>
@@ -491,6 +498,8 @@ export default function CashCreditSalesReportPage() {
                                                                 </TableCell>
                                                                 <TableCell className="text-right font-mono text-green-600">{row.cashSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                                 <TableCell className="text-right font-mono text-blue-600">{row.creditSalesVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell className="text-right font-mono text-amber-600">{row.saleReturnsVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                                                                <TableCell className="text-right font-mono text-teal-600">{row.purchaseReturnsVolume.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                                 <TableCell className="text-right font-mono font-bold">{(row.cashSalesVolume + row.creditSalesVolume).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                                 <TableCell className="text-right font-mono font-semibold">{row.closingStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                                                             </TableRow>
