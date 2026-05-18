@@ -467,7 +467,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             return Promise.resolve(null);
         }
         
-        const dataToSend: { [key: string]: any } = { ...entity };
+        const dataToSend: { [key: string]: any } = {};
+        
+        // Remove undefined fields which Firestore doesn't like
+        Object.keys(entity).forEach(key => {
+            const val = (entity as any)[key];
+            if (val !== undefined) {
+                dataToSend[key] = val;
+            }
+        });
         
         if (typeof (entity as any).timestamp === 'string' && isValid(new Date((entity as any).timestamp))) {
             dataToSend.timestamp = new Date((entity as any).timestamp);
@@ -498,7 +506,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             return Promise.resolve();
         }
         const docRef = doc(firestore, path, id);
-        const dataToSend = { ...updates };
+        const dataToSend: { [key: string]: any } = {};
+
+        // Sanitize: skip undefined values
+        Object.keys(updates).forEach(key => {
+            const val = (updates as any)[key];
+            if (val !== undefined) {
+                dataToSend[key] = val;
+            }
+        });
+
         // If updating a date field, convert back to JS Date if it's a valid string
         const dateFields = ['timestamp', 'date', 'hireDate', 'terminationDate', 'deletedAt', 'transactionDate', 'postingDate', 'invoiceDate', 'createdAt'];
         for (const field of dateFields) {
