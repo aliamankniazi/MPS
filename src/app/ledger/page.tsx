@@ -562,24 +562,24 @@ export default function LedgerPage() {
                        const dateObj = new Date(key);
                         return (
                         <AccordionItem value={key} key={key} className="border border-input rounded-xl overflow-hidden bg-background shadow-md">
-                            <AccordionTrigger className="p-0 hover:no-underline hover:bg-muted/30 data-[state=open]:bg-muted/50 transition-all">
+                            <AccordionTrigger className="p-0 hover:no-underline hover:bg-muted/20 transition-all">
                                 <div className="flex flex-col sm:flex-row justify-between w-full items-stretch sm:items-center">
-                                    <div className="flex items-center gap-4 py-4 px-6 bg-primary/10 border-r border-r-input min-w-[280px]">
-                                        <div className="flex flex-col items-center justify-center bg-primary text-primary-foreground rounded-lg p-2 min-w-[60px]">
+                                    <div className="flex items-center gap-4 py-4 px-6 bg-primary text-primary-foreground min-w-[280px] shadow-[inset_-4px_0_10px_-2px_rgba(0,0,0,0.1)]">
+                                        <div className="flex flex-col items-center justify-center bg-background text-primary rounded-lg p-2 min-w-[60px] shadow-sm">
                                             <span className="text-xs uppercase font-bold">{format(dateObj, 'MMM')}</span>
                                             <span className="text-xl font-black">{format(dateObj, 'dd')}</span>
                                         </div>
                                         <div className="text-left">
-                                            <p className="font-black text-lg text-primary leading-tight">{format(dateObj, 'EEEE')}</p>
-                                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{format(dateObj, 'MMMM yyyy')}</p>
+                                            <p className="font-black text-lg leading-tight">{format(dateObj, 'EEEE')}</p>
+                                            <p className="text-xs text-primary-foreground/80 font-medium uppercase tracking-wider">{format(dateObj, 'MMMM yyyy')}</p>
                                         </div>
                                     </div>
-                                    <div className="flex flex-1 flex-wrap gap-4 py-4 px-6 justify-end items-center">
-                                        <div className="flex flex-col items-end border-r pr-4">
+                                    <div className="flex flex-1 flex-wrap gap-4 py-4 px-6 justify-end items-center bg-muted/20">
+                                        <div className="flex flex-col items-end border-r border-muted-foreground/20 pr-4">
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><TrendingUp className="w-3 h-3 text-green-600"/> Total Credit</span>
                                             <span className="text-lg font-black text-green-700 font-mono">PKR {day.totalCredit.toLocaleString()}</span>
                                         </div>
-                                        <div className="flex flex-col items-end border-r pr-4">
+                                        <div className="flex flex-col items-end border-r border-muted-foreground/20 pr-4">
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><TrendingDown className="w-3 h-3 text-destructive"/> Total Debit</span>
                                             <span className="text-lg font-black text-destructive font-mono">PKR {day.totalDebit.toLocaleString()}</span>
                                         </div>
