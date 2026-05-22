@@ -68,16 +68,17 @@ const TRANSACTION_TYPES = [
   { value: 'Sale Return', label: 'Sale Return' },
   { value: 'Purchase Return', label: 'Purchase Return' },
   { value: 'Other Income', label: 'Other Income' },
+  { value: 'Meter Reading', label: 'Meter Reading' },
 ];
 
 export default function LedgerPage() {
   const { 
     transactions, purchases, expenses, purchaseReturns, saleReturns, 
     otherIncomes, supplierPayments, investments, customerPayments, 
-    cashAdvances, colorSettings, isLoaded, 
+    cashAdvances, machineReadings, colorSettings, isLoaded, 
     deleteTransaction, deletePurchase, deleteExpense, deleteSaleReturn, 
     deleteOtherIncome, deleteSupplierPayment, deleteInvestment, 
-    deleteCustomerPayment, deleteCashAdvance 
+    deleteCustomerPayment, deleteCashAdvance, deleteMachineReading
   } = useDatabase();
   
   const { isPinVerified, confirmPin } = useAuth();
@@ -257,6 +258,21 @@ export default function LedgerPage() {
         }
     });
 
+    // Add Machine Readings to Journal
+    machineReadings.forEach(mr => {
+        combined.push({
+            id: `mr-${mr.id}`,
+            timestamp: mr.timestamp,
+            description: `Closing: ${mr.volume.toLocaleString()} Ltr`,
+            partnerName: mr.machineName,
+            type: 'Meter Reading',
+            debit: 0,
+            credit: 0,
+            original: mr,
+            notes: `Fuel: ${mr.fuelType}`
+        });
+    });
+
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     let bal = 0; 
@@ -264,7 +280,7 @@ export default function LedgerPage() {
       bal += e.debit - e.credit; 
       return { ...e, balance: bal }; 
     });
-  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances]);
+  }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, machineReadings]);
 
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
@@ -338,6 +354,7 @@ export default function LedgerPage() {
             case 'oi': deleteOtherIncome(id); break;
             case 'inv': case 'wdr': deleteInvestment(id); break;
             case 'ca': deleteCashAdvance(id); break;
+            case 'mr': deleteMachineReading(id); break;
         }
         toast({ title: 'Deleted', description: 'Entry has been moved to recycle bin.' });
     } catch (e) {
@@ -359,6 +376,7 @@ export default function LedgerPage() {
         case 'oi': return `/other-incomes?edit=${id}`; 
         case 'inv': case 'wdr': return `/investments?edit=${id}`;
         case 'ca': return `/cash-advances?edit=${id}`; 
+        case 'mr': return `/machines`;
         default: return '#';
     }
   };
@@ -428,6 +446,7 @@ export default function LedgerPage() {
                                                 <TableHead>Partner</TableHead>
                                                 <TableHead>Particulars</TableHead>
                                                 <TableHead>Notes</TableHead>
+                                                <TableHead className="text-center">Type</TableHead>
                                                 <TableHead className="text-right">Debit</TableHead>
                                                 <TableHead className="text-right">Credit</TableHead>
                                                 <TableHead className="text-right">Balance</TableHead>
@@ -449,6 +468,11 @@ export default function LedgerPage() {
                                                     <TableCell className="text-xs italic text-muted-foreground min-w-[200px]">
                                                       {e.notes || ''}
                                                     </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <Badge variant={e.type === 'Meter Reading' ? 'outline' : 'secondary'} className={cn(e.type === 'Meter Reading' && 'bg-blue-50 text-blue-700 border-blue-200')}>
+                                                            {e.type}
+                                                        </Badge>
+                                                    </TableCell>
                                                     <TableCell className="text-right text-destructive font-mono font-bold">
                                                       {e.debit ? e.debit.toFixed(2) : '-'}
                                                     </TableCell>
@@ -456,7 +480,7 @@ export default function LedgerPage() {
                                                       {e.credit ? e.credit.toFixed(2) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-800')}>
-                                                      {e.balance.toFixed(2)}
+                                                      {e.type === 'Meter Reading' ? '-' : e.balance.toFixed(2)}
                                                     </TableCell>
                                                     <TableCell className="text-center space-x-1">
                                                         <Button asChild variant="ghost" size="icon" title="Edit Transaction">
@@ -480,7 +504,7 @@ export default function LedgerPage() {
                     })}
                 </Accordion>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground p-12 border-2 border-dashed rounded-lg">
+              <div className="flex flex-col items-center justify-center gap-4 text-muted-foreground p-12 border-2 border-dashed rounded-lg">
                 <BookOpen className="w-16 h-16 opacity-20" />
                 <h3 className="text-xl font-semibold">No Transactions Found</h3>
                 <p>Try adjusting your search or date range filters.</p>

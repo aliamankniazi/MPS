@@ -36,7 +36,7 @@ type CombinedEntry = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense' | 'Customer Payment' | 'Cash Advance';
+  type: 'Sale' | 'Purchase' | 'Purchase Return' | 'Salary' | 'Expense' | 'Customer Payment' | 'Cash Advance' | 'Meter Reading';
   partner: string;
   details: string;
   amount: number;
@@ -67,6 +67,7 @@ export default function AllTransactionsPage() {
     customerPayments,
     cashAdvances,
     expenses,
+    machineReadings,
     customers,
     colorSettings, 
     deleteTransaction, 
@@ -75,6 +76,7 @@ export default function AllTransactionsPage() {
     deleteCustomerPayment,
     deleteExpense,
     deleteCashAdvance,
+    deleteMachineReading,
     isLoaded,
   } = useDatabase();
   const { isPinVerified, confirmPin } = useAuth();
@@ -196,7 +198,19 @@ export default function AllTransactionsPage() {
       original: { ...pr },
     }));
 
-    const unsorted = [...sales, ...allPurchases, ...returns, ...payments, ...advances, ...expenseEntries].sort((a, b) => {
+    const readings: CombinedEntry[] = machineReadings.map(mr => ({
+        id: `reading-${mr.id}`,
+        originalId: mr.id,
+        timestamp: mr.timestamp,
+        type: 'Meter Reading',
+        partner: mr.machineName,
+        details: `Closing Reading: ${mr.volume.toLocaleString()} Ltr`,
+        amount: 0,
+        original: mr,
+        notes: `Product: ${mr.fuelType}`
+    }));
+
+    const unsorted = [...sales, ...allPurchases, ...returns, ...payments, ...advances, ...expenseEntries, ...readings].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
@@ -217,7 +231,7 @@ export default function AllTransactionsPage() {
         
         return { ...e, balance: runningBal };
     }).reverse();
-  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses]);
+  }, [isLoaded, transactions, purchases, purchaseReturns, customerPayments, cashAdvances, expenses, machineReadings]);
 
   useEffect(() => {
     if (isLoaded && combinedEntries.length > 0 && !isInitialDateSet.current) {
@@ -325,7 +339,8 @@ export default function AllTransactionsPage() {
   
   const getEntryColor = (entry: CombinedEntry) => {
     if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6';
-    if (entry.type === 'Customer Payment') return '#166534'; // text-green-800
+    if (entry.type === 'Customer Payment') return '#166534';
+    if (entry.type === 'Meter Reading') return '#0284c7';
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280';
   };
@@ -371,6 +386,7 @@ export default function AllTransactionsPage() {
             case 'Salary': deleteCustomerPayment(entryToDelete.originalId); break;
             case 'Cash Advance': deleteCashAdvance(entryToDelete.originalId); break;
             case 'Expense': deleteExpense(entryToDelete.originalId); break;
+            case 'Meter Reading': deleteMachineReading(entryToDelete.originalId); break;
             default:
                 throw new Error('Could not delete entry of unknown type.');
         }
@@ -399,6 +415,7 @@ export default function AllTransactionsPage() {
         case 'Customer Payment': return `/customer-payments?edit=${entry.originalId}`;
         case 'Cash Advance': return `/cash-advances?edit=${entry.originalId}`;
         case 'Purchase Return': return `/purchase-returns?edit=${entry.originalId}`;
+        case 'Meter Reading': return `/machines`;
         case 'Salary': return `/employees?edit=${entry.originalId}`;
         default: return '#';
     }
@@ -416,7 +433,7 @@ export default function AllTransactionsPage() {
                     <CardTitle className="flex items-center gap-2">
                         <Archive /> All Transactions
                     </CardTitle>
-                    <CardDescription>A unified record of all sales, purchases, and returns.</CardDescription>
+                    <CardDescription>A unified record of all sales, purchases, readings, and returns.</CardDescription>
                 </div>
                  <div className="flex items-center gap-2 flex-wrap">
                     <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
@@ -450,7 +467,7 @@ export default function AllTransactionsPage() {
                                                 <TableHead className="w-12">No.</TableHead>
                                                 <TableHead>Time</TableHead>
                                                 <TableHead>Type</TableHead>
-                                                <TableHead>Partner</TableHead>
+                                                <TableHead>Partner / Machine</TableHead>
                                                 <TableHead>Details</TableHead>
                                                 <TableHead>Notes</TableHead>
                                                 <TableHead className="text-right">Amount (PKR)</TableHead>
@@ -494,10 +511,10 @@ export default function AllTransactionsPage() {
                                                     </TableCell>
                                                     <TableCell className="text-xs italic text-muted-foreground min-w-[150px]">{entry.notes || ''}</TableCell>
                                                     <TableCell className="text-right font-semibold font-mono" style={{ color }}>
-                                                        {entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {entry.amount > 0 ? entry.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("text-right font-mono text-xs", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-800')}>
-                                                        {entry.balance?.toFixed(2)}
+                                                        {entry.type === 'Meter Reading' ? '-' : entry.balance?.toFixed(2)}
                                                     </TableCell>
                                                     <TableCell className="text-center space-x-0.5">
                                                         <Button asChild variant="ghost" size="icon" title="Edit">
