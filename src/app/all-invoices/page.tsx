@@ -4,7 +4,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { FileText, XCircle, Printer, Search, Download, Pencil } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import type { Transaction, Purchase, DateRange } from '@/lib/types';
 import Link from 'next/link';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -24,7 +23,7 @@ type CombinedInvoice = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase';
+  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance';
   partner: string;
   details: string;
   amount: number;
@@ -39,19 +38,21 @@ type GroupedInvoices = {
     totalSales: number;
     totalPurchases: number;
     totalProfit: number;
+    totalPayments: number;
+    totalAdvances: number;
   };
 };
 
 export default function AllInvoicesPage() {
-  const { transactions, purchases, isLoaded, colorSettings } = useDatabase();
+  const { transactions, purchases, customerPayments, cashAdvances, isLoaded, colorSettings } = useDatabase();
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>();
   const isInitialDateSet = useRef(false);
 
   useEffect(() => {
-    if (isLoaded && (transactions.length > 0 || purchases.length > 0) && !isInitialDateSet.current) {
-      const allItems = [...transactions, ...purchases];
+    if (isLoaded && !isInitialDateSet.current) {
+      const allItems = [...transactions, ...purchases, ...customerPayments, ...cashAdvances];
       const latestItem = allItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
       if (latestItem && isValid(new Date(latestItem.timestamp))) {
         const latestDate = new Date(latestItem.timestamp);
@@ -60,11 +61,8 @@ export default function AllInvoicesPage() {
         setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
       }
       isInitialDateSet.current = true;
-    } else if (isLoaded && !isInitialDateSet.current) {
-        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
-        isInitialDateSet.current = true;
     }
-  }, [isLoaded, transactions, purchases]);
+  }, [isLoaded, transactions, purchases, customerPayments, cashAdvances]);
 
 
   const allInvoicesForExport = useMemo(() => {
@@ -78,8 +76,10 @@ export default function AllInvoicesPage() {
         return isValid(itemDate) && itemDate >= from && itemDate <= to;
     });
 
-    const allTransactions = filterByDate(transactions);
+    const filteredTransactions = filterByDate(transactions);
     const filteredPurchases = filterByDate(purchases);
+    const filteredPayments = filterByDate(customerPayments).filter(p => p.paymentMethod !== 'Salary');
+    const filteredAdvances = filterByDate(cashAdvances);
 
     const getProfitForSale = (sale: Transaction, allPurchases: Purchase[]): number => {
       if (!sale.fuelType || !sale.volume || sale.volume <= 0 || !sale.timestamp || !isValid(new Date(sale.timestamp))) {
@@ -109,8 +109,7 @@ export default function AllInvoicesPage() {
       return 0;
     }
 
-
-    const salesInvoices: CombinedInvoice[] = allTransactions.map(tx => {
+    const salesInvoices: CombinedInvoice[] = filteredTransactions.map(tx => {
         const profit = getProfitForSale(tx, purchases);
         const isCredit = !!(tx.customerId && tx.customerId !== 'walkin' && tx.paymentMethod === 'Credit');
         
@@ -137,8 +136,30 @@ export default function AllInvoicesPage() {
       details: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
       amount: p.totalCost,
     }));
+
+    const paymentInvoices: CombinedInvoice[] = filteredPayments.map(p => ({
+      id: `pay-${p.id}`,
+      originalId: p.id,
+      timestamp: p.timestamp,
+      type: 'Customer Payment',
+      partner: p.customerName,
+      details: p.notes || `${p.paymentMethod} Payment Receipt`,
+      amount: p.amount,
+      paymentMethod: p.paymentMethod,
+    }));
+
+    const advanceInvoices: CombinedInvoice[] = filteredAdvances.map(a => ({
+      id: `adv-${a.id}`,
+      originalId: a.id,
+      timestamp: a.timestamp,
+      type: 'Cash Advance',
+      partner: a.customerName,
+      details: a.notes || 'Cash Advance Voucher',
+      amount: a.amount,
+      paymentMethod: 'Cash',
+    }));
     
-    return [...salesInvoices, ...purchaseInvoices].sort((a, b) => {
+    return [...salesInvoices, ...purchaseInvoices, ...paymentInvoices, ...advanceInvoices].sort((a, b) => {
         const dateA = new Date(a.timestamp);
         const dateB = new Date(b.timestamp);
         if (!isValid(dateA)) return 1;
@@ -146,7 +167,7 @@ export default function AllInvoicesPage() {
         return dateB.getTime() - dateA.getTime();
       });
 
-  }, [isLoaded, transactions, purchases, localDateRange]);
+  }, [isLoaded, transactions, purchases, customerPayments, cashAdvances, localDateRange]);
 
   const groupedInvoices = useMemo(() => {
     let filtered = allInvoicesForExport;
@@ -171,7 +192,7 @@ export default function AllInvoicesPage() {
         const monthKey = format(date, 'MMMM yyyy');
         
         if (!acc[monthKey]) {
-            acc[monthKey] = { invoices: [], totalSales: 0, totalPurchases: 0, totalProfit: 0 };
+            acc[monthKey] = { invoices: [], totalSales: 0, totalPurchases: 0, totalProfit: 0, totalPayments: 0, totalAdvances: 0 };
         }
         
         acc[monthKey].invoices.push(invoice);
@@ -180,6 +201,8 @@ export default function AllInvoicesPage() {
             acc[monthKey].totalProfit += invoice.profit || 0;
         }
         if(invoice.type === 'Purchase') acc[monthKey].totalPurchases += invoice.amount;
+        if(invoice.type === 'Customer Payment') acc[monthKey].totalPayments += invoice.amount;
+        if(invoice.type === 'Cash Advance') acc[monthKey].totalAdvances += invoice.amount;
 
         return acc;
     }, {} as GroupedInvoices);
@@ -205,6 +228,8 @@ export default function AllInvoicesPage() {
   
   const getAmountClass = (invoice: CombinedInvoice) => {
     if (invoice.type === 'Purchase') return 'text-green-600';
+    if (invoice.type === 'Cash Advance') return 'text-destructive';
+    if (invoice.type === 'Customer Payment') return 'text-green-800';
     if (invoice.isCreditSale) return 'text-blue-600';
     return invoice.type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
@@ -218,9 +243,9 @@ export default function AllInvoicesPage() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <FileText /> All Invoices
+                <FileText /> All Invoices & Slips
               </CardTitle>
-              <CardDescription>A list of all sales and purchase invoices for the selected period.</CardDescription>
+              <CardDescription>Records of sales, purchases, payments, and advances.</CardDescription>
             </div>
              <div className="flex items-center gap-2 flex-wrap">
                 <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
@@ -230,9 +255,11 @@ export default function AllInvoicesPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="Sale">Sale</SelectItem>
+                        <SelectItem value="Sale">Cash Sale</SelectItem>
                         <SelectItem value="Credit Sale">Credit Sale</SelectItem>
                         <SelectItem value="Purchase">Purchase</SelectItem>
+                        <SelectItem value="Customer Payment">Customer Payment</SelectItem>
+                        <SelectItem value="Cash Advance">Cash Advance</SelectItem>
                     </SelectContent>
                 </Select>
                 <div className="relative w-full max-sm:max-w-xs">
@@ -251,16 +278,17 @@ export default function AllInvoicesPage() {
         </CardHeader>
         <CardContent>
           {isLoaded && monthKeys.length > 0 ? (
-             <Accordion type="multiple" className="w-full">
+             <Accordion type="multiple" className="w-full" defaultValue={monthKeys}>
                 {monthKeys.map(monthKey => (
                     <AccordionItem value={monthKey} key={monthKey}>
                         <AccordionTrigger className="hover:bg-muted/50 px-4 rounded-md">
-                            <div className="flex justify-between w-full pr-4">
+                            <div className="flex flex-col sm:flex-row justify-between w-full pr-4 items-start sm:items-center gap-2">
                                 <span className="font-semibold text-lg">{monthKey}</span>
-                                <div className="flex gap-4 text-sm">
+                                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs sm:text-sm">
                                     <span>Sales: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalSales.toLocaleString()}</span></span>
-                                    <span>Purchases: <span className="font-mono text-green-600">PKR {groupedInvoices[monthKey].totalPurchases.toLocaleString()}</span></span>
                                     <span>Profit: <span className="font-mono text-blue-600">PKR {groupedInvoices[monthKey].totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2})}</span></span>
+                                    <span>Payments: <span className="font-mono text-green-800">PKR {groupedInvoices[monthKey].totalPayments.toLocaleString()}</span></span>
+                                    <span>Advances: <span className="font-mono text-destructive">PKR {groupedInvoices[monthKey].totalAdvances.toLocaleString()}</span></span>
                                 </div>
                             </div>
                         </AccordionTrigger>
@@ -313,7 +341,12 @@ export default function AllInvoicesPage() {
                                        </TableCell>
                                       <TableCell className="text-center">
                                         <Button asChild variant="ghost" size="icon" title="Edit">
-                                            <Link href={invoice.type === 'Purchase' ? '/settings' : '/customers'}>
+                                            <Link href={
+                                                invoice.type === 'Purchase' ? '/purchases?edit=' + invoice.originalId : 
+                                                invoice.type === 'Sale' ? '/sales?edit=' + invoice.originalId :
+                                                invoice.type === 'Customer Payment' ? '/customer-payments?edit=' + invoice.originalId :
+                                                '/cash-advances?edit=' + invoice.originalId
+                                            }>
                                                 <Pencil className="w-4 h-4" />
                                             </Link>
                                         </Button>
@@ -338,12 +371,12 @@ export default function AllInvoicesPage() {
                 <>
                   <XCircle className="w-16 h-16" />
                   <h3 className="text-xl font-semibold">
-                    {searchTerm ? 'No Matching Invoices' : 'No Invoices Yet'}
+                    {searchTerm ? 'No Matching Records' : 'No Documents Yet'}
                   </h3>
-                  <p>{searchTerm ? 'Try a different search term.' : 'Generated invoices for sales and purchases will appear here.'}</p>
+                  <p>{searchTerm ? 'Try a different search term.' : 'Sales, purchases, payments, and advances will appear here.'}</p>
                 </>
               ) : (
-                <p>Loading invoices...</p>
+                <p>Loading records...</p>
               )}
             </div>
           )}
