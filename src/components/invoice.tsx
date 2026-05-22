@@ -1,11 +1,9 @@
-
 'use client';
 
 import { format, differenceInDays, isValid } from 'date-fns';
 import numWords from 'num-words';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
 
 
 interface InvoiceItem {
@@ -17,7 +15,7 @@ interface InvoiceItem {
 }
 
 interface InvoiceData {
-  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance';
+  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance' | 'Meter Reading' | 'Expense' | 'Salary Payment' | 'Investment' | 'Withdrawal' | 'Other Income';
   id: string;
   date: string;
   partner: {
@@ -67,17 +65,15 @@ const InvoiceLogo = () => (
 
 export function Invoice({ data }: { data: InvoiceData }) {
     
-  const totalQuantity = data.items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalAmountInWords = numWords(Math.floor(data.totalAmount));
+  const totalAmountInWords = data.type !== 'Meter Reading' ? numWords(Math.floor(data.totalAmount)) : '';
   const [currentTime, setCurrentTime] = useState('');
   const isValidInvoiceDate = data.date && isValid(new Date(data.date));
 
   const getDesiDate = (date: Date): { day: number; month: string; year: number } => {
     const year = date.getFullYear();
-    const month = date.getMonth(); // 0-11
+    const month = date.getMonth(); 
     const day = date.getDate();
   
-    // Based on Bikrami calendar for Punjab
     const monthData = [
         { name: 'چیت', length: 31, start: { m: 2, d: 14 } },
         { name: 'وساکھ', length: 31, start: { m: 3, d: 14 } },
@@ -90,7 +86,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
         { name: 'مگھر', length: 30, start: { m: 10, d: 14 } },
         { name: 'پوہ', length: 30, start: { m: 11, d: 14 } },
         { name: 'ماگھ', length: 30, start: { m: 0, d: 13 } },
-        { name: 'پھگਣ', length: 30, start: { m: 1, d: 12 } }
+        { name: 'پھگڻ', length: 30, start: { m: 1, d: 12 } }
     ];
 
     let bikramiYear = year + 57;
@@ -146,147 +142,177 @@ export function Invoice({ data }: { data: InvoiceData }) {
     setCurrentTime(`${gregorianDate} | ${islamicDate.replace(' AH', ' ہجری')} | ${punjabiDate} | ${time}`);
   }, []);
 
+  const headerColorClass = cn(
+      "text-2xl font-bold mb-2",
+      {
+          'text-red-600': ['Sale', 'Cash Advance', 'Withdrawal', 'Expense'].includes(data.type),
+          'text-green-600': ['Customer Payment', 'Other Income', 'Investment'].includes(data.type),
+          'text-blue-600': ['Purchase', 'Meter Reading'].includes(data.type),
+      }
+  );
+
   return (
-    <div className="font-sans text-xs text-gray-800">
+    <div className="font-sans text-xs text-gray-800 printable-slip max-w-[800px] mx-auto">
       <header className="flex justify-between items-start pb-4 border-b-2 border-gray-300">
         <div className="flex items-start gap-4">
             <InvoiceLogo />
             <div>
                 <h1 className="text-xl font-bold text-red-600">{companyDetails.name}</h1>
                 <p>{companyDetails.branch}</p>
-                <p>Mobile No1: {companyDetails.mobile1}</p>
-                <p>Mobile No2: {companyDetails.mobile2}</p>
+                <p>Mobile No: {companyDetails.mobile1}</p>
                 <p className="font-semibold">Deals in: {companyDetails.dealsIn}</p>
-                <p>Sale Tax Registration No. {companyDetails.saleTaxNo}</p>
+                <p>Sale Tax No. {companyDetails.saleTaxNo}</p>
             </div>
         </div>
         <div className="text-right flex-shrink-0">
-            <h2 className={cn(
-                "text-2xl font-bold mb-2",
-                {
-                    'text-red-600': data.type === 'Sale' || data.type === 'Cash Advance',
-                    'text-green-600': data.type === 'Customer Payment',
-                    'text-blue-600': data.type === 'Purchase',
-                }
-            )}>
-                {data.type === 'Customer Payment' ? 'PAYMENT RECEIPT'
-                : data.type === 'Cash Advance' ? 'CASH ADVANCE VOUCHER'
-                : `${data.type.toUpperCase()} INVOICE`}
+            <h2 className={headerColorClass}>
+                {data.type === 'Meter Reading' ? 'READING SLIP' : data.type.toUpperCase() + ' VOUCHER'}
             </h2>
-            <p className="font-semibold">NTN NO: {companyDetails.ntn}</p>
+            <p className="font-semibold">NTN: {companyDetails.ntn}</p>
+            <p className="font-mono text-[10px]">ID: {data.id.slice(0, 8).toUpperCase()}</p>
         </div>
       </header>
 
       <section className="grid grid-cols-2 gap-4 py-4">
         <div className="text-blue-600">
-            <h3 className="font-bold mb-1">Bill To:</h3>
-            <p className="font-semibold">{data.partner.name}</p>
-            <p>Contact No.: {data.partner.contact}</p>
+            <h3 className="font-bold mb-1">Details:</h3>
+            <p className="font-semibold text-sm uppercase">{data.partner.name}</p>
+            <p className="font-mono">{data.partner.contact}</p>
              {data.bankDetails && (
-                <p>Bank: {data.bankDetails.name} ({data.bankDetails.number})</p>
+                <p className="text-[10px]">Bank: {data.bankDetails.name} ({data.bankDetails.number})</p>
              )}
-             {data.notes && <p className="text-sm mt-1">Notes: {data.notes}</p>}
+             {data.notes && <p className="text-[10px] mt-1 italic border-l-2 pl-2">Remarks: {data.notes}</p>}
         </div>
         <div className="text-right">
             <p><span className="font-semibold text-red-600">Date:</span> <span className="text-red-600">{isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Invalid Date'}</span></p>
-            <p className="font-semibold text-blue-600">{currentTime}</p>
+            <p className="font-semibold text-blue-600 text-[10px]">{currentTime}</p>
         </div>
       </section>
 
       <section className="mb-4">
-        <table className="w-full">
-            <thead className="bg-blue-600 text-white">
+        <table className="w-full border-collapse">
+            <thead className="bg-gray-100 border-t-2 border-b-2 border-gray-800">
                 <tr>
                     <th className="p-2 text-left w-8">#</th>
-                    <th className="p-2 text-left">Item name</th>
-                    <th className="p-2 text-left">Group</th>
-                    <th className="p-2 text-right">Quantity</th>
-                    <th className="p-2 text-right">Price/Unit</th>
-                    <th className="p-2 text-right">Discount</th>
-                    <th className="p-2 text-right">Amount</th>
+                    <th className="p-2 text-left">Particulars</th>
+                    <th className="p-2 text-right">Qty/Reading</th>
+                    {data.type !== 'Meter Reading' && <th className="p-2 text-right">Price/Rate</th>}
+                    {data.type !== 'Meter Reading' && <th className="p-2 text-right">Amount</th>}
                 </tr>
             </thead>
-            <tbody>
+            <tbody className="font-mono">
                 {data.items.map((item, index) => (
-                    <tr key={index} className="border-b">
+                    <tr key={index} className="border-b border-gray-200">
                         <td className="p-2">{index + 1}</td>
-                        <td className={cn("p-2",
-                            item.name.toLowerCase().includes('diesel') && 'text-green-600',
-                            (item.name.toLowerCase().includes('unleaded') || item.name.toLowerCase().includes('premium')) && 'text-destructive'
+                        <td className={cn("p-2 font-bold",
+                            item.name.toLowerCase().includes('diesel') && 'text-green-700',
+                            (item.name.toLowerCase().includes('unleaded') || item.name.toLowerCase().includes('premium')) && 'text-red-700'
                         )}>{item.name}</td>
-                        <td className="p-2">{item.group}</td>
-                        <td className="p-2 text-right">{item.group === 'Fuel' ? `${item.quantity.toFixed(3)} LTR` : item.quantity}</td>
-                        <td className="p-2 text-right">{item.price.toFixed(2)}</td>
-                        <td className="p-2 text-right">0.00%</td>
-                        <td className="p-2 text-right text-red-600">{item.amount.toFixed(2)}</td>
+                        <td className="p-2 text-right">{item.quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
+                        {data.type !== 'Meter Reading' && <td className="p-2 text-right">{item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
+                        {data.type !== 'Meter Reading' && <td className="p-2 text-right font-bold">{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
                     </tr>
                 ))}
             </tbody>
-            <tfoot className="font-bold">
-                <tr className="border-b-2 border-gray-300">
-                    <td colSpan={3} className="p-2 text-left">Total</td>
-                    <td className="p-2 text-right">{data.type === 'Sale' || data.type === 'Purchase' ? totalQuantity.toFixed(3) : ''}</td>
-                    <td colSpan={2}></td>
-                    <td className="p-2 text-right text-red-600">{data.totalAmount.toFixed(2)}</td>
+            {data.type !== 'Meter Reading' && (
+              <tfoot className="font-bold bg-gray-50">
+                  <tr className="border-b-2 border-gray-800">
+                      <td colSpan={2} className="p-2 text-left uppercase">Total Volume / Units</td>
+                      <td className="p-2 text-right">{data.items.reduce((s, i) => s + i.quantity, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
+                      <td className="p-2 text-right">TOTAL</td>
+                      <td className="p-2 text-right text-red-600">PKR {data.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  </tr>
+              </tfoot>
+            )}
+            {data.type === 'Meter Reading' && (
+               <tfoot className="font-bold bg-gray-50">
+                <tr className="border-b-2 border-gray-800">
+                    <td colSpan={2} className="p-2 text-left uppercase">Total Dispensed Volume</td>
+                    <td className="p-2 text-right text-blue-700 text-lg">{data.totalAmount.toLocaleString()} Ltr</td>
                 </tr>
             </tfoot>
+            )}
         </table>
       </section>
 
       <section className="grid grid-cols-2 gap-4">
         <div>
-            <h3 className="font-bold mb-1">Description</h3>
-            <p>{data.partner.name} - {data.items[0]?.name || ''}</p>
-            <h3 className="font-bold mt-4 mb-1">TERMS AND CONDITIONS</h3>
-            <p>Thanks for doing business with us!</p>
-            <p className="font-bold mt-4">Amount in Words:</p>
-            <p className="capitalize font-bold">{totalAmountInWords} rupees only.</p>
+            {data.type !== 'Meter Reading' && (
+              <>
+                <p className="font-bold mt-2">Amount in Words:</p>
+                <p className="capitalize italic font-medium">{totalAmountInWords} rupees only.</p>
+              </>
+            )}
+            <div className="mt-4 p-2 bg-gray-50 border rounded text-[10px]">
+                <p className="font-bold mb-1">Mianwali Petroleum Service Policy:</p>
+                <ul className="list-disc pl-4">
+                    <li>This is a computer-generated document.</li>
+                    <li>Stock verification is valid only at the time of delivery.</li>
+                    <li>Verify all items before leaving the site.</li>
+                </ul>
+            </div>
         </div>
         <div className="text-right">
-            <div className="inline-block text-left">
+            <div className="inline-block text-left w-full max-w-[300px]">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                    <span className="font-semibold">Sub Total:</span>
-                    <span className="font-bold text-red-600">RS {data.totalAmount.toFixed(2)}</span>
-                    <span className="font-semibold">Discount:</span>
-                    <span className="font-bold text-red-600">RS 0 (0%)</span>
-                    <span className="font-semibold">GST@:</span>
-                    <span className="font-bold text-red-600">0</span>
-                    <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1">Total Payable:</span>
-                    <span className="font-bold text-lg border-t-2 border-b-2 border-gray-800 py-1 text-red-600">RS {data.totalAmount.toFixed(2)}</span>
+                    {data.type !== 'Meter Reading' && (
+                      <>
+                        <span className="font-semibold">Sub Total:</span>
+                        <span className="font-bold text-red-600">RS {data.totalAmount.toLocaleString()}</span>
+                        
+                        <div className="col-span-2 border-t border-dashed my-1"></div>
+                      </>
+                    )}
                     
                     {data.partner.openingBalance !== undefined && (
                         <>
                             <span className="font-semibold">Previous Balance:</span>
-                            <span className={cn("font-bold", data.partner.openingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.openingBalance.toFixed(2)}</span>
+                            <span className={cn("font-bold font-mono", data.partner.openingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.openingBalance.toLocaleString()}</span>
                         </>
                     )}
                     {data.partner.closingBalance !== undefined && (
                         <>
-                            <span className="font-semibold text-lg">New Balance:</span>
-                            <span className={cn("font-bold text-lg", data.partner.closingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.closingBalance.toFixed(2)}</span>
+                            <span className="font-semibold text-lg">New Account Bal:</span>
+                            <span className={cn("font-bold text-lg font-mono", data.partner.closingBalance > 0 ? "text-red-600" : "text-green-600")}>RS {data.partner.closingBalance.toLocaleString()}</span>
                         </>
                     )}
 
-                    <span className="font-semibold">Payment Mode:</span>
-                    <span className="font-bold text-blue-600">{data.paymentMethod === 'Credit' ? 'Udhar' : data.paymentMethod}</span>
+                    <span className="font-semibold mt-2">Payment Mode:</span>
+                    <span className="font-bold text-blue-600 mt-2">{data.paymentMethod === 'Credit' ? 'Udhar (Credit Account)' : data.paymentMethod}</span>
                 </div>
             </div>
         </div>
       </section>
 
-      <footer className="grid grid-cols-2 gap-4 pt-8 mt-8 border-t-2 border-gray-300 text-green-600">
+      <footer className="grid grid-cols-2 gap-4 pt-6 mt-6 border-t-2 border-gray-300 text-green-700">
         <div>
-            <h3 className="font-bold">Pay To:</h3>
-            <p><span className="font-bold">Title Of Account:</span> {companyDetails.bank.title}</p>
-            <p><span className="font-bold">Bank Name:</span> {companyDetails.bank.name}</p>
-            <p><span className="font-bold">Account Number:</span> {companyDetails.bank.iban}</p>
-            <p className="font-semibold">And Also Use Account Number As A Raast ID</p>
+            <h3 className="font-bold text-[10px]">BANKING DETAILS (PAY TO):</h3>
+            <p className="text-[10px]"><span className="font-bold">Title:</span> {companyDetails.bank.title}</p>
+            <p className="text-[10px]"><span className="font-bold">IBAN:</span> {companyDetails.bank.iban}</p>
+            <p className="text-[10px] font-semibold italic">Account Number works as RAAST ID</p>
         </div>
-        <div className="text-center self-end">
-            <div className="w-48 h-12 border-b-2 border-gray-600 mx-auto mb-1"></div>
-            <p className="pt-1 text-sm">Authorized Signatory</p>
+        <div className="flex flex-col items-center justify-end">
+            <div className="w-48 h-px bg-gray-800 mb-1"></div>
+            <p className="font-bold text-[10px] uppercase">Authorized Operator Signature</p>
         </div>
       </footer>
+      
+      <style jsx global>{`
+        @media print {
+          body {
+            background: white !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .printable-slip {
+            max-width: 100% !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          header { border-bottom: 2px solid #000 !important; }
+          footer { border-top: 2px solid #000 !important; }
+        }
+      `}</style>
     </div>
   );
 }

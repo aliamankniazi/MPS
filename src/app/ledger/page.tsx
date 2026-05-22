@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -32,6 +31,7 @@ import { useAuth } from '@/hooks/use-auth';
 
 type LedgerEntry = {
   id: string;
+  originalId: string;
   timestamp: string;
   description: string;
   partnerName: string;
@@ -100,6 +100,7 @@ export default function LedgerPage() {
         const isWalkIn = tx.isWalkIn ?? (!tx.customerId || tx.customerId === 'walkin');
         combined.push({ 
           id: `tx-${tx.id}`, 
+          originalId: tx.id,
           timestamp: tx.timestamp, 
           description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'Sale'), 
           partnerName: tx.customerName || 'Walk-in Customer', 
@@ -116,6 +117,7 @@ export default function LedgerPage() {
       if (cp.paymentMethod !== 'Salary') {
         combined.push({ 
           id: `cp-${cp.id}`, 
+          originalId: cp.id,
           timestamp: cp.timestamp, 
           description: 'Payment Received', 
           partnerName: cp.customerName, 
@@ -132,6 +134,7 @@ export default function LedgerPage() {
     cashAdvances.forEach(ca => {
       combined.push({ 
         id: `ca-${ca.id}`, 
+        originalId: ca.id,
         timestamp: ca.timestamp, 
         description: 'Cash Advance', 
         partnerName: ca.customerName, 
@@ -147,6 +150,7 @@ export default function LedgerPage() {
     purchases.forEach(p => {
       combined.push({ 
         id: `pur-${p.id}`, 
+        originalId: p.id,
         timestamp: p.timestamp, 
         description: `${p.volume.toFixed(2)}L of ${p.fuelType}`, 
         partnerName: p.supplier, 
@@ -161,6 +165,7 @@ export default function LedgerPage() {
     supplierPayments.forEach(sp => {
       combined.push({ 
         id: `sp-${sp.id}`, 
+        originalId: sp.id,
         timestamp: sp.timestamp, 
         description: `Payment Made (${sp.paymentMethod})`, 
         partnerName: sp.supplierName, 
@@ -175,6 +180,7 @@ export default function LedgerPage() {
     expenses.forEach(e => {
       combined.push({ 
         id: `exp-${e.id}`, 
+        originalId: e.id,
         timestamp: e.timestamp, 
         description: e.description, 
         partnerName: e.category === 'Salaries' ? e.description.replace('Salary for ', '').replace(/ \(.*/, '') : 'Internal', 
@@ -188,6 +194,7 @@ export default function LedgerPage() {
     saleReturns.forEach(sr => {
       combined.push({ 
         id: `sr-${sr.id}`, 
+        originalId: sr.id,
         timestamp: sr.timestamp, 
         description: `Return: ${sr.volume.toFixed(2)}L ${sr.fuelType}`, 
         partnerName: sr.customerName, 
@@ -203,6 +210,7 @@ export default function LedgerPage() {
     purchaseReturns.forEach(pr => {
       combined.push({ 
         id: `pr-${pr.id}`, 
+        originalId: pr.id,
         timestamp: pr.timestamp, 
         description: `Return: ${pr.volume.toFixed(2)}L ${pr.fuelType}`, 
         partnerName: pr.supplier, 
@@ -218,6 +226,7 @@ export default function LedgerPage() {
     otherIncomes.forEach(oi => {
       combined.push({ 
         id: `oi-${oi.id}`, 
+        originalId: oi.id,
         timestamp: oi.timestamp, 
         description: oi.description, 
         partnerName: 'Internal', 
@@ -232,6 +241,7 @@ export default function LedgerPage() {
         if (inv.type === 'Investment') {
           combined.push({ 
             id: `inv-${inv.id}`, 
+            originalId: inv.id,
             timestamp: inv.timestamp, 
             description: 'Investment', 
             partnerName: inv.partnerName, 
@@ -245,6 +255,7 @@ export default function LedgerPage() {
         } else {
           combined.push({ 
             id: `wdr-${inv.id}`, 
+            originalId: inv.id,
             timestamp: inv.timestamp, 
             description: 'Withdrawal', 
             partnerName: inv.partnerName, 
@@ -258,10 +269,10 @@ export default function LedgerPage() {
         }
     });
 
-    // Add Machine Readings to Journal
     machineReadings.forEach(mr => {
         combined.push({
             id: `mr-${mr.id}`,
+            originalId: mr.id,
             timestamp: mr.timestamp,
             description: `Closing: ${mr.volume.toLocaleString()} Ltr`,
             partnerName: mr.machineName,
@@ -381,6 +392,25 @@ export default function LedgerPage() {
     }
   };
 
+  const getPrintLink = (e: LedgerEntry) => {
+    const [prefix, id] = e.id.split(/-(.*)/s);
+    let type = '';
+    switch(prefix) {
+        case 'tx': type = 'sale'; break;
+        case 'pur': type = 'purchase'; break;
+        case 'cp': type = 'customerpayment'; break;
+        case 'sp': type = 'supplierpayment'; break;
+        case 'exp': type = 'expense'; break;
+        case 'sr': type = 'salereturn'; break;
+        case 'oi': type = 'otherincome'; break;
+        case 'inv': type = 'investment'; break;
+        case 'wdr': type = 'withdrawal'; break;
+        case 'ca': type = 'cashadvance'; break;
+        case 'mr': type = 'meterreading'; break;
+    }
+    return type ? `/invoice/${type}/${id}` : null;
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6">
        <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
@@ -457,6 +487,7 @@ export default function LedgerPage() {
                                             {day.entries.slice().reverse().map((e, index) => {
                                               const color = e.type === 'credit_sale' ? '#3B82F6' : (colorSettings[e.type === 'cash_sale' ? 'Sale' : e.type] || '#6b7280');
                                               const transactionNo = day.entries.length - index;
+                                              const printLink = getPrintLink(e);
                                               return (
                                                 <TableRow key={e.id}>
                                                     <TableCell className="text-xs font-mono text-muted-foreground">{transactionNo}</TableCell>
@@ -482,15 +513,24 @@ export default function LedgerPage() {
                                                     <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-800')}>
                                                       {e.type === 'Meter Reading' ? '-' : e.balance.toFixed(2)}
                                                     </TableCell>
-                                                    <TableCell className="text-center space-x-1">
-                                                        <Button asChild variant="ghost" size="icon" title="Edit Transaction">
-                                                          <Link href={getEditLink(e)}>
-                                                            <Pencil className="w-4 h-4" />
-                                                          </Link>
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setEntryToDelete(e)}>
-                                                          <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                                    <TableCell className="text-center">
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Button asChild variant="ghost" size="icon" title="Edit Transaction" className="h-8 w-8">
+                                                              <Link href={getEditLink(e)}>
+                                                                <Pencil className="w-4 h-4" />
+                                                              </Link>
+                                                            </Button>
+                                                            {printLink && (
+                                                              <Button asChild variant="ghost" size="icon" title="Print Slip" className="h-8 w-8 text-primary">
+                                                                <Link href={printLink}>
+                                                                  <Printer className="w-4 h-4" />
+                                                                </Link>
+                                                              </Button>
+                                                            )}
+                                                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setEntryToDelete(e)} title="Delete">
+                                                              <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                               )

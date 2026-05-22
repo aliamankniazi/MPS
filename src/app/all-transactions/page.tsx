@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -220,9 +219,6 @@ export default function AllTransactionsPage() {
 
     let runningBal = 0;
     return unsorted.map(e => {
-        // Logic for running balance (Debit - Credit)
-        // Debit: Sale(Credit), Cash Advance, Expense, Salary, Purchase Return
-        // Credit: Sale(Cash), Customer Payment, Purchase, Supplier Payment
         const isDebit = e.type === 'Cash Advance' || e.type === 'Expense' || e.type === 'Salary' || e.type === 'Purchase Return' || (e.type === 'Sale' && e.isCreditSale);
         const isCredit = e.type === 'Customer Payment' || e.type === 'Purchase' || (e.type === 'Sale' && !e.isCreditSale);
         
@@ -421,6 +417,21 @@ export default function AllTransactionsPage() {
     }
   };
 
+  const getPrintLink = (entry: CombinedEntry) => {
+    let type = '';
+    switch(entry.type) {
+        case 'Sale': type = 'sale'; break;
+        case 'Purchase': type = 'purchase'; break;
+        case 'Customer Payment': type = 'customerpayment'; break;
+        case 'Cash Advance': type = 'cashadvance'; break;
+        case 'Meter Reading': type = 'meterreading'; break;
+        case 'Salary': type = 'salary'; break;
+        case 'Expense': type = 'expense'; break;
+        case 'Purchase Return': type = 'purchasereturn'; break;
+    }
+    return type ? `/invoice/${type}/${entry.originalId}` : null;
+  };
+
 
   return (
     <>
@@ -478,11 +489,11 @@ export default function AllTransactionsPage() {
                                         <TableBody>
                                             {dayEntries.map((entry, index) => {
                                                 const customer = getCustomerForEntry(entry);
-                                                const isPrintable = entry.type === 'Sale' || entry.type === 'Purchase' || entry.type === 'Customer Payment' || entry.type === 'Cash Advance';
                                                 const date = new Date(entry.timestamp);
                                                 const color = getEntryColor(entry);
                                                 const typeLabel = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type === 'Sale' ? 'Cash Sale' : entry.type === 'Customer Payment' ? 'Amount' : entry.type;
                                                 const serialNo = index + 1;
+                                                const printLink = getPrintLink(entry);
 
                                                 return (
                                                 <TableRow key={entry.id}>
@@ -516,33 +527,35 @@ export default function AllTransactionsPage() {
                                                     <TableCell className={cn("text-right font-mono text-xs", entry.balance && entry.balance > 0 ? 'text-destructive' : 'text-green-800')}>
                                                         {entry.type === 'Meter Reading' ? '-' : entry.balance?.toFixed(2)}
                                                     </TableCell>
-                                                    <TableCell className="text-center space-x-0.5">
-                                                        <Button asChild variant="ghost" size="icon" title="Edit">
-                                                            <Link href={getEditLink(entry)}>
-                                                                <Pencil className="w-4 h-4" />
-                                                            </Link>
-                                                        </Button>
-                                                        {isPrintable && (
-                                                        <Button asChild variant="ghost" size="icon" title="Print Invoice">
-                                                            <Link href={`/invoice/${entry.type.toLowerCase().replace(' ', '')}/${entry.originalId}`}>
-                                                            <Printer className="w-4 h-4" />
-                                                            </Link>
-                                                        </Button>
-                                                        )}
-                                                        {customer?.contact && (
-                                                            <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${customer.name} on WhatsApp`}>
-                                                                <a 
-                                                                href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
-                                                                target="_blank" 
-                                                                rel="noopener noreferrer"
-                                                                >
-                                                                <WhatsAppIcon className="w-5 h-5" />
-                                                                </a>
+                                                    <TableCell className="text-center">
+                                                        <div className="flex items-center justify-center gap-0.5">
+                                                            <Button asChild variant="ghost" size="icon" title="Edit" className="h-8 w-8">
+                                                                <Link href={getEditLink(entry)}>
+                                                                    <Pencil className="w-4 h-4" />
+                                                                </Link>
                                                             </Button>
-                                                        )}
-                                                        <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive" onClick={() => setEntryToDelete(entry)}>
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </Button>
+                                                            {printLink && (
+                                                                <Button asChild variant="ghost" size="icon" title="Print Slip" className="h-8 w-8 text-primary">
+                                                                    <Link href={printLink}>
+                                                                        <Printer className="w-4 h-4" />
+                                                                    </Link>
+                                                                </Button>
+                                                            )}
+                                                            {customer?.contact && (
+                                                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600 h-8 w-8" title={`Message on WhatsApp`}>
+                                                                    <a 
+                                                                    href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    >
+                                                                    <WhatsAppIcon className="w-4 h-4" />
+                                                                    </a>
+                                                                </Button>
+                                                            )}
+                                                            <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive h-8 w-8" onClick={() => setEntryToDelete(entry)}>
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                                 )
