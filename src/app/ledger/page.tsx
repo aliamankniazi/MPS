@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear, eachMonthOfInterval, startOfMonth, endOfMonth, getYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3 } from 'lucide-react';
+import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -109,9 +108,11 @@ export default function LedgerPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const { toast } = useToast();
+  
+  // Changed default range to current month
   const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>({
-      from: startOfYear(new Date()),
-      to: endOfYear(new Date())
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date())
   });
 
   const allEntries = useMemo(() => {
@@ -336,8 +337,6 @@ export default function LedgerPage() {
         const sales = monthEntries
             .filter(e => e.type === 'cash_sale' || e.type === 'credit_sale')
             .reduce((sum, e) => {
-                // In this ledger, sales are debited for credit and credited for cash
-                // but we want the total transaction value.
                 if (e.original && typeof e.original.totalAmount === 'number') {
                     return sum + e.original.totalAmount;
                 }
@@ -489,18 +488,18 @@ export default function LedgerPage() {
        <header className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <BookOpen /> General Journal
+            <BookOpen className="text-primary" /> General Journal
           </h1>
-          <p className="text-muted-foreground">Comprehensive record of all business transactions.</p>
+          <p className="text-muted-foreground">Comprehensive record of all business transactions for the selected period.</p>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-2">
            <div className="relative w-full md:w-48">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
+              <Input placeholder="Search journal..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
            </div>
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="Filter type" />
+                <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
@@ -508,22 +507,21 @@ export default function LedgerPage() {
               </SelectContent>
             </Select>
             <DateRangePicker date={localDateRange} onDateChange={setLocalDateRange} />
-            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
+            <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print Journal</Button>
         </div>
        </header>
 
-       {/* Monthly Activity Chart */}
-       <Card className="print:hidden">
+       <Card className="print:hidden border-l-4 border-l-primary">
           <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" /> Monthly Activity for {getYear(localDateRange?.from || new Date())}
+                <BarChart3 className="w-5 h-5 text-primary" /> Monthly Financial Pulse ({getYear(localDateRange?.from || new Date())})
               </CardTitle>
-              <CardDescription>An overview of sales, expenses, and investment activity for the current year.</CardDescription>
+              <CardDescription>Visualizing revenue, spending, and capital flow across the current year.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
                 <BarChart data={monthlyChartData}>
-                    <CartesianGrid vertical={false} />
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <XAxis
                         dataKey="month"
                         tickLine={false}
@@ -537,57 +535,78 @@ export default function LedgerPage() {
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <ChartLegend content={<ChartLegendContent />} />
-                    <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
-                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
-                    <Bar dataKey="investment" fill="var(--color-investment)" radius={4} />
-                    <Bar dataKey="withdrawal" fill="var(--color-withdrawal)" radius={4} />
+                    <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="investment" fill="var(--color-investment)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="withdrawal" fill="var(--color-withdrawal)" radius={[4, 4, 0, 0]} />
                 </BarChart>
             </ChartContainer>
           </CardContent>
        </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Daily Overview</CardTitle>
-          <CardDescription>Transactions grouped by date.</CardDescription>
+      <Card className="border-none shadow-none bg-transparent">
+        <CardHeader className="px-0">
+          <CardTitle className="text-xl">Daily Transaction Audit</CardTitle>
+          <CardDescription>Reviewing your daily journal entries in detail.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-0">
             {sortedDateKeys.length > 0 ? (
                 <Accordion 
                   key={sortedDateKeys.join(',')} 
                   type="multiple" 
-                  className="w-full space-y-4" 
+                  className="w-full space-y-6" 
                   defaultValue={sortedDateKeys}
                 >
                     {sortedDateKeys.map(key => {
                        const day = groupedEntries[key];
+                       const dateObj = new Date(key);
                         return (
-                        <AccordionItem value={key} key={key} className="border border-input rounded-lg overflow-hidden bg-background shadow-sm">
-                            <AccordionTrigger className="p-4 hover:no-underline data-[state=open]:bg-muted/50">
-                                <div className="flex justify-between w-full pr-4 items-center">
-                                    <span className="font-semibold text-primary">{format(new Date(key), 'EEEE, dd MMMM yyyy')}</span>
-                                    <div className="flex gap-4 text-sm font-mono">
-                                        <span className="text-green-800">Credit: {day.totalCredit.toLocaleString()}</span>
-                                        <span className="text-destructive">Debit: {day.totalDebit.toLocaleString()}</span>
-                                        <span className="font-bold border-l pl-4">Closing: {day.closingBalance.toLocaleString()}</span>
+                        <AccordionItem value={key} key={key} className="border border-input rounded-xl overflow-hidden bg-background shadow-md">
+                            <AccordionTrigger className="p-0 hover:no-underline hover:bg-muted/30 data-[state=open]:bg-muted/50 transition-all">
+                                <div className="flex flex-col sm:flex-row justify-between w-full items-stretch sm:items-center">
+                                    <div className="flex items-center gap-4 py-4 px-6 bg-primary/10 border-r border-r-input min-w-[280px]">
+                                        <div className="flex flex-col items-center justify-center bg-primary text-primary-foreground rounded-lg p-2 min-w-[60px]">
+                                            <span className="text-xs uppercase font-bold">{format(dateObj, 'MMM')}</span>
+                                            <span className="text-xl font-black">{format(dateObj, 'dd')}</span>
+                                        </div>
+                                        <div className="text-left">
+                                            <p className="font-black text-lg text-primary leading-tight">{format(dateObj, 'EEEE')}</p>
+                                            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">{format(dateObj, 'MMMM yyyy')}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex flex-1 flex-wrap gap-4 py-4 px-6 justify-end items-center">
+                                        <div className="flex flex-col items-end border-r pr-4">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><TrendingUp className="w-3 h-3 text-green-600"/> Total Credit</span>
+                                            <span className="text-lg font-black text-green-700 font-mono">PKR {day.totalCredit.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end border-r pr-4">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><TrendingDown className="w-3 h-3 text-destructive"/> Total Debit</span>
+                                            <span className="text-lg font-black text-destructive font-mono">PKR {day.totalDebit.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex flex-col items-end pr-4">
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Wallet className="w-3 h-3 text-primary"/> Closing Balance</span>
+                                            <span className={cn("text-lg font-black font-mono", day.closingBalance > 0 ? 'text-destructive' : 'text-green-800')}>
+                                                PKR {day.closingBalance.toLocaleString()}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </AccordionTrigger>
-                            <AccordionContent className="p-4">
-                                <div className="border rounded-md">
+                            <AccordionContent className="p-0 border-t">
+                                <div className="overflow-x-auto">
                                     <Table>
-                                        <TableHeader className="bg-muted/50">
-                                            <TableRow>
-                                                <TableHead className="w-12">No.</TableHead>
-                                                <TableHead>Time</TableHead>
-                                                <TableHead>Partner</TableHead>
-                                                <TableHead>Particulars</TableHead>
-                                                <TableHead>Notes</TableHead>
-                                                <TableHead className="text-center">Type</TableHead>
-                                                <TableHead className="text-right">Debit</TableHead>
-                                                <TableHead className="text-right">Credit</TableHead>
-                                                <TableHead className="text-right">Balance</TableHead>
-                                                <TableHead className="text-center">Actions</TableHead>
+                                        <TableHeader className="bg-muted/80">
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="w-12 text-center">#</TableHead>
+                                                <TableHead className="w-24">Time</TableHead>
+                                                <TableHead className="min-w-[150px]">Partner/Entity</TableHead>
+                                                <TableHead className="min-w-[200px]">Particulars</TableHead>
+                                                <TableHead>Remarks</TableHead>
+                                                <TableHead className="text-center w-32">Entry Type</TableHead>
+                                                <TableHead className="text-right w-32">Debit (PKR)</TableHead>
+                                                <TableHead className="text-right w-32">Credit (PKR)</TableHead>
+                                                <TableHead className="text-right w-32">Running Bal</TableHead>
+                                                <TableHead className="text-center w-24 print:hidden">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -596,45 +615,54 @@ export default function LedgerPage() {
                                               const transactionNo = day.entries.length - index;
                                               const printLink = getPrintLink(e);
                                               return (
-                                                <TableRow key={e.id}>
-                                                    <TableCell className="text-xs font-mono text-muted-foreground">{transactionNo}</TableCell>
+                                                <TableRow key={e.id} className="hover:bg-muted/30 group">
+                                                    <TableCell className="text-xs font-mono text-muted-foreground text-center">{transactionNo}</TableCell>
                                                     <TableCell className="whitespace-nowrap font-medium" style={{ color }}>
                                                       {format(new Date(e.timestamp), 'hh:mm a')}
                                                     </TableCell>
-                                                    <TableCell className="font-bold">{e.partnerName}</TableCell>
-                                                    <TableCell>{e.description}</TableCell>
-                                                    <TableCell className="text-xs italic text-muted-foreground min-w-[200px]">
+                                                    <TableCell className="font-bold text-foreground/90">{e.partnerName}</TableCell>
+                                                    <TableCell className="text-sm">{e.description}</TableCell>
+                                                    <TableCell className="text-xs italic text-muted-foreground max-w-[200px] truncate">
                                                       {e.notes || ''}
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        <Badge variant={e.type === 'Meter Reading' ? 'outline' : 'secondary'} className={cn(e.type === 'Meter Reading' && 'bg-blue-50 text-blue-700 border-blue-200')}>
-                                                            {e.type}
+                                                        <Badge 
+                                                            variant="outline" 
+                                                            className={cn(
+                                                                "text-[10px] uppercase font-bold",
+                                                                e.type === 'Meter Reading' && 'bg-blue-50 text-blue-700 border-blue-200',
+                                                                e.type === 'cash_sale' && 'bg-green-50 text-green-700 border-green-200',
+                                                                e.type === 'credit_sale' && 'bg-blue-50 text-blue-700 border-blue-200',
+                                                                e.type === 'Expense' && 'bg-red-50 text-red-700 border-red-200',
+                                                            )}
+                                                        >
+                                                            {e.type.replace('_', ' ')}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="text-right text-destructive font-mono font-bold">
-                                                      {e.debit ? e.debit.toFixed(2) : '-'}
+                                                      {e.debit > 0 ? e.debit.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                                     </TableCell>
                                                     <TableCell className="text-right text-green-800 font-mono font-bold">
-                                                      {e.credit ? e.credit.toFixed(2) : '-'}
+                                                      {e.credit > 0 ? e.credit.toLocaleString(undefined, {minimumFractionDigits: 2}) : '-'}
                                                     </TableCell>
                                                     <TableCell className={cn("text-right font-bold font-mono", e.balance > 0 ? 'text-destructive' : 'text-green-800')}>
-                                                      {e.type === 'Meter Reading' ? '-' : e.balance.toFixed(2)}
+                                                      {e.type === 'Meter Reading' ? '-' : e.balance.toLocaleString(undefined, {minimumFractionDigits: 2})}
                                                     </TableCell>
-                                                    <TableCell className="text-center">
-                                                        <div className="flex items-center justify-center gap-1">
-                                                            <Button asChild variant="ghost" size="icon" title="Edit Transaction" className="h-8 w-8">
+                                                    <TableCell className="text-center print:hidden">
+                                                        <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <Button asChild variant="ghost" size="icon" title="Edit" className="h-8 w-8 text-muted-foreground hover:text-primary">
                                                               <Link href={getEditLink(e)}>
                                                                 <Pencil className="w-4 h-4" />
                                                               </Link>
                                                             </Button>
                                                             {printLink && (
-                                                              <Button asChild variant="ghost" size="icon" title="Print Slip" className="h-8 w-8 text-primary">
+                                                              <Button asChild variant="ghost" size="icon" title="Print Slip" className="h-8 w-8 text-primary/70 hover:text-primary">
                                                                 <Link href={printLink}>
                                                                   <Printer className="w-4 h-4" />
                                                                 </Link>
                                                               </Button>
                                                             )}
-                                                            <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setEntryToDelete(e)} title="Delete">
+                                                            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive h-8 w-8" onClick={() => setEntryToDelete(e)} title="Delete">
                                                               <Trash2 className="w-4 h-4" />
                                                             </Button>
                                                         </div>
@@ -651,10 +679,15 @@ export default function LedgerPage() {
                     })}
                 </Accordion>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-4 text-muted-foreground p-12 border-2 border-dashed rounded-lg">
-                <BookOpen className="w-16 h-16 opacity-20" />
-                <h3 className="text-xl font-semibold">No Transactions Found</h3>
-                <p>Try adjusting your search or date range filters.</p>
+              <div className="flex flex-col items-center justify-center gap-4 text-muted-foreground p-24 border-2 border-dashed rounded-3xl bg-background/50">
+                <BookOpen className="w-20 h-20 opacity-10" />
+                <div className="text-center">
+                    <h3 className="text-xl font-bold">Journal is Empty</h3>
+                    <p className="max-w-xs mx-auto">No transactions were found for the selected date range. Try adjusting your filters above.</p>
+                </div>
+                <Button variant="outline" onClick={() => setLocalDateRange({ from: startOfMonth(new Date()), to: endOfMonth(new Date()) })}>
+                    Show This Month
+                </Button>
               </div>
             )}
         </CardContent>
@@ -663,20 +696,26 @@ export default function LedgerPage() {
       <AlertDialog open={!!entryToDelete} onOpenChange={(o) => { if (!o) { setEntryToDelete(null); setDeletePin(''); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="text-destructive"/> Delete Entry?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently move this record to the recycle bin: <strong>{entryToDelete?.description}</strong>.
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive"><Trash2 className="w-5 h-5"/> Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <p>You are about to delete the following record from the journal:</p>
+              <div className="p-3 bg-muted rounded-lg font-medium border text-foreground">
+                <p>{entryToDelete?.description}</p>
+                <p className="text-xs text-muted-foreground mt-1">{entryToDelete?.partnerName} • {entryToDelete && format(new Date(entryToDelete.timestamp), 'PP pp')}</p>
+              </div>
+              <p className="text-xs font-semibold text-destructive uppercase tracking-tighter">This record will be moved to the recycle bin and can be restored later.</p>
+              
               {!isPinVerified() && (
                 <div className="mt-4 space-y-2">
                   <Label className="flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-primary"/> Security PIN Required:</Label>
-                  <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="0200" maxLength={4} />
+                  <Input type="password" value={deletePin} onChange={(e) => setDeletePin(e.target.value)} placeholder="Enter 4-digit PIN" maxLength={4} className="text-center tracking-[1em] text-lg font-black" />
                 </div>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+            <AlertDialogCancel onClick={() => { setEntryToDelete(null); setDeletePin(''); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteEntry} className="bg-destructive hover:bg-destructive/90 font-bold">Delete Entry</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
