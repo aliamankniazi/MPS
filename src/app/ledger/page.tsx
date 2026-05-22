@@ -109,7 +109,6 @@ export default function LedgerPage() {
   const [selectedType, setSelectedType] = useState<string>('all');
   const { toast } = useToast();
   
-  // Changed default range to current month
   const [localDateRange, setLocalDateRange] = useState<DateRange | undefined>({
       from: startOfMonth(new Date()),
       to: endOfMonth(new Date())
@@ -512,14 +511,14 @@ export default function LedgerPage() {
        </header>
 
        <Card className="print:hidden border-l-4 border-l-primary">
-          <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" /> Monthly Financial Pulse ({getYear(localDateRange?.from || new Date())})
+          <CardHeader className="py-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <BarChart3 className="w-4 h-4 text-primary" /> Monthly Financial Pulse ({getYear(localDateRange?.from || new Date())})
               </CardTitle>
-              <CardDescription>Visualizing revenue, spending, and capital flow across the current year.</CardDescription>
+              <CardDescription className="text-xs">Visualizing revenue, spending, and capital flow across the current year.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <ChartContainer config={chartConfig} className="min-h-[250px] w-full">
+          <CardContent className="pb-4 pt-0">
+            <ChartContainer config={chartConfig} className="h-[180px] w-full">
                 <BarChart data={monthlyChartData}>
                     <CartesianGrid vertical={false} strokeDasharray="3 3" />
                     <XAxis
@@ -527,14 +526,16 @@ export default function LedgerPage() {
                         tickLine={false}
                         tickMargin={10}
                         axisLine={false}
+                        fontSize={10}
                     />
                     <YAxis 
                         tickLine={false}
                         axisLine={false}
+                        fontSize={10}
                         tickFormatter={(value) => `${value / 1000}k`}
                     />
                     <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} />
+                    <ChartLegend content={<ChartLegendContent />} className="text-[10px]" />
                     <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="investment" fill="var(--color-investment)" radius={[4, 4, 0, 0]} />
