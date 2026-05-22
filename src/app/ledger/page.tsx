@@ -1,11 +1,12 @@
+
 'use client';
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear, eachMonthOfInterval, startOfMonth, endOfMonth, getYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search } from 'lucide-react';
+import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3 } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -28,6 +29,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { useAuth } from '@/hooks/use-auth';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart";
 
 type LedgerEntry = {
   id: string;
@@ -70,6 +73,25 @@ const TRANSACTION_TYPES = [
   { value: 'Other Income', label: 'Other Income' },
   { value: 'Meter Reading', label: 'Meter Reading' },
 ];
+
+const chartConfig = {
+  sales: {
+    label: "Sales",
+    color: "hsl(var(--chart-2))", // Green
+  },
+  expenses: {
+    label: "Expenses",
+    color: "hsl(var(--chart-5))", // Red
+  },
+  investment: {
+    label: "Investment",
+    color: "hsl(var(--chart-1))", // Blue
+  },
+  withdrawal: {
+    label: "Withdrawal",
+    color: "hsl(var(--chart-4))", // Orange
+  },
+} satisfies ChartConfig;
 
 export default function LedgerPage() {
   const { 
@@ -293,6 +315,57 @@ export default function LedgerPage() {
     });
   }, [isLoaded, transactions, purchases, expenses, purchaseReturns, saleReturns, otherIncomes, customerPayments, supplierPayments, investments, cashAdvances, machineReadings]);
 
+  const monthlyChartData = useMemo(() => {
+    if (!isLoaded) return [];
+
+    const currentYear = getYear(localDateRange?.from || new Date());
+    const yearStart = startOfYear(new Date(currentYear, 0, 1));
+    const yearEnd = endOfYear(new Date(currentYear, 0, 1));
+    
+    const monthsInYear = eachMonthOfInterval({ start: yearStart, end: yearEnd });
+
+    return monthsInYear.map(month => {
+        const mStart = startOfMonth(month);
+        const mEnd = endOfMonth(month);
+
+        const monthEntries = allEntries.filter(e => {
+            const d = new Date(e.timestamp);
+            return isValid(d) && d >= mStart && d <= mEnd;
+        });
+
+        const sales = monthEntries
+            .filter(e => e.type === 'cash_sale' || e.type === 'credit_sale')
+            .reduce((sum, e) => {
+                // In this ledger, sales are debited for credit and credited for cash
+                // but we want the total transaction value.
+                if (e.original && typeof e.original.totalAmount === 'number') {
+                    return sum + e.original.totalAmount;
+                }
+                return sum + (e.debit || e.credit || 0);
+            }, 0);
+
+        const monthlyExpenses = monthEntries
+            .filter(e => e.type === 'Expense' || e.type === 'Salary')
+            .reduce((sum, e) => sum + e.debit, 0);
+
+        const monthlyInvestments = monthEntries
+            .filter(e => e.type === 'Investment')
+            .reduce((sum, e) => sum + e.credit, 0);
+
+        const monthlyWithdrawals = monthEntries
+            .filter(e => e.type === 'Withdrawal')
+            .reduce((sum, e) => sum + e.debit, 0);
+
+        return {
+            month: format(month, 'MMM'),
+            sales,
+            expenses: monthlyExpenses,
+            investment: monthlyInvestments,
+            withdrawal: monthlyWithdrawals,
+        };
+    });
+  }, [isLoaded, allEntries, localDateRange]);
+
   const filteredEntries = useMemo(() => {
     if (!localDateRange?.from) return [];
     const from = startOfDay(localDateRange.from);
@@ -438,6 +511,40 @@ export default function LedgerPage() {
             <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4"/> Print</Button>
         </div>
        </header>
+
+       {/* Monthly Activity Chart */}
+       <Card className="print:hidden">
+          <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" /> Monthly Activity for {getYear(localDateRange?.from || new Date())}
+              </CardTitle>
+              <CardDescription>An overview of sales, expenses, and investment activity for the current year.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+                <BarChart data={monthlyChartData}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        tickMargin={10}
+                        axisLine={false}
+                    />
+                    <YAxis 
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(value) => `${value / 1000}k`}
+                    />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    <Bar dataKey="sales" fill="var(--color-sales)" radius={4} />
+                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} />
+                    <Bar dataKey="investment" fill="var(--color-investment)" radius={4} />
+                    <Bar dataKey="withdrawal" fill="var(--color-withdrawal)" radius={4} />
+                </BarChart>
+            </ChartContainer>
+          </CardContent>
+       </Card>
 
       <Card>
         <CardHeader>
