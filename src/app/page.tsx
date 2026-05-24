@@ -1,14 +1,13 @@
-
 'use client';
 
 import { useMemo, useState, useEffect } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, subDays, isValid, startOfDay, endOfDay, differenceInDays, startOfMonth, endOfMonth, startOfToday, endOfToday } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -213,10 +212,10 @@ export default function DashboardPage() {
   }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, customerPayments, cashAdvances, dateRange]);
   
   const summaryFilteredData = useMemo(() => {
-    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [] };
+    if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], stockAdjustments: [], customerPayments: [], cashAdvances: [] };
 
     if (!summaryDateRange || !summaryDateRange.from) {
-      return { transactions, purchases, expenses, otherIncomes, stockAdjustments };
+      return { transactions, purchases, expenses, otherIncomes, stockAdjustments, customerPayments, cashAdvances };
     }
 
     const from = startOfDay(summaryDateRange.from);
@@ -233,14 +232,24 @@ export default function DashboardPage() {
       expenses: filterByDate(expenses),
       otherIncomes: filterByDate(otherIncomes),
       stockAdjustments: filterByDate(stockAdjustments),
+      customerPayments: filterByDate(customerPayments),
+      cashAdvances: filterByDate(cashAdvances),
     };
-  }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, summaryDateRange]);
+  }, [isLoaded, transactions, purchases, expenses, otherIncomes, stockAdjustments, customerPayments, cashAdvances, summaryDateRange]);
 
 
   const financialSummary = useMemo(() => {
     if (!isLoaded) return null;
 
-    const { transactions: filteredTransactions, purchases: filteredPurchases, expenses: filteredExpenses, otherIncomes: filteredOtherIncomes, stockAdjustments: filteredStockAdjustments } = summaryFilteredData;
+    const { 
+        transactions: filteredTransactions, 
+        purchases: filteredPurchases, 
+        expenses: filteredExpenses, 
+        otherIncomes: filteredOtherIncomes, 
+        stockAdjustments: filteredStockAdjustments,
+        customerPayments: filteredCustomerPayments,
+        cashAdvances: filteredCashAdvances
+    } = summaryFilteredData;
     
     const costOfGoodsSold = filteredTransactions.reduce((totalCost, sale) => {
         const productInfo = products.find(p => p.name === (sale.product || sale.fuelType));
@@ -281,6 +290,15 @@ export default function DashboardPage() {
         .reduce((sum, tx) => sum + (tx.volume || 0), 0);
 
     const totalRevenue = filteredTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
+    const recoveryAmount = filteredCustomerPayments
+        .filter(p => p.paymentMethod !== 'Salary')
+        .reduce((sum, p) => sum + p.amount, 0);
+    
+    const cashAdvanceAmount = filteredCashAdvances.reduce((sum, ca) => sum + ca.amount, 0);
+    const creditSaleAmount = filteredTransactions
+        .filter(tx => tx.paymentMethod === 'Credit')
+        .reduce((sum, tx) => sum + tx.totalAmount, 0);
+
     const grossProfit = totalRevenue - costOfGoodsSold;
     const totalExpenses = filteredExpenses.reduce((sum, ex) => sum + ex.amount, 0);
     const totalOtherIncome = filteredOtherIncomes.reduce((sum, oi) => sum + oi.amount, 0);
@@ -327,6 +345,9 @@ export default function DashboardPage() {
       netStockAdjustment,
       costOfGoodsSold,
       totalSoldVolume,
+      recoveryAmount,
+      cashAdvanceAmount,
+      creditSaleAmount,
     };
   }, [isLoaded, summaryFilteredData, products, purchases]);
   
@@ -552,6 +573,49 @@ export default function DashboardPage() {
                     <p className="text-sm font-medium text-muted-foreground">For {financialSummary?.totalSoldVolume.toLocaleString(undefined, {maximumFractionDigits: 0}) || '0'} units Sold</p>
                   </CardContent>
                 </Card>
+                
+                <Card className="border-l-4 border-l-[hsl(var(--chart-2))]">
+                    <CardHeader className="py-3">
+                        <CardTitle className="flex items-center gap-2 text-base text-[hsl(var(--chart-2))]">
+                            <HandCoins className="w-4 h-4" /> Sales & Recovery
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex justify-between items-end">
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sale Amount</p>
+                                <p className="text-lg font-black text-green-700 font-mono">PKR {financialSummary?.totalRevenue.toLocaleString() || '0'}</p>
+                            </div>
+                            <div className="space-y-1 text-right">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Recovery</p>
+                                <p className="text-lg font-black text-blue-600 font-mono">PKR {financialSummary?.recoveryAmount.toLocaleString() || '0'}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="border-l-4 border-l-destructive">
+                    <CardHeader className="py-3">
+                        <CardTitle className="flex items-center gap-2 text-base text-destructive">
+                            <Receipt className="w-4 h-4" /> Expenses & Receivables
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Expenses</p>
+                            <p className="text-xs font-bold text-destructive font-mono">{financialSummary?.totalExpenses.toLocaleString() || '0'}</p>
+                        </div>
+                        <div className="space-y-1 text-center">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cash Adv.</p>
+                            <p className="text-xs font-bold text-destructive font-mono">{financialSummary?.cashAdvanceAmount.toLocaleString() || '0'}</p>
+                        </div>
+                        <div className="space-y-1 text-right">
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Credit Sale</p>
+                            <p className="text-xs font-bold text-blue-600 font-mono">{financialSummary?.creditSaleAmount.toLocaleString() || '0'}</p>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-primary">Net Profit</CardTitle>
