@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear, eachMonthOfInterval, startOfMonth, endOfMonth, getYear } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
+import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3, TrendingUp, TrendingDown, Wallet, HandCoins, Receipt, CreditCard } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -395,6 +395,20 @@ export default function LedgerPage() {
     return ent;
   }, [allEntries, searchTerm, localDateRange, selectedType]);
 
+  const summaryStats = useMemo(() => {
+    return filteredEntries.reduce((acc, e) => {
+      if (e.type === 'cash_sale') acc.saleAmount += e.credit;
+      if (e.type === 'credit_sale') {
+        acc.saleAmount += e.debit;
+        acc.creditSale += e.debit;
+      }
+      if (e.type === 'Customer Payment') acc.recoveryAmount += e.credit;
+      if (e.type === 'Expense' || e.type === 'Salary') acc.expenses += e.debit;
+      if (e.type === 'Cash Advance') acc.cashAdvance += e.debit;
+      return acc;
+    }, { saleAmount: 0, recoveryAmount: 0, expenses: 0, cashAdvance: 0, creditSale: 0 });
+  }, [filteredEntries]);
+
   const groupedEntries: GroupedEntries = useMemo(() => {
     if (!localDateRange?.from) return {};
     const from = startOfDay(localDateRange.from);
@@ -519,41 +533,70 @@ export default function LedgerPage() {
         </div>
        </header>
 
-       <Card className="print:hidden border-l-4 border-l-primary">
-          <CardHeader className="py-3">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <BarChart3 className="w-4 h-4 text-primary" /> Monthly Financial Pulse ({getYear(localDateRange?.from || new Date())})
-              </CardTitle>
-              <CardDescription className="text-xs">Visualizing revenue, purchases, spending, and capital flow across the current year.</CardDescription>
-          </CardHeader>
-          <CardContent className="pb-4 pt-0">
-            <ChartContainer config={chartConfig} className="h-[180px] w-full">
-                <BarChart data={monthlyChartData}>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                    <XAxis
-                        dataKey="month"
-                        tickLine={false}
-                        tickMargin={10}
-                        axisLine={false}
-                        fontSize={10}
-                    />
-                    <YAxis 
-                        tickLine={false}
-                        axisLine={false}
-                        fontSize={10}
-                        tickFormatter={(value) => `${value / 1000}k`}
-                    />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <ChartLegend content={<ChartLegendContent />} className="text-[10px]" />
-                    <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="purchases" fill="var(--color-purchases)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="investment" fill="var(--color-investment)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="withdrawal" fill="var(--color-withdrawal)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-            </ChartContainer>
-          </CardContent>
-       </Card>
+       <div className="grid gap-6 md:grid-cols-3">
+          <Card className="print:hidden border-l-4 border-l-primary md:col-span-1">
+              <CardHeader className="py-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <BarChart3 className="w-4 h-4 text-primary" /> Monthly Financial Pulse
+                  </CardTitle>
+              </CardHeader>
+              <CardContent className="pb-4 pt-0">
+                <ChartContainer config={chartConfig} className="h-[140px] w-full">
+                    <BarChart data={monthlyChartData}>
+                        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                        <XAxis dataKey="month" tickLine={false} tickMargin={5} axisLine={false} fontSize={9} />
+                        <YAxis tickLine={false} axisLine={false} fontSize={9} tickFormatter={(value) => `${value / 1000}k`} />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Bar dataKey="sales" fill="var(--color-sales)" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="purchases" fill="var(--color-purchases)" radius={[2, 2, 0, 0]} />
+                        <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[2, 2, 0, 0]} />
+                    </BarChart>
+                </ChartContainer>
+              </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-green-600">
+              <CardHeader className="py-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-green-600">
+                    <HandCoins className="w-4 h-4" /> Sales & Recovery Summary
+                  </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                  <div className="flex justify-between items-end">
+                      <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Sale Amount</p>
+                          <p className="text-xl font-black text-green-700 font-mono">PKR {summaryStats.saleAmount.toLocaleString()}</p>
+                      </div>
+                      <div className="space-y-1 text-right">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Recovery</p>
+                          <p className="text-xl font-black text-blue-600 font-mono">PKR {summaryStats.recoveryAmount.toLocaleString()}</p>
+                      </div>
+                  </div>
+              </CardContent>
+          </Card>
+
+          <Card className="border-l-4 border-l-destructive">
+              <CardHeader className="py-3">
+                  <CardTitle className="flex items-center gap-2 text-base text-destructive">
+                    <Receipt className="w-4 h-4" /> Expenses & Receivables
+                  </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Expenses</p>
+                      <p className="text-sm font-bold text-destructive font-mono">{summaryStats.expenses.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-1 text-center">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Cash Adv.</p>
+                      <p className="text-sm font-bold text-destructive font-mono">{summaryStats.cashAdvance.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Credit Sale</p>
+                      <p className="text-sm font-bold text-blue-600 font-mono">{summaryStats.creditSale.toLocaleString()}</p>
+                  </div>
+              </CardContent>
+          </Card>
+       </div>
 
       <Card className="border-none shadow-none bg-transparent">
         <CardHeader className="px-0">
