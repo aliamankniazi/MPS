@@ -78,6 +78,10 @@ const chartConfig = {
     label: "Sales",
     color: "hsl(var(--chart-2))", // Green
   },
+  purchases: {
+    label: "Purchases",
+    color: "hsl(var(--chart-3))", // Yellow/Amber
+  },
   expenses: {
     label: "Expenses",
     color: "hsl(var(--chart-5))", // Red
@@ -342,6 +346,10 @@ export default function LedgerPage() {
                 return sum + (e.debit || e.credit || 0);
             }, 0);
 
+        const monthlyPurchases = monthEntries
+            .filter(e => e.type === 'Purchase')
+            .reduce((sum, e) => sum + e.credit, 0);
+
         const monthlyExpenses = monthEntries
             .filter(e => e.type === 'Expense' || e.type === 'Salary')
             .reduce((sum, e) => sum + e.debit, 0);
@@ -357,6 +365,7 @@ export default function LedgerPage() {
         return {
             month: format(month, 'MMM'),
             sales,
+            purchases: monthlyPurchases,
             expenses: monthlyExpenses,
             investment: monthlyInvestments,
             withdrawal: monthlyWithdrawals,
@@ -515,7 +524,7 @@ export default function LedgerPage() {
               <CardTitle className="flex items-center gap-2 text-base">
                 <BarChart3 className="w-4 h-4 text-primary" /> Monthly Financial Pulse ({getYear(localDateRange?.from || new Date())})
               </CardTitle>
-              <CardDescription className="text-xs">Visualizing revenue, spending, and capital flow across the current year.</CardDescription>
+              <CardDescription className="text-xs">Visualizing revenue, purchases, spending, and capital flow across the current year.</CardDescription>
           </CardHeader>
           <CardContent className="pb-4 pt-0">
             <ChartContainer config={chartConfig} className="h-[180px] w-full">
@@ -537,6 +546,7 @@ export default function LedgerPage() {
                     <ChartTooltip content={<ChartTooltipContent />} />
                     <ChartLegend content={<ChartLegendContent />} className="text-[10px]" />
                     <Bar dataKey="sales" fill="var(--color-sales)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="purchases" fill="var(--color-purchases)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="investment" fill="var(--color-investment)" radius={[4, 4, 0, 0]} />
                     <Bar dataKey="withdrawal" fill="var(--color-withdrawal)" radius={[4, 4, 0, 0]} />
