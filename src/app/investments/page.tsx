@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm, type SubmitHandler, Controller } from 'react-hook-form';
@@ -10,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, PlusCircle, Calendar as CalendarIcon, Edit, Trash2, AlertTriangle, Banknote, TrendingUp, TrendingDown, Clock, Upload, Search, Mic, ShieldCheck } from 'lucide-react';
+import { PiggyBank, PlusCircle, Calendar as CalendarIcon, Edit, Trash2, AlertTriangle, Banknote, TrendingUp, TrendingDown, Clock, Upload, Search, Mic, ShieldCheck, Phone, Percent } from 'lucide-react';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,6 +20,17 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import type { BusinessPartner } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 const investmentSchema = z.object({
   partnerId: z.string().min(1, 'Partner name is required'),
@@ -55,7 +65,7 @@ export default function InvestmentsPage() {
   } = useDatabase();
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
-  const [transactionPartner, setTransactionPartner] = useState<BusinessPartner | null>(null);
+  const [transactionPartner, setTransactionPartner] = setTransactionPartner = useState<BusinessPartner | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -81,7 +91,7 @@ export default function InvestmentsPage() {
     // SpeechRecognition is a browser-only API
     if (typeof window === 'undefined') return;
 
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
     const recognition = new SpeechRecognition();
