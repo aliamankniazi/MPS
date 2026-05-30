@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,6 +43,14 @@ interface ReportCardProps {
 }
 
 const reportList: ReportCardProps[] = [
+  {
+    title: 'Real-Time Profit Margin Report',
+    description: 'Detailed profit/loss analysis with margin percentages for every transaction.',
+    href: '/profit-margin-report',
+    icon: TrendingUp,
+    permission: 'view_summary',
+    isFrequentlyUsed: true,
+  },
   {
     title: 'Daily Business Summary',
     description: 'A day-by-day summary of sales, purchases, expenses, and profit.',
