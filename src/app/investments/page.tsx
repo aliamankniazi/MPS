@@ -65,7 +65,7 @@ export default function InvestmentsPage() {
   } = useDatabase();
   const [partnerToEdit, setPartnerToEdit] = useState<BusinessPartner | null>(null);
   const [partnerToDelete, setPartnerToDelete] = useState<BusinessPartner | null>(null);
-  const [transactionPartner, setTransactionPartner] = setTransactionPartner = useState<BusinessPartner | null>(null);
+  const [transactionPartner, setTransactionPartner] = useState<BusinessPartner | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [language, setLanguage] = useState('en-US');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -99,14 +99,14 @@ export default function InvestmentsPage() {
     recognition.interimResults = false;
     recognition.lang = language;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValuesInvestment('notes') || '';
       setValueInvestment('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
       toast({
           variant: 'destructive',
