@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { format, isValid, startOfDay, endOfDay } from 'date-fns';
-import { TrendingUp, Printer, Download, Search, Filter, ShoppingCart, DollarSign, Percent } from 'lucide-react';
+import { TrendingUp, Printer, Download, Search, Filter, ShoppingCart, DollarSign, Percent, Fuel, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,7 @@ type ReportEntry = {
   id: string;
   date: string;
   itemOrParty: string;
+  productName: string;
   type: 'Sale' | 'Purchase';
   purchaseAmount: number;
   saleAmount: number;
@@ -50,6 +51,7 @@ export default function ProfitMarginReportPage() {
           id: p.id,
           date: p.timestamp,
           itemOrParty: `${p.supplier} (${p.fuelType})`,
+          productName: p.fuelType,
           type: 'Purchase',
           purchaseAmount: p.totalCost,
           saleAmount: 0,
@@ -66,11 +68,13 @@ export default function ProfitMarginReportPage() {
         const purchaseAmount = tx.costPrice || 0;
         const profit = saleAmount - purchaseAmount;
         const margin = saleAmount > 0 ? (profit / saleAmount) * 100 : 0;
+        const product = tx.product || tx.fuelType || 'Unknown';
 
         entries.push({
           id: tx.id,
           date: tx.timestamp,
-          itemOrParty: `${tx.customerName || 'Walk-in'} (${tx.product || tx.fuelType})`,
+          itemOrParty: `${tx.customerName || 'Walk-in'} (${product})`,
+          productName: product,
           type: 'Sale',
           purchaseAmount: purchaseAmount,
           saleAmount: saleAmount,
@@ -96,6 +100,25 @@ export default function ProfitMarginReportPage() {
 
     return result;
   }, [reportData, filterType, searchTerm]);
+
+  const productSummaries = useMemo(() => {
+    const summaryMap: Record<string, { sales: number; purchase: number; profit: number }> = {};
+    
+    filteredEntries.forEach(e => {
+        const prod = e.productName || 'General';
+        if (!summaryMap[prod]) summaryMap[prod] = { sales: 0, purchase: 0, profit: 0 };
+        
+        summaryMap[prod].sales += e.saleAmount;
+        summaryMap[prod].purchase += e.purchaseAmount;
+        summaryMap[prod].profit += e.profit;
+    });
+    
+    return Object.entries(summaryMap).map(([name, data]) => ({
+        name,
+        ...data,
+        margin: data.sales > 0 ? (data.profit / data.sales) * 100 : 0
+    })).sort((a, b) => b.profit - a.profit);
+  }, [filteredEntries]);
 
   const totals = useMemo(() => {
     const t = filteredEntries.reduce((acc, curr) => {
@@ -160,6 +183,42 @@ export default function ProfitMarginReportPage() {
           <CardContent><p className={cn("text-2xl font-bold", totals.margin >= 0 ? "text-primary" : "text-destructive")}>{totals.margin.toFixed(2)}%</p></CardContent>
         </Card>
       </div>
+
+      {productSummaries.length > 0 && (
+          <div className="space-y-4">
+              <h3 className="text-lg font-bold flex items-center gap-2 px-1">
+                  <TrendingUp className="w-5 h-5 text-primary" /> Product Wise Performance
+              </h3>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+                  {productSummaries.map((ps) => (
+                      <Card key={ps.name} className="border-l-4 border-l-primary shadow-sm hover:shadow-md transition-shadow">
+                          <CardHeader className="py-3 pb-1">
+                              <CardTitle className="text-sm font-bold flex items-center gap-2 truncate">
+                                  {ps.name.toLowerCase().includes('oil') ? <Package className="w-3.5 h-3.5" /> : <Fuel className="w-3.5 h-3.5" />}
+                                  {ps.name}
+                              </CardTitle>
+                          </CardHeader>
+                          <CardContent className="pb-3">
+                              <div className="space-y-1">
+                                  <div className="flex justify-between items-baseline">
+                                      <span className="text-[10px] text-muted-foreground uppercase font-bold">Net Profit</span>
+                                      <span className={cn("text-sm font-black font-mono", ps.profit >= 0 ? "text-green-600" : "text-destructive")}>
+                                          {ps.profit.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                      </span>
+                                  </div>
+                                  <div className="flex justify-between items-baseline">
+                                      <span className="text-[10px] text-muted-foreground uppercase font-bold">Margin</span>
+                                      <span className={cn("text-sm font-black font-mono", ps.margin >= 0 ? "text-primary" : "text-destructive")}>
+                                          {ps.margin.toFixed(2)}%
+                                      </span>
+                                  </div>
+                              </div>
+                          </CardContent>
+                      </Card>
+                  ))}
+              </div>
+          </div>
+      )}
 
       <Card>
         <CardHeader>
