@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search, UserX } from 'lucide-react';
+import { Users, UserPlus, List, BookText, Pencil, Trash2, AlertTriangle, Search, UserX, Briefcase, Calendar as CalendarIcon } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import Barcode from 'react-barcode';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { Customer } from '@/lib/types';
+import type { Customer, Employee } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
@@ -40,6 +40,16 @@ const customerSchema = z.object({
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
+const employeeAddSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  mobileNumber: z.string().min(1, 'Contact is required'),
+  position: z.string().min(1, 'Position is required'),
+  salary: z.coerce.number().min(0, 'Salary must be positive'),
+  hireDate: z.string().min(1, 'Hire date is required'),
+});
+
+type EmployeeAddFormValues = z.infer<typeof employeeAddSchema>;
+
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
       aria-hidden="true"
@@ -59,17 +69,42 @@ const contactDisplay = (contact: any): string => {
 };
 
 export default function CustomersPage() {
-  const { customers, businessPartners, addCustomer, updateCustomer, deleteCustomer, updateBusinessPartner, deleteBusinessPartner, transactions, customerPayments, cashAdvances } = useDatabase();
+  const { 
+    customers, 
+    businessPartners, 
+    addCustomer, 
+    updateCustomer, 
+    deleteCustomer, 
+    updateBusinessPartner, 
+    deleteBusinessPartner, 
+    transactions, 
+    customerPayments, 
+    cashAdvances,
+    addEmployee
+  } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
   
   const [customerToEdit, setCustomerToEdit] = useState<Customer | null>(null);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
+  const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pin, setPin] = useState('');
   
   const { register, handleSubmit, reset, formState: { errors } } = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
+  });
+
+  const { 
+    register: registerEmployee, 
+    handleSubmit: handleSubmitEmployee, 
+    reset: resetEmployee, 
+    formState: { errors: employeeErrors } 
+  } = useForm<EmployeeAddFormValues>({
+    resolver: zodResolver(employeeAddSchema),
+    defaultValues: {
+        hireDate: new Date().toISOString().split('T')[0],
+    }
   });
 
   const { register: registerEdit, handleSubmit: handleSubmitEdit, reset: resetEdit, setValue: setEditValue, watch: watchEdit, formState: { errors: editErrors } } = useForm<CustomerFormValues>({
@@ -195,6 +230,37 @@ export default function CustomersPage() {
     });
     reset();
   };
+
+  const onEmployeeSubmit: SubmitHandler<EmployeeAddFormValues> = async (data) => {
+    // 1. Add to Employees collection
+    const employeeData = {
+        name: data.name,
+        mobileNumber: data.mobileNumber,
+        position: data.position,
+        salary: data.salary,
+        salaryHistory: [{ amount: data.salary, effectiveDate: data.hireDate }],
+        hireDate: data.hireDate,
+        timestamp: new Date().toISOString(),
+    };
+    await addEmployee(employeeData);
+
+    // 2. Add to Customers collection with area 'Employee'
+    await addCustomer({
+        name: data.name,
+        contact: data.mobileNumber,
+        area: 'Employee',
+        isPartner: false,
+        openingBalance: 0,
+        timestamp: new Date().toISOString(),
+    });
+
+    toast({
+        title: 'Employee Added',
+        description: `${data.name} has been added as an employee and a customer profile was created.`,
+    });
+    setIsEmployeeDialogOpen(false);
+    resetEmployee();
+  };
   
   const onEditSubmit: SubmitHandler<CustomerFormValues> = (data) => {
     if (!customerToEdit) return;
@@ -295,10 +361,15 @@ export default function CustomersPage() {
       <div className="lg:col-span-1">
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <UserPlus /> New Customer
-            </CardTitle>
-            <CardDescription>Add a new customer to your records.</CardDescription>
+            <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                    <UserPlus /> New Customer
+                </CardTitle>
+                <Button variant="outline" size="sm" onClick={() => setIsEmployeeDialogOpen(true)}>
+                    <Briefcase className="mr-2 h-4 w-4" /> Add Employee
+                </Button>
+            </div>
+            <CardDescription>Add a new customer or employee to your records.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit(onAddSubmit)} className="space-y-4">
@@ -477,12 +548,10 @@ export default function CustomersPage() {
                     <div className="space-y-2">
                         <Label htmlFor="edit-vehicleNumber">Vehicle Number (comma/new-line separated)</Label>
                         <Textarea id="edit-vehicleNumber" {...registerEdit('vehicleNumber')} />
-                        {editErrors.vehicleNumber && <p className="text-sm text-destructive">{editErrors.vehicleNumber.message}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="edit-area">Area</Label>
                         <Input id="edit-area" {...registerEdit('area')} />
-                        {editErrors.area && <p className="text-sm text-destructive">{editErrors.area.message}</p>}
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="edit-openingBalance">Opening Balance (PKR)</Label>
@@ -512,6 +581,50 @@ export default function CustomersPage() {
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setCustomerToEdit(null)}>Cancel</Button>
                     <Button type="submit">Save Changes</Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+                <DialogTitle className="flex items-center gap-2"><Briefcase className="w-5 h-5 text-primary"/> Add New Employee</DialogTitle>
+                <DialogDescription>Create an employee record and a matching customer profile for their ledger.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSubmitEmployee(onEmployeeSubmit)}>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="emp-name">Employee Name</Label>
+                        <Input id="emp-name" {...registerEmployee('name')} placeholder="Full Name" />
+                        {employeeErrors.name && <p className="text-sm text-destructive">{employeeErrors.name.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="emp-mobile">Mobile Number</Label>
+                        <Input id="emp-mobile" {...registerEmployee('mobileNumber')} placeholder="e.g., 03001234567" />
+                        {employeeErrors.mobileNumber && <p className="text-sm text-destructive">{employeeErrors.mobileNumber.message}</p>}
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="emp-position">Position / Role</Label>
+                        <Input id="emp-position" {...registerEmployee('position')} placeholder="e.g., Attendant" />
+                        {employeeErrors.position && <p className="text-sm text-destructive">{employeeErrors.position.message}</p>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-salary">Initial Salary (PKR)</Label>
+                            <Input id="emp-salary" type="number" {...registerEmployee('salary')} placeholder="15000" />
+                            {employeeErrors.salary && <p className="text-sm text-destructive">{employeeErrors.salary.message}</p>}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="emp-hire-date">Hire Date</Label>
+                            <Input id="emp-hire-date" type="date" {...registerEmployee('hireDate')} />
+                            {employeeErrors.hireDate && <p className="text-sm text-destructive">{employeeErrors.hireDate.message}</p>}
+                        </div>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setIsEmployeeDialogOpen(false)}>Cancel</Button>
+                    <Button type="submit">Create Employee</Button>
                 </DialogFooter>
             </form>
         </DialogContent>
