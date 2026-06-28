@@ -140,21 +140,19 @@ export default function LedgerPage() {
     });
 
     customerPayments.forEach(cp => { 
-      if (cp.paymentMethod !== 'Salary') {
         combined.push({ 
           id: `cp-${cp.id}`, 
           originalId: cp.id,
           timestamp: cp.timestamp, 
-          description: 'Payment Received', 
+          description: cp.paymentMethod === 'Salary' ? 'Salary Payment' : 'Payment Received', 
           partnerName: cp.customerName, 
           entityId: cp.customerId, 
-          type: 'Customer Payment', 
+          type: cp.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment', 
           debit: 0, 
           credit: cp.amount, 
           original: cp, 
           notes: cp.notes 
         }); 
-      }
     });
 
     cashAdvances.forEach(ca => {
@@ -402,7 +400,7 @@ export default function LedgerPage() {
         acc.saleAmount += e.debit;
         acc.creditSale += e.debit;
       }
-      if (e.type === 'Customer Payment') acc.recoveryAmount += e.credit;
+      if (e.type === 'Customer Payment' || e.type === 'Salary') acc.recoveryAmount += e.credit;
       if (e.type === 'Expense' || e.type === 'Salary') acc.expenses += e.debit;
       if (e.type === 'Cash Advance') acc.cashAdvance += e.debit;
       return acc;

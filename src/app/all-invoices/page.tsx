@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState, useEffect, useRef } from 'react';
@@ -23,7 +22,7 @@ type CombinedInvoice = {
   id: string;
   originalId: string;
   timestamp: string;
-  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance';
+  type: 'Sale' | 'Purchase' | 'Customer Payment' | 'Cash Advance' | 'Salary';
   partner: string;
   details: string;
   amount: number;
@@ -78,7 +77,7 @@ export default function AllInvoicesPage() {
 
     const filteredTransactions = filterByDate(transactions);
     const filteredPurchases = filterByDate(purchases);
-    const filteredPayments = filterByDate(customerPayments).filter(p => p.paymentMethod !== 'Salary');
+    const filteredPayments = filterByDate(customerPayments);
     const filteredAdvances = filterByDate(cashAdvances);
 
     const getProfitForSale = (sale: Transaction, allPurchases: Purchase[]): number => {
@@ -141,7 +140,7 @@ export default function AllInvoicesPage() {
       id: `pay-${p.id}`,
       originalId: p.id,
       timestamp: p.timestamp,
-      type: 'Customer Payment',
+      type: p.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
       partner: p.customerName,
       details: p.notes || `${p.paymentMethod} Payment Receipt`,
       amount: p.amount,
@@ -201,7 +200,7 @@ export default function AllInvoicesPage() {
             acc[monthKey].totalProfit += invoice.profit || 0;
         }
         if(invoice.type === 'Purchase') acc[monthKey].totalPurchases += invoice.amount;
-        if(invoice.type === 'Customer Payment') acc[monthKey].totalPayments += invoice.amount;
+        if(invoice.type === 'Customer Payment' || invoice.type === 'Salary') acc[monthKey].totalPayments += invoice.amount;
         if(invoice.type === 'Cash Advance') acc[monthKey].totalAdvances += invoice.amount;
 
         return acc;
@@ -229,7 +228,7 @@ export default function AllInvoicesPage() {
   const getAmountClass = (invoice: CombinedInvoice) => {
     if (invoice.type === 'Purchase') return 'text-green-600';
     if (invoice.type === 'Cash Advance') return 'text-destructive';
-    if (invoice.type === 'Customer Payment') return 'text-green-800';
+    if (invoice.type === 'Customer Payment' || invoice.type === 'Salary') return 'text-green-800';
     if (invoice.isCreditSale) return 'text-blue-600';
     return invoice.type === 'Sale' ? 'text-green-600' : 'text-destructive';
   };
@@ -259,6 +258,7 @@ export default function AllInvoicesPage() {
                         <SelectItem value="Credit Sale">Credit Sale</SelectItem>
                         <SelectItem value="Purchase">Purchase</SelectItem>
                         <SelectItem value="Customer Payment">Customer Payment</SelectItem>
+                        <SelectItem value="Salary">Salary Payment</SelectItem>
                         <SelectItem value="Cash Advance">Cash Advance</SelectItem>
                     </SelectContent>
                 </Select>
@@ -344,7 +344,7 @@ export default function AllInvoicesPage() {
                                             <Link href={
                                                 invoice.type === 'Purchase' ? '/purchases?edit=' + invoice.originalId : 
                                                 invoice.type === 'Sale' ? '/sales?edit=' + invoice.originalId :
-                                                invoice.type === 'Customer Payment' ? '/customer-payments?edit=' + invoice.originalId :
+                                                (invoice.type === 'Customer Payment' || invoice.type === 'Salary') ? '/customer-payments?edit=' + invoice.originalId :
                                                 '/cash-advances?edit=' + invoice.originalId
                                             }>
                                                 <Pencil className="w-4 h-4" />

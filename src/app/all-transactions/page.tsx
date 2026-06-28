@@ -137,12 +137,11 @@ export default function AllTransactionsPage() {
     });
 
     const payments: CombinedEntry[] = customerPayments
-        .filter(p => p.paymentMethod !== 'Salary')
         .map(p => ({
         id: `payment-${p.id}`,
         originalId: p.id,
         timestamp: p.timestamp,
-        type: 'Customer Payment',
+        type: p.paymentMethod === 'Salary' ? 'Salary' : 'Customer Payment',
         partner: p.customerName,
         details: p.notes || `${p.paymentMethod} Payment`,
         amount: p.amount,
@@ -337,6 +336,7 @@ export default function AllTransactionsPage() {
     if (entry.type === 'Sale' && entry.isCreditSale) return '#3B82F6';
     if (entry.type === 'Customer Payment') return '#166534';
     if (entry.type === 'Meter Reading') return '#0284c7';
+    if (entry.type === 'Salary') return '#EC4899';
     const type = entry.type === 'Sale' && entry.isCreditSale ? 'Credit Sale' : entry.type;
     return colorSettings[type] || '#6b7280';
   };
@@ -350,7 +350,7 @@ export default function AllTransactionsPage() {
       if (entry.type === 'Sale' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
           return customers.find(c => c.id === entry.original.customerId);
       }
-       if (entry.type === 'Customer Payment' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
+       if ((entry.type === 'Customer Payment' || entry.type === 'Salary') && entry.original && 'customerId' in entry.original && entry.original.customerId) {
           return customers.find(c => c.id === entry.original.customerId);
       }
        if (entry.type === 'Cash Advance' && entry.original && 'customerId' in entry.original && entry.original.customerId) {
@@ -412,7 +412,7 @@ export default function AllTransactionsPage() {
         case 'Cash Advance': return `/cash-advances?edit=${entry.originalId}`;
         case 'Purchase Return': return `/purchase-returns?edit=${entry.originalId}`;
         case 'Meter Reading': return `/machines`;
-        case 'Salary': return `/employees?edit=${entry.originalId}`;
+        case 'Salary': return `/customer-payments?edit=${entry.originalId}`;
         default: return '#';
     }
   };

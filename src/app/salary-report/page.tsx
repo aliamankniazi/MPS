@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
 import { format, startOfMonth, endOfMonth, getDaysInMonth, eachDayOfInterval, isValid, parseISO, startOfDay, endOfDay, isBefore, isEqual, isSameDay } from 'date-fns';
-import { DollarSign, Printer, Search, Download, Briefcase, Edit, PlusCircle, Trash2, Calendar as CalendarIcon } from 'lucide-react';
+import { DollarSign, Printer, Search, Download, Briefcase, Edit, PlusCircle, Trash2, Calendar as CalendarIcon, BookText } from 'lucide-react';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
@@ -22,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Employee } from '@/lib/types';
+import Link from 'next/link';
 
 const DEFAULT_SALARY_MAP: Record<string, number> = {
     'Asmat Ullah': 15000,
@@ -52,6 +52,7 @@ interface SalaryReportRow {
     calculatedSalary: number;
     salaryHistory: { amount: number; effectiveDate: string }[];
     calculationParts: SalaryCalculationPart[]; // Added for breakdown
+    customerProfileId?: string;
 }
 
 const employeeEditSchema = z.object({
@@ -68,7 +69,7 @@ type EmployeeEditFormValues = z.infer<typeof employeeEditSchema>;
 
 
 export default function SalaryReportPage() {
-    const { employees, attendance, isLoaded, updateEmployee, dateRange, setDateRange } = useDatabase();
+    const { employees, attendance, isLoaded, updateEmployee, dateRange, setDateRange, customers } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
     const [employeeToEdit, setEmployeeToEdit] = useState<SalaryReportRow | null>(null);
     const { toast } = useToast();
@@ -198,6 +199,9 @@ export default function SalaryReportPage() {
                 
                 const totalCalculatedSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
+                // Find matching customer record for ledger linking
+                const matchingCustomer = customers.find(c => c.name.toLowerCase() === employee.name.toLowerCase() && c.area === 'Employee');
+
                 return {
                     employeeId: employee.id,
                     employeeName: employee.name,
@@ -209,9 +213,10 @@ export default function SalaryReportPage() {
                     calculatedSalary: totalCalculatedSalary,
                     salaryHistory: sortedHistory,
                     calculationParts: calculationParts,
+                    customerProfileId: matchingCustomer?.id
                 };
             });
-    }, [isLoaded, employees, attendance, dateRange, searchTerm]);
+    }, [isLoaded, employees, attendance, dateRange, searchTerm, customers]);
 
     const handleExportExcel = () => {
         const dataToExport = salaryReportData.map(row => ({
@@ -270,9 +275,18 @@ export default function SalaryReportPage() {
                                             <div className="text-sm">Present: <span className="font-mono">{row.presentDays}/{row.totalDaysInPeriod}</span></div>
                                             <div className="text-sm">Base Salary: <span className="font-mono">PKR {row.baseSalary.toLocaleString()}</span></div>
                                             <div className="font-semibold">Calculated: <span className="font-mono text-green-600">PKR {row.calculatedSalary.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
-                                            <Button asChild variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setEmployeeToEdit(row); }}>
-                                                <span><Edit className="w-4 h-4"/></span>
-                                            </Button>
+                                            <div className="flex items-center gap-1">
+                                                {row.customerProfileId && (
+                                                    <Button asChild variant="ghost" size="icon" title="View Full Ledger" onClick={(e) => e.stopPropagation()}>
+                                                        <Link href={`/customers/${row.customerProfileId}/ledger`}>
+                                                            <BookText className="w-4 h-4 text-primary" />
+                                                        </Link>
+                                                    </Button>
+                                                )}
+                                                <Button asChild variant="ghost" size="icon" title="Edit Professional Details" onClick={(e) => { e.stopPropagation(); setEmployeeToEdit(row); }}>
+                                                    <span><Edit className="w-4 h-4"/></span>
+                                                </Button>
+                                            </div>
                                         </div>
                                     </div>
                                 </AccordionTrigger>

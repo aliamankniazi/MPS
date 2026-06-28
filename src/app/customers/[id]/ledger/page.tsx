@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useMemo, useState, use } from 'react';
@@ -6,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, Trash2, Printer, Pencil, ShieldCheck } from 'lucide-react';
+import { BookUser, ArrowLeft, Trash2, Printer, Pencil, ShieldCheck, Briefcase, Calendar as CalendarIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -49,7 +48,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
   const entityId = resolvedParams.id;
   
   const { 
-    customers, suppliers, businessPartners, transactions, customerPayments, 
+    customers, suppliers, businessPartners, employees, transactions, customerPayments, 
     cashAdvances, purchases, supplierPayments, investments, saleReturns,
     deleteTransaction, deletePurchase, deleteCustomerPayment, deleteCashAdvance, 
     deleteSupplierPayment, deleteInvestment, deleteSaleReturn, isLoaded,
@@ -65,16 +64,21 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
-  const { entity, entityType } = useMemo(() => {
-    if (!isLoaded) return { entity: null, entityType: null };
+  const { entity, entityType, employeeData } = useMemo(() => {
+    if (!isLoaded) return { entity: null, entityType: null, employeeData: null };
+    
     const customer = customers.find(c => c.id === entityId);
-    if (customer) return { entity: customer, entityType: 'Customer' };
     const supplier = suppliers.find(s => s.id === entityId);
-    if (supplier) return { entity: supplier, entityType: 'Supplier' };
     const partner = businessPartners.find(p => p.id === entityId);
-    if (partner) return { entity: partner, entityType: 'Partner' };
-    return { entity: null, entityType: null };
-  }, [entityId, customers, suppliers, businessPartners, isLoaded]);
+    
+    let resolvedEntity = customer || supplier || partner || null;
+    let type = customer ? 'Customer' : (supplier ? 'Supplier' : (partner ? 'Partner' : null));
+    
+    // Check if this customer is actually an employee
+    const employee = employees.find(e => e.name.toLowerCase() === resolvedEntity?.name.toLowerCase() && (resolvedEntity as any)?.area === 'Employee');
+
+    return { entity: resolvedEntity, entityType: type, employeeData: employee };
+  }, [entityId, customers, suppliers, businessPartners, employees, isLoaded]);
 
   const { entries, totalDebit, totalCredit, finalBalance } = useMemo(() => {
     if (!entity) return { entries: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
@@ -115,7 +119,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               debit: 0,
               credit: p.amount,
               original: p,
-              category: isSalary ? 'EMPLOYEE BENEFITS' : 'PAYMENT',
+              category: isSalary ? 'STAFF PAYROLL' : 'PAYMENT',
               notes: p.notes,
               entityId: p.customerId
             })
@@ -297,8 +301,20 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     <div className="p-4 md:p-8 space-y-8">
       <div className="flex flex-col md:flex-row justify-between items-start gap-4 print:hidden">
         <div>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2"><BookUser /> {entityType} Ledger: <span className={cn(balanceColor(finalBalance))}>{entity.name}</span></CardTitle>
-          <CardDescription>All transactions for this account.</CardDescription>
+          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+            <BookUser /> {entityType} Ledger: <span className={cn(balanceColor(finalBalance))}>{entity.name}</span>
+            {employeeData && <Badge variant="outline" className="ml-2 text-blue-600 border-blue-600">STAFF</Badge>}
+          </CardTitle>
+          <CardDescription>
+            {employeeData ? (
+                <span className="flex items-center gap-2 mt-1">
+                    <Briefcase className="w-3 h-3" /> {employeeData.position} • Joined: {format(new Date(employeeData.hireDate), 'dd MMM yyyy')}
+                    <Button asChild variant="link" size="sm" className="h-auto p-0 px-2">
+                        <Link href="/salary-report">View Salary Details</Link>
+                    </Button>
+                </span>
+            ) : "All transactions for this account."}
+          </CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-48" />
@@ -350,13 +366,14 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                           </TableRow>
                           {dayEntries.map((entry, index) => {
                               const serialNo = dayEntries.length - index;
+                              const isSalary = entry.type === 'Salary';
                               return (
-                              <TableRow key={entry.id} className="group">
+                              <TableRow key={entry.id} className={cn("group", isSalary && "bg-pink-50 dark:bg-pink-900/10")}>
                                   <TableCell className="text-xs font-mono text-muted-foreground">{serialNo}</TableCell>
                                   <TableCell className="font-medium whitespace-nowrap">{format(new Date(entry.timestamp), 'hh:mm a')}</TableCell>
                                   <TableCell>
                                       <div className="flex flex-col">
-                                          <span className="font-bold text-red-600">{entry.description}</span>
+                                          <span className={cn("font-bold", isSalary ? "text-pink-600" : "text-red-600")}>{entry.description}</span>
                                           {entry.category && <span className="text-[10px] text-muted-foreground uppercase">{entry.category}</span>}
                                       </div>
                                   </TableCell>

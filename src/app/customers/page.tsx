@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -426,7 +425,7 @@ export default function CustomersPage() {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-destructive">Total Udhar (Receivables)</p>
                         <p className="text-xl font-bold text-destructive font-mono">PKR {totalUdhar.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
-                    <div className="relative w-full max-w-sm">
+                    <div className="relative w-full max-sm:max-w-sm">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input 
                             placeholder="Search by name, contact, area..." 
@@ -451,12 +450,14 @@ export default function CustomersPage() {
                 <TableBody>
                   {filteredCustomers.map(c => {
                     const balance = balances.get(c.id) ?? 0;
+                    const isEmployee = c.area === 'Employee';
                     return (
                       <TableRow key={c.id} onClick={(e) => handleRowClick(c.id, e)} className="cursor-pointer">
                         <TableCell>
                           <div className={cn("font-bold text-lg flex items-center gap-2", balance > 0 ? "text-destructive" : balance < 0 ? "text-green-600" : "")}>
                             {c.name}
                             {c.isPartner && <Badge variant="secondary">Partner</Badge>}
+                            {isEmployee && <Badge variant="outline" className="text-blue-600 border-blue-600">Employee</Badge>}
                             {c.isBlacklisted && <Badge variant="destructive">Blacklisted</Badge>}
                           </div>
                           <div className="text-sm text-muted-foreground">
