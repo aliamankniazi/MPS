@@ -235,11 +235,11 @@ export default function AllTransactionsPage() {
             const latestDate = new Date(latestEntry.timestamp);
             setLocalDateRange({ from: startOfDay(latestDate), to: endOfDay(latestDate) });
         } else {
-            setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+            setLocalDateRange({ from: startOfDay(new Date()), to: endOfToday() });
         }
         isInitialDateSet.current = true;
     } else if (isLoaded && !isInitialDateSet.current) {
-        setLocalDateRange({ from: startOfDay(new Date()), to: endOfDay(new Date()) });
+        setLocalDateRange({ from: startOfDay(new Date()), to: endOfToday() });
         isInitialDateSet.current = true;
     }
   }, [isLoaded, combinedEntries]);
@@ -269,7 +269,7 @@ export default function AllTransactionsPage() {
     if (!localDateRange?.from) return [];
     
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(new Date());
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
 
     let entries = combinedEntries.filter(entry => {
         const entryDate = new Date(entry.timestamp);
@@ -309,7 +309,7 @@ export default function AllTransactionsPage() {
 
     let currentTransactions = transactions;
     const from = startOfDay(localDateRange.from);
-    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfDay(new Date());
+    const to = localDateRange.to ? endOfDay(localDateRange.to) : endOfToday();
     currentTransactions = transactions.filter(tx => {
         const txDate = new Date(tx.timestamp);
         return isValid(txDate) && txDate >= from && txDate <= to;
@@ -341,8 +341,8 @@ export default function AllTransactionsPage() {
     return colorSettings[type] || '#6b7280';
   };
 
-  const formatPhoneNumberForWhatsApp = (phone: string | number) => {
-    if (typeof phone !== 'string') return '';
+  const formatPhoneNumberForWhatsApp = (phone: string) => {
+    if (!phone) return '';
     return phone.replace(/[^0-9]/g, '');
   }
 
@@ -528,7 +528,7 @@ export default function AllTransactionsPage() {
                                                         {entry.type === 'Meter Reading' ? '-' : entry.balance?.toFixed(2)}
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        <div className="flex items-center justify-center gap-0.5">
+                                                        <div className="flex flex-wrap items-center justify-center gap-0.5">
                                                             <Button asChild variant="ghost" size="icon" title="Edit" className="h-8 w-8">
                                                                 <Link href={getEditLink(entry)}>
                                                                     <Pencil className="w-4 h-4" />
@@ -541,17 +541,28 @@ export default function AllTransactionsPage() {
                                                                     </Link>
                                                                 </Button>
                                                             )}
-                                                            {customer?.contact && (
-                                                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600 h-8 w-8" title={`Message on WhatsApp`}>
-                                                                    <a 
-                                                                    href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}`}
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer"
+                                                            {customer?.contact && String(customer.contact).split(/[,\n]/).map((phone, idx) => {
+                                                                const cleaned = formatPhoneNumberForWhatsApp(phone.trim());
+                                                                if (!cleaned) return null;
+                                                                return (
+                                                                    <Button 
+                                                                        key={idx}
+                                                                        asChild 
+                                                                        variant="ghost" 
+                                                                        size="icon" 
+                                                                        className="text-green-500 hover:text-green-600 h-8 w-8" 
+                                                                        title={`Message on WhatsApp: ${phone.trim()}`}
                                                                     >
-                                                                    <WhatsAppIcon className="w-4 h-4" />
-                                                                    </a>
-                                                                </Button>
-                                                            )}
+                                                                        <a 
+                                                                        href={`https://wa.me/${cleaned}`}
+                                                                        target="_blank" 
+                                                                        rel="noopener noreferrer"
+                                                                        >
+                                                                        <WhatsAppIcon className="w-4 h-4" />
+                                                                        </a>
+                                                                    </Button>
+                                                                );
+                                                            })}
                                                             <Button variant="ghost" size="icon" title="Delete" className="text-destructive hover:text-destructive h-8 w-8" onClick={() => setEntryToDelete(entry)}>
                                                                 <Trash2 className="w-4 h-4" />
                                                             </Button>

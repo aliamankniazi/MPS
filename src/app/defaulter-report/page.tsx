@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -81,9 +80,9 @@ export default function DefaulterReportPage() {
         return defaulterList.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [defaulterList, searchTerm]);
 
-    const formatPhoneNumberForWhatsApp = (phone: string | undefined) => {
+    const formatPhoneNumberForWhatsApp = (phone: string) => {
         if (!phone) return '';
-        return String(phone).replace(/[^0-9]/g, '');
+        return phone.replace(/[^0-9]/g, '');
     }
 
     const generateWhatsAppMessage = (defaulter: DefaulterInfo) => {
@@ -157,18 +156,31 @@ export default function DefaulterReportPage() {
                                             {defaulter.balance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </TableCell>
                                         <TableCell className="text-center">
+                                          <div className="flex items-center justify-center gap-1">
                                             <Button asChild variant="ghost" size="icon" title="View Ledger">
                                                 <Link href={`/customers/${defaulter.id}/ledger`}>
                                                     <BookText className="w-4 h-4" />
                                                 </Link>
                                             </Button>
-                                            {defaulter.contact && (
-                                                <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${defaulter.name} on WhatsApp`}>
-                                                    <a href={`https://wa.me/${formatPhoneNumberForWhatsApp(defaulter.contact)}?text=${generateWhatsAppMessage(defaulter)}`} target="_blank" rel="noopener noreferrer">
-                                                        <WhatsAppIcon className="w-5 h-5" />
-                                                    </a>
-                                                </Button>
-                                            )}
+                                            {defaulter.contact && String(defaulter.contact).split(/[,\n]/).map((phone, idx) => {
+                                                const cleaned = formatPhoneNumberForWhatsApp(phone.trim());
+                                                if (!cleaned) return null;
+                                                return (
+                                                  <Button 
+                                                    key={idx}
+                                                    asChild 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="text-green-500 hover:text-green-600" 
+                                                    title={`Message ${defaulter.name} on WhatsApp: ${phone.trim()}`}
+                                                  >
+                                                      <a href={`https://wa.me/${cleaned}?text=${generateWhatsAppMessage(defaulter)}`} target="_blank" rel="noopener noreferrer">
+                                                          <WhatsAppIcon className="w-5 h-5" />
+                                                      </a>
+                                                  </Button>
+                                                )
+                                            })}
+                                          </div>
                                         </TableCell>
                                     </TableRow>
                                 )) : (

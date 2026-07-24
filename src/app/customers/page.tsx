@@ -312,13 +312,9 @@ export default function CustomersPage() {
     setCustomerToEdit(customer);
   }
 
-  const formatPhoneNumberForWhatsApp = (phone: any) => {
-    let primaryPhone = '';
-    if (phone) {
-        primaryPhone = String(phone).split(/[,\n]/)[0].trim();
-    }
-    if (!primaryPhone) return '';
-    return String(primaryPhone).replace(/[^0-9]/g, '');
+  const formatPhoneNumberForWhatsApp = (phone: string) => {
+    if (!phone) return '';
+    return phone.replace(/[^0-9]/g, '');
   }
   
   const handleRowClick = (customerId: string, e: React.MouseEvent) => {
@@ -482,32 +478,46 @@ export default function CustomersPage() {
                         <TableCell>
                           <Barcode value={c.id} height={40} width={1.5} fontSize={10} margin={2} />
                         </TableCell>
-                        <TableCell className="text-center space-x-0">
-                           <Button asChild variant="ghost" size="icon" title="View Ledger">
-                              <Link href={`/customers/${c.id}/ledger`}>
-                                <BookText className="w-5 h-5" />
-                              </Link>
-                           </Button>
-                           <Button variant="ghost" size="icon" title="Edit Customer" onClick={(e) => { e.stopPropagation(); openEditDialog(c); }}>
-                                <Pencil className="w-4 h-4" />
-                           </Button>
-                           {c.contact && (
-                             <Button asChild variant="ghost" size="icon" className="text-green-500 hover:text-green-600" title={`Message ${c.name} on WhatsApp`}>
-                               <a 
-                                href={`https://wa.me/${formatPhoneNumberForWhatsApp(c.contact)}`}
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                              >
-                                 <WhatsAppIcon className="w-5 h-5" />
-                              </a>
+                        <TableCell className="text-center">
+                          <div className="flex flex-wrap items-center justify-center gap-1">
+                            <Button asChild variant="ghost" size="icon" title="View Ledger">
+                                <Link href={`/customers/${c.id}/ledger`}>
+                                  <BookText className="w-5 h-5" />
+                                </Link>
                             </Button>
-                           )}
-                           <Button variant="ghost" size="icon" title={c.isBlacklisted ? 'Remove from Blacklist' : 'Add to Blacklist'} onClick={(e) => { e.stopPropagation(); handleToggleBlacklist(c); }}>
-                                <UserX className={c.isBlacklisted ? 'text-destructive' : ''} />
-                           </Button>
-                           <Button variant="ghost" size="icon" title="Delete Customer" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setCustomerToDelete(c); }}>
-                                <Trash2 className="w-4 h-4" />
-                           </Button>
+                            <Button variant="ghost" size="icon" title="Edit Customer" onClick={(e) => { e.stopPropagation(); openEditDialog(c); }}>
+                                  <Pencil className="w-4 h-4" />
+                            </Button>
+                            {c.contact && String(c.contact).split(/[,\n]/).map((phone, idx) => {
+                                const cleaned = formatPhoneNumberForWhatsApp(phone.trim());
+                                if (!cleaned) return null;
+                                return (
+                                  <Button 
+                                    key={idx}
+                                    asChild 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-green-500 hover:text-green-600" 
+                                    title={`Message ${c.name} on WhatsApp: ${phone.trim()}`}
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <a 
+                                      href={`https://wa.me/${cleaned}`}
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                    >
+                                      <WhatsAppIcon className="w-5 h-5" />
+                                    </a>
+                                  </Button>
+                                );
+                            })}
+                            <Button variant="ghost" size="icon" title={c.isBlacklisted ? 'Remove from Blacklist' : 'Add to Blacklist'} onClick={(e) => { e.stopPropagation(); handleToggleBlacklist(c); }}>
+                                  <UserX className={c.isBlacklisted ? 'text-destructive' : ''} />
+                            </Button>
+                            <Button variant="ghost" size="icon" title="Delete Customer" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); setCustomerToDelete(c); }}>
+                                  <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     )
