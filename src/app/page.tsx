@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins, Input as InputIcon } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
@@ -22,6 +22,8 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg
@@ -116,7 +118,7 @@ const getNextRamadanInfo = (currentDate: Date) => {
 
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange, fuelPrices, updateFuelPrice } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
   const [islamicDateString, setIslamicDateString] = useState('');
   const [ramadanCountdown, setRamadanCountdown] = useState('');
@@ -743,6 +745,39 @@ export default function DashboardPage() {
                 <Button asChild variant="outline"><Link href="/reports">View All Reports</Link></Button>
                 <Button asChild><Link href="/sales">New Sale</Link></Button>
             </div>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-primary">
+                        <TrendingUp className="w-5 h-5" /> Quick Rate Update
+                    </CardTitle>
+                    <CardDescription>Live update for sale prices (affects New Sale form).</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {productStats.filter(p => products.find(prod => prod.name === p.name)?.category === 'Main Product').map(stat => (
+                        <div key={stat.name} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-muted/30">
+                            <div className="flex flex-col">
+                                <span className="font-bold text-sm">{stat.name}</span>
+                                <span className="text-[10px] text-muted-foreground uppercase">Current Rate</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-bold">PKR</span>
+                                <Input 
+                                    type="number"
+                                    step="0.01"
+                                    className="w-24 h-8 text-right font-mono font-bold"
+                                    defaultValue={fuelPrices[stat.name as FuelType] || stat.lastSaleRate || 0}
+                                    onBlur={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        if (!isNaN(val)) updateFuelPrice(stat.name as FuelType, val);
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </CardContent>
+            </Card>
+
             <Card className="border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><UserX/> Blacklisted & Defaulters</CardTitle>

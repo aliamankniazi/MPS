@@ -77,7 +77,7 @@ function PageHeader() {
 }
 
 export default function SalesPage() {
-  const { customers, addTransaction, updateTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock } = useDatabase();
+  const { customers, addTransaction, updateTransaction, isLoaded, products, purchases, transactions, colorSettings, fuelStock, fuelPrices } = useDatabase();
   const { isPinVerified, confirmPin } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -144,11 +144,11 @@ export default function SalesPage() {
 
   const handleProductSelect = useCallback((product: Product) => {
     const lastTx = transactions.filter(t => t.product === product.name).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
-    const priceToSet = sessionPrices[product.id] ?? lastTx?.pricePerLitre ?? product.salePrice;
+    const priceToSet = sessionPrices[product.id] ?? fuelPrices[product.name as FuelType] ?? lastTx?.pricePerLitre ?? product.salePrice;
     setItemValue('price', priceToSet);
     setItemValue('unit', product.unit);
     setItemValue('productName', product.name);
-  }, [transactions, setItemValue, sessionPrices]);
+  }, [transactions, setItemValue, sessionPrices, fuelPrices]);
 
   useEffect(() => {
     const saved = localStorage.getItem('session_product_prices');
