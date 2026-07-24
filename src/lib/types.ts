@@ -222,6 +222,14 @@ export interface Product {
     createdAt: string;
 }
 
+export interface RateHistoryEntry {
+  id: string;
+  productName: string;
+  price: number;
+  type: 'sale' | 'purchase';
+  timestamp: string;
+}
+
 export interface RecycledItem {
     id: string;
     originalPath: string;

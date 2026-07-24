@@ -6,16 +6,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useDatabase } from '@/hooks/use-database';
 import { format, isValid, startOfDay, endOfDay, startOfMonth } from 'date-fns';
-import { TrendingUp, Package, Percent, CalendarDays, Search } from 'lucide-react';
+import { TrendingUp, Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Input } from '@/components/ui/input';
-import type { DateRange } from '@/lib/types';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 
 export default function ProductRateHistoryPage() {
-    const { products, transactions, purchases, isLoaded, dateRange, setDateRange } = useDatabase();
+    const { products, transactions, purchases, rateHistory, isLoaded, dateRange, setDateRange } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const productRateHistory = useMemo(() => {
@@ -30,15 +29,22 @@ export default function ProductRateHistoryPage() {
 
         const allRateChangeDates = new Set<number>();
         
+        // Dates from transactions
         transactions.forEach(t => {
             if(t.pricePerLitre > 0 && isValid(new Date(t.timestamp))) allRateChangeDates.add(startOfDay(new Date(t.timestamp)).getTime());
         });
+
+        // Dates from purchases
         purchases.forEach(p => {
             if(p.volume > 0 && p.totalCost > 0 && isValid(new Date(p.timestamp))) allRateChangeDates.add(startOfDay(new Date(p.timestamp)).getTime());
         });
 
+        // Dates from manual rate history logs (Quick Update)
+        rateHistory.forEach(rh => {
+            if(isValid(new Date(rh.timestamp))) allRateChangeDates.add(startOfDay(new Date(rh.timestamp)).getTime());
+        });
+
         const validTimestamps = [...allRateChangeDates];
-        
         const maxDate = new Date();
         const minDate = validTimestamps.length > 0 ? new Date(Math.min(...validTimestamps)) : startOfMonth(maxDate);
 
@@ -63,15 +69,23 @@ export default function ProductRateHistoryPage() {
             let lastPurchaseRate = -1;
 
             sortedUniqueDates.forEach(date => {
-                const saleOnDate = transactions
-                    .filter(t => t.fuelType === product.name && t.pricePerLitre > 0 && new Date(t.timestamp) <= endOfDay(date))
+                const dayEnd = endOfDay(date);
+
+                // Check manual logs first (they are the most authoritative for "set" rates)
+                const manualSaleLog = rateHistory
+                    .filter(rh => rh.productName === product.name && rh.type === 'sale' && new Date(rh.timestamp) <= dayEnd)
+                    .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
+
+                const saleOnDateTx = transactions
+                    .filter(t => t.fuelType === product.name && t.pricePerLitre > 0 && new Date(t.timestamp) <= dayEnd)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
                 
                 const purchaseOnDate = purchases
-                    .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0 && new Date(p.timestamp) <= endOfDay(date))
+                    .filter(p => p.fuelType === product.name && p.volume > 0 && p.totalCost > 0 && new Date(p.timestamp) <= dayEnd)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
 
-                const currentSaleRate = saleOnDate ? saleOnDate.pricePerLitre : 0;
+                // Determine effective sale rate: manual log takes priority over transaction rate
+                let currentSaleRate = manualSaleLog ? manualSaleLog.price : (saleOnDateTx ? saleOnDateTx.pricePerLitre : 0);
                 const currentPurchaseRate = purchaseOnDate && purchaseOnDate.volume > 0 ? purchaseOnDate.totalCost / purchaseOnDate.volume : 0;
 
                 if (currentSaleRate.toFixed(2) !== lastSaleRate.toFixed(2) || currentPurchaseRate.toFixed(2) !== lastPurchaseRate.toFixed(2)) {
@@ -88,7 +102,7 @@ export default function ProductRateHistoryPage() {
         });
 
         return history;
-    }, [isLoaded, products, transactions, purchases, searchTerm]);
+    }, [isLoaded, products, transactions, purchases, rateHistory, searchTerm]);
     
     const productNames = Object.keys(productRateHistory);
 
@@ -102,7 +116,7 @@ export default function ProductRateHistoryPage() {
                                 <TrendingUp /> Product Rate History
                             </CardTitle>
                             <CardDescription>
-                                A log of all purchase and sale rate changes for main products.
+                                A log of all purchase and sale rate changes, including manual Dashboard updates.
                             </CardDescription>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">

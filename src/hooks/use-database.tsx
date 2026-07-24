@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -36,6 +37,7 @@ import type {
     DateRange,
     Role,
     RoleId,
+    RateHistoryEntry,
 } from '@/lib/types';
 import { useFirebase } from '@/firebase';
 import { 
@@ -81,6 +83,7 @@ const FIRESTORE_PATHS = {
     recycleBin: 'recycleBin',
     settings: 'settings',
     userRoles: 'userRoles',
+    rateHistory: 'rateHistory',
 };
 
 const DEFAULT_INITIAL_STOCK: Record<FuelType, number> = {
@@ -144,6 +147,7 @@ interface DatabaseState {
     dictionary: DictionaryEntry[];
     recycleBin: RecycledItem[];
     userRoles: { id: string; email: string; roleId: RoleId }[];
+    rateHistory: RateHistoryEntry[];
     settings: AppSettings;
     isLoaded: boolean;
 }
@@ -241,7 +245,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         expenses: [], otherIncomes: [], customers: [], suppliers: [],
         bankAccounts: [], employees: [], customerPayments: [], supplierPayments: [],
         cashAdvances: [], machines: [], machineReadings: [], investments: [], businessPartners: [],
-        stockAdjustments: [], products: [], attendance: [], dictionary: [], recycleBin: [], userRoles: [],
+        stockAdjustments: [], products: [], attendance: [], dictionary: [], recycleBin: [], userRoles: [], rateHistory: [],
         settings: {
             fuelPrices: DEFAULT_FUEL_PRICES,
             initialFuelStock: DEFAULT_INITIAL_STOCK,
@@ -416,6 +420,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             dictionary: [...state.dictionary].sort(createSorter('key', 'asc')),
             recycleBin: [...state.recycleBin].sort(createSorter('deletedAt')),
             userRoles: [...state.userRoles].sort(createSorter('email', 'asc')),
+            rateHistory: [...state.rateHistory].sort(createSorter('timestamp')),
             fuelPrices: state.settings.fuelPrices,
             initialFuelStock: state.settings.initialFuelStock,
             colorSettings: state.settings.colorSettings,
@@ -787,6 +792,16 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateFuelPrice = (fuelType: FuelType, newPrice: number) => {
         if (!firestore || isNaN(newPrice) || newPrice < 0) return;
         const settingsRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
+        
+        // Log to rateHistory
+        const historyEntry = {
+          productName: fuelType,
+          price: newPrice,
+          type: 'sale',
+          timestamp: new Date().toISOString(),
+        };
+        addEntity(FIRESTORE_PATHS.rateHistory, historyEntry);
+
         updateDoc(settingsRef, { [`fuelPrices.${fuelType}`]: newPrice }).catch(error => {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: settingsRef.path,
