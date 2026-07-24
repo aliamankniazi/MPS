@@ -766,11 +766,24 @@ export default function DashboardPage() {
                                                 {customer.name}
                                                 {customer.isTrulyBlacklisted && <Badge variant="destructive" className="h-4 px-1 text-[8px]">BL</Badge>}
                                             </div>
-                                            <div className="text-[10px] text-muted-foreground flex items-center gap-2">
-                                                {customer.contact}
-                                                {customer.contact && (
-                                                    <a href={`https://wa.me/${formatPhoneNumberForWhatsApp(customer.contact)}?text=${generateWhatsAppMessage(customer)}`} target="_blank" rel="noopener noreferrer" className="text-green-500 hover:text-green-600"><WhatsAppIcon className="w-3 h-3" /></a>
-                                                )}
+                                            <div className="text-[10px] text-muted-foreground flex flex-col gap-1">
+                                                {customer.contact && String(customer.contact).split(/[,\n]/).map((phone, idx) => {
+                                                    const trimmed = phone.trim();
+                                                    if (!trimmed) return null;
+                                                    return (
+                                                        <div key={idx} className="flex items-center gap-2">
+                                                            {trimmed}
+                                                            <a 
+                                                                href={`https://wa.me/${formatPhoneNumberForWhatsApp(trimmed)}?text=${generateWhatsAppMessage(customer)}`} 
+                                                                target="_blank" 
+                                                                rel="noopener noreferrer" 
+                                                                className="text-green-500 hover:text-green-600"
+                                                            >
+                                                                <WhatsAppIcon className="w-3 h-3" />
+                                                            </a>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-mono text-destructive text-xs">{customer.balance.toLocaleString()}</TableCell>
