@@ -13,9 +13,16 @@ This document outlines the steps to move the **PumpPal** application to a new Gi
 2. **Create a new repository** on your other GitHub account (do not initialize with README or License).
 3. **Change the remote URL**:
    ```bash
-   git remote set-url origin https://github.com/NEW_USER/NEW_REPO.git
+   git remote set-url origin https://github.com/aliamankniazi/MPS.git
    ```
-4. **Push the code**:
+4. **Prepare the branch**:
+   Ensure you have a commit and your branch is named `main`:
+   ```bash
+   git add .
+   git commit -m "Migration to new account"
+   git branch -M main
+   ```
+5. **Push the code**:
    ```bash
    git push -u origin main
    ```
