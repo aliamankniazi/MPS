@@ -257,6 +257,19 @@ export async function requestPasswordReset(db: Db, emailInput: unknown, origin: 
 }
 
 /**
+ * Makes a one-time "choose your password" link without sending any email,
+ * for the owner to pass on by hand while the site cannot send mail. It is the
+ * same link "Forgot password" would email: it works once and expires in an
+ * hour. Returns null if there is no such account, or one was made a moment ago.
+ */
+export async function createPasswordSetupLink(db: Db, emailInput: unknown, origin: string, now = new Date()): Promise<string | null> {
+  const account = await findAccountByEmail(db, normaliseEmail(emailInput));
+  if (!account) return null;
+  const token = await issueEmailToken(db, account.id, 'reset', RESET_TTL, now);
+  return token ? `${origin}/reset-password?token=${encodeURIComponent(token)}` : null;
+}
+
+/**
  * Sets a new password from a reset link. Whoever opens that link can read the
  * mailbox, so it also confirms the address; every other device is signed out
  * and any other reset link still in the mailbox stops working.

@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../../src/server/db/client';
 import { accounts } from '../../src/server/db/schema';
-import { AuthError, completePasswordReset, completeVerification, confirmAccountByOwner, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
+import { AuthError, completePasswordReset, completeVerification, confirmAccountByOwner, createPasswordSetupLink, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
 import { createSession, endSession, findSession, type Account } from '../../src/server/auth/session';
 import { setDeliverForTests, type Mail } from '../../src/server/auth/mail';
 import { resolveActor } from '../../src/server/access/actor';
@@ -118,6 +118,29 @@ describe('confirming an account by hand (no email set up yet)', () => {
     expect((await fresh(staff.id)).emailVerified).toBe(true);
     // The owner's own role is untouched.
     expect((await resolveActor(db, owner)).roleId).toBe('admin');
+  });
+});
+
+describe('a password setup link made by hand', () => {
+  it('lets the person choose their own password once, and sends no email', async () => {
+    await db.insert(accounts).values({ id: 'ownerUid', email: 'owner@example.com', passwordHash: null, emailVerified: true, createdAt: new Date() });
+    expect(await createPasswordSetupLink(db, 'nobody@example.com', 'https://pump.example')).toBeNull();
+
+    const link = await createPasswordSetupLink(db, 'Owner@Example.com', 'https://pump.example');
+    expect(link).toMatch(/^https:\/\/pump\.example\/reset-password\?token=/);
+    expect(mails).toHaveLength(0);
+    // A second one straight away is refused, like the "resend" button.
+    expect(await createPasswordSetupLink(db, 'owner@example.com', 'https://pump.example')).toBeNull();
+
+    const token = new URL(link!).searchParams.get('token');
+    expect(await completePasswordReset(db, token, 'chosen-by-owner')).toBe(true);
+    expect(await completePasswordReset(db, token, 'second-try')).toBe(false);
+    await expect(signIn(db, { email: 'owner@example.com', password: 'chosen-by-owner' })).resolves.toMatchObject({ id: 'ownerUid' });
+
+    // An hour later an unused link is dead.
+    const later = await createPasswordSetupLink(db, 'owner@example.com', 'https://pump.example', new Date(Date.now() + 5 * 60_000));
+    const lateToken = new URL(later!).searchParams.get('token');
+    expect(await completePasswordReset(db, lateToken, 'too-late-now', new Date(Date.now() + 70 * 60_000))).toBe(false);
   });
 });
 

@@ -26,7 +26,9 @@
     "cloud:set-password": "tsx --env-file=.env.cloud.local scripts/set-password.ts",
     "cloud:make-admin": "tsx --env-file=.env.cloud.local scripts/make-admin.ts",
     "account:confirm": "tsx --env-file=.env.local scripts/confirm-account.ts",
-    "cloud:confirm": "tsx --env-file=.env.cloud.local scripts/confirm-account.ts"
+    "cloud:confirm": "tsx --env-file=.env.cloud.local scripts/confirm-account.ts",
+    "account:setup-link": "tsx --env-file=.env.local scripts/setup-link.ts",
+    "cloud:setup-link": "tsx --env-file=.env.cloud.local scripts/setup-link.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
