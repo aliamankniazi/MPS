@@ -121,6 +121,19 @@ async function confirmEmail(tx: Tx, accountId: string, now: Date): Promise<void>
   await writeChanges(tx, [{ path: `userRoles/${accountId}`, data: { roleId, email: account.email } }], now);
 }
 
+/**
+ * The owner vouches for an address from a script, for when the site cannot
+ * send email yet. Has exactly the effect of the person opening their emailed
+ * link: the address counts as confirmed and they get the newcomer's role, so
+ * they then appear in Role Management. Returns false if there is no such account.
+ */
+export async function confirmAccountByOwner(db: Db, emailInput: unknown, now = new Date()): Promise<boolean> {
+  const account = await findAccountByEmail(db, normaliseEmail(emailInput));
+  if (!account) return false;
+  await withRetry(() => db.transaction((tx) => confirmEmail(tx, account.id, now)));
+  return true;
+}
+
 // Checked when the email is unknown, so a wrong email takes as long as a wrong password.
 let decoyHash: Promise<string> | undefined;
 

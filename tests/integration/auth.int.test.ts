@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../../src/server/db/client';
 import { accounts } from '../../src/server/db/schema';
-import { AuthError, completePasswordReset, completeVerification, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
+import { AuthError, completePasswordReset, completeVerification, confirmAccountByOwner, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
 import { createSession, endSession, findSession, type Account } from '../../src/server/auth/session';
 import { setDeliverForTests, type Mail } from '../../src/server/auth/mail';
 import { resolveActor } from '../../src/server/access/actor';
@@ -102,6 +102,22 @@ describe('who gets in', () => {
       expect(approve.results[0].status).toBe('applied');
     }
     expect((await resolveActor(db, stranger)).active).toBe(true);
+  });
+});
+
+describe('confirming an account by hand (no email set up yet)', () => {
+  it('has the same effect as the emailed link: confirmed, and waiting for a role', async () => {
+    const owner = await signUpAndConfirm('owner@example.com');
+    const staff = await signUp(db, { email: 'staff@example.com', password: 'secret-1' });
+    expect(await confirmAccountByOwner(db, 'nobody@example.com')).toBe(false);
+    expect(await confirmAccountByOwner(db, 'Staff@Example.com')).toBe(true);
+    expect(await confirmAccountByOwner(db, 'staff@example.com')).toBe(true); // doing it twice changes nothing
+
+    const role = (await readDocs(db, [`userRoles/${staff.id}`])).get(`userRoles/${staff.id}`);
+    expect(role).toEqual({ roleId: roleForNewAccount({ isFirstAccount: false, email: 'staff@example.com' }), email: 'staff@example.com' });
+    expect((await fresh(staff.id)).emailVerified).toBe(true);
+    // The owner's own role is untouched.
+    expect((await resolveActor(db, owner)).roleId).toBe('admin');
   });
 });
 
