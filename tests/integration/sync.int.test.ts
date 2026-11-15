@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../../src/server/db/client';
 import type { Actor } from '../../src/server/access/policy';
 import { serverTimestampMarker, type Op } from '../../src/data/apply-op';
-import { pullChanges, pullToJson, pushOps, readDocs } from '../../src/server/sync/documents';
+import { pullChanges, pullToJson, pushChanges, pushOps, readDocs } from '../../src/server/sync/documents';
 import { closeTestDb, freshTestDb } from './test-db';
 
 let db: Db;
@@ -66,6 +66,57 @@ describe('push', () => {
     expect(allowed[0].status).toBe('applied');
   });
 
+  it('a create-only change never replaces a record that already exists, and says what the server holds', async () => {
+    const real = { fuelPrices: { Diesel: 285.5 }, initialFuelStock: { Diesel: 12000 } };
+    await pushOps(db, admin, [set('settings/app-settings', real)]);
+    const outcome = await pushChanges(db, attendant, [
+      { opId: id(), path: 'settings/app-settings', type: 'set', ifAbsent: true, data: { fuelPrices: { Diesel: 0 }, initialFuelStock: { Diesel: 0 } } },
+      { opId: id(), path: 'settings/other', type: 'set', ifAbsent: true, data: { created: true } },
+    ]);
+    expect(outcome.results.map((r) => r.status)).toEqual(['exists', 'applied']);
+    expect(outcome.truth).toEqual({ 'settings/app-settings': real });
+    expect((await readDocs(db, ['settings/app-settings'])).get('settings/app-settings')).toEqual(real);
+  });
+
+  it('tells the device what is really saved whenever a change is not taken', async () => {
+    await pushOps(db, admin, [set('roles/admin', { name: 'Admin', permissions: ['x'] })]);
+    const outcome = await pushChanges(db, attendant, [
+      { opId: id(), path: 'roles/admin', type: 'update', data: { name: 'Mine now' } },
+      { opId: id(), path: 'customers/gone', type: 'update', data: { name: 'x' } },
+    ]);
+    expect(outcome.results.map((r) => r.status)).toEqual(['rejected', 'missing']);
+    expect(outcome.truth).toEqual({ 'roles/admin': { name: 'Admin', permissions: ['x'] }, 'customers/gone': null });
+  });
+
+  it('nobody can change or remove their own role, so an admin cannot lock the business out', async () => {
+    await pushOps(db, { ...admin, accountId: 'someone-else' }, [set('userRoles/a1', { roleId: 'admin', email: 'owner@example.com' })]);
+    const outcome = await pushChanges(db, admin, [
+      { opId: id(), path: 'userRoles/a1', type: 'update', data: { roleId: 'attendant' } },
+      { opId: id(), path: 'userRoles/a1', type: 'delete' },
+    ]);
+    expect(outcome.results.map((r) => [r.status, r.reason])).toEqual([
+      ['rejected', 'you cannot change your own role'],
+      ['rejected', 'you cannot change your own role'],
+    ]);
+    expect((await readDocs(db, ['userRoles/a1'])).get('userRoles/a1')).toEqual({ roleId: 'admin', email: 'owner@example.com' });
+  });
+
+  it('two devices editing different fields of one record at the same moment both keep their change', async () => {
+    await pushOps(db, admin, [set('settings/app-settings', { fuelPrices: { Diesel: 280, Petrol: 270 } })]);
+    await Promise.all([
+      pushOps(db, attendant, [{ opId: id(), path: 'settings/app-settings', type: 'update', data: { 'fuelPrices.Diesel': 290 } }]),
+      pushOps(db, admin, [{ opId: id(), path: 'settings/app-settings', type: 'update', data: { 'fuelPrices.Petrol': 275 } }]),
+    ]);
+    expect((await readDocs(db, ['settings/app-settings'])).get('settings/app-settings')).toEqual({ fuelPrices: { Diesel: 290, Petrol: 275 } });
+  });
+
+  it('the same batch sent twice at the same moment is applied once', async () => {
+    const op: Op = { opId: id(), path: 'customerPayments/once', type: 'set', data: { amount: 7000 } };
+    const [a, b] = await Promise.all([pushOps(db, attendant, [op]), pushOps(db, attendant, [op])]);
+    expect([a[0].status, b[0].status].sort()).toEqual(['applied', 'duplicate']);
+    expect((await pullChanges(db, 0)).docs).toHaveLength(1);
+  });
+
   it('someone who is not active cannot write at all', async () => {
     const results = await pushOps(db, { ...attendant, active: false }, [set('transactions/t1', { totalAmount: 1 })]);
     expect(results[0]).toMatchObject({ status: 'rejected', reason: 'not allowed' });
@@ -121,6 +172,11 @@ describe('pull', () => {
     const page = await pullChanges(db, 0, 1000, 3000);
     expect(page.docs).toHaveLength(1);
     expect(page.more).toBe(true);
+
+    // Urdu text is two or three bytes a letter: pages are measured in real bytes.
+    await pushOps(db, attendant, [set('b/1', { note: 'ع'.repeat(1000) }), set('b/2', { note: 'ع'.repeat(1000) })]);
+    const urdu = await pullChanges(db, 3, 1000, 2500);
+    expect(urdu.docs).toHaveLength(1);
   });
 
   it('sends records as the exact text that was stored', async () => {
@@ -129,5 +185,6 @@ describe('pull', () => {
     const parsed = JSON.parse(text) as { epoch: number; docs: { p: string; v: number; d: unknown }[] };
     expect(parsed.docs).toEqual([{ p: 'transactions/t1', v: 1, d: { totalAmount: 1234567.89, pricePerLitre: 272.89, customerName: 'علی "خان"' } }]);
     expect(parsed.epoch).toBeGreaterThan(0);
+    expect((parsed as unknown as { head: number }).head).toBe(1);
   });
 });

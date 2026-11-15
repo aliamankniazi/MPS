@@ -41,6 +41,7 @@ async function main() {
     const same = canonical(totals(plan.records.filter((r) => !plan.different.includes(r.path)))) === canonical(await databaseTotals(db, { ...plan, records: plan.records.filter((r) => !plan.different.includes(r.path)) }));
     console.log(`\nAdded ${outcome.added} record(s) and ${outcome.accountsAdded} sign-in account(s).`);
     console.log(`Read back and compared with the backup: ${outcome.verified} record(s) identical.`);
+    if (outcome.emailClashes.length) console.log(`ATTENTION: ${outcome.emailClashes.length} email(s) in the backup already belong to a different account here and were not linked: ${outcome.emailClashes.join(', ')}`);
     console.log(`Totals of every numeric field, backup vs database: ${same ? 'IDENTICAL' : 'DIFFERENT - investigate before going further'}`);
     if (!same) process.exitCode = 1;
   } finally {

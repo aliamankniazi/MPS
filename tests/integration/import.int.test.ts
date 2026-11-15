@@ -56,7 +56,7 @@ describe('loading a backup', () => {
   it('puts every record in under its own path, with dates as the text the app reads', async () => {
     const plan = await planImport(db, makeBackup(BACKUP));
     const outcome = await applyImport(db, plan);
-    expect(outcome).toEqual({ added: 5, accountsAdded: 1, verified: 5 });
+    expect(outcome).toEqual({ added: 5, accountsAdded: 1, verified: 5, emailClashes: [] });
 
     const docs = await readDocs(db, ['transactions/t1', 'recycleBin/r1', 'employees/e1']);
     expect(docs.get('transactions/t1')).toEqual({ totalAmount: 5400.5, volume: 20, pricePerLitre: 270.025, timestamp: '2026-03-01T05:00:00.000Z', customerName: 'احمد' });
@@ -82,7 +82,7 @@ describe('loading a backup', () => {
     const second = await planImport(db, dir);
     expect(second.toAdd).toHaveLength(0);
     expect(Object.values(second.summary).every((s) => s.identical === s.inBackup)).toBe(true);
-    expect(await applyImport(db, second)).toEqual({ added: 0, accountsAdded: 0, verified: 5 });
+    expect(await applyImport(db, second)).toEqual({ added: 0, accountsAdded: 0, verified: 5, emailClashes: [] });
     expect((await pullChanges(db, 0)).cursor).toBe(before);
   });
 
@@ -97,6 +97,13 @@ describe('loading a backup', () => {
     const outcome = await applyImport(db, plan, { keepExisting: true });
     expect(outcome.added).toBe(4);
     expect((await readDocs(db, ['transactions/t1'])).get('transactions/t1')).toEqual({ totalAmount: 9999, note: 'entered in the new app' });
+  });
+
+  it('reports an email that someone already registered in the new app instead of hiding it', async () => {
+    await db.insert(accounts).values({ id: 'newAppId', email: 'owner@example.com', passwordHash: null, emailVerified: false, createdAt: new Date() });
+    const outcome = await applyImport(db, await planImport(db, makeBackup(BACKUP)));
+    expect(outcome.accountsAdded).toBe(0);
+    expect(outcome.emailClashes).toEqual(['owner@example.com']);
   });
 
   it('refuses a backup file that was changed after it was taken', async () => {

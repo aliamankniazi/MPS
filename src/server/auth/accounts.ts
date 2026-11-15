@@ -1,10 +1,18 @@
 /**
  * Sign-up, sign-in, "approve by email" and password reset. This replaces
  * Firebase Authentication; the screens call it the same way they always did.
+ *
+ * How a new person gets in, in order:
+ *   1. They sign up: an account exists, and nothing else.
+ *   2. They open the emailed link IN THE BROWSER WHERE THEY ARE SIGNED IN.
+ *      That proves the address is theirs, and only then is their role record
+ *      created (the role comes from src/server/access/policy.ts).
+ *   3. If that role is "pending", an admin gives them a real role in Role
+ *      Management. Until then they can read and write nothing.
  */
 import { randomBytes } from 'node:crypto';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
-import type { Db } from '../db/client';
+import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm';
+import type { Db, Tx } from '../db/client';
 import { accounts, documents, emailTokens } from '../db/schema';
 import { withRetry } from '../db/retry';
 import { lockDocuments, writeChanges } from '../sync/documents';
@@ -27,8 +35,12 @@ const MINUTE = 60_000;
 const VERIFY_TTL = 24 * 60 * MINUTE;
 const RESET_TTL = 60 * MINUTE;
 const RESEND_AFTER = MINUTE;
+/** Approval emails one account may trigger in a day. */
+const MAX_VERIFY_EMAILS_PER_DAY = 5;
 const MAX_FAILED_SIGN_INS = 8;
 const LOCK_FOR = 15 * MINUTE;
+/** New accounts allowed per hour, across everyone. Ten staff never reach it; a script hammering sign-up does. */
+export const MAX_SIGN_UPS_PER_HOUR = 20;
 const APP_NAME = 'PumpPal';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,128 +73,159 @@ export async function findAccountByEmail(db: Db, email: string): Promise<Account
 }
 
 /**
- * Creates an account. The SERVER decides the role (the browser used to pick
- * its own). Someone who was already in the old app's user list keeps their
- * existing role record when they register the same email address.
+ * Creates an account and nothing more. It has no role and reaches no data
+ * until its email is confirmed (see confirmEmail). A new sign-up never takes
+ * over an identity carried across from the old app.
  */
 export async function signUp(db: Db, input: { email: unknown; password: unknown }, now = new Date()): Promise<Account> {
   const email = normaliseEmail(input.email);
   checkCredentials(email, input.password);
-  const passwordHash = await hashPassword(input.password);
 
+  const hourAgo = new Date(now.getTime() - 60 * MINUTE);
+  const [{ recent }] = await db.select({ recent: sql<number>`COUNT(*)` }).from(accounts).where(gt(accounts.createdAt, hourAgo));
+  if (Number(recent) >= MAX_SIGN_UPS_PER_HOUR) {
+    throw new AuthError('too-many-sign-ups', 'Too many new accounts were created in the last hour. Please try again later.', 429);
+  }
+  if (await findAccountByEmail(db, email)) {
+    throw new AuthError('email-in-use', 'This email is already registered. Sign in, or use "Forgot password".', 409);
+  }
+
+  const account: Account = { id: newAccountId(), email, passwordHash: await hashPassword(input.password), emailVerified: false, failedSignIns: 0, lockedUntil: null, createdAt: now };
   try {
-    return await withRetry(() =>
-      db.transaction(async (tx) => {
-        await lockDocuments(tx); // one sign-up at a time, so "first account" is decided once
-        const [existing] = await tx.select({ id: accounts.id }).from(accounts).where(eq(accounts.email, email)).limit(1);
-        if (existing) throw new AuthError('email-in-use', 'This email is already registered. Sign in, or use "Forgot password".', 409);
-
-        const roleRows = await tx
-          .select({ docId: documents.docId, dataRaw: documents.dataRaw })
-          .from(documents)
-          .where(and(eq(documents.collection, 'userRoles'), eq(documents.deleted, false)));
-        const [{ total }] = await tx.select({ total: sql<number>`COUNT(*)` }).from(accounts);
-        const takenIds = new Set((await tx.select({ id: accounts.id }).from(accounts)).map((a) => a.id));
-
-        const earlier = roleRows.find((r) => {
-          const recordEmail = (JSON.parse(r.dataRaw) as { email?: unknown }).email;
-          return normaliseEmail(recordEmail) === email && !takenIds.has(r.docId);
-        });
-
-        const id = earlier?.docId ?? newAccountId();
-        if (!earlier) {
-          const roleId = roleForNewAccount({ isFirstAccount: Number(total) === 0 && roleRows.length === 0, email });
-          await writeChanges(tx, [{ path: `userRoles/${id}`, data: { roleId, email } }], now);
-        }
-        const account: Account = { id, email, passwordHash, emailVerified: false, failedSignIns: 0, lockedUntil: null, createdAt: now };
-        await tx.insert(accounts).values(account);
-        return account;
-      }),
-    );
+    await db.insert(accounts).values(account);
   } catch (e) {
     if (isDuplicate(e)) throw new AuthError('email-in-use', 'This email is already registered. Sign in, or use "Forgot password".', 409);
     throw e;
   }
+  return account;
+}
+
+/**
+ * Marks the email as confirmed and, if the person has no role record yet,
+ * creates one with the role the policy gives a newcomer. Must run inside a
+ * transaction that will hold the documents lock.
+ */
+async function confirmEmail(tx: Tx, accountId: string, now: Date): Promise<void> {
+  await lockDocuments(tx); // one at a time, so "first person" is decided once
+  const [account] = await tx.select().from(accounts).where(eq(accounts.id, accountId)).for('update');
+  if (!account) return;
+  if (!account.emailVerified) await tx.update(accounts).set({ emailVerified: true }).where(eq(accounts.id, accountId));
+
+  const roleRows = await tx
+    .select({ docId: documents.docId })
+    .from(documents)
+    .where(and(eq(documents.collection, 'userRoles'), eq(documents.deleted, false)))
+    .for('update');
+  if (roleRows.some((row) => row.docId === accountId)) return;
+  const roleId = roleForNewAccount({ isFirstAccount: roleRows.length === 0, email: account.email });
+  await writeChanges(tx, [{ path: `userRoles/${accountId}`, data: { roleId, email: account.email } }], now);
 }
 
 // Checked when the email is unknown, so a wrong email takes as long as a wrong password.
 let decoyHash: Promise<string> | undefined;
 
+/**
+ * Checks a password. Attempts on one account are taken strictly one at a
+ * time (the account's row is locked while its password is checked), so many
+ * guesses fired at once cannot slip past the limit.
+ */
 export async function signIn(db: Db, input: { email: unknown; password: unknown }, now = new Date()): Promise<Account> {
   const email = normaliseEmail(input.email);
   const password = typeof input.password === 'string' ? input.password : '';
-  const wrong = () => new AuthError('invalid-credential', 'Incorrect email or password.', 401);
 
-  const account = await findAccountByEmail(db, email);
-  if (!account) {
-    decoyHash ??= hashPassword('decoy-password-never-matches');
-    await verifyPassword(password, await decoyHash);
-    throw wrong();
+  const outcome = await withRetry(() =>
+    db.transaction(async (tx): Promise<Account | AuthError> => {
+      const [account] = await tx.select().from(accounts).where(eq(accounts.email, email)).for('update');
+      if (!account) return new AuthError('invalid-credential', 'Incorrect email or password.', 401);
+      if (account.lockedUntil && account.lockedUntil.getTime() > now.getTime()) {
+        return new AuthError('too-many-attempts', 'Too many wrong passwords. Try again in 15 minutes, or use "Forgot password".', 429);
+      }
+      if (!account.passwordHash) {
+        return new AuthError('no-password', 'This account has no password yet. Use "Forgot password" to set one.', 401);
+      }
+      if (!(await verifyPassword(password, account.passwordHash))) {
+        const failed = account.failedSignIns + 1;
+        const lock = failed >= MAX_FAILED_SIGN_INS;
+        await tx
+          .update(accounts)
+          .set({ failedSignIns: lock ? 0 : failed, lockedUntil: lock ? new Date(now.getTime() + LOCK_FOR) : null })
+          .where(eq(accounts.id, account.id));
+        return new AuthError('invalid-credential', 'Incorrect email or password.', 401);
+      }
+      if (account.failedSignIns !== 0 || account.lockedUntil) {
+        await tx.update(accounts).set({ failedSignIns: 0, lockedUntil: null }).where(eq(accounts.id, account.id));
+      }
+      return { ...account, failedSignIns: 0, lockedUntil: null };
+    }),
+  );
+
+  if (outcome instanceof AuthError) {
+    if (outcome.code === 'invalid-credential') {
+      decoyHash ??= hashPassword('decoy-password-never-matches');
+      await verifyPassword(password, await decoyHash);
+    }
+    throw outcome;
   }
-  if (account.lockedUntil && account.lockedUntil.getTime() > now.getTime()) {
-    throw new AuthError('too-many-attempts', 'Too many wrong passwords. Try again in 15 minutes, or use "Forgot password".', 429);
-  }
-  if (!account.passwordHash) {
-    throw new AuthError('no-password', 'This account has no password yet. Use "Forgot password" to set one.', 401);
-  }
-  if (!(await verifyPassword(password, account.passwordHash))) {
-    const failed = account.failedSignIns + 1;
-    const lock = failed >= MAX_FAILED_SIGN_INS;
-    await db
-      .update(accounts)
-      .set({ failedSignIns: lock ? 0 : failed, lockedUntil: lock ? new Date(now.getTime() + LOCK_FOR) : null })
-      .where(eq(accounts.id, account.id));
-    throw wrong();
-  }
-  if (account.failedSignIns !== 0 || account.lockedUntil) {
-    await db.update(accounts).set({ failedSignIns: 0, lockedUntil: null }).where(eq(accounts.id, account.id));
-  }
-  return { ...account, failedSignIns: 0, lockedUntil: null };
+  return outcome;
 }
 
-async function issueEmailToken(db: Db, accountId: string, purpose: 'verify' | 'reset', ttl: number, now: Date): Promise<string | null> {
-  const [latest] = await db
+async function issueEmailToken(db: Db, accountId: string, purpose: 'verify' | 'reset', ttl: number, now: Date, dailyLimit?: number): Promise<string | null> {
+  const live = await db
     .select({ expiresAt: emailTokens.expiresAt })
     .from(emailTokens)
-    .where(and(eq(emailTokens.accountId, accountId), eq(emailTokens.purpose, purpose), isNull(emailTokens.usedAt)))
-    .orderBy(desc(emailTokens.expiresAt))
-    .limit(1);
+    .where(and(eq(emailTokens.accountId, accountId), eq(emailTokens.purpose, purpose), gt(emailTokens.expiresAt, now)))
+    .orderBy(desc(emailTokens.expiresAt));
   // One was sent a moment ago: do not send another (the "resend" button, a double click).
-  if (latest && latest.expiresAt.getTime() - ttl > now.getTime() - RESEND_AFTER) return null;
+  if (live[0] && live[0].expiresAt.getTime() - ttl > now.getTime() - RESEND_AFTER) return null;
+  if (dailyLimit && live.filter((t) => t.expiresAt.getTime() - ttl > now.getTime() - 24 * 60 * MINUTE).length >= dailyLimit) return null;
   const token = newToken();
   await db.insert(emailTokens).values({ tokenHash: hashToken(token), accountId, purpose, expiresAt: new Date(now.getTime() + ttl) });
   return token;
 }
 
-async function redeemEmailToken(db: Db, token: unknown, purpose: 'verify' | 'reset', now: Date): Promise<string | null> {
+/** Uses up a one-time link. Returns whose it was, or null. Two requests with the same link: only one wins. */
+async function redeemEmailToken(db: Db | Tx, token: unknown, purpose: 'verify' | 'reset', now: Date, mustBelongTo?: string): Promise<string | null> {
   if (typeof token !== 'string' || token.length < 20) return null;
   const tokenHash = hashToken(token);
   const [row] = await db.select().from(emailTokens).where(eq(emailTokens.tokenHash, tokenHash)).limit(1);
   if (!row || row.purpose !== purpose || row.usedAt || row.expiresAt.getTime() <= now.getTime()) return null;
+  // Checked BEFORE the link is used up, so someone else opening it cannot burn it.
+  if (mustBelongTo !== undefined && row.accountId !== mustBelongTo) return null;
   const [done] = await db.update(emailTokens).set({ usedAt: now }).where(and(eq(emailTokens.tokenHash, tokenHash), isNull(emailTokens.usedAt)));
   return (done as { affectedRows?: number }).affectedRows === 1 ? row.accountId : null;
 }
 
-/** Emails the "approve this sign-in" link. Does nothing for an address that is already verified. */
+/** Emails the "approve this sign-in" link. Does nothing for an address that is already confirmed. */
 export async function startVerification(db: Db, account: Account, origin: string, now = new Date()): Promise<'sent' | 'already-verified' | 'recently-sent'> {
   if (account.emailVerified) return 'already-verified';
-  const token = await issueEmailToken(db, account.id, 'verify', VERIFY_TTL, now);
+  const token = await issueEmailToken(db, account.id, 'verify', VERIFY_TTL, now, MAX_VERIFY_EMAILS_PER_DAY);
   if (!token) return 'recently-sent';
-  const link = `${origin}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  const link = `${origin}/verify?token=${encodeURIComponent(token)}`;
   await sendMail({
     to: account.email,
     subject: `${APP_NAME}: approve your sign-in`,
-    text: `Open this link to approve your sign-in to ${APP_NAME}:\n\n${link}\n\nThe link works once and expires in 24 hours. If you did not try to sign in, ignore this email.`,
+    text: `Open this link in the same browser where you are signing in to ${APP_NAME}:\n\n${link}\n\nThe link works once and expires in 24 hours. If you did not try to sign in, ignore this email: nothing happens unless the link is opened by the person who is signing in.`,
     link,
   });
   return 'sent';
 }
 
-export async function completeVerification(db: Db, token: unknown, now = new Date()): Promise<boolean> {
-  const accountId = await redeemEmailToken(db, token, 'verify', now);
-  if (!accountId) return false;
-  await db.update(accounts).set({ emailVerified: true }).where(eq(accounts.id, accountId));
-  return true;
+/**
+ * Confirms an email address. The link only counts when it is opened by the
+ * signed-in account it was sent for. Anyone can type someone else's address
+ * into the sign-up form; if that person (or their mail program scanning the
+ * link) opens it, nothing happens, because they are not signed in as the
+ * account that asked.
+ */
+export async function completeVerification(db: Db, token: unknown, signedInAccountId: string, now = new Date()): Promise<boolean> {
+  return withRetry(() =>
+    db.transaction(async (tx) => {
+      const accountId = await redeemEmailToken(tx, token, 'verify', now, signedInAccountId);
+      if (!accountId) return false;
+      await confirmEmail(tx, accountId, now);
+      return true;
+    }),
+  );
 }
 
 /** Emails a reset link if the address has an account. Never says whether it does. */
@@ -200,15 +243,28 @@ export async function requestPasswordReset(db: Db, emailInput: unknown, origin: 
   });
 }
 
-/** Sets a new password from a reset link. Opening the link also proves the email address, and signs out every other device. */
+/**
+ * Sets a new password from a reset link. Whoever opens that link can read the
+ * mailbox, so it also confirms the address; every other device is signed out
+ * and any other reset link still in the mailbox stops working.
+ */
 export async function completePasswordReset(db: Db, token: unknown, password: unknown, now = new Date()): Promise<boolean> {
   if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
     throw new AuthError('weak-password', `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
   }
   const passwordHash = await hashPassword(password);
-  const accountId = await redeemEmailToken(db, token, 'reset', now);
+  const accountId = await withRetry(() =>
+    db.transaction(async (tx) => {
+      await lockDocuments(tx); // same lock order as email confirmation, so the two can never block each other
+      const id = await redeemEmailToken(tx, token, 'reset', now);
+      if (!id) return null;
+      await tx.update(accounts).set({ passwordHash, failedSignIns: 0, lockedUntil: null }).where(eq(accounts.id, id));
+      await tx.update(emailTokens).set({ usedAt: now }).where(and(eq(emailTokens.accountId, id), eq(emailTokens.purpose, 'reset'), isNull(emailTokens.usedAt)));
+      await confirmEmail(tx, id, now);
+      return id;
+    }),
+  );
   if (!accountId) return false;
-  await db.update(accounts).set({ passwordHash, emailVerified: true, failedSignIns: 0, lockedUntil: null }).where(eq(accounts.id, accountId));
   await endAllSessions(db, accountId);
   return true;
 }

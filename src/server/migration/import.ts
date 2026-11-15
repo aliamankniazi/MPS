@@ -8,7 +8,7 @@
  *   3. Running it twice adds nothing the second time.
  *   4. Afterwards every record is read back and compared with the backup.
  */
-import { inArray, sql } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
 import { accounts, documents } from '../db/schema';
 import { lockDocuments, writeChanges } from '../sync/documents';
@@ -76,7 +76,13 @@ export async function planImport(db: Db, dir: string): Promise<ImportPlan> {
   return plan;
 }
 
-export type ImportOutcome = { added: number; accountsAdded: number; verified: number };
+export type ImportOutcome = {
+  added: number;
+  accountsAdded: number;
+  verified: number;
+  /** Emails in the backup that already belong to a DIFFERENT account here. Their old role record has no owner: an admin must sort these out by hand. */
+  emailClashes: string[];
+};
 
 /**
  * Carries out a plan. `keepExisting` = where the database already holds a
@@ -94,16 +100,22 @@ export async function applyImport(db: Db, plan: ImportPlan, options: { keepExist
     await db.transaction(async (tx) => {
       await lockDocuments(tx);
       // Someone may have created one of these since the plan was made: never overwrite.
-      const now = await tx.select({ path: documents.path }).from(documents).where(inArray(documents.path, part.map((r) => r.path)));
+      const now = await tx.select({ path: documents.path }).from(documents).where(inArray(documents.path, part.map((r) => r.path))).for('update');
       const taken = new Set(now.map((r) => r.path));
       await writeChanges(tx, part.filter((r) => !taken.has(r.path)).map((r) => ({ path: r.path, data: r.data })));
     });
   }
 
   let accountsAdded = 0;
+  const emailClashes: string[] = [];
   for (const user of plan.users) {
     const email = user.email?.trim().toLowerCase();
     if (!email || user.disabled) continue;
+    const [holder] = await db.select({ id: accounts.id }).from(accounts).where(eq(accounts.email, email)).limit(1);
+    if (holder && holder.id !== user.uid) {
+      emailClashes.push(email);
+      continue;
+    }
     // No password is moved; the person sets one with "Forgot password".
     const [result] = await db.execute(
       sql`INSERT IGNORE INTO accounts (id, email, password_hash, email_verified, failed_sign_ins, created_at) VALUES (${user.uid}, ${email}, NULL, ${user.emailVerified}, 0, ${new Date()})`,
@@ -123,7 +135,7 @@ export async function applyImport(db: Db, plan: ImportPlan, options: { keepExist
     }
     verified++;
   }
-  return { added: plan.toAdd.length, accountsAdded, verified };
+  return { added: plan.toAdd.length, accountsAdded, verified, emailClashes };
 }
 
 /** Totals of what the database now holds for the backup's records, for comparing with totals(plan.records). */

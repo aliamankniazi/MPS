@@ -4,14 +4,16 @@
  * so the two can never disagree about what a change means.
  *
  * The three kinds mirror what the app did with Firestore:
- *   set     replace the record (or merge into it when `merge` is set)
+ *   set     replace the record (or merge into it when `merge` is set). With
+ *           `ifAbsent` it only creates: if the record already exists it is left
+ *           alone, so a device with an incomplete copy can never overwrite it
  *   update  change some fields; 'a.b' reaches inside field `a`; fails if the record is gone
  *   delete  remove the record
  */
 export type DocData = Record<string, unknown>;
 
 export type Op =
-  | { opId: string; path: string; type: 'set'; data: DocData; merge?: boolean }
+  | { opId: string; path: string; type: 'set'; data: DocData; merge?: boolean; ifAbsent?: boolean }
   | { opId: string; path: string; type: 'update'; data: DocData }
   | { opId: string; path: string; type: 'delete' };
 
@@ -86,7 +88,7 @@ function setAtPath(target: DocData, dotted: string, value: unknown): void {
   cursor[names[names.length - 1]] = value;
 }
 
-export type ApplyResult = { status: 'applied'; data: DocData | null } | { status: 'missing' };
+export type ApplyResult = { status: 'applied'; data: DocData | null } | { status: 'missing' } | { status: 'exists' };
 
 /**
  * The record after `op`, given the record before it (`null` = does not exist).
@@ -96,6 +98,7 @@ export function applyOp(current: DocData | null, op: Op, nowIso: string): ApplyR
   if (op.type === 'delete') return { status: 'applied', data: null };
   const incoming = resolveServerTimestamps(op.data, nowIso) as DocData;
   if (op.type === 'set') {
+    if (op.ifAbsent && current) return { status: 'exists' };
     return { status: 'applied', data: op.merge && current ? deepMerge(current, incoming) : incoming };
   }
   // update: Firestore refuses to update a record that does not exist.

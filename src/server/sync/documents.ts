@@ -6,8 +6,14 @@
  * A device remembers the last number it has seen and asks for everything
  * after it. All writers queue on one database lock, so numbers are handed out
  * in the same order changes become visible: a device can never skip one.
+ *
+ * Inside a write, every read is a LOCKING read (`FOR UPDATE`). On TiDB an
+ * ordinary read sees the database as it was when the transaction began, which
+ * is BEFORE it waited for the lock; a locking read sees what the writer ahead
+ * of it just saved. Without this, two people saving the same record a moment
+ * apart could silently lose one of the two changes.
  */
-import { inArray, sql, gt, asc } from 'drizzle-orm';
+import { asc, gt, inArray, sql } from 'drizzle-orm';
 import type { Db, Tx } from '../db/client';
 import { appliedOps, counters, documents } from '../db/schema';
 import { withRetry } from '../db/retry';
@@ -67,52 +73,76 @@ export async function writeChanges(tx: Tx, changes: Change[], now = new Date()):
   }
 }
 
-/** Current records at `paths`; a missing or deleted one is absent from the map. */
-export async function readDocs(tx: Tx | Db, paths: string[]): Promise<Map<string, DocData>> {
+/**
+ * Current records at `paths`; a missing or deleted one is absent from the map.
+ * `locking` must be true inside a write (see the note at the top of the file).
+ */
+export async function readDocs(tx: Tx | Db, paths: string[], locking = false): Promise<Map<string, DocData>> {
   const found = new Map<string, DocData>();
   for (const part of chunks([...new Set(paths)])) {
-    const rows = await tx
+    const query = tx
       .select({ path: documents.path, dataRaw: documents.dataRaw, deleted: documents.deleted })
       .from(documents)
       .where(inArray(documents.path, part));
+    const rows = locking ? await query.for('update') : await query;
     for (const row of rows) if (!row.deleted) found.set(row.path, JSON.parse(row.dataRaw) as DocData);
   }
   return found;
 }
 
-export type OpResult = { opId: string; status: 'applied' | 'duplicate' | 'missing' | 'rejected'; reason?: string };
+export type OpResult = { opId: string; status: 'applied' | 'duplicate' | 'missing' | 'rejected' | 'exists'; reason?: string };
+
+export type PushOutcome = {
+  results: OpResult[];
+  /**
+   * For every record where a change was NOT taken as sent, what the server
+   * holds now (null = no such record), so the device can show the truth.
+   */
+  truth: Record<string, DocData | null>;
+};
 
 /**
- * Applies a device's changes, in order, all or nothing. A change that was
- * already applied (the device retried after a dropped connection) is reported
- * as 'duplicate' and not applied twice.
+ * Applies a device's changes, in order, all or nothing.
+ *   applied    saved
+ *   duplicate  already saved earlier (the device retried after a dropped connection)
+ *   exists     a "create only" change for a record that already exists: the existing one is kept
+ *   missing    an edit to a record that no longer exists
+ *   rejected   not allowed, malformed, or too large
  */
-export async function pushOps(db: Db, actor: Actor, rawOps: unknown[], now = new Date()): Promise<OpResult[]> {
+export async function pushChanges(db: Db, actor: Actor, rawOps: unknown[], now = new Date()): Promise<PushOutcome> {
   if (rawOps.length > MAX_OPS_PER_PUSH) throw new Error(`too many changes in one request (max ${MAX_OPS_PER_PUSH})`);
   const nowIso = now.toISOString();
+  const ownRolePath = `userRoles/${actor.accountId}`;
 
   return withRetry(() =>
     db.transaction(async (tx) => {
       await lockDocuments(tx);
       const results: OpResult[] = new Array(rawOps.length);
       const accepted: { index: number; op: Op }[] = [];
+      const truthPaths = new Set<string>();
 
       rawOps.forEach((raw, index) => {
         const opId = typeof (raw as { opId?: unknown })?.opId === 'string' ? (raw as { opId: string }).opId : '';
         const reason = invalidReason(raw);
         if (reason) return void (results[index] = { opId, status: 'rejected', reason });
         const op = raw as Op;
-        if (!canWrite(actor, splitPath(op.path)!.root)) return void (results[index] = { opId, status: 'rejected', reason: 'not allowed' });
+        const refuse = (why: string) => {
+          truthPaths.add(op.path);
+          results[index] = { opId, status: 'rejected', reason: why };
+        };
+        if (!canWrite(actor, splitPath(op.path)!.root)) return refuse('not allowed');
+        // Nobody removes or changes their own role: an admin cannot lock the business out by accident.
+        if (op.path === ownRolePath) return refuse('you cannot change your own role');
         accepted.push({ index, op });
       });
 
       const seen = new Set<string>();
       for (const part of chunks(accepted.map((a) => a.op.opId))) {
-        const rows = await tx.select({ opId: appliedOps.opId }).from(appliedOps).where(inArray(appliedOps.opId, part));
+        const rows = await tx.select({ opId: appliedOps.opId }).from(appliedOps).where(inArray(appliedOps.opId, part)).for('update');
         for (const row of rows) seen.add(row.opId);
       }
 
-      const state = new Map<string, DocData | null>(await readDocs(tx, accepted.map((a) => a.op.path)));
+      const state = new Map<string, DocData | null>(await readDocs(tx, accepted.map((a) => a.op.path), true));
       const changed = new Set<string>();
       const appliedIds: string[] = [];
 
@@ -124,11 +154,13 @@ export async function pushOps(db: Db, actor: Actor, rawOps: unknown[], now = new
         seen.add(op.opId);
         const before = state.get(op.path) ?? null;
         const result = applyOp(before, op, nowIso);
-        if (result.status === 'missing') {
-          results[index] = { opId: op.opId, status: 'missing' };
+        if (result.status !== 'applied') {
+          truthPaths.add(op.path);
+          results[index] = { opId: op.opId, status: result.status };
           continue;
         }
         if (result.data !== null && Buffer.byteLength(JSON.stringify(result.data)) > MAX_DOC_BYTES) {
+          truthPaths.add(op.path);
           results[index] = { opId: op.opId, status: 'rejected', reason: 'record too large' };
           continue;
         }
@@ -145,20 +177,38 @@ export async function pushOps(db: Db, actor: Actor, rawOps: unknown[], now = new
       for (const part of chunks(appliedIds)) {
         await tx.insert(appliedOps).values(part.map((opId) => ({ opId, createdAt: now }))).onDuplicateKeyUpdate({ set: { opId: sql`op_id` } });
       }
-      return results;
+
+      const unread = [...truthPaths].filter((path) => !state.has(path));
+      const extra = await readDocs(tx, unread, true);
+      const truth: Record<string, DocData | null> = {};
+      for (const path of truthPaths) truth[path] = state.get(path) ?? extra.get(path) ?? null;
+      return { results, truth };
     }),
   );
 }
 
-export type Pull = { epoch: number; cursor: number; more: boolean; docs: { path: string; version: number; dataRaw: string | null }[] };
+/** As pushChanges, returning only the per-change results. */
+export async function pushOps(db: Db, actor: Actor, rawOps: unknown[], now = new Date()): Promise<OpResult[]> {
+  return (await pushChanges(db, actor, rawOps, now)).results;
+}
+
+export type Pull = {
+  epoch: number;
+  /** The last version the server has handed out. A device further along than this holds a copy from a different database. */
+  head: number;
+  cursor: number;
+  more: boolean;
+  docs: { path: string; version: number; dataRaw: string | null }[];
+};
 
 /**
  * Everything saved after `since`, oldest first, in pages small enough for one
  * response. `more` says to ask again from `cursor`. A deleted record arrives
  * with `dataRaw: null`.
  */
-export async function pullChanges(db: Db, since: number, limit = 1000, maxBytes = 3_000_000): Promise<Pull> {
-  const [epochRow] = await db.select({ value: counters.value }).from(counters).where(sql`name = 'epoch'`);
+export async function pullChanges(db: Db, since: number, limit = 5000, maxBytes = 3_000_000): Promise<Pull> {
+  const named = await db.select({ name: counters.name, value: counters.value }).from(counters);
+  const counter = (name: string) => Number(named.find((row) => row.name === name)?.value ?? 0);
   const rows = await db
     .select({ path: documents.path, dataRaw: documents.dataRaw, version: documents.version, deleted: documents.deleted })
     .from(documents)
@@ -169,12 +219,15 @@ export async function pullChanges(db: Db, since: number, limit = 1000, maxBytes 
   const docs: Pull['docs'] = [];
   let bytes = 0;
   for (const row of rows.slice(0, limit)) {
-    bytes += row.dataRaw.length + row.path.length + 32;
+    // Real bytes, not characters: Urdu text takes two or three bytes a letter.
+    bytes += Buffer.byteLength(row.dataRaw) + Buffer.byteLength(row.path) + 32;
     if (docs.length > 0 && bytes > maxBytes) break;
     docs.push({ path: row.path, version: Number(row.version), dataRaw: row.deleted ? null : row.dataRaw });
   }
   return {
-    epoch: Number(epochRow?.value ?? 0),
+    epoch: counter('epoch'),
+    // Read before the rows, so it can only be behind them, never ahead.
+    head: Math.max(counter('documents'), docs.length ? docs[docs.length - 1].version : 0),
     cursor: docs.length ? docs[docs.length - 1].version : since,
     more: docs.length < rows.length,
     docs,
@@ -184,5 +237,5 @@ export async function pullChanges(db: Db, since: number, limit = 1000, maxBytes 
 /** The pull as JSON text. Records are spliced in exactly as stored: no parse-and-reprint that could alter a number. */
 export function pullToJson(pull: Pull): string {
   const docs = pull.docs.map((d) => `{"p":${JSON.stringify(d.path)},"v":${d.version},"d":${d.dataRaw ?? 'null'}}`);
-  return `{"epoch":${pull.epoch},"cursor":${pull.cursor},"more":${pull.more},"docs":[${docs.join(',')}]}`;
+  return `{"epoch":${pull.epoch},"head":${pull.head},"cursor":${pull.cursor},"more":${pull.more},"docs":[${docs.join(',')}]}`;
 }

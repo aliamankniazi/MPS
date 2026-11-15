@@ -20,7 +20,8 @@
     "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
     "data:export": "tsx scripts/export-firestore.ts",
     "data:import": "tsx --env-file=.env.local scripts/import-export.ts",
-    "account:set-password": "tsx --env-file=.env.local scripts/set-password.ts"
+    "account:set-password": "tsx --env-file=.env.local scripts/set-password.ts",
+    "account:make-admin": "tsx --env-file=.env.local scripts/make-admin.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

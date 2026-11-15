@@ -2,18 +2,28 @@ import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Db } from '../../src/server/db/client';
 import { accounts } from '../../src/server/db/schema';
-import { AuthError, completePasswordReset, completeVerification, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
-import { createSession, endSession, findSession } from '../../src/server/auth/session';
+import { AuthError, completePasswordReset, completeVerification, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
+import { createSession, endSession, findSession, type Account } from '../../src/server/auth/session';
 import { setDeliverForTests, type Mail } from '../../src/server/auth/mail';
 import { resolveActor } from '../../src/server/access/actor';
-import { roleForNewAccount } from '../../src/server/access/policy';
-import { lockDocuments, readDocs, writeChanges } from '../../src/server/sync/documents';
+import { PENDING_ROLE, roleForNewAccount } from '../../src/server/access/policy';
+import { lockDocuments, pullChanges, pushChanges, readDocs, writeChanges } from '../../src/server/sync/documents';
 import { closeTestDb, freshTestDb } from './test-db';
 
 let db: Db;
 let mails: Mail[];
 const ORIGIN = 'http://localhost:3000';
 const tokenIn = (mail: Mail) => new URL(mail.link).searchParams.get('token')!;
+const fresh = async (id: string): Promise<Account> => (await db.select().from(accounts).where(eq(accounts.id, id)))[0];
+
+/** Sign up and open the emailed link as that same person. */
+async function signUpAndConfirm(email: string, password = 'secret-1'): Promise<Account> {
+  const account = await signUp(db, { email, password });
+  const before = mails.length;
+  await startVerification(db, account, ORIGIN);
+  expect(await completeVerification(db, tokenIn(mails[before]), account.id)).toBe(true);
+  return fresh(account.id);
+}
 
 beforeEach(async () => {
   db = await freshTestDb();
@@ -23,19 +33,18 @@ beforeEach(async () => {
 afterAll(closeTestDb);
 
 describe('sign-up', () => {
-  it('makes the first person the admin and gives later people the role the policy names', async () => {
-    const first = await signUp(db, { email: 'Owner@Example.com ', password: 'secret-1' });
-    const second = await signUp(db, { email: 'staff@example.com', password: 'secret-2' });
-
-    expect(first.email).toBe('owner@example.com');
-    const roles = await readDocs(db, [`userRoles/${first.id}`, `userRoles/${second.id}`]);
-    expect(roles.get(`userRoles/${first.id}`)).toEqual({ roleId: 'admin', email: 'owner@example.com' });
-    expect(roles.get(`userRoles/${second.id}`)).toEqual({ roleId: roleForNewAccount({ isFirstAccount: false, email: 'staff@example.com' }), email: 'staff@example.com' });
+  it('creates an account with no role and no access', async () => {
+    const account = await signUp(db, { email: 'Owner@Example.com ', password: 'secret-1' });
+    expect(account.email).toBe('owner@example.com');
+    expect((await readDocs(db, [`userRoles/${account.id}`])).size).toBe(0);
+    expect(await resolveActor(db, account)).toMatchObject({ active: false, roleId: null });
+    // Nothing was added to the records every device downloads.
+    expect((await pullChanges(db, 0)).docs).toHaveLength(0);
   });
 
   it('stores a hash, never the password', async () => {
     const account = await signUp(db, { email: 'owner@example.com', password: 'plain-text-pw' });
-    const [row] = await db.select().from(accounts).where(eq(accounts.id, account.id));
+    const row = await fresh(account.id);
     expect(row.passwordHash).toMatch(/^scrypt\$/);
     expect(JSON.stringify(row)).not.toContain('plain-text-pw');
   });
@@ -47,18 +56,52 @@ describe('sign-up', () => {
     await expect(signUp(db, { email: 'x@example.com', password: '12345' })).rejects.toMatchObject({ code: 'weak-password' });
   });
 
-  it('someone from the old app keeps their id and role when they register the same email', async () => {
+  it('stops a flood of new accounts', async () => {
+    const now = new Date();
+    await db.insert(accounts).values(Array.from({ length: MAX_SIGN_UPS_PER_HOUR }, (_, i) => ({ id: `flood${i}`, email: `flood${i}@example.com`, passwordHash: null, emailVerified: false, createdAt: now })));
+    await expect(signUp(db, { email: 'one-more@example.com', password: 'secret-1' })).rejects.toMatchObject({ code: 'too-many-sign-ups', status: 429 });
+    // An hour later the door is open again.
+    const later = new Date(now.getTime() + 61 * 60_000);
+    await expect(signUp(db, { email: 'one-more@example.com', password: 'secret-1' }, later)).resolves.toBeTruthy();
+  });
+
+  it('cannot be used to take over someone carried across from the old app', async () => {
+    // The old app's records say this email is an admin, but (disabled or deleted there) it has no account here.
     await db.transaction(async (tx) => {
       await lockDocuments(tx);
       await writeChanges(tx, [
-        { path: 'userRoles/firebaseUid123', data: { roleId: 'admin', email: 'Owner@Example.com' } },
+        { path: 'userRoles/firebaseUidOfExEmployee', data: { roleId: 'admin', email: 'ex@example.com' } },
         { path: 'roles/admin', data: { name: 'Admin', permissions: [] } },
       ]);
     });
-    const account = await signUp(db, { email: 'owner@example.com', password: 'secret-1' });
-    expect(account.id).toBe('firebaseUid123');
-    // ...but the role does them no good until they prove the email is theirs.
-    expect((await resolveActor(db, account)).active).toBe(false);
+    const stranger = await signUpAndConfirm('ex@example.com');
+    expect(stranger.id).not.toBe('firebaseUidOfExEmployee');
+    expect(await resolveActor(db, stranger)).toMatchObject({ active: false, roleId: PENDING_ROLE });
+    // The old record is untouched.
+    expect((await readDocs(db, ['userRoles/firebaseUidOfExEmployee'])).get('userRoles/firebaseUidOfExEmployee')).toEqual({ roleId: 'admin', email: 'ex@example.com' });
+  });
+});
+
+describe('who gets in', () => {
+  it('on an empty system, the first person to confirm their email becomes the admin', async () => {
+    const owner = await signUpAndConfirm('owner@example.com');
+    expect(await resolveActor(db, owner)).toMatchObject({ active: true, roleId: 'admin' });
+  });
+
+  it('a stranger who signs up and confirms their own email still reaches nothing until an admin gives them a role', async () => {
+    const owner = await signUpAndConfirm('owner@example.com');
+    const stranger = await signUpAndConfirm('stranger@example.com');
+    const expected = roleForNewAccount({ isFirstAccount: false, email: 'stranger@example.com' });
+    expect((await readDocs(db, [`userRoles/${stranger.id}`])).get(`userRoles/${stranger.id}`)).toEqual({ roleId: expected, email: 'stranger@example.com' });
+
+    // This is the rule the owner is asked to decide. Whatever it says, "pending" must mean no access.
+    if (expected === PENDING_ROLE) {
+      expect((await resolveActor(db, stranger)).active).toBe(false);
+      const admin = await resolveActor(db, owner);
+      const approve = await pushChanges(db, admin, [{ opId: 'op-approve-01', path: `userRoles/${stranger.id}`, type: 'update', data: { roleId: 'attendant' } }]);
+      expect(approve.results[0].status).toBe('applied');
+    }
+    expect((await resolveActor(db, stranger)).active).toBe(true);
   });
 });
 
@@ -80,6 +123,16 @@ describe('sign-in', () => {
     await expect(signIn(db, { email: 'owner@example.com', password: 'secret-1' }, later)).resolves.toBeTruthy();
   });
 
+  it('many guesses fired at the same instant cannot slip past the limit', async () => {
+    await signUp(db, { email: 'owner@example.com', password: 'secret-1' });
+    const guesses = await Promise.all(
+      Array.from({ length: 24 }, (_, i) => signIn(db, { email: 'owner@example.com', password: `guess-${i}` }).then(() => 'ok', (e: AuthError) => e.code)),
+    );
+    const tested = guesses.filter((code) => code === 'invalid-credential').length;
+    expect(tested).toBe(8); // exactly eight passwords were actually checked
+    expect(guesses.filter((code) => code === 'too-many-attempts')).toHaveLength(16);
+  });
+
   it('a migrated person with no password is told to set one', async () => {
     await db.insert(accounts).values({ id: 'uid1', email: 'old@example.com', passwordHash: null, emailVerified: true, createdAt: new Date() });
     await expect(signIn(db, { email: 'old@example.com', password: 'anything' })).rejects.toMatchObject({ code: 'no-password' });
@@ -96,54 +149,86 @@ describe('sessions', () => {
     await endSession(db, token);
     expect(await findSession(db, token)).toBeNull();
   });
+
+  it('a session in regular use is extended, and says so, so the cookie can be extended with it', async () => {
+    const account = await signUp(db, { email: 'owner@example.com', password: 'secret-1' });
+    const { token, expiresAt } = await createSession(db, account.id);
+    expect((await findSession(db, token))?.renewed).toBe(false);
+    const inTenDays = new Date(Date.now() + 10 * 24 * 3600_000);
+    const later = await findSession(db, token, inTenDays);
+    expect(later?.renewed).toBe(true);
+    expect(later!.expiresAt.getTime()).toBeGreaterThan(expiresAt.getTime());
+  });
 });
 
 describe('email approval', () => {
-  it('a new account is not active until its emailed link is opened, and the link works once', async () => {
-    const account = await signUp(db, { email: 'owner@example.com', password: 'secret-1' });
-    expect((await resolveActor(db, account)).active).toBe(false);
+  it('the link works once, and only for the signed-in account it was sent for', async () => {
+    const owner = await signUpAndConfirm('owner@example.com');
+    // Someone signs up using a staff member's address and their own password.
+    const impostor = await signUp(db, { email: 'staff@example.com', password: 'attacker-pw' });
+    expect(await startVerification(db, impostor, ORIGIN)).toBe('sent');
+    expect(await startVerification(db, impostor, ORIGIN)).toBe('recently-sent');
+    const token = tokenIn(mails[mails.length - 1]);
 
-    expect(await startVerification(db, account, ORIGIN)).toBe('sent');
-    expect(await startVerification(db, account, ORIGIN)).toBe('recently-sent');
-    expect(mails).toHaveLength(1);
-    expect(mails[0].to).toBe('owner@example.com');
+    // The real staff member (signed in as someone else, here the owner) opens the email: nothing happens,
+    // and the link is not used up by it.
+    expect(await completeVerification(db, token, owner.id)).toBe(false);
+    expect((await fresh(impostor.id)).emailVerified).toBe(false);
+    expect(await completeVerification(db, 'wrong-token-wrong-token-wrong', impostor.id)).toBe(false);
 
-    expect(await completeVerification(db, 'wrong-token-wrong-token-wrong')).toBe(false);
-    expect(await completeVerification(db, tokenIn(mails[0]))).toBe(true);
-    expect(await completeVerification(db, tokenIn(mails[0]))).toBe(false);
-
-    const [fresh] = await db.select().from(accounts).where(eq(accounts.id, account.id));
-    expect((await resolveActor(db, fresh)).active).toBe(true);
-    expect(await startVerification(db, fresh, ORIGIN)).toBe('already-verified');
+    // Only the browser signed in as that account can use it, once.
+    expect(await completeVerification(db, token, impostor.id)).toBe(true);
+    expect(await completeVerification(db, token, impostor.id)).toBe(false);
+    expect(await startVerification(db, await fresh(impostor.id), ORIGIN)).toBe('already-verified');
   });
 
-  it('an expired link does nothing', async () => {
+  it('an expired link does nothing, and one account cannot send endless emails', async () => {
     const account = await signUp(db, { email: 'owner@example.com', password: 'secret-1' });
     await startVerification(db, account, ORIGIN);
     const tomorrow = new Date(Date.now() + 25 * 3600_000);
-    expect(await completeVerification(db, tokenIn(mails[0]), tomorrow)).toBe(false);
+    expect(await completeVerification(db, tokenIn(mails[0]), account.id, tomorrow)).toBe(false);
+
+    let sent = 1;
+    for (let i = 1; i <= 8; i++) {
+      const at = new Date(Date.now() + i * 5 * 60_000); // every five minutes
+      if ((await startVerification(db, account, ORIGIN, at)) === 'sent') sent++;
+    }
+    expect(sent).toBe(5);
   });
 });
 
 describe('password reset', () => {
-  it('sets a new password, signs out other devices, and says nothing about unknown emails', async () => {
-    const account = await signUp(db, { email: 'owner@example.com', password: 'old-secret' });
+  it('sets a new password, signs out other devices, cancels other reset links, and says nothing about unknown emails', async () => {
+    const account = await signUpAndConfirm('owner@example.com', 'old-secret');
     const { token: session } = await createSession(db, account.id);
+    mails = [];
 
     await requestPasswordReset(db, 'nobody@example.com', ORIGIN);
     expect(mails).toHaveLength(0);
 
     await requestPasswordReset(db, 'OWNER@example.com', ORIGIN);
-    expect(mails).toHaveLength(1);
+    await requestPasswordReset(db, 'owner@example.com', ORIGIN, new Date(Date.now() + 5 * 60_000));
+    expect(mails).toHaveLength(2);
     expect(mails[0].link).toContain('/reset-password?token=');
 
     await expect(completePasswordReset(db, tokenIn(mails[0]), '123')).rejects.toMatchObject({ code: 'weak-password' });
     expect(await completePasswordReset(db, tokenIn(mails[0]), 'new-secret')).toBe(true);
     expect(await completePasswordReset(db, tokenIn(mails[0]), 'again-secret')).toBe(false);
+    expect(await completePasswordReset(db, tokenIn(mails[1]), 'other-secret')).toBe(false); // the older link in the mailbox is dead too
 
     expect(await findSession(db, session)).toBeNull();
     await expect(signIn(db, { email: 'owner@example.com', password: 'old-secret' })).rejects.toMatchObject({ code: 'invalid-credential' });
-    const signedIn = await signIn(db, { email: 'owner@example.com', password: 'new-secret' });
-    expect(signedIn.emailVerified).toBe(true); // opening the emailed link proved the address
+    await expect(signIn(db, { email: 'owner@example.com', password: 'new-secret' })).resolves.toMatchObject({ emailVerified: true });
+  });
+
+  it('a reset confirms the address but does not hand out access', async () => {
+    await signUpAndConfirm('owner@example.com');
+    const newcomer = await signUp(db, { email: 'new@example.com', password: 'secret-1' });
+    mails = [];
+    await requestPasswordReset(db, 'new@example.com', ORIGIN);
+    expect(await completePasswordReset(db, tokenIn(mails[0]), 'secret-2')).toBe(true);
+    const actor = await resolveActor(db, await fresh(newcomer.id));
+    expect(actor.emailVerified).toBe(true);
+    expect(actor.active).toBe(roleForNewAccount({ isFirstAccount: false, email: 'new@example.com' }) !== PENDING_ROLE);
   });
 });

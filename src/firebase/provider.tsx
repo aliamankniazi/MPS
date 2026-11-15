@@ -11,6 +11,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { getAuth, onAuthStateChanged, type Auth, type User } from '@/data/auth';
 import { getFirestore, type Firestore } from '@/data/firestore';
+import { toast } from '@/hooks/use-toast';
 
 export interface FirebaseServicesAndUser {
   firestore: Firestore;
@@ -30,10 +31,15 @@ export function FirebaseClientProvider({ children }: { children: ReactNode }) {
     const store = getFirestore().store;
     return onAuthStateChanged(getAuth(), (user) => {
       // The local copy of the records runs only while someone is signed in.
-      if (user) void store.start();
+      if (user) void store.start(user.uid);
       else store.stop();
       setUserState({ user, isUserLoading: false });
     });
+  }, []);
+
+  useEffect(() => {
+    // A change the server would not take is never dropped quietly: say so.
+    return getFirestore().store.onProblem((problem) => toast({ variant: 'destructive', title: problem.title, description: problem.detail, duration: 15000 }));
   }, []);
 
   const value = useMemo<FirebaseServicesAndUser>(

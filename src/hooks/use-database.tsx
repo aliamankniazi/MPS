@@ -864,6 +864,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         const batch = writeBatch(firestore);
         for (const path of Object.values(FIRESTORE_PATHS)) {
             if (path === 'settings') continue; // Don't delete settings
+            if (path === 'userRoles') continue; // ...or who may sign in: that would lock everyone out
             try {
                 const querySnapshot = await getDocs(collection(firestore, path));
                 querySnapshot.docs.forEach(doc => batch.delete(doc.ref));

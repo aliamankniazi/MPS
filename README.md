@@ -21,6 +21,21 @@ a MySQL-compatible database (TiDB Cloud), the same design as Quarrybook.
 `src/data/firestore.ts` and `src/data/auth.ts` offer the same function names
 Firebase did, which is why the screens did not need rewriting.
 
+## How a new person gets in
+
+1. They sign up. An account exists, with no role and no access.
+2. They open the emailed link **in the browser where they are signing in**.
+   That confirms the address. Opened anywhere else (another person, a mail
+   scanner) it does nothing.
+3. Their role comes from `roleForNewAccount()` in
+   `src/server/access/policy.ts`. By default it is "pending": an admin gives
+   them a real role on the Role Management screen, and only then can they
+   read or write anything.
+
+On an empty database the first person to confirm their email becomes the
+admin, so load the data before opening the site to anyone. To make an existing
+account an admin by hand: `npm run account:make-admin -- --email <email>`.
+
 ## Run it on this PC
 
 Needs Node.js 20+ and Docker Desktop.

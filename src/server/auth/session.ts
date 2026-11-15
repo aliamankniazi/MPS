@@ -27,7 +27,7 @@ export async function createSession(db: Db, accountId: string, now = new Date())
 }
 
 /** The account behind a cookie value, or null. Extends the session when it is used. */
-export async function findSession(db: Db, token: string | undefined, now = new Date()): Promise<{ account: Account; expiresAt: Date } | null> {
+export async function findSession(db: Db, token: string | undefined, now = new Date()): Promise<{ account: Account; expiresAt: Date; renewed: boolean } | null> {
   if (!token) return null;
   const tokenHash = hashToken(token);
   const [row] = await db
@@ -38,12 +38,14 @@ export async function findSession(db: Db, token: string | undefined, now = new D
     .limit(1);
   if (!row || row.session.expiresAt.getTime() <= now.getTime()) return null;
   let expiresAt = row.session.expiresAt;
+  let renewed = false;
   // Slide the expiry forward, at most once a day so reads stay cheap.
   if (expiresAt.getTime() - now.getTime() < SESSION_LIFETIME_MS - DAY) {
     expiresAt = new Date(now.getTime() + SESSION_LIFETIME_MS);
     await db.update(sessions).set({ expiresAt }).where(eq(sessions.tokenHash, tokenHash));
+    renewed = true;
   }
-  return { account: row.account, expiresAt };
+  return { account: row.account, expiresAt, renewed };
 }
 
 export async function endSession(db: Db, token: string | undefined): Promise<void> {

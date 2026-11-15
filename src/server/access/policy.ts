@@ -34,8 +34,10 @@ export function roleForNewAccount(input: { isFirstAccount: boolean; email: strin
   if (input.isFirstAccount) return ADMIN_ROLE;
 
   // TODO(human): decide what every later sign-up may do before an admin has
-  // looked at them. This line keeps the old behaviour: full access at once.
-  return 'attendant';
+  // looked at them. Until you choose, the safe answer is in force: they wait.
+  // (Returning 'attendant' here would give anyone on the internet who signs up
+  // full access to every record as soon as they confirm their own email.)
+  return PENDING_ROLE;
 }
 
 /** Verified email and a role that exists (and is not the waiting role). */

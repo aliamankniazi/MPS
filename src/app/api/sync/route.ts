@@ -1,5 +1,5 @@
 import { canRead } from '@/server/access/policy';
-import { MAX_OPS_PER_PUSH, pullChanges, pullToJson, pushOps } from '@/server/sync/documents';
+import { MAX_OPS_PER_PUSH, pullChanges, pullToJson, pushChanges } from '@/server/sync/documents';
 import { errorJson, getDb, json, readJson, route, signedIn, type Signed } from '@/server/http';
 
 export const runtime = 'nodejs';
@@ -28,5 +28,5 @@ export const POST = route(async (req) => {
   if (who instanceof Response) return who;
   const body = await readJson(req);
   if (!Array.isArray(body.ops) || body.ops.length > MAX_OPS_PER_PUSH) return errorJson(400, 'bad-request', 'Bad "ops".');
-  return json({ results: await pushOps(getDb(), who.actor, body.ops) });
+  return json(await pushChanges(getDb(), who.actor, body.ops));
 });

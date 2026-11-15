@@ -18,7 +18,7 @@ export type User = {
 export type Auth = { currentUser: User | null };
 export type UserCredential = { user: User };
 
-type ServerUser = { uid: string; email: string; emailVerified: boolean; active: boolean; roleId: string | null };
+type ServerUser = { uid: string; email: string; emailVerified: boolean; active: boolean };
 type Listener = (user: User | null) => void;
 
 const CACHED_USER = 'mps_user';
@@ -168,3 +168,15 @@ export const browserLocalPersistence = 'local';
 
 /** Kept for the app's existing call; the session cookie already lasts across visits. */
 export async function setPersistence(_auth: Auth, _persistence: string): Promise<void> {}
+
+/**
+ * Called by the page an "approve your sign-in" link opens. Resolves to true
+ * when the account may now use the app, false when the email is confirmed but
+ * an admin still has to give the account a role.
+ */
+export async function confirmEmailLink(token: string): Promise<boolean> {
+  await api('/api/auth/verify', { token });
+  const { user } = await api<{ user: ServerUser | null }>('/api/auth/session');
+  if (user) setUser(user);
+  return user?.active === true;
+}

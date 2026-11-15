@@ -149,12 +149,25 @@ export function serverTimestamp(): DocData {
 
 export async function addDoc(ref: CollectionReference, data: object): Promise<DocumentReference> {
   const created = doc(ref);
-  await ref.firestore.store.write([{ opId: newOpId(), path: created.path, type: 'set', data: plain(data) }]);
+  await ref.firestore.store.write([{ opId: newOpId(), path: created.path, type: 'set', data: plain(data), ifAbsent: true }]);
   return created;
 }
 
+/**
+ * A plain set of a record this device does not hold is sent as "create only":
+ * if the server turns out to have it already (this device's copy was behind),
+ * the server's record is kept. The app saves default settings and default
+ * roles this way whenever it sees none, so this is what stops an incomplete
+ * copy from wiping the real ones.
+ */
+function setOp(ref: DocumentReference, data: object, options?: { merge?: boolean }): Op {
+  const merge = options?.merge === true;
+  const ifAbsent = !merge && ref.firestore.store.getDoc(ref.path) === undefined;
+  return { opId: newOpId(), path: ref.path, type: 'set', data: plain(data), merge, ifAbsent };
+}
+
 export function setDoc(ref: DocumentReference, data: object, options?: { merge?: boolean }): Promise<void> {
-  return ref.firestore.store.write([{ opId: newOpId(), path: ref.path, type: 'set', data: plain(data), merge: options?.merge === true }]);
+  return ref.firestore.store.write([setOp(ref, data, options)]);
 }
 
 export function updateDoc(ref: DocumentReference, data: object): Promise<void> {
@@ -170,7 +183,7 @@ export function writeBatch(firestore: Firestore) {
   const ops: Op[] = [];
   const batch = {
     set(ref: DocumentReference, data: object, options?: { merge?: boolean }) {
-      ops.push({ opId: newOpId(), path: ref.path, type: 'set', data: plain(data), merge: options?.merge === true });
+      ops.push(setOp(ref, data, options));
       return batch;
     },
     update(ref: DocumentReference, data: object) {
