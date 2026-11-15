@@ -14,8 +14,14 @@ export function testDatabaseUrl(): string {
   const url = process.env.TEST_DATABASE_URL;
   if (!url) throw new Error('TEST_DATABASE_URL is not set (see .env.local)');
   const parsed = new URL(url);
-  if (!['127.0.0.1', 'localhost'].includes(parsed.hostname)) throw new Error(`tests refuse a database that is not this PC: ${parsed.hostname}`);
+  // The name rule is absolute: tests empty their tables, so they only ever touch a throwaway database.
   if (!parsed.pathname.endsWith('_e2e_test')) throw new Error('tests refuse a database whose name does not end in _e2e_test');
+  // A host that is not this PC is used only when the command names that exact host, the same rule the
+  // data scripts follow. This is how the suite is run against real TiDB before a go-live.
+  const local = ['127.0.0.1', 'localhost'].includes(parsed.hostname);
+  if (!local && process.env.TEST_ALLOW_REMOTE_HOST !== parsed.hostname) {
+    throw new Error(`tests refuse a database that is not this PC: ${parsed.hostname} (to run them there on purpose, set TEST_ALLOW_REMOTE_HOST to that host)`);
+  }
   return url;
 }
 
