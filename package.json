@@ -21,7 +21,10 @@
     "data:export": "tsx scripts/export-firestore.ts",
     "data:import": "tsx --env-file=.env.local scripts/import-export.ts",
     "account:set-password": "tsx --env-file=.env.local scripts/set-password.ts",
-    "account:make-admin": "tsx --env-file=.env.local scripts/make-admin.ts"
+    "account:make-admin": "tsx --env-file=.env.local scripts/make-admin.ts",
+    "cloud:inspect": "tsx --env-file=.env.cloud.local scripts/dev/inspect-db.ts",
+    "cloud:set-password": "tsx --env-file=.env.cloud.local scripts/set-password.ts",
+    "cloud:make-admin": "tsx --env-file=.env.cloud.local scripts/make-admin.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",
