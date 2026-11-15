@@ -1,0 +1,21 @@
+# A throwaway database for the integration tests. It lives in memory (tmpfs),
+# so stopping it erases everything. Tests refuse any other address.
+#
+#   docker compose --env-file .env.dev.local -f docker-compose.test.yml up -d --wait
+name: mps-test
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MPS_DEV_DB_PASSWORD:?set MPS_DEV_DB_PASSWORD in .env.dev.local}
+      MYSQL_DATABASE: mps_e2e_test
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_bin"]
+    ports:
+      - "127.0.0.1:3407:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 2s
+      timeout: 3s
+      retries: 60

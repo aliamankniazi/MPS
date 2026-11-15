@@ -16,9 +16,9 @@ import {
   sendPasswordResetEmail,
   setPersistence,
   browserLocalPersistence,
-} from 'firebase/auth';
+} from '@/data/auth';
 import { PERMISSIONS, type AuthFormValues, type RoleId, type Role, type Permission } from '@/lib/types';
-import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, writeBatch, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, doc, setDoc, updateDoc, getDocs, writeBatch, deleteDoc } from '@/data/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useFirebase } from '@/firebase';
@@ -226,14 +226,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth]);
 
   const signUp = useCallback(async (data: AuthFormValues) => {
-    if (!auth || !firestore) throw new Error("Firebase is not configured.");
-    const userRolesCollectionRef = collection(firestore, USER_ROLES_COLLECTION);
-    const snapshot = await getDocs(userRolesCollectionRef);
-    const hasUsers = !snapshot.empty;
-    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
-    assignRoleToUser(userCredential.user.uid, hasUsers ? 'attendant' : 'admin', data.email);
-    return userCredential;
-  }, [auth, firestore, assignRoleToUser]);
+    if (!auth) throw new Error("Sign-in is not configured.");
+    // The server creates the account and decides its role
+    // (src/server/access/policy.ts); the browser no longer picks its own.
+    return createUserWithEmailAndPassword(auth, data.email, data.password);
+  }, [auth]);
 
   const signOut = useCallback(async () => {
     if (auth) {

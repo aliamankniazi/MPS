@@ -1,19 +1,28 @@
 {
-  "name": "nextn",
+  "name": "mps-web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "dev": "next dev",
-    "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
-    "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "dev": "node scripts/run-next.cjs dev",
+    "build": "node scripts/run-next.cjs build",
+    "start": "node scripts/run-next.cjs start",
+    "vercel-build": "tsx scripts/db-migrate.ts && next build",
+    "typecheck": "tsc --noEmit",
+    "typecheck:new": "tsc -p tsconfig.new.json",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "db:up": "docker compose --env-file .env.dev.local -f docker-compose.dev.yml up -d --wait",
+    "db:test:up": "docker compose --env-file .env.dev.local -f docker-compose.test.yml up -d --wait",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file=.env.local scripts/db-migrate.ts",
+    "data:export": "tsx scripts/export-firestore.ts",
+    "data:import": "tsx --env-file=.env.local scripts/import-export.ts",
+    "account:set-password": "tsx --env-file=.env.local scripts/set-password.ts"
   },
   "dependencies": {
-    "@genkit-ai/googleai": "1.13.0",
-    "@genkit-ai/next": "1.13.0",
     "@hookform/resolvers": "^4.1.3",
     "@radix-ui/react-accordion": "^1.2.3",
     "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -41,15 +50,15 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",
-    "dotenv": "^16.5.0",
+    "dexie": "^4.4.7",
+    "drizzle-orm": "^0.44.7",
     "embla-carousel-react": "^8.6.0",
-    "firebase": "^11.9.1",
     "file-saver": "^2.0.5",
-    "genkit": "1.13.0",
     "lucide-react": "^0.475.0",
+    "mysql2": "^3.24.6",
     "next": "^15.0.0",
+    "nodemailer": "^7.0.13",
     "num-words": "^1.2.2",
-    "patch-package": "^8.0.0",
     "react": "^19.0.0",
     "react-barcode": "^1.5.1",
     "react-day-picker": "^9.5.1",
@@ -64,11 +73,16 @@
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "genkit-cli": "1.13.0",
+    "drizzle-kit": "^0.31.11",
+    "fake-indexeddb": "^6.2.8",
+    "firebase-admin": "^13.10.0",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^2.1.9"
   }
 }

@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { AuthFormValues } from '@/lib/types';
 import { differenceInDays, startOfDay } from 'date-fns';
-import { sendEmailVerification } from 'firebase/auth';
+import { sendEmailVerification } from '@/data/auth';
 
 
 const loginSchema = z.object({

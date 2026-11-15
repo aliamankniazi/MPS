@@ -23,7 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 
 const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
-    'General': ['view_dashboard', 'view_all_transactions', 'view_summary', 'generate_ai_summary', 'view_sales_by_type_report'],
+    'General': ['view_dashboard', 'view_all_transactions', 'view_summary', 'view_sales_by_type_report'],
     'Customers & Partners': ['view_customers', 'add_customer', 'edit_customer', 'delete_customer', 'view_partner_ledger', 'view_credit_recovery'],
     'Inventory & Purchases': ['view_inventory', 'view_purchases', 'add_purchase', 'delete_purchase', 'view_purchase_returns', 'add_purchase_return', 'delete_purchase_return', 'view_tank_readings', 'add_tank_reading'],
     'Financial': ['view_ledger', 'view_expenses', 'add_expense', 'delete_expense', 'view_other_incomes', 'add_other_income', 'delete_other_income', 'view_investments', 'add_investment', 'delete_investment', 'view_cash_advances', 'add_cash_advance', 'delete_cash_advance', 'view_supplier_payments', 'add_supplier_payment', 'delete_supplier_payment'],

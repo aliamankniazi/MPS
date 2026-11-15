@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
   typescript: {
+    // The existing screens carry type errors from Firebase Studio. New server
+    // and sync code is checked separately and strictly: `npm run typecheck:new`.
     ignoreBuildErrors: true,
   },
   eslint: {

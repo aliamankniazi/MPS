@@ -1,0 +1,24 @@
+# The LOCAL database on this PC, used for development and for rehearsing the
+# data move before anything goes near the cloud. Its data is kept between runs.
+# The password comes from .env.dev.local (git-ignored), never from this file.
+#
+#   docker compose --env-file .env.dev.local -f docker-compose.dev.yml up -d --wait
+name: mps-dev
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MPS_DEV_DB_PASSWORD:?set MPS_DEV_DB_PASSWORD in .env.dev.local}
+      MYSQL_DATABASE: mps
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_bin"]
+    ports:
+      - "127.0.0.1:3406:3306"
+    volumes:
+      - mps-dev-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+volumes:
+  mps-dev-data:

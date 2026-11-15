@@ -91,7 +91,6 @@ const navGroups = [
         icon: Cog,
         links: [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit },
-            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles },
             { href: '/roles', label: 'Role Management', icon: Shield },
             { href: '/dictionary', label: 'Dictionary', icon: BookKey },
             { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },

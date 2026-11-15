@@ -1,0 +1,6 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "noEmit": true, "incremental": false },
+  "include": ["next-env.d.ts", "src/server/**/*.ts", "src/data/**/*.ts", "src/firebase/**/*.ts", "src/firebase/**/*.tsx", "src/app/api/**/*.ts", "src/app/reset-password/**/*.tsx", "scripts/**/*.ts", "tests/**/*.ts", "drizzle.config.ts"],
+  "exclude": ["node_modules"]
+}

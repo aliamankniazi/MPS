@@ -52,7 +52,7 @@ import {
     getDoc,
     setDoc,
     writeBatch
-} from 'firebase/firestore';
+} from '@/data/firestore';
 import { isValid, startOfMonth, endOfMonth, startOfDay, endOfToday, startOfToday } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
