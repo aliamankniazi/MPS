@@ -30,7 +30,13 @@ export function isSystemDatabase(name: string | null | undefined): boolean {
 
 /** The database address from the environment, in either of the two forms above. */
 export function databaseUrl(env: Record<string, string | undefined> = process.env): string | undefined {
-  if (env.DATABASE_URL) return env.DATABASE_URL;
+  if (env.DATABASE_URL) {
+    // TiDB Cloud's own connection string ends in /test (or /sys), the server's
+    // databases. Pasted as it is, it must still land in the app's own database.
+    const u = new URL(env.DATABASE_URL.trim());
+    if (isSystemDatabase(u.pathname.replace(/^\//, ''))) u.pathname = `/${DEFAULT_DATABASE}`;
+    return u.toString();
+  }
   if (env.TIDB_HOST && env.TIDB_USER) {
     const u = new URL('mysql://placeholder');
     u.hostname = env.TIDB_HOST;

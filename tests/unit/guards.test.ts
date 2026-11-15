@@ -28,6 +28,16 @@ describe('database address', () => {
     const url = databaseUrl({ TIDB_HOST: 'h', TIDB_USER: 'u', TIDB_PASSWORD: 'p@ss', TIDB_DATABASE: 'test' });
     expect(new URL(url!).pathname).toBe('/mps');
   });
+
+  it('a TiDB connection string pasted as given (ending in /test) still lands in the app\'s own database', () => {
+    const pasted = 'mysql://abc123.root:pw@gateway01.ap-northeast-1.prod.aws.tidbcloud.com:4000/test?ssl-mode=VERIFY_IDENTITY';
+    const url = new URL(databaseUrl({ DATABASE_URL: pasted })!);
+    expect(url.pathname).toBe('/mps');
+    expect(url.hostname).toBe('gateway01.ap-northeast-1.prod.aws.tidbcloud.com');
+    expect(connectionOptions(url.toString())).toMatchObject({ user: 'abc123.root', port: 4000, database: 'mps' });
+    // A database of the app's own is left exactly as named.
+    expect(new URL(databaseUrl({ DATABASE_URL: 'mysql://u:p@127.0.0.1:3406/mps_rehearsal' })!).pathname).toBe('/mps_rehearsal');
+  });
 });
 
 describe('access rules', () => {
