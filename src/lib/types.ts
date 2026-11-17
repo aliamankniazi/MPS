@@ -60,6 +60,11 @@ export interface Expense {
   category: ExpenseCategory;
   amount: number;
   timestamp: string;
+  /** Set on a salary payment: who it was for and which month ('2026-11'), so a month is not paid twice. */
+  employeeId?: string;
+  payrollPeriod?: string;
+  /** The monthly salary in force when this salary was paid. */
+  baseSalary?: number;
 }
 
 export type OtherIncomeCategory = 'Service Station' | 'Tire Shop' | 'Tuck Shop' | 'Other';
@@ -107,7 +112,29 @@ export interface BankAccount {
 
 export interface SalaryHistoryEntry {
   amount: number;
+  /** The first day this salary applies. */
   effectiveDate: string;
+  reason?: string;
+  /** When and by whom the revision was entered. */
+  recordedAt?: string;
+  recordedBy?: string;
+}
+
+export type EmployeeStatus = 'Active' | 'Suspended' | 'Dismissed' | 'Terminated';
+
+/** One line in an employee's status history. Lines are only ever added, never changed. */
+export interface EmployeeStatusChange {
+  id: string;
+  previousStatus: EmployeeStatus;
+  newStatus: EmployeeStatus;
+  /** When the change was entered. */
+  changeDate: string;
+  /** The day it takes effect ('yyyy-MM-dd'). For a restore, the rejoining date. */
+  effectiveDate: string;
+  reason: string;
+  remarks?: string;
+  /** Who made the change (their sign-in email). */
+  performedBy: string;
 }
 
 export interface Employee {
@@ -118,8 +145,15 @@ export interface Employee {
   salary: number;
   salaryHistory?: SalaryHistoryEntry[];
   hireDate: string;
+  /** Kept in step with the status: the date a non-active status took effect, empty while Active. */
   terminationDate?: string | null;
   timestamp: string;
+  /** Missing on older records, which count as Active (or Terminated if they have a terminationDate). */
+  status?: EmployeeStatus;
+  statusEffectiveDate?: string;
+  statusHistory?: EmployeeStatusChange[];
+  /** The most recent date this person came back after leaving. */
+  rejoiningDate?: string;
 }
 
 export interface AttendanceRecord {

@@ -32,6 +32,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { currentSalary, employedOn, findSalaryPayment, isActiveEmployee, payrollPeriodKey, salaryDescription } from '@/lib/employee-lifecycle';
 
 const DEFAULT_SALARY_MAP: Record<string, number> = {
     'Asmat Ullah': 15000, 'Zeeshan': 15000, 'Shahzad': 15000, 'Kamran': 5000, 'Neemat Ullah': 25000, 'Younas Shah': 20000,
@@ -50,7 +51,7 @@ const salaryPaymentSchema = z.object({
 type SalaryPaymentFormValues = z.infer<typeof salaryPaymentSchema>;
 
 type SalaryCalculationPart = { period: string; salary: number; presentDays: number; subtotal: number; effectiveDate: string; };
-type SalaryPaymentConfirmation = SalaryPaymentFormValues & { employeeName: string; calculation: { parts: SalaryCalculationPart[]; total: number; totalPresentDays: number; daysInMonth: number; }; employeeId: string; };
+type SalaryPaymentConfirmation = SalaryPaymentFormValues & { employeeName: string; calculation: { parts: SalaryCalculationPart[]; total: number; totalPresentDays: number; daysInMonth: number; }; employeeId: string; baseSalary: number; alreadyPaid: boolean; };
 
 const months = Array.from({ length: 12 }, (_, i) => format(new Date(0, i), 'MMMM'));
 const years = Array.from({ length: 10 }, (_, i) => (new Date().getFullYear() - i).toString());
@@ -71,7 +72,7 @@ function PageHeader() {
 }
 
 export default function SalaryPaymentPage() {
-  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, attendance } = useDatabase();
+  const { employees, customers, addCustomer, addCustomerPayment, addExpense, isLoaded, attendance, expenses } = useDatabase();
   const { isPinVerified, confirmPin } = useAuth();
   const { toast } = useToast();
   const [employeeComboboxOpen, setEmployeeComboboxOpen] = useState(false);
@@ -109,7 +110,8 @@ export default function SalaryPaymentPage() {
         const empAtt = attendance.filter(a => a.employeeId === employee.id && a.date.startsWith(format(salaryMonthDate, 'yyyy-MM')));
         let subtotal: Record<string, { salary: number; days: number; total: number }> = {};
         daysInPeriod.forEach(day => {
-            if (empAtt.find(a => isSameDay(parseISO(a.date), day))?.status === 'Present') {
+            // Days while suspended, or after leaving and before rejoining, earn no salary.
+            if (employedOn(employee, day) && empAtt.find(a => isSameDay(parseISO(a.date), day))?.status === 'Present') {
                 totalPresentDays++;
                 const rate = [...sortedHistory].reverse().find(h => isBefore(startOfDay(parseISO(h.effectiveDate)), day) || isEqual(startOfDay(parseISO(h.effectiveDate)), day));
                 if (rate) {
@@ -120,14 +122,23 @@ export default function SalaryPaymentPage() {
         });
         Object.keys(subtotal).forEach(date => parts.push({ period: `At rate ${subtotal[date].salary}/month`, salary: subtotal[date].salary, presentDays: subtotal[date].days, subtotal: subtotal[date].total, effectiveDate: date }));
     }
-    return { ...data, employeeId: employee.id, employeeName: employee.name, calculation: { parts, total: parts.reduce((s, p) => s + p.subtotal, 0), totalPresentDays, daysInMonth } };
+    return {
+      ...data, employeeId: employee.id, employeeName: employee.name,
+      calculation: { parts, total: parts.reduce((s, p) => s + p.subtotal, 0), totalPresentDays, daysInMonth },
+      baseSalary: currentSalary(employee, endOfMonth(salaryMonthDate)),
+      // One salary per employee per month: a month already posted is shown but not posted again.
+      alreadyPaid: !!findSalaryPayment(expenses, employee, data.salaryMonth, data.salaryYear),
+    };
   }
 
   const onSubmit: SubmitHandler<SalaryPaymentFormValues> = async (data) => {
     if (!isPinVerified() && data.pin !== '0200') { toast({ variant: 'destructive', title: 'Incorrect PIN' }); return; }
     if (data.pin === '0200') confirmPin('0200');
     if (paymentMode === 'single' && !data.employeeId) return;
-    const targets = paymentMode === 'single' ? [employees.find(e => e.id === data.employeeId)!] : employees.filter(e => !e.terminationDate);
+    // Only Active employees can be paid: suspended, dismissed and terminated people are left out.
+    const active = employees.filter(isActiveEmployee);
+    const targets = paymentMode === 'single' ? active.filter(e => e.id === data.employeeId) : active;
+    if (targets.length === 0) { toast({ variant: 'destructive', title: 'No active employee to pay' }); return; }
     setPaymentToConfirm(targets.map(e => calculateSalaryForEmployee(e, data)));
   };
 
@@ -137,9 +148,9 @@ export default function SalaryPaymentPage() {
     if (confirmPinVal === '0200') confirmPin('0200');
 
     for (const p of paymentToConfirm) {
-        if (p.calculation.total <= 0) continue;
-        const desc = `Salary for ${p.employeeName} (${p.salaryMonth} ${p.salaryYear})`;
-        await addExpense({ description: desc, category: 'Salaries', amount: p.calculation.total, timestamp: format(p.postingDate, 'yyyy-MM-dd') });
+        if (p.calculation.total <= 0 || p.alreadyPaid) continue;
+        const desc = salaryDescription(p.employeeName, p.salaryMonth, p.salaryYear);
+        await addExpense({ description: desc, category: 'Salaries', amount: p.calculation.total, timestamp: format(p.postingDate, 'yyyy-MM-dd'), employeeId: p.employeeId, payrollPeriod: payrollPeriodKey(p.salaryMonth, p.salaryYear), baseSalary: p.baseSalary });
         let cust = customers.find(c => c.name.toLowerCase() === p.employeeName.toLowerCase() && c.area === 'Employee');
         let cid = cust?.id;
         if (!cust) { const n = await addCustomer({ name: p.employeeName, contact: '', area: 'Employee', isPartner: false, timestamp: new Date().toISOString() }); if (n) cid = n.id; }
@@ -151,7 +162,7 @@ export default function SalaryPaymentPage() {
 
   const totalBulkSalary = useMemo(() => {
     if (!paymentToConfirm) return 0;
-    return paymentToConfirm.reduce((sum, p) => sum + p.calculation.total, 0);
+    return paymentToConfirm.filter(p => !p.alreadyPaid).reduce((sum, p) => sum + p.calculation.total, 0);
   }, [paymentToConfirm]);
 
   return (
@@ -184,7 +195,7 @@ export default function SalaryPaymentPage() {
                             <CommandList>
                               <CommandEmpty>None.</CommandEmpty>
                               <CommandGroup>
-                                {isLoaded && employees.filter(e => !e.terminationDate).map(e => (
+                                {isLoaded && employees.filter(isActiveEmployee).map(e => (
                                   <CommandItem key={e.id} value={e.name} onSelect={() => { field.onChange(e.id); setEmployeeComboboxOpen(false); }}>
                                     <Check className={cn("mr-2 h-4 w-4", field.value === e.id ? "opacity-100" : "opacity-0")} />
                                     {e.name}
@@ -255,8 +266,8 @@ export default function SalaryPaymentPage() {
           <ScrollArea className="max-h-[50vh] p-4 bg-muted rounded-md">
             {paymentToConfirm?.map(p => (
               <div key={p.employeeId} className="flex justify-between py-2 border-b">
-                <span>{p.employeeName}</span>
-                <span className="font-bold">PKR {p.calculation.total.toFixed(2)}</span>
+                <span>{p.employeeName}{p.alreadyPaid && <span className="ml-2 text-sm text-amber-700">already paid for {p.salaryMonth} {p.salaryYear}, will be skipped</span>}</span>
+                <span className={cn("font-bold", p.alreadyPaid && "line-through text-muted-foreground")}>PKR {p.calculation.total.toFixed(2)}</span>
               </div>
             ))}
           </ScrollArea>

@@ -21,6 +21,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { Employee } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
+import { currentSalary, employedOn, LifecycleError, reviseSalary, salaryHistoryOf, salaryOn, statusOf } from '@/lib/employee-lifecycle';
 import Link from 'next/link';
 
 const DEFAULT_SALARY_MAP: Record<string, number> = {
@@ -46,6 +48,7 @@ interface SalaryReportRow {
     employeeName: string;
     position: string;
     hireDate: string;
+    status: string;
     baseSalary: number;
     presentDays: number;
     totalDaysInPeriod: number;
@@ -68,8 +71,13 @@ const employeeEditSchema = z.object({
 type EmployeeEditFormValues = z.infer<typeof employeeEditSchema>;
 
 
+const STATUS_TEXT: Record<string, string> = { Suspended: 'text-amber-700', Dismissed: 'text-red-700', Terminated: 'text-slate-600' };
+
 export default function SalaryReportPage() {
     const { employees, attendance, isLoaded, updateEmployee, dateRange, setDateRange, customers } = useDatabase();
+    const { user } = useAuth();
+    // How many salary entries the employee already had when the edit window opened: those cannot be changed or removed.
+    const [lockedSalaryRows, setLockedSalaryRows] = useState(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [employeeToEdit, setEmployeeToEdit] = useState<SalaryReportRow | null>(null);
     const { toast } = useToast();
@@ -87,14 +95,16 @@ export default function SalaryReportPage() {
         if (employeeToEdit) {
             const empDetails = employees.find(e => e.id === employeeToEdit.employeeId);
             if (empDetails) {
+                const existing = salaryHistoryOf(empDetails);
+                setLockedSalaryRows(existing.length);
                 reset({
                     name: empDetails.name,
                     position: empDetails.position,
                     hireDate: empDetails.hireDate ? new Date(empDetails.hireDate) : new Date(),
-                    salaryHistory: (empDetails.salaryHistory || []).map(h => ({
-                        effectiveDate: new Date(h.effectiveDate),
+                    salaryHistory: existing.map(h => ({
+                        effectiveDate: parseISO(h.effectiveDate),
                         amount: h.amount,
-                    })).sort((a,b) => a.effectiveDate.getTime() - b.effectiveDate.getTime())
+                    }))
                 });
             }
         }
@@ -103,16 +113,29 @@ export default function SalaryReportPage() {
     const onEditSubmit: SubmitHandler<EmployeeEditFormValues> = (data) => {
         if (!employeeToEdit) return;
 
-        const sortedHistory = [...data.salaryHistory].sort((a,b) => b.effectiveDate.getTime() - a.effectiveDate.getTime());
-        
+        const empDetails = employees.find(e => e.id === employeeToEdit.employeeId);
+        if (!empDetails) return;
+
+        // Earlier salaries are kept exactly as they are. Each new row is added as a revision
+        // with its own effective date, through the same rule the Employee Management screen uses.
+        let revised: Employee = { ...empDetails, hireDate: data.hireDate.toISOString() };
+        try {
+            for (const row of data.salaryHistory.slice(lockedSalaryRows)) {
+                revised = { ...revised, ...reviseSalary(revised, { amount: row.amount, effectiveDate: format(row.effectiveDate, 'yyyy-MM-dd'), performedBy: user?.email ?? '' }) };
+            }
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Salary not saved', description: error instanceof LifecycleError ? error.message : 'Please check the salary entries.' });
+            return;
+        }
+
         const updatedEmployeeData: Partial<Employee> = {
             name: data.name,
             position: data.position,
             hireDate: data.hireDate.toISOString(),
-            salary: sortedHistory[0]?.amount || 0,
-            salaryHistory: sortedHistory.map(h => ({...h, effectiveDate: h.effectiveDate.toISOString() })),
+            salary: currentSalary(revised),
+            salaryHistory: salaryHistoryOf(revised),
         };
-        
+
         updateEmployee(employeeToEdit.employeeId, updatedEmployeeData);
         toast({ title: 'Employee Updated', description: `${data.name}'s details have been saved.`});
         setEmployeeToEdit(null);
@@ -151,13 +174,12 @@ export default function SalaryReportPage() {
                             return false;
                         }
                     });
-                    
-                    const hireDate = employee.hireDate ? parseISO(employee.hireDate) : new Date(0);
-                    const termDate = employee.terminationDate ? parseISO(employee.terminationDate) : new Date(8640000000000000);
 
-                    if (attendanceForDay?.status === 'Present' && day.getTime() >= startOfDay(hireDate).getTime() && day.getTime() <= startOfDay(termDate).getTime()) {
+                    // Only days the person was actually employed count: not before hiring, not while
+                    // suspended, not after leaving, and again from the day they rejoin.
+                    if (attendanceForDay?.status === 'Present' && employedOn(employee, day)) {
                         totalPresentDays++;
-                        
+
                         const applicableSalaryEntry = sortedHistory
                             .find(h => {
                                 try {
@@ -167,15 +189,15 @@ export default function SalaryReportPage() {
                                     return false;
                                 }
                             });
-                        
+
                         if (applicableSalaryEntry) {
                             const salaryForDay = applicableSalaryEntry.amount;
                             const effectiveDateForGrouping = applicableSalaryEntry.effectiveDate;
                             const daysInMonthOfCurrentDay = getDaysInMonth(day);
-                            
+
                             if (salaryForDay > 0) {
                                 const dailyRate = salaryForDay / daysInMonthOfCurrentDay;
-                                
+
                                 if (!subtotalForRate[effectiveDateForGrouping]) {
                                     subtotalForRate[effectiveDateForGrouping] = { salary: salaryForDay, days: 0, total: 0 };
                                 }
@@ -196,7 +218,7 @@ export default function SalaryReportPage() {
                         effectiveDate: effectiveDate,
                     };
                 });
-                
+
                 const totalCalculatedSalary = calculationParts.reduce((sum, part) => sum + part.subtotal, 0);
 
                 // Find matching customer record for ledger linking
@@ -207,7 +229,8 @@ export default function SalaryReportPage() {
                     employeeName: employee.name,
                     position: employee.position,
                     hireDate: employee.hireDate,
-                    baseSalary: sortedHistory[0]?.amount || employee.salary,
+                    status: statusOf(employee),
+                    baseSalary: salaryOn(sortedHistory, new Date())?.amount ?? sortedHistory[0]?.amount ?? employee.salary,
                     presentDays: totalPresentDays,
                     totalDaysInPeriod: daysInPeriodArray.length,
                     calculatedSalary: totalCalculatedSalary,
@@ -270,7 +293,7 @@ export default function SalaryReportPage() {
                              <AccordionItem value={row.employeeId} key={row.employeeId}>
                                 <AccordionTrigger>
                                     <div className="flex justify-between w-full pr-4 items-center">
-                                        <div className="font-semibold">{row.employeeName} <span className="text-sm text-muted-foreground font-normal">- {row.position}</span></div>
+                                        <div className="font-semibold">{row.employeeName} <span className="text-sm text-muted-foreground font-normal">- {row.position}</span>{row.status !== 'Active' && <span className={cn("ml-2 text-xs font-medium", STATUS_TEXT[row.status])}>({row.status})</span>}</div>
                                         <div className="flex items-center gap-6">
                                             <div className="text-sm">Present: <span className="font-mono">{row.presentDays}/{row.totalDaysInPeriod}</span></div>
                                             <div className="text-sm">Base Salary: <span className="font-mono">PKR {row.baseSalary.toLocaleString()}</span></div>
@@ -315,7 +338,7 @@ export default function SalaryReportPage() {
                                         ) : (
                                             <p className="text-sm text-muted-foreground">No attendance found for this period.</p>
                                         )}
-                                        
+
                                         <h4 className="font-semibold mt-4 mb-2">Salary Change History</h4>
                                         {row.salaryHistory && row.salaryHistory.length > 0 ? (
                                             <Table>
@@ -355,7 +378,7 @@ export default function SalaryReportPage() {
                 <DialogHeader>
                     <DialogTitle>Edit Employee: {employeeToEdit?.employeeName}</DialogTitle>
                     <DialogDescription>
-                        Update employee details and salary history. The latest salary entry will be used as the base salary.
+                        Update employee details and add a salary revision. Earlier salaries stay on record and cannot be changed; a new entry applies from its effective date.
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit(onEditSubmit)}>
@@ -404,8 +427,8 @@ export default function SalaryReportPage() {
                                                 <div className="flex-1 space-y-1">
                                                     <Label className="text-xs">Effective Date</Label>
                                                     <Popover>
-                                                        <PopoverTrigger asChild>
-                                                        <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                        <PopoverTrigger asChild disabled={index < lockedSalaryRows}>
+                                                        <Button variant="outline" disabled={index < lockedSalaryRows} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}>
                                                             <CalendarIcon className="mr-2 h-4 w-4" />
                                                             {field.value ? format(field.value, "dd-MMM-yy") : <span>Pick a date</span>}
                                                         </Button>
@@ -417,14 +440,16 @@ export default function SalaryReportPage() {
                                         />
                                         <div className="flex-1 space-y-1">
                                             <Label className="text-xs">Monthly Salary</Label>
-                                            <Input type="number" {...register(`salaryHistory.${index}.amount`)} />
+                                            <Input type="number" readOnly={index < lockedSalaryRows} className={cn(index < lockedSalaryRows && "bg-muted")} {...register(`salaryHistory.${index}.amount`)} />
                                         </div>
-                                        <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive"/></Button>
+                                        {index < lockedSalaryRows
+                                            ? <span className="w-10 pb-2 text-center text-xs text-muted-foreground" title="Earlier salaries are kept and cannot be removed">kept</span>
+                                            : <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)}><Trash2 className="w-4 h-4 text-destructive"/></Button>}
                                     </div>
                                 ))}
                             </div>
                             <Button type="button" variant="outline" size="sm" onClick={() => append({ effectiveDate: new Date(), amount: 0 })}>
-                                <PlusCircle className="mr-2 h-4 w-4" /> Add Salary Entry
+                                <PlusCircle className="mr-2 h-4 w-4" /> Add Salary Revision
                             </Button>
                             {errors.salaryHistory && <p className="text-sm text-destructive">{errors.salaryHistory.message || errors.salaryHistory.root?.message}</p>}
                         </div>

@@ -24,6 +24,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { formerEmployeeNamed, statusOf } from '@/lib/employee-lifecycle';
 
 
 const customerSchema = z.object({
@@ -79,7 +80,8 @@ export default function CustomersPage() {
     transactions, 
     customerPayments, 
     cashAdvances,
-    addEmployee
+    addEmployee,
+    employees
   } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
@@ -231,8 +233,21 @@ export default function CustomersPage() {
   };
 
   const onEmployeeSubmit: SubmitHandler<EmployeeAddFormValues> = async (data) => {
+    // A former employee is restored on their existing record, never added a second time.
+    const former = formerEmployeeNamed(employees, data.name);
+    if (former) {
+      toast({
+        variant: 'destructive',
+        title: 'Already on record',
+        description: `${former.name} is a former employee (${statusOf(former)}). Restore them from Employee Management instead of adding them again.`,
+        duration: 12000,
+      });
+      return;
+    }
+
     // 1. Add to Employees collection
     const employeeData = {
+        status: 'Active' as const,
         name: data.name,
         mobileNumber: data.mobileNumber,
         position: data.position,

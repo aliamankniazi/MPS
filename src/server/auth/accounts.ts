@@ -19,7 +19,7 @@ import { lockDocuments, writeChanges } from '../sync/documents';
 import { roleForNewAccount } from '../access/policy';
 import { hashPassword, verifyPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from './password';
 import { endAllSessions, hashToken, newToken, type Account } from './session';
-import { sendMail } from './mail';
+import { MailNotConfiguredError, sendMail, type Mail } from './mail';
 
 export class AuthError extends Error {
   constructor(
@@ -42,6 +42,20 @@ const LOCK_FOR = 15 * MINUTE;
 /** New accounts allowed per hour, across everyone. Ten staff never reach it; a script hammering sign-up does. */
 export const MAX_SIGN_UPS_PER_HOUR = 20;
 const APP_NAME = 'PumpPal';
+
+// What a person is told while the site has no mail account. Each says what to do next.
+const APPROVAL_EMAIL_OFF = 'Your account is created, but this site cannot send approval emails yet. Ask the owner to confirm your account, then sign in again.';
+const RESET_EMAIL_OFF = 'This site cannot send password emails yet. Ask the owner for a one-time password link.';
+
+/** Sends the email, or, when the site has no mail account, fails with an instruction instead of a bare error. */
+async function sendOrExplain(mail: Mail, whenEmailIsOff: string): Promise<void> {
+  try {
+    await sendMail(mail);
+  } catch (e) {
+    if (e instanceof MailNotConfiguredError) throw new AuthError('mail-not-configured', whenEmailIsOff, 503);
+    throw e;
+  }
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normaliseEmail = (email: unknown): string => (typeof email === 'string' ? email.trim().toLowerCase() : '');
@@ -214,12 +228,12 @@ export async function startVerification(db: Db, account: Account, origin: string
   const token = await issueEmailToken(db, account.id, 'verify', VERIFY_TTL, now, MAX_VERIFY_EMAILS_PER_DAY);
   if (!token) return 'recently-sent';
   const link = `${origin}/verify?token=${encodeURIComponent(token)}`;
-  await sendMail({
+  await sendOrExplain({
     to: account.email,
     subject: `${APP_NAME}: approve your sign-in`,
     text: `Open this link in the same browser where you are signing in to ${APP_NAME}:\n\n${link}\n\nThe link works once and expires in 24 hours. If you did not try to sign in, ignore this email: nothing happens unless the link is opened by the person who is signing in.`,
     link,
-  });
+  }, APPROVAL_EMAIL_OFF);
   return 'sent';
 }
 
@@ -248,12 +262,12 @@ export async function requestPasswordReset(db: Db, emailInput: unknown, origin: 
   const token = await issueEmailToken(db, account.id, 'reset', RESET_TTL, now);
   if (!token) return;
   const link = `${origin}/reset-password?token=${encodeURIComponent(token)}`;
-  await sendMail({
+  await sendOrExplain({
     to: account.email,
     subject: `${APP_NAME}: set a new password`,
     text: `Open this link to choose a new password for ${APP_NAME}:\n\n${link}\n\nThe link works once and expires in 1 hour. If you did not ask for this, ignore this email.`,
     link,
-  });
+  }, RESET_EMAIL_OFF);
 }
 
 /**

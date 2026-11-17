@@ -36,6 +36,22 @@ On an empty database the first person to confirm their email becomes the
 admin, so load the data before opening the site to anyone. To make an existing
 account an admin by hand: `npm run account:make-admin -- --email <email>`.
 
+## Employees and salaries
+
+The rules are in `src/lib/employee-lifecycle.ts` and are used by every screen:
+
+- An employee is **Active, Suspended, Dismissed or Terminated**. Changing the
+  status adds a line to their history (dates, reason, remarks, who did it,
+  previous status). Nobody is deleted; restoring someone reuses their record
+  and records the rejoining date.
+- A **salary revision** is added with the date it takes effect. Earlier
+  salaries are never changed or removed.
+- **Salary payment** offers Active employees only, counts no days while
+  someone was away, and will not post the same month twice for one person.
+
+Screens: Employee Management (`/employee-management`), Salary Payment
+(`/employees`), Salary Report (`/salary-report`).
+
 ## Run it on this PC
 
 Needs Node.js 20+ and Docker Desktop.

@@ -20,7 +20,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck, UserCog } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -74,6 +74,7 @@ const navGroups = [
         links: [
             { href: '/customers', label: 'Customers & Partners', icon: Users },
             { href: '/employees', label: 'Employees & Salary', icon: Briefcase },
+            { href: '/employee-management', label: 'Employee Management', icon: UserCog },
             { href: '/investments', label: 'Partner Investments', icon: PiggyBank },
         ]
     },

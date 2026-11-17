@@ -4,7 +4,7 @@ import type { Db } from '../../src/server/db/client';
 import { accounts } from '../../src/server/db/schema';
 import { AuthError, completePasswordReset, completeVerification, confirmAccountByOwner, createPasswordSetupLink, MAX_SIGN_UPS_PER_HOUR, requestPasswordReset, signIn, signUp, startVerification } from '../../src/server/auth/accounts';
 import { createSession, endSession, findSession, type Account } from '../../src/server/auth/session';
-import { setDeliverForTests, type Mail } from '../../src/server/auth/mail';
+import { MailNotConfiguredError, setDeliverForTests, type Mail } from '../../src/server/auth/mail';
 import { resolveActor } from '../../src/server/access/actor';
 import { PENDING_ROLE, roleForNewAccount } from '../../src/server/access/policy';
 import { lockDocuments, pullChanges, pushChanges, readDocs, writeChanges } from '../../src/server/sync/documents';
@@ -233,6 +233,27 @@ describe('email approval', () => {
       if ((await startVerification(db, account, ORIGIN, at)) === 'sent') sent++;
     }
     expect(sent).toBe(5);
+  });
+});
+
+describe('while the site has no mail account', () => {
+  it('tells the person what to do instead of showing a bare error', async () => {
+    const account = await signUp(db, { email: 'staff@example.com', password: 'secret-1' });
+    setDeliverForTests(async () => {
+      throw new MailNotConfiguredError();
+    });
+
+    await expect(startVerification(db, account, ORIGIN)).rejects.toMatchObject({
+      code: 'mail-not-configured',
+      status: 503,
+      message: expect.stringContaining('Ask the owner to confirm your account'),
+    });
+    await expect(requestPasswordReset(db, 'staff@example.com', ORIGIN)).rejects.toMatchObject({
+      code: 'mail-not-configured',
+      message: expect.stringContaining('one-time password link'),
+    });
+    // An address with no account still gets no hint that it is unknown.
+    await expect(requestPasswordReset(db, 'nobody@example.com', ORIGIN)).resolves.toBeUndefined();
   });
 });
 
