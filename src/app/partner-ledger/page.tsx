@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useDatabase } from '@/hooks/use-database';
+import { isCreditSale, ledgerOf, statementFor, toPaisa } from '@/lib/customer-ledger';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -65,6 +66,7 @@ export default function PartnerLedgerPage() {
       deleteInvestment,
       deleteSaleReturn,
       deletePurchaseReturn,
+      customerLedgerBook,
   } = useDatabase();
   
   const { isPinVerified, confirmPin } = useAuth();
@@ -86,11 +88,13 @@ export default function PartnerLedgerPage() {
   const { entries, totals, finalBalance, specialReport } = useMemo(() => {
     if (!isLoaded) return { entries: [], totals: { debit: 0, credit: 0 }, finalBalance: 0, specialReport: null };
 
+    // An amount stored as text is read as the number it spells (it used to crash this page).
+    const num = (value: unknown) => toPaisa(value) / 100;
     const combined: Omit<CombinedEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
       if (tx.customerId) {
-        const isCredit = tx.paymentMethod === 'Credit';
+        const isCredit = isCreditSale(tx);
         combined.push({
           id: `tx-${tx.id}`,
           timestamp: tx.timestamp,
@@ -99,8 +103,8 @@ export default function PartnerLedgerPage() {
           entityType: 'Customer',
           type: 'Sale',
           description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-          debit: tx.totalAmount,
-          credit: isCredit ? 0 : tx.totalAmount, // Cash sales are Debit and Credit (wash)
+          debit: num(tx.totalAmount),
+          credit: isCredit ? 0 : num(tx.totalAmount), // Cash sales are Debit and Credit (wash)
           notes: tx.notes
         });
       }
@@ -116,7 +120,7 @@ export default function PartnerLedgerPage() {
         type: 'Payment',
         description: `Payment Received (${p.paymentMethod})`,
         debit: 0,
-        credit: p.amount,
+        credit: num(p.amount),
         notes: p.notes
       });
     });
@@ -130,7 +134,7 @@ export default function PartnerLedgerPage() {
         entityType: 'Customer',
         type: 'Cash Advance',
         description: ca.notes || 'Cash Advance',
-        debit: ca.amount,
+        debit: num(ca.amount),
         credit: 0,
         notes: ca.notes
       });
@@ -146,7 +150,7 @@ export default function PartnerLedgerPage() {
             type: 'Purchase',
             description: p.volume ? `${p.volume.toFixed(2)}L of ${p.fuelType}` : p.fuelType,
             debit: 0,
-            credit: p.totalCost,
+            credit: num(p.totalCost),
         });
     });
 
@@ -159,7 +163,7 @@ export default function PartnerLedgerPage() {
             entityType: 'Supplier',
             type: 'Supplier Payment',
             description: `Payment Made (${sp.paymentMethod})`,
-            debit: sp.amount,
+            debit: num(sp.amount),
             credit: 0,
         });
     });
@@ -173,8 +177,8 @@ export default function PartnerLedgerPage() {
             entityType: 'Partner',
             type: inv.type,
             description: inv.notes || inv.type,
-            debit: inv.type === 'Withdrawal' ? inv.amount : 0,
-            credit: inv.type === 'Investment' ? inv.amount : 0,
+            debit: inv.type === 'Withdrawal' ? num(inv.amount) : 0,
+            credit: inv.type === 'Investment' ? num(inv.amount) : 0,
             notes: inv.notes
         });
     });
@@ -189,7 +193,7 @@ export default function PartnerLedgerPage() {
             type: 'Sale Return',
             description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
             debit: 0,
-            credit: sr.totalRefund,
+            credit: num(sr.totalRefund),
             notes: sr.reason
         });
     });
@@ -203,7 +207,7 @@ export default function PartnerLedgerPage() {
             entityType: 'Supplier',
             type: 'Purchase Return',
             description: `Return: ${pr.volume.toFixed(2)}L of ${pr.fuelType}`,
-            debit: pr.totalRefund,
+            debit: num(pr.totalRefund),
             credit: 0,
             notes: pr.reason
         });
@@ -211,17 +215,35 @@ export default function PartnerLedgerPage() {
 
     combined.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-    const entityFilteredEntries = selectedEntityId 
+    let entityFilteredEntries: CombinedEntry[] = selectedEntityId 
       ? combined.filter(entry => entry.entityId === selectedEntityId)
       : combined;
+
+    /*
+     * A CUSTOMER'S figures come from the one calculation (lib/customer-ledger.ts), not from this page's own
+     * adding up. This page left the opening balance out and so disagreed with the customer's ledger; now the
+     * debit, the credit and the running balance of every row are the ledger's own, in the ledger's order.
+     */
+    const selectedType = entities.find(e => e.id === selectedEntityId)?.type;
+    const customerLedger = selectedEntityId && selectedType === 'Customer' ? ledgerOf(customerLedgerBook, selectedEntityId) : null;
+    if (customerLedger) {
+        const PREFIX = { transactions: 'tx', customerPayments: 'pay', cashAdvances: 'adv', saleReturns: 'sr' } as const;
+        const byId = new Map(entityFilteredEntries.map(e => [e.id, e] as const));
+        entityFilteredEntries = customerLedger.rows.flatMap(row => {
+            const entry = byId.get(`${PREFIX[row.source]}-${row.sourceId}`);
+            return entry ? [{ ...entry, debit: row.debit, credit: row.credit, balance: row.balance }] : [];
+        });
+    }
       
     let reportData = null;
-    if (selectedEntityId && entityFilteredEntries.length > 0) {
+    if (selectedEntityId && (entityFilteredEntries.length > 0 || customerLedger)) {
         const lastDebitEntry = [...entityFilteredEntries].reverse().find(e => e.debit > 0);
         const lastCreditEntry = [...entityFilteredEntries].reverse().find(e => e.credit > 0);
-        const entityType = entities.find(e => e.id === selectedEntityId)?.type;
+        const entityType = selectedType;
         let totalBal = 0;
-        if (entityType === 'Partner' || entityType === 'Supplier') {
+        if (customerLedger) {
+            totalBal = customerLedger.closingBalance;
+        } else if (entityType === 'Partner' || entityType === 'Supplier') {
             totalBal = entityFilteredEntries.reduce((acc, entry) => acc + (entry.credit - entry.debit), 0);
         } else {
             totalBal = entityFilteredEntries.reduce((acc, entry) => acc + (entry.debit - entry.credit), 0);
@@ -229,23 +251,32 @@ export default function PartnerLedgerPage() {
         reportData = { totalBalance: totalBal, lastDebit: lastDebitEntry?.debit || 0, lastCredit: lastCreditEntry?.credit || 0, entityType: entityType || 'Customer' };
     }
 
-    let openingBalance = 0;
+    let openingBalance = customerLedger ? customerLedger.openingBalance : 0;
     let entriesForDisplay = entityFilteredEntries;
     
     if (selectedDate) {
       const startOfSelectedDay = startOfDay(selectedDate);
-      openingBalance = entityFilteredEntries
-        .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfSelectedDay)
-        .reduce((acc, entry) => {
-            const entityType = entities.find(e => e.id === entry.entityId)?.type;
-            if(entityType === 'Partner' || entityType === 'Supplier') return acc + (entry.credit - entry.debit);
-            return acc + (entry.debit - entry.credit);
-        }, 0);
+      if (customerLedger) {
+        openingBalance = statementFor(customerLedger, { from: selectedDate, to: selectedDate }).openingBalance;
+      } else {
+        openingBalance = entityFilteredEntries
+          .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfSelectedDay)
+          .reduce((acc, entry) => {
+              const entityType = entities.find(e => e.id === entry.entityId)?.type;
+              if(entityType === 'Partner' || entityType === 'Supplier') return acc + (entry.credit - entry.debit);
+              return acc + (entry.debit - entry.credit);
+          }, 0);
+      }
       entriesForDisplay = entityFilteredEntries.filter(entry => isSameDay(new Date(entry.timestamp), selectedDate));
     }
 
     let runningBalance = openingBalance;
     const entriesWithBalance: CombinedEntry[] = entriesForDisplay.map(entry => {
+        if (customerLedger) {
+            // Already the ledger's own running balance, opening balance included.
+            runningBalance = entry.balance ?? runningBalance;
+            return { ...entry, balance: runningBalance };
+        }
         const entityType = entities.find(e => e.id === entry.entityId)?.type;
         if(entityType === 'Partner' || entityType === 'Supplier') runningBalance += entry.credit - entry.debit;
         else runningBalance += entry.debit - entry.credit;
@@ -255,7 +286,7 @@ export default function PartnerLedgerPage() {
     const calculatedTotals = entriesForDisplay.reduce((acc, entry) => { acc.debit += entry.debit; acc.credit += entry.credit; return acc; }, { debit: 0, credit: 0 });
     
     return { entries: entriesWithBalance.reverse(), totals: calculatedTotals, finalBalance: runningBalance, specialReport: reportData };
-  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, saleReturns, purchaseReturns, selectedEntityId, selectedDate, isLoaded, entities]);
+  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, saleReturns, purchaseReturns, selectedEntityId, selectedDate, isLoaded, entities, customerLedgerBook]);
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;
@@ -340,7 +371,7 @@ export default function PartnerLedgerPage() {
       <Card><CardHeader><CardTitle>Transaction History</CardTitle></CardHeader>
         <CardContent>
           {isLoaded && entries.length > 0 ? (
-            <Table><TableHeader><TableRow><TableHead className="w-12">No.</TableHead><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead>Notes</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">Balance</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
+            <Table><TableHeader><TableRow><TableHead className="w-12">No.</TableHead><TableHead>Date</TableHead><TableHead>Partner</TableHead><TableHead>Description</TableHead><TableHead>Notes</TableHead><TableHead className="text-center">Type</TableHead><TableHead className="text-right">Debit</TableHead><TableHead className="text-right">Credit</TableHead><TableHead className="text-right">{selectedEntityId ? 'Balance' : 'Running Total (all accounts)'}</TableHead><TableHead className="text-center">Actions</TableHead></TableRow></TableHeader>
               <TableBody>
                 {entries.map((entry, index) => {
                     const date = new Date(entry.timestamp);

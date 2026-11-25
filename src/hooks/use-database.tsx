@@ -56,9 +56,10 @@ import {
 import { isValid, startOfMonth, endOfMonth, startOfDay, endOfToday, startOfToday } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { buildLedgerBook, type CustomerLedgerBook } from '@/lib/customer-ledger';
 
 // Centralized paths
-const FIRESTORE_PATHS = {
+export const FIRESTORE_PATHS = {
     transactions: 'transactions',
     purchases: 'purchases',
     purchaseReturns: 'purchaseReturns',
@@ -234,6 +235,10 @@ type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & {
     fuelStock: Record<string, number>, 
     isLoaded: boolean,
     dateRange: DateRange | undefined,
+    /** Every customer's ledger and balance, worked out once (lib/customer-ledger.ts). The ONLY source of a customer balance. */
+    customerLedgerBook: CustomerLedgerBook,
+    /** True while the figures on screen come from this device's saved copy and the server has not answered yet. */
+    isFromCache: boolean,
 };
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -255,6 +260,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     });
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [initialDateRangeSet, setInitialDateRangeSet] = useState(false);
+    const [isFromCache, setIsFromCache] = useState(false);
     
     useEffect(() => {
         if (state.isLoaded && !initialDateRangeSet) {
@@ -296,20 +302,30 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         const subscriptions: (() => void)[] = [];
         const dataCollections = Object.keys(FIRESTORE_PATHS).filter(k => k !== 'settings') as (keyof typeof FIRESTORE_PATHS)[];
         const totalPaths = dataCollections.length + 1; // +1 for settings
-        let loadedCount = 0;
 
-        const handleLoad = () => {
-            loadedCount++;
-            if (loadedCount >= totalPaths) {
-                if (!state.isLoaded) {
-                    setState(s => ({ ...s, isLoaded: true }));
-                }
+        /*
+         * "Loaded" means every collection has answered at least once. This used to COUNT answers, and one
+         * collection answers twice (the saved copy, then the server), so the count was reached while others
+         * had not arrived: a balance was shown from the sales with the payments still missing. It is also
+         * reset here, because "loaded" was left true from the sign-in page, so the first screen after
+         * signing in worked every balance out from empty lists.
+         */
+        const loadedKeys = new Set<string>();
+        setState(s => (s.isLoaded ? { ...s, isLoaded: false } : s));
+
+        const handleLoad = (key: string) => {
+            if (loadedKeys.has(key)) return;
+            loadedKeys.add(key);
+            if (loadedKeys.size >= totalPaths) {
+                setState(s => (s.isLoaded ? s : { ...s, isLoaded: true }));
             }
         };
 
         // Subscribe to settings document
         const settingsDocRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
-        const settingsUnsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+        const settingsUnsubscribe = onSnapshot(settingsDocRef, { includeMetadataChanges: true }, (docSnap) => {
+            // One small document tells whether the server has answered: its saved copy is "from cache".
+            setIsFromCache(docSnap.metadata.fromCache);
             if (docSnap.exists()) {
                 const data = docSnap.data() as AppSettings;
                 setState(prevState => ({ ...prevState, settings: data }));
@@ -319,20 +335,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     initialFuelStock: DEFAULT_INITIAL_STOCK,
                     colorSettings: DEFAULT_COLOR_SETTINGS,
                 }}));
-                // Optionally create the document with defaults if it doesn't exist
-                setDoc(settingsDocRef, {
-                    fuelPrices: DEFAULT_FUEL_PRICES,
-                    initialFuelStock: DEFAULT_INITIAL_STOCK,
-                    colorSettings: DEFAULT_COLOR_SETTINGS,
-                }).catch(e => console.error("Could not create default settings", e));
+                // Create the document with defaults only when the SERVER says it does not exist. An empty saved
+                // copy on a device that is offline says nothing, and writing defaults then would replace the
+                // real prices and opening stock with zeros as soon as the device came back online.
+                if (!docSnap.metadata.fromCache) {
+                    setDoc(settingsDocRef, {
+                        fuelPrices: DEFAULT_FUEL_PRICES,
+                        initialFuelStock: DEFAULT_INITIAL_STOCK,
+                        colorSettings: DEFAULT_COLOR_SETTINGS,
+                    }).catch(e => console.error("Could not create default settings", e));
+                }
             }
-            handleLoad();
+            handleLoad('settings');
         }, (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 operation: 'get',
                 path: settingsDocRef.path,
             }));
-            handleLoad();
+            handleLoad('settings');
         });
         subscriptions.push(settingsUnsubscribe);
 
@@ -362,14 +382,14 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     return { id: doc.id, ...docData };
                 }) as any[];
                 setState(prevState => ({ ...prevState, [key]: data }));
-                handleLoad();
+                handleLoad(key);
             }, (error) => {
                 const contextualError = new FirestorePermissionError({
                     operation: 'list',
                     path: path,
                 });
                 errorEmitter.emit('permission-error', contextualError);
-                handleLoad();
+                handleLoad(key);
             });
             subscriptions.push(unsubscribe);
         });
@@ -465,6 +485,15 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
 
     }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
+
+    // Every customer's ledger, built once here so no screen adds a balance up for itself.
+    const customerLedgerBook = useMemo(() => buildLedgerBook({
+        customers: state.customers,
+        transactions: state.transactions,
+        customerPayments: state.customerPayments,
+        cashAdvances: state.cashAdvances,
+        saleReturns: state.saleReturns,
+    }), [state.customers, state.transactions, state.customerPayments, state.cashAdvances, state.saleReturns]);
 
     const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T | null> => {
         if (!firestore) {
@@ -892,6 +921,8 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: state.isLoaded,
         fuelStock,
         dateRange,
+        customerLedgerBook,
+        isFromCache,
         addTransaction,
         updateTransaction,
         deleteTransaction,

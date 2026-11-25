@@ -482,7 +482,7 @@ export default function AllTransactionsPage() {
                                                 <TableHead>Details</TableHead>
                                                 <TableHead>Notes</TableHead>
                                                 <TableHead className="text-right">Amount (PKR)</TableHead>
-                                                <TableHead className="text-right">Balance</TableHead>
+                                                <TableHead className="text-right" title="A running total of every entry listed, not one customer's balance">Running Total</TableHead>
                                                 <TableHead className="text-center">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>

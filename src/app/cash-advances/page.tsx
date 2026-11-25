@@ -85,7 +85,8 @@ export default function CashAdvancesPage() {
   
   const selectedCustomerId = watch('customerId');
   const advanceAmount = watch('amount');
-  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
+  // An advance being edited is left out of the balance, so "new balance" adds it once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId, { excluding: { source: 'cashAdvances', id: editId } });
   const newBalance = useMemo(() => customerBalance + (Number(advanceAmount) || 0), [customerBalance, advanceAmount]);
   
   const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);

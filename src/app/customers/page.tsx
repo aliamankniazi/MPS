@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { Customer, Employee } from '@/lib/types';
+import { allBalances, totalReceivable } from '@/lib/customer-ledger';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
@@ -79,7 +80,8 @@ export default function CustomersPage() {
     transactions, 
     customerPayments, 
     cashAdvances,
-    addEmployee
+    addEmployee,
+    customerLedgerBook
   } = useDatabase();
   const { toast } = useToast();
   const router = useRouter();
@@ -136,27 +138,10 @@ export default function CustomersPage() {
     return activityMap;
   }, [transactions, customerPayments, cashAdvances, customers, businessPartners]);
 
-  const balances = useMemo(() => {
-    const balanceMap = new Map<string, number>();
-    customers.forEach(c => {
-        const openingBalance = c.openingBalance || 0;
-        const totalSales = transactions.filter(tx => tx.customerId === c.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
-        const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === c.id).reduce((sum, ca) => sum + ca.amount, 0);
-        const totalPayments = customerPayments.filter(p => p.customerId === c.id).reduce((sum, p) => sum + p.amount, 0);
-        balanceMap.set(c.id, openingBalance + totalSales + totalCashAdvances - totalPayments);
-    });
-    return balanceMap;
-  }, [customers, transactions, customerPayments, cashAdvances]);
+  // The one calculation (lib/customer-ledger.ts): the figure here is the figure on the ledger and on every report.
+  const balances = useMemo(() => allBalances(customerLedgerBook), [customerLedgerBook]);
 
-  const totalUdhar = useMemo(() => {
-    let total = 0;
-    balances.forEach((balance) => {
-      if (balance > 0) {
-        total += balance;
-      }
-    });
-    return total;
-  }, [balances]);
+  const totalUdhar = useMemo(() => totalReceivable(customerLedgerBook), [customerLedgerBook]);
 
   const allPeople = useMemo(() => {
     const peopleMap = new Map<string, Customer>();

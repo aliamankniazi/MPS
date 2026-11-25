@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
+import { describeRow, lastActivity, ledgerOf, statementFor } from '@/lib/customer-ledger';
 import { format, startOfDay, endOfDay, isValid, isSameDay } from 'date-fns';
 import { UserX, Printer, Search, Pencil, CreditCard, Download } from 'lucide-react';
 import type { Customer } from '@/lib/types';
@@ -37,11 +38,11 @@ interface ReportRow {
     recovery: number;
     currentBalance: number;
     lastTransactionDate: Date | null;
-    periodItems: { date: Date; desc: string; amount: number; type: 'debit' | 'credit' }[];
+    periodItems: { date: Date | null; desc: string; amount: number; type: 'debit' | 'credit' }[];
 }
 
 export default function CreditRecoveryPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded, dateRange, setDateRange } = useDatabase();
+    const { customers, customerLedgerBook, isLoaded, dateRange, setDateRange } = useDatabase();
     const [selectedCustomerId, setSelectedCustomerId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -57,74 +58,28 @@ export default function CreditRecoveryPage() {
         const to = dateRange?.to ? endOfDay(dateRange.to) : (from ? endOfDay(from) : null);
 
         const report: ReportRow[] = targetCustomers.map(customer => {
-            const customerOpeningBalance = customer.openingBalance || 0;
-            
-            const allCustomerEntries = [
-                ...transactions.filter(tx => tx.customerId === customer.id),
-                ...cashAdvances.filter(ca => ca.customerId === customer.id),
-                ...customerPayments.filter(p => p.customerId === customer.id)
-            ];
+            // The one calculation (lib/customer-ledger.ts). The period opens on the balance before it and
+            // closes on the balance as of its last day: the same figures the customer's ledger shows.
+            const ledger = ledgerOf(customerLedgerBook, customer.id);
+            const statement = statementFor(ledger, { from, to });
 
-            const lastTransactionDate = allCustomerEntries.length > 0
-                ? allCustomerEntries.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                                    .map(e => new Date(e.timestamp))
-                                    .find(d => isValid(d)) || null
-                : null;
-
-            const openingBalance = customerOpeningBalance +
-              transactions.filter(tx => tx.customerId === customer.id && from && new Date(tx.timestamp) < from)
-                          .reduce((sum, tx) => sum + tx.totalAmount, 0) +
-              cashAdvances.filter(ca => ca.customerId === customer.id && from && new Date(ca.timestamp) < from)
-                          .reduce((sum, ca) => sum + ca.amount, 0) -
-              customerPayments.filter(p => p.customerId === customer.id && from && new Date(p.timestamp) < from)
-                          .reduce((sum, p) => sum + p.amount, 0);
-
-            const filterByDateRange = (item: { timestamp: string }) => {
-                if (!from || !to) return true;
-                const itemDate = new Date(item.timestamp);
-                return isValid(itemDate) && itemDate >= from && itemDate <= to;
-            }
-
-            const periodTransactions = transactions.filter(tx => tx.customerId === customer.id && filterByDateRange(tx));
-            const periodAdvances = cashAdvances.filter(ca => ca.customerId === customer.id && filterByDateRange(ca));
-            const periodPayments = customerPayments.filter(p => p.customerId === customer.id && filterByDateRange(p));
-
-            const totalSales = periodTransactions.reduce((sum, tx) => sum + tx.totalAmount, 0);
-            const totalCashAdvances = periodAdvances.reduce((sum, ca) => sum + ca.amount, 0);
-            const totalDebit = totalSales + totalCashAdvances;
-            const totalRecovery = periodPayments.reduce((sum, p) => sum + p.amount, 0);
-            
-            const currentBalance = openingBalance + totalDebit - totalRecovery;
-
-            const periodItems = [
-                ...periodTransactions.map(tx => ({
-                    date: new Date(tx.timestamp),
-                    desc: (tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'Sale')) + (tx.notes ? ` (${tx.notes})` : ''),
-                    amount: tx.totalAmount,
-                    type: 'debit' as const
-                })),
-                ...periodAdvances.map(ca => ({
-                    date: new Date(ca.timestamp),
-                    desc: (ca.notes || 'Cash Advance'),
-                    amount: ca.amount,
-                    type: 'debit' as const
-                })),
-                ...periodPayments.map(p => ({
-                    date: new Date(p.timestamp),
-                    desc: (p.notes || `Payment (${p.paymentMethod})`),
-                    amount: p.amount,
-                    type: 'credit' as const
-                }))
-            ].sort((a,b) => a.date.getTime() - b.date.getTime());
+            const periodItems = statement.rows.flatMap(row => {
+                const date = row.dated ? new Date(row.time) : null;
+                const note = row.original?.notes && (row.kind === 'credit-sale' || row.kind === 'cash-sale') ? ` (${row.original.notes})` : '';
+                const items: ReportRow['periodItems'] = [];
+                if (row.debit > 0) items.push({ date, desc: describeRow(row) + note, amount: row.debit, type: 'debit' });
+                if (row.credit > 0) items.push({ date, desc: row.kind === 'cash-sale' ? 'Paid at the time of sale' : describeRow(row), amount: row.credit, type: 'credit' });
+                return items;
+            });
 
             return {
                 id: customer.id,
                 customer,
-                previousBalance: openingBalance,
-                sale: totalDebit,
-                recovery: totalRecovery,
-                currentBalance,
-                lastTransactionDate,
+                previousBalance: statement.openingBalance,
+                sale: statement.totalDebit,
+                recovery: statement.totalCredit,
+                currentBalance: statement.closingBalance,
+                lastTransactionDate: lastActivity(ledger),
                 periodItems,
             };
         }).filter(row => {
@@ -142,7 +97,7 @@ export default function CreditRecoveryPage() {
 
         return report.sort((a,b) => a.customer.name.localeCompare(b.customer.name));
 
-    }, [customers, transactions, customerPayments, cashAdvances, isLoaded, selectedCustomerId, dateRange]);
+    }, [customers, customerLedgerBook, isLoaded, selectedCustomerId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;
@@ -186,7 +141,7 @@ export default function CreditRecoveryPage() {
             breakdown = '\n\nTransactions Detail:';
             row.periodItems.forEach(item => {
                 const sign = item.type === 'debit' ? '+' : '-';
-                breakdown += `\n${format(item.date, 'dd-MMM')}: ${item.desc} [${sign}${formatCurrency(item.amount)}]`;
+                breakdown += `\n${item.date ? format(item.date, 'dd-MMM') : 'No date'}: ${item.desc} [${sign}${formatCurrency(item.amount)}]`;
             });
         }
 

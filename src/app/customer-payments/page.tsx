@@ -87,7 +87,8 @@ export default function CustomerPaymentsPage() {
 
   const selectedCustomerId = watch('customerId');
   const paymentAmount = watch('amount');
-  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
+  // A payment being edited is left out of the balance, so "new balance" takes it off once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId, { excluding: { source: 'customerPayments', id: editId } });
   const newBalance = useMemo(() => customerBalance - (Number(paymentAmount) || 0), [customerBalance, paymentAmount]);
   
   const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);

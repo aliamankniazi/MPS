@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/sidebar';
 import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useDatabase } from '@/hooks/use-database';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -45,6 +46,7 @@ const navGroups = [
             { href: '/all-invoices', label: 'All Invoices', icon: Receipt },
             { href: '/ledger', label: 'General Journal', icon: BookOpen },
             { href: '/credit-recovery', label: 'Credit Recovery', icon: HandCoins },
+            { href: '/balance-audit', label: 'Balance Audit', icon: ShieldCheck },
             { href: '/cash-credit-sales', label: 'Sales By Type', icon: Droplets },
         ]
     },
@@ -126,6 +128,7 @@ const WARNING_TIME_SECONDS = 60;
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut, user, isPinVerified, pinVerifiedAt } = useAuth();
+  const { isFromCache } = useDatabase();
   const pathname = usePathname();
   
   const [remainingTime, setRemainingTime] = React.useState(SESSION_DURATION_SECONDS);
@@ -260,11 +263,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarMenu>
           </SidebarFooter>
         </Sidebar>
-        <SidebarInset>
+        <SidebarInset className="min-w-0">
           <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 p-4 backdrop-blur-sm md:hidden print:hidden">
             <SidebarTrigger />
           </header>
-          <main className="flex-1 bg-muted/30">{children}</main>
+          {isFromCache && (
+            <div className="border-b border-amber-500 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200 print:hidden">
+              Showing the copy saved on this device. The server has not answered yet, so balances may not include entries made on another device.
+            </div>
+          )}
+          <main className="flex-1 min-w-0 bg-muted/30">{children}</main>
         </SidebarInset>
       </SidebarProvider>
 

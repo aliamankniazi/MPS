@@ -85,7 +85,8 @@ export default function SaleReturnsPage() {
 
   const selectedCustomerId = watch('customerId');
   const refundAmount = watch('totalRefund');
-  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId === 'walkin' ? null : selectedCustomerId);
+  // A return being edited is left out of the balance, so "new balance" takes it off once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId === 'walkin' ? null : selectedCustomerId, { excluding: { source: 'saleReturns', id: editId } });
   const newBalance = useMemo(() => customerBalance - (Number(refundAmount) || 0), [customerBalance, refundAmount]);
   
   const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);

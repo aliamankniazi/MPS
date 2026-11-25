@@ -248,7 +248,8 @@ export default function SalesPage() {
     setIsListening(!isListening);
   };
 
-  const { balance: customerBalance } = useCustomerBalance(customerId || null);
+  // When a sale is being edited it is left out of the balance: the cart below adds it back once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(customerId || null, { excluding: { source: 'transactions', id: editId } });
   const cartTotal = useMemo(() => cart.reduce((t, i) => t + i.totalAmount, 0), [cart]);
 
   const onAddItemToCart: SubmitHandler<SaleItemFormValues> = (data) => {

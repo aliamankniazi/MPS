@@ -7,6 +7,7 @@ import { format, isValid, startOfDay, endOfDay, startOfYear, endOfYear, eachMont
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Trash2, Printer, Pencil, ShieldCheck, Search, BarChart3, TrendingUp, TrendingDown, Wallet, HandCoins, Receipt, CreditCard } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
+import { isCreditSale } from '@/lib/customer-ledger';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import {
@@ -123,7 +124,9 @@ export default function LedgerPage() {
     let combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     transactions.forEach(tx => {
-        const isWalkIn = tx.isWalkIn ?? (!tx.customerId || tx.customerId === 'walkin');
+        // Credit or paid at the pump is decided in ONE place (lib/customer-ledger.ts), so the journal
+        // files a sale the same way the customer's ledger does.
+        const isWalkIn = !isCreditSale(tx);
         combined.push({ 
           id: `tx-${tx.id}`, 
           originalId: tx.id,
@@ -636,7 +639,7 @@ export default function LedgerPage() {
                                             <span className="text-lg font-black text-destructive font-mono">PKR {day.totalDebit.toLocaleString()}</span>
                                         </div>
                                         <div className="flex flex-col items-end pr-4">
-                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Wallet className="w-3 h-3 text-primary"/> Closing Balance</span>
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Wallet className="w-3 h-3 text-primary"/> Journal Closing Total</span>
                                             <span className={cn("text-lg font-black font-mono", day.closingBalance > 0 ? 'text-destructive' : 'text-green-800')}>
                                                 PKR {day.closingBalance.toLocaleString()}
                                             </span>
@@ -657,7 +660,7 @@ export default function LedgerPage() {
                                                 <TableHead className="text-center w-32">Entry Type</TableHead>
                                                 <TableHead className="text-right w-32">Debit (PKR)</TableHead>
                                                 <TableHead className="text-right w-32">Credit (PKR)</TableHead>
-                                                <TableHead className="text-right w-32">Running Bal</TableHead>
+                                                <TableHead className="text-right w-32" title="A running total of every entry in the journal, not one customer's balance">Journal Total</TableHead>
                                                 <TableHead className="text-center w-24 print:hidden">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>
