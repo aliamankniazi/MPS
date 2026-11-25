@@ -8,6 +8,7 @@ import { generateSalesSummary, type GenerateSalesSummaryOutput } from '@/ai/flow
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileText, Sparkles, AlertTriangle, TrendingUp, Wallet, Receipt, ClipboardCheck, RefreshCw, BarChart3 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { startOfDay, endOfDay, isValid } from 'date-fns';
 
 export default function AiSummaryPage() {

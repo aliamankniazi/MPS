@@ -11,9 +11,15 @@ npx firebase-tools@13 emulators:start --only auth,firestore --project demo-mps
 # 2. the app, built for the emulators  from the repository root
 NEXT_PUBLIC_FIREBASE_EMULATOR=1 npx next build && NEXT_PUBLIC_FIREBASE_EMULATOR=1 npx next start -p 3100
 
-# 3. seed the books, then walk the screens (needs `playwright` installed)
+# 3. seed the books, then open every screen, then run the money flows (needs `playwright` installed)
+node e2e/seed.mjs && node e2e/crawl.cjs
 node e2e/seed.mjs && node e2e/balances.cjs
 ```
+
+`crawl.cjs` opens **every** screen of the app (it reads the list from `src/app`), the id-based screens and each
+edit form, and fails on any crash, console error, or `NaN` / `undefined` / `Invalid Date` on the page. The seed
+carries the awkward records that used to bring screens down: an amount stored as text, a record with no date,
+a sale with no quantity, an expense in a category the form does not offer.
 
 `seed.mjs` writes six customers that between them exercise every rule: credit sales, a sale paid at the pump
 under an account, a two-line sale on one instant, an advance, a payment, a return, a payment entered twice,

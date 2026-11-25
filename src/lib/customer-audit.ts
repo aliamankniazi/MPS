@@ -30,6 +30,7 @@ import {
   type LedgerSource,
   type LedgerSources,
 } from './customer-ledger';
+import { storedValue } from './normalise-record';
 
 export type IssueSeverity = 'problem' | 'check' | 'note';
 
@@ -204,7 +205,7 @@ export function auditCustomers(sources: LedgerSources, options?: { asOf?: Date |
   const tomorrow = now.getTime() + 24 * 60 * 60 * 1000;
   const bySignature = new Map<string, CustomerLedgerRow[]>();
   for (const row of [...allRows, ...book.orphans]) {
-    const raw = row.original?.[AMOUNT_FIELD[row.source]];
+    const raw = storedValue(row.original, AMOUNT_FIELD[row.source]);
     const amount = Math.max(row.debit, row.credit);
     const kind = SOURCE_NAME[row.source];
     const read = readAmount(raw);
@@ -278,7 +279,7 @@ export function auditCustomers(sources: LedgerSources, options?: { asOf?: Date |
     if (list) {
       if (!list.includes(c.id)) list.push(c.id);
     } else byName.set(key, [c.id]);
-    const opening = c.openingBalance;
+    const opening = storedValue(c, 'openingBalance');
     if (opening !== undefined && opening !== null && opening !== '' && readAmount(opening) === null) {
       add('opening-not-a-number', 'problem', c.id, [`customers/${c.id}`], 0, `The opening balance is not a number (stored: ${JSON.stringify(opening)}). It counts as zero until corrected.`);
     }

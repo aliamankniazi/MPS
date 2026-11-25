@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useDatabase } from '@/hooks/use-database';
+import { supplierLedgerOf, supplierStatement } from '@/lib/supplier-ledger';
 import { FileText, Printer, Search } from 'lucide-react';
 import type { Supplier } from '@/lib/types';
 import { format, startOfDay, endOfDay, isValid } from 'date-fns';
@@ -36,7 +37,7 @@ interface ReportRow {
 }
 
 export default function SupplierReportPage() {
-    const { suppliers, purchases, supplierPayments, isLoaded, dateRange } = useDatabase();
+    const { suppliers, supplierLedgerBook, isLoaded, dateRange } = useDatabase();
     const [selectedSupplierId, setSelectedSupplierId] = useState('all');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -52,34 +53,20 @@ export default function SupplierReportPage() {
         const to = dateRange?.to ? endOfDay(dateRange.to) : (from ? endOfDay(from) : null);
 
         const report: ReportRow[] = targetSuppliers.map(supplier => {
-            
-            const openingBalance = 
-              purchases.filter(p => p.supplierId === supplier.id && from && new Date(p.timestamp) < from)
-                       .reduce((sum, p) => sum + p.totalCost, 0) -
-              supplierPayments.filter(p => p.supplierId === supplier.id && from && new Date(p.timestamp) < from)
-                            .reduce((sum, p) => sum + p.amount, 0);
-
-            const filterByDateRange = (item: { timestamp: string }) => {
-                if (!from || !to) return true;
-                const itemDate = new Date(item.timestamp);
-                return isValid(itemDate) && itemDate >= from && itemDate <= to;
-            }
-            
-            const allPurchases = purchases.filter(p => p.supplierId === supplier.id && filterByDateRange(p));
-            const allPayments = supplierPayments.filter(p => p.supplierId === supplier.id && filterByDateRange(p));
-            
-            const totalCredit = allPurchases.reduce((sum, p) => sum + p.totalCost, 0);
-            const totalDebit = allPayments.reduce((sum, p) => sum + p.amount, 0);
-            const currentBalance = openingBalance + totalCredit - totalDebit;
+            // The one calculation (lib/supplier-ledger.ts): this report used to leave out the supplier's opening
+            // balance and every purchase return, so it disagreed with the supplier's own ledger.
+            const ledger = supplierLedgerOf(supplierLedgerBook, supplier.id);
+            const statement = supplierStatement(ledger, { from, to });
+            const bought = statement.rows.filter(r => r.kind === 'purchase');
 
             return {
                 id: supplier.id,
                 supplier,
-                previousBalance: openingBalance, 
-                purchaseAmount: totalCredit,
-                purchaseVolume: allPurchases.reduce((sum, p) => sum + p.volume, 0),
-                payment: totalDebit,
-                currentBalance,
+                previousBalance: statement.openingBalance,
+                purchaseAmount: statement.totalCredit,
+                purchaseVolume: bought.reduce((sum, r) => sum + (Number(r.original?.volume) || 0), 0),
+                payment: statement.totalDebit,
+                currentBalance: statement.closingBalance,
             };
         }).filter(row => {
             if (selectedSupplierId !== 'all') return true;
@@ -88,7 +75,7 @@ export default function SupplierReportPage() {
 
         return report.sort((a,b) => a.supplier.name.localeCompare(b.supplier.name));
 
-    }, [suppliers, purchases, supplierPayments, isLoaded, selectedSupplierId, dateRange]);
+    }, [suppliers, supplierLedgerBook, isLoaded, selectedSupplierId, dateRange]);
     
     const filteredReportData = useMemo(() => {
         if (!searchTerm) return reportData;

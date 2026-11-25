@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download, ShieldCheck } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';

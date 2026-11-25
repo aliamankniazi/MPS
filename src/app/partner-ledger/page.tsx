@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { useDatabase } from '@/hooks/use-database';
 import { isCreditSale, ledgerOf, statementFor, toPaisa } from '@/lib/customer-ledger';
+import { supplierLedgerOf, supplierStatement } from '@/lib/supplier-ledger';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -67,6 +68,7 @@ export default function PartnerLedgerPage() {
       deleteSaleReturn,
       deletePurchaseReturn,
       customerLedgerBook,
+      supplierLedgerBook,
   } = useDatabase();
   
   const { isPinVerified, confirmPin } = useAuth();
@@ -226,6 +228,16 @@ export default function PartnerLedgerPage() {
      */
     const selectedType = entities.find(e => e.id === selectedEntityId)?.type;
     const customerLedger = selectedEntityId && selectedType === 'Customer' ? ledgerOf(customerLedgerBook, selectedEntityId) : null;
+    // A SUPPLIER's figures the same way, from lib/supplier-ledger.ts (this page left the opening balance out here too).
+    const supplierLedger = selectedEntityId && selectedType === 'Supplier' ? supplierLedgerOf(supplierLedgerBook, selectedEntityId) : null;
+    if (supplierLedger) {
+        const PREFIX = { purchases: 'pur', supplierPayments: 'sp', purchaseReturns: 'pr' } as const;
+        const byId = new Map(entityFilteredEntries.map(e => [e.id, e] as const));
+        entityFilteredEntries = supplierLedger.rows.flatMap(row => {
+            const entry = byId.get(`${PREFIX[row.source]}-${row.sourceId}`);
+            return entry ? [{ ...entry, debit: row.debit, credit: row.credit, balance: row.balance }] : [];
+        });
+    }
     if (customerLedger) {
         const PREFIX = { transactions: 'tx', customerPayments: 'pay', cashAdvances: 'adv', saleReturns: 'sr' } as const;
         const byId = new Map(entityFilteredEntries.map(e => [e.id, e] as const));
@@ -236,13 +248,15 @@ export default function PartnerLedgerPage() {
     }
       
     let reportData = null;
-    if (selectedEntityId && (entityFilteredEntries.length > 0 || customerLedger)) {
+    if (selectedEntityId && (entityFilteredEntries.length > 0 || customerLedger || supplierLedger)) {
         const lastDebitEntry = [...entityFilteredEntries].reverse().find(e => e.debit > 0);
         const lastCreditEntry = [...entityFilteredEntries].reverse().find(e => e.credit > 0);
         const entityType = selectedType;
         let totalBal = 0;
         if (customerLedger) {
             totalBal = customerLedger.closingBalance;
+        } else if (supplierLedger) {
+            totalBal = supplierLedger.closingBalance;
         } else if (entityType === 'Partner' || entityType === 'Supplier') {
             totalBal = entityFilteredEntries.reduce((acc, entry) => acc + (entry.credit - entry.debit), 0);
         } else {
@@ -251,13 +265,15 @@ export default function PartnerLedgerPage() {
         reportData = { totalBalance: totalBal, lastDebit: lastDebitEntry?.debit || 0, lastCredit: lastCreditEntry?.credit || 0, entityType: entityType || 'Customer' };
     }
 
-    let openingBalance = customerLedger ? customerLedger.openingBalance : 0;
+    let openingBalance = customerLedger ? customerLedger.openingBalance : supplierLedger ? supplierLedger.openingBalance : 0;
     let entriesForDisplay = entityFilteredEntries;
     
     if (selectedDate) {
       const startOfSelectedDay = startOfDay(selectedDate);
       if (customerLedger) {
         openingBalance = statementFor(customerLedger, { from: selectedDate, to: selectedDate }).openingBalance;
+      } else if (supplierLedger) {
+        openingBalance = supplierStatement(supplierLedger, { from: selectedDate, to: selectedDate }).openingBalance;
       } else {
         openingBalance = entityFilteredEntries
           .filter(entry => isValid(new Date(entry.timestamp)) && new Date(entry.timestamp) < startOfSelectedDay)
@@ -272,7 +288,7 @@ export default function PartnerLedgerPage() {
 
     let runningBalance = openingBalance;
     const entriesWithBalance: CombinedEntry[] = entriesForDisplay.map(entry => {
-        if (customerLedger) {
+        if (customerLedger || supplierLedger) {
             // Already the ledger's own running balance, opening balance included.
             runningBalance = entry.balance ?? runningBalance;
             return { ...entry, balance: runningBalance };
@@ -286,7 +302,7 @@ export default function PartnerLedgerPage() {
     const calculatedTotals = entriesForDisplay.reduce((acc, entry) => { acc.debit += entry.debit; acc.credit += entry.credit; return acc; }, { debit: 0, credit: 0 });
     
     return { entries: entriesWithBalance.reverse(), totals: calculatedTotals, finalBalance: runningBalance, specialReport: reportData };
-  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, saleReturns, purchaseReturns, selectedEntityId, selectedDate, isLoaded, entities, customerLedgerBook]);
+  }, [customerPayments, transactions, cashAdvances, purchases, supplierPayments, investments, saleReturns, purchaseReturns, selectedEntityId, selectedDate, isLoaded, entities, customerLedgerBook, supplierLedgerBook]);
   
   const handleDeleteEntry = () => {
     if (!entryToDelete) return;

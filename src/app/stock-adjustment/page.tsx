@@ -32,6 +32,7 @@ import { cn } from '@/lib/utils';
 import { Calendar } from '@/components/ui/calendar';
 import { useAuth } from '@/hooks/use-auth';
 import { useSearchParams, useRouter } from 'next/navigation';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const adjustmentSchema = z.object({
   fuelType: z.string().min(1, 'Please select a fuel type.'),
@@ -58,7 +59,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button>
             </div>
         </div>

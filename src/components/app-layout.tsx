@@ -134,7 +134,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [remainingTime, setRemainingTime] = React.useState(SESSION_DURATION_SECONDS);
   const [pinRemaining, setPinRemaining] = React.useState(0);
   const [showWarning, setShowWarning] = React.useState(false);
-  const intervalRef = React.useRef<NodeJS.Timeout>();
+  const intervalRef = React.useRef<NodeJS.Timeout | undefined>(undefined);
 
   const resetTimer = React.useCallback(() => {
     setRemainingTime(SESSION_DURATION_SECONDS);

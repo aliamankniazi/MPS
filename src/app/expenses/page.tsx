@@ -24,13 +24,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 
-const EXPENSE_CATEGORIES: ExpenseCategory[] = ['Utilities', 'Salaries', 'Maintenance', 'Other'];
+const EXPENSE_CATEGORIES = ['Utilities', 'Salaries', 'Maintenance', 'Other'] as const;
 
 const expenseSchema = z.object({
   description: z.string().min(1, 'Description is required'),
-  category: z.enum(EXPENSE_CATEGORIES, { required_error: 'Please select a category.' }),
+  category: z.string({ required_error: 'Please select a category.' }).min(1, 'Please select a category.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
   pin: z.string().optional(),
@@ -61,7 +62,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -266,7 +267,7 @@ export default function ExpensesPage() {
                                   <SelectValue placeholder="Select a category" />
                               </SelectTrigger>
                               <SelectContent>
-                                  {EXPENSE_CATEGORIES.map(cat => (
+                                  {[...EXPENSE_CATEGORIES, ...(field.value && !(EXPENSE_CATEGORIES as readonly string[]).includes(field.value) ? [field.value] : [])].map(cat => (
                                   <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                                   ))}
                               </SelectContent>

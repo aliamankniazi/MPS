@@ -7,12 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins, Input as InputIcon } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { lastActivity, ledgerOf } from '@/lib/customer-ledger';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType, Purchase } from '@/lib/types';
+import type { DateRange, FuelType, Purchase, Transaction } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -441,7 +441,7 @@ export default function DashboardPage() {
   
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
     const customerTotals = filteredTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
@@ -473,9 +473,9 @@ export default function DashboardPage() {
     return allCustomersWithDetails.filter((c): c is NonNullable<typeof c> => c !== null);
   }, [isLoaded, customers, customerLedgerBook, now]);
 
-  const dailyProductSales = useMemo(() => {
+  const dailyProductSales = useMemo((): Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>> => {
     if (!isLoaded || !products) return {};
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
     const salesByDayAndProduct = filteredTransactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');

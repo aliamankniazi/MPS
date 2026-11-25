@@ -31,6 +31,21 @@ what three screens used to show before they shared one calculation, and everythi
 a person's decision (an entry made twice, a payment for a deleted customer). It only reads. The same page
 downloads a complete backup of the database with a SHA-256 fingerprint.
 
+## Supplier balances: one calculation too
+
+`src/lib/supplier-ledger.ts`: owed = opening balance + purchases - payments - purchase returns. Read
+`supplierLedgerBook` from `useDatabase()` or `useSupplierBalance`.
+
+## Records are read once
+
+`src/lib/normalise-record.ts` turns a figure stored as text into its number as each record comes in, in memory
+only. Screens can do arithmetic on what they are given. Nothing is written back.
+
+## Type checking is on
+
+`npm run typecheck` passes and the build now fails on a type error (`next.config.js`). `useDatabase()` is
+fully typed; do not put an index signature back on its state.
+
 ## Testing the balances
 
 `npm test` runs the pure rules. `e2e/README.md` describes the browser test against the Firebase emulators.

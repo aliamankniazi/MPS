@@ -22,6 +22,7 @@ import { TransactionNav } from '@/components/transaction-nav';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -58,7 +59,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>

@@ -29,6 +29,7 @@ import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
 import { describeRow, ledgerOf, rowTypeLabel, statementFor, toPaisa, type CustomerLedgerRow } from '@/lib/customer-ledger';
+import { describeSupplierRow, supplierLedgerOf, supplierStatement } from '@/lib/supplier-ledger';
 import * as XLSX from 'xlsx';
 
 const NO_DATE = 'no-date';
@@ -55,7 +56,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     customers, suppliers, businessPartners, employees, transactions, customerPayments, 
     cashAdvances, purchases, supplierPayments, investments, saleReturns,
     deleteTransaction, deletePurchase, deleteCustomerPayment, deleteCashAdvance, 
-    deleteSupplierPayment, deleteInvestment, deleteSaleReturn, isLoaded, customerLedgerBook,
+    deleteSupplierPayment, deleteInvestment, deleteSaleReturn, deletePurchaseReturn, isLoaded, customerLedgerBook, supplierLedgerBook,
   } = useDatabase();
   
   const { isPinVerified, confirmPin } = useAuth();
@@ -131,29 +132,40 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         };
 
     } else if (entityType === 'Supplier') {
-        purchases.filter(p => p.supplierId === entityId).forEach(p => combined.push({
-            id: `pur-${p.id}`,
-            timestamp: p.timestamp,
-            description: `${p.volume.toFixed(2)}L of ${p.fuelType}`,
-            type: 'Purchase',
-            credit: p.totalCost,
-            debit: 0,
-            original: p,
-            category: 'PURCHASE',
-            entityId: p.supplierId
+        /*
+         * The one supplier calculation (lib/supplier-ledger.ts). This page listed purchases and payments and
+         * left purchase returns out altogether, so it disagreed with the purchase-return screen and the report.
+         */
+        const ledger = supplierLedgerOf(supplierLedgerBook, entityId);
+        const statement = supplierStatement(ledger, { from: dateRange?.from ?? null, to: dateRange?.to ?? dateRange?.from ?? null });
+        const PREFIX = { purchases: 'pur', supplierPayments: 'spay', purchaseReturns: 'pr' } as const;
+        const TYPE = { purchase: 'Purchase', payment: 'Supplier Payment', 'purchase-return': 'Purchase Return' } as const;
+        const CATEGORY = { purchase: 'PURCHASE', payment: 'PAYMENT', 'purchase-return': 'RETURN' } as const;
+        const all: LedgerEntry[] = statement.rows.map(row => ({
+          id: `${PREFIX[row.source]}-${row.sourceId}`,
+          timestamp: row.dated ? new Date(row.time).toISOString() : '',
+          description: describeSupplierRow(row),
+          type: TYPE[row.kind],
+          debit: row.debit,
+          credit: row.credit,
+          balance: row.balance,
+          original: row.original,
+          category: CATEGORY[row.kind],
+          notes: row.original?.notes ?? row.original?.reason,
+          entityId: row.supplierId,
         }));
-
-        supplierPayments.filter(sp => sp.supplierId === entityId).forEach(sp => combined.push({
-            id: `spay-${sp.id}`,
-            timestamp: sp.timestamp,
-            description: `Payment Made (${sp.paymentMethod})`,
-            type: 'Supplier Payment',
-            debit: sp.amount,
-            credit: 0,
-            original: sp,
-            category: 'PAYMENT',
-            entityId: sp.supplierId
-        }));
+        const term = searchTerm.toLowerCase();
+        const shown = term
+          ? all.filter(e => e.description.toLowerCase().includes(term) || (e.notes && String(e.notes).toLowerCase().includes(term)))
+          : all;
+        return {
+          entries: [...shown].reverse(),
+          totalDebit: shown.reduce((sum, e) => sum + toPaisa(e.debit), 0) / 100,
+          totalCredit: shown.reduce((sum, e) => sum + toPaisa(e.credit), 0) / 100,
+          openingBalance: statement.openingBalance,
+          finalBalance: statement.closingBalance,
+          currentBalance: ledger.closingBalance,
+        };
     } else if (entityType === 'Partner') {
         investments.filter(inv => inv.partnerId === entityId).forEach(inv => {
             combined.push({
@@ -209,7 +221,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     const credit = filteredEntries.reduce((s, e) => s + e.credit, 0);
 
     return { entries: entriesWithBalance.reverse(), totalDebit: debit, totalCredit: credit, openingBalance: rangeFrom ? balanceBeforeRange : openingBalance, finalBalance: runningBalance, currentBalance: runningBalance };
-  }, [entity, entityType, customerLedgerBook, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
+  }, [entity, entityType, customerLedgerBook, supplierLedgerBook, investments, entityId, dateRange, searchTerm]);
 
   const groupedEntries = useMemo(() => {
     const groups: Record<string, LedgerEntry[]> = {};
@@ -249,6 +261,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         else if (prefix === 'sr') deleteSaleReturn(id);
         else if (prefix === 'pur') deletePurchase(id);
         else if (prefix === 'spay') deleteSupplierPayment(id);
+        else if (prefix === 'pr') deletePurchaseReturn(id);
         else if (prefix === 'inv') deleteInvestment(id);
         toast({ title: 'Entry Deleted' });
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
@@ -295,6 +308,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         case 'sr': return `/sale-returns?edit=${id}`;
         case 'inv': return `/investments?edit=${id}`;
         case 'spay': return `/supplier-payments?edit=${id}`;
+        case 'pr': return `/purchase-returns?edit=${id}`;
         default: return '#';
     }
   };

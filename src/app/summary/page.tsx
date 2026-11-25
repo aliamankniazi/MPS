@@ -105,7 +105,7 @@ export default function SummaryPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
   
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
   
     const salesByProduct = filteredTransactions.reduce((acc, tx) => {
       const productName = tx.product || tx.fuelType;
@@ -214,7 +214,7 @@ export default function SummaryPage() {
         const result = await generateSalesSummary({
           activityData: JSON.stringify(dataForSummary),
         });
-        setSummary(result.summary);
+        setSummary([result.executiveSummary, result.salesAnalysis, result.expenseAnalysis, result.creditRecoveryStatus].filter(Boolean).join('\n\n'));
       } catch (e: any) {
         console.error(e);
         if (e.message && (e.message.toLowerCase().includes('rate limit') || e.message.toLowerCase().includes('rate exceeded'))) {

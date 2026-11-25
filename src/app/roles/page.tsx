@@ -13,7 +13,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Shield, ShieldPlus, List, Edit, Trash2, AlertTriangle, KeyRound, Users } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useAuth, PERMISSIONS, type Permission } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
+import { PERMISSIONS, type Permission } from '@/lib/types';
 import { useDatabase } from '@/hooks/use-database';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
