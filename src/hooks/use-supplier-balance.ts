@@ -2,38 +2,29 @@
 
 import { useMemo } from 'react';
 import { useDatabase } from '@/hooks/use-database';
+import { supplierBalanceWithout, supplierLedgerOf, type SupplierSource } from '@/lib/supplier-ledger';
+
+type Options = {
+  /** The record an edit screen has open: left out, so "previous balance + this entry" does not count it twice. */
+  excluding?: { source: SupplierSource; id: string | null | undefined } | null;
+};
 
 /**
- * A custom hook to calculate the current balance for a specific supplier.
- * It sums up all their purchases (credits) and subtracts
- * all payments made to them (debits).
- * @param supplierId The ID of the supplier to calculate the balance for.
- * @returns An object containing the calculated balance and a loading state.
+ * What the business owes a supplier. Every screen that shows it asks here, and this asks the one calculation
+ * (lib/supplier-ledger.ts): opening + purchases - payments - purchase returns, every record once.
  */
-export function useSupplierBalance(supplierId: string | null) {
-  const { suppliers, purchases, supplierPayments, isLoaded } = useDatabase();
+export function useSupplierBalance(supplierId: string | null | undefined, options?: Options) {
+  const { supplierLedgerBook, isLoaded } = useDatabase();
+  const excludingSource = options?.excluding?.source;
+  const excludingId = options?.excluding?.id;
+
+  const ledger = useMemo(() => supplierLedgerOf(supplierLedgerBook, supplierId), [supplierLedgerBook, supplierId]);
 
   const balance = useMemo(() => {
-    if (!supplierId || !isLoaded) {
-      return 0;
-    }
+    if (!supplierId || !isLoaded) return 0;
+    if (excludingSource && excludingId) return supplierBalanceWithout(ledger, excludingSource, excludingId);
+    return ledger.closingBalance;
+  }, [supplierId, isLoaded, ledger, excludingSource, excludingId]);
 
-    const supplier = suppliers.find(s => s.id === supplierId);
-    const openingBalance = supplier?.openingBalance || 0;
-
-    // Purchases increase the amount owed to the supplier (credit)
-    const supplierPurchases = purchases
-      .filter(p => p.supplierId === supplierId)
-      .reduce((sum, p) => sum + p.totalCost, 0);
-
-    // Payments to the supplier decrease the amount owed (debit)
-    const paymentsToSupplier = supplierPayments
-      .filter(p => p.supplierId === supplierId)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    return openingBalance + supplierPurchases - paymentsToSupplier;
-
-  }, [supplierId, suppliers, purchases, supplierPayments, isLoaded]);
-
-  return { balance, isLoaded };
+  return { balance, ledger, isLoaded };
 }

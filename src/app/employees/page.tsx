@@ -32,6 +32,7 @@ import {
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/use-auth';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const DEFAULT_SALARY_MAP: Record<string, number> = {
     'Asmat Ullah': 15000, 'Zeeshan': 15000, 'Shahzad': 15000, 'Kamran': 5000, 'Neemat Ullah': 25000, 'Younas Shah': 20000,
@@ -65,7 +66,7 @@ function PageHeader() {
     }, []);
     return (
       <header className="bg-background shadow-sm sticky top-0 z-20">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between"><p className="text-sm font-medium">{currentTime}</p><div className="flex items-center gap-4"><span className="text-sm">ziakniazi@gmail.com</span><Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button></div></div>
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between"><p className="text-sm font-medium">{currentTime}</p><div className="flex items-center gap-4"><SignedInEmail /><Button variant="ghost" size="icon"><Sun className="h-5 w-5" /></Button></div></div>
       </header>
     );
 }

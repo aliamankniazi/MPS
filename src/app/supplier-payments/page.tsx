@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Wallet, CreditCard, Smartphone, Calendar as CalendarIcon, Sun, Check, ChevronsUpDown, Landmark, ShieldCheck } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { useDatabase } from '@/hooks/use-database';
@@ -22,6 +23,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { TransactionNav } from '@/components/transaction-nav';
 import { useSupplierBalance } from '@/hooks/use-supplier-balance';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const supplierPaymentSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -56,7 +58,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -67,12 +69,15 @@ function PageHeader() {
 }
 
 export default function SupplierPaymentsPage() {
-  const { suppliers, addSupplierPayment, isLoaded, colorSettings } = useDatabase();
+  const { suppliers, supplierPayments, addSupplierPayment, updateSupplierPayment, isLoaded, colorSettings } = useDatabase();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
   const [supplierComboboxOpen, setSupplierComboboxOpen] = useState(false);
   const [paymentDateCalendarOpen, setPaymentDateCalendarOpen] = useState(false);
   
-  const { register, handleSubmit, reset, control, watch, formState: { errors } } = useForm<SupplierPaymentFormValues>({
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<SupplierPaymentFormValues>({
     resolver: zodResolver(supplierPaymentSchema),
     defaultValues: {
         paymentMethod: 'Bank Transfer'
@@ -81,17 +86,30 @@ export default function SupplierPaymentsPage() {
 
   const supplierId = watch('supplierId');
   const paymentAmount = watch('amount');
-  const { balance: supplierBalance } = useSupplierBalance(supplierId);
+  const { balance: supplierBalance } = useSupplierBalance(supplierId, { excluding: { source: 'supplierPayments', id: editId } });
   const newBalance = useMemo(() => supplierBalance - (Number(paymentAmount) || 0), [supplierBalance, paymentAmount]);
 
   useEffect(() => {
+    if (editId) return;
     const savedDate = localStorage.getItem('global_date_from');
     const initialDate = savedDate && isValid(new Date(savedDate)) ? new Date(savedDate) : new Date();
     reset({
       date: initialDate,
       paymentMethod: 'Bank Transfer',
     });
-  }, [reset]);
+  }, [reset, editId]);
+
+  // Editing: the form opens on the payment itself, and saving changes THAT payment.
+  useEffect(() => {
+    if (!isLoaded || !editId) return;
+    const payment = supplierPayments.find(p => p.id === editId);
+    if (!payment) return;
+    setValue('supplierId', payment.supplierId);
+    setValue('amount', payment.amount);
+    setValue('paymentMethod', (['Cash', 'Card', 'Mobile', 'Bank Transfer'] as const).find(m => m === payment.paymentMethod) ?? 'Bank Transfer');
+    setValue('notes', payment.notes || '');
+    if (isValid(new Date(payment.timestamp))) setValue('date', new Date(payment.timestamp));
+  }, [isLoaded, editId, supplierPayments, setValue]);
 
   const onSubmit: SubmitHandler<SupplierPaymentFormValues> = (data) => {
     if (data.pin !== '0200') {
@@ -110,13 +128,23 @@ export default function SupplierPaymentsPage() {
     localStorage.setItem('global_date_from', isoDate);
     localStorage.setItem('global_date_to', isoDate);
 
-    addSupplierPayment({
+    const payment = {
       supplierId: data.supplierId,
       supplierName: supplier.name,
       amount: data.amount,
       paymentMethod: data.paymentMethod,
       timestamp: data.date.toISOString(),
-    });
+      ...(data.notes ? { notes: data.notes } : {}),
+    };
+
+    if (editId) {
+      updateSupplierPayment(editId, payment);
+      toast({ title: 'Payment Updated', description: 'The payment record has been saved.' });
+      router.push('/ledger');
+      return;
+    }
+
+    addSupplierPayment(payment);
     
     toast({
       title: 'Payment Recorded',
@@ -141,7 +169,7 @@ export default function SupplierPaymentsPage() {
         <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle style={{ color: colorSettings['Supplier Payment'] || '#EC4899' }}>New Supplier Payment</CardTitle>
+              <CardTitle style={{ color: colorSettings['Supplier Payment'] || '#EC4899' }}>{editId ? 'Edit Supplier Payment' : 'New Supplier Payment'}</CardTitle>
               <CardDescription>Record a payment made to a supplier.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -292,7 +320,7 @@ export default function SupplierPaymentsPage() {
                     </div>
                 )}
 
-                <Button type="submit" className="w-full">Record Payment</Button>
+                <Button type="submit" className="w-full">{editId ? 'Update Payment' : 'Record Payment'}</Button>
               </form>
             </CardContent>
           </Card>

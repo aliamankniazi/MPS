@@ -31,6 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 const investmentSchema = z.object({
   partnerId: z.string().min(1, 'Partner name is required'),
@@ -56,6 +57,7 @@ export default function InvestmentsPage() {
   const { 
     investments, 
     addInvestment, 
+    updateInvestment,
     businessPartners, 
     addBusinessPartner, 
     updateBusinessPartner, 
@@ -78,9 +80,32 @@ export default function InvestmentsPage() {
     resolver: zodResolver(investmentSchema),
   });
 
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const editId = searchParams.get('edit');
+
   useEffect(() => {
+    if (editId) return;
     resetInvestment({ date: new Date(), type: 'Investment' });
-  }, [resetInvestment]);
+  }, [resetInvestment, editId]);
+
+  // Editing: "Edit" on a ledger row opens that entry here, and saving changes THAT entry.
+  // It used to open a blank form, so saving added a second investment or withdrawal.
+  useEffect(() => {
+    if (!isLoaded || !editId) return;
+    const entry = investments.find(i => i.id === editId);
+    const partner = entry ? businessPartners.find(p => p.id === entry.partnerId) : undefined;
+    if (!entry || !partner) return;
+    setTransactionPartner(partner);
+    resetInvestment({
+      partnerId: entry.partnerId,
+      type: entry.type,
+      amount: entry.amount,
+      notes: entry.notes || '',
+      date: isValid(new Date(entry.timestamp)) ? new Date(entry.timestamp) : new Date(),
+      pin: '',
+    });
+  }, [isLoaded, editId, investments, businessPartners, resetInvestment]);
   
   // Form for adding/editing partners
   const { register: registerPartner, handleSubmit: handleSubmitPartner, reset: resetPartner, setValue: setPartnerValue, formState: { errors: partnerErrors } } = useForm<PartnerFormValues>({
@@ -150,14 +175,22 @@ export default function InvestmentsPage() {
     const partner = businessPartners.find(p => p.id === data.partnerId);
     if (!partner) return;
 
-    addInvestment({ 
-        partnerId: data.partnerId, 
+    const entry = {
+        partnerId: data.partnerId,
         partnerName: partner.name,
         type: data.type,
         amount: data.amount,
         notes: data.notes,
-        timestamp: data.date.toISOString() 
-    });
+        timestamp: data.date.toISOString()
+    };
+    if (editId) {
+      updateInvestment(editId, entry);
+      toast({ title: 'Transaction Updated', description: `${data.type} of PKR ${data.amount} by ${partner.name} has been saved.` });
+      setTransactionPartner(null);
+      router.replace('/investments');
+      return;
+    }
+    addInvestment(entry);
     toast({
       title: 'Transaction Recorded',
       description: `${data.type} of PKR ${data.amount} by ${partner.name} has been logged.`,
@@ -417,7 +450,7 @@ export default function InvestmentsPage() {
       </Dialog>
       
       {/* Dialog for Invest/Withdraw */}
-      <Dialog open={!!transactionPartner} onOpenChange={(isOpen) => { if (!isOpen) setTransactionPartner(null)}}>
+      <Dialog open={!!transactionPartner} onOpenChange={(isOpen) => { if (!isOpen) { setTransactionPartner(null); if (editId) router.replace('/investments'); } }}>
         <DialogContent>
           <form onSubmit={handleSubmitInvestment(onInvestmentSubmit)}>
             <DialogHeader>
@@ -506,7 +539,7 @@ export default function InvestmentsPage() {
             </div>
             <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setTransactionPartner(null)}>Cancel</Button>
-                <Button type="submit">Record Transaction</Button>
+                <Button type="submit">{editId ? 'Update Transaction' : 'Record Transaction'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

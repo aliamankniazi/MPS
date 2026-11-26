@@ -15,6 +15,7 @@ import { startOfDay, endOfDay, isValid, format } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 function PageHeader() {
     const [currentTime, setCurrentTime] = useState('');
@@ -38,7 +39,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -261,7 +262,7 @@ export default function MachineManagementPage() {
                                                     <Label className="text-xs font-bold text-primary uppercase tracking-wider">Closing Reading</Label>
                                                     <div className="relative">
                                                         <Input 
-                                                            ref={el => inputRefs.current[machine.id] = el}
+                                                            ref={el => { inputRefs.current[machine.id] = el; }}
                                                             type="number"
                                                             step="any"
                                                             value={newReadings[machine.id] !== undefined ? newReadings[machine.id] : (latestReading?.volume || '')}

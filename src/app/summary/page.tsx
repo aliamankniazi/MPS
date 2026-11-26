@@ -1,13 +1,10 @@
 'use client';
 
-import { useState, useTransition, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { useMemo } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useDatabase } from '@/hooks/use-database';
-import { generateSalesSummary } from '@/ai/flows/generate-sales-summary';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileText, Sparkles, AlertTriangle, TrendingUp, TrendingDown, DollarSign, BarChart2, Package, Printer, Download } from 'lucide-react';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Package, Printer, Download } from 'lucide-react';
 import { startOfDay, endOfDay, isValid } from 'date-fns';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from '@/components/ui/chart';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -37,9 +34,6 @@ const chartConfig = {
 export default function SummaryPage() {
   const { transactions, purchases, expenses, otherIncomes, products, customerPayments, cashAdvances, isLoaded, dateRange } = useDatabase();
 
-  const [summary, setSummary] = useState('');
-  const [error, setError] = useState('');
-  const [isPending, startTransition] = useTransition();
 
   const filteredData = useMemo(() => {
     if (!isLoaded) return { transactions: [], purchases: [], expenses: [], otherIncomes: [], customerPayments: [], cashAdvances: [] };
@@ -105,7 +99,7 @@ export default function SummaryPage() {
   const productWiseSales = useMemo(() => {
     if (!isLoaded || !products) return [];
   
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
   
     const salesByProduct = filteredTransactions.reduce((acc, tx) => {
       const productName = tx.product || tx.fuelType;
@@ -186,51 +180,12 @@ export default function SummaryPage() {
     XLSX.writeFile(workbook, 'ProductWiseSaleProfitReport.xlsx');
   };
 
-  const dataForSummary = useMemo(() => {
-    if (!isLoaded) return [];
-
-    const { transactions, customerPayments, cashAdvances } = filteredData;
-
-    const combinedData = [
-      ...transactions.map(t => ({...t, type: 'Sale'})),
-      ...customerPayments.map(p => ({...p, type: 'Customer Payment'})),
-      ...cashAdvances.map(ca => ({...ca, type: 'Cash Advance'}))
-    ];
-
-    return combinedData;
-  }, [isLoaded, filteredData]);
 
 
-  const handleGenerateSummary = () => {
-    setError('');
-    setSummary('');
-    startTransition(async () => {
-      try {
-        if (dataForSummary.length === 0) {
-          setError("No activity recorded for the selected period to generate a summary.");
-          return;
-        }
-
-        const result = await generateSalesSummary({
-          activityData: JSON.stringify(dataForSummary),
-        });
-        setSummary(result.summary);
-      } catch (e: any) {
-        console.error(e);
-        if (e.message && (e.message.toLowerCase().includes('rate limit') || e.message.toLowerCase().includes('rate exceeded'))) {
-          setError('AI rate limit exceeded. Please wait a moment before trying again.');
-        } else {
-          setError('Failed to generate summary. Please try again later.');
-        }
-      }
-    });
-  };
-  
-  const hasData = isLoaded && dataForSummary.length > 0;
 
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <div className="grid lg:grid-cols-2 gap-8">
+      <div className="grid gap-8">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -282,51 +237,6 @@ export default function SummaryPage() {
             </CardContent>
         </Card>
 
-        <Card className="flex flex-col">
-            <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-                <FileText /> Financial Activity AI Summary
-            </CardTitle>
-            <CardDescription>
-                Use AI to generate a summary of financial activity for the selected period.
-            </CardDescription>
-            </CardHeader>
-            <CardContent className="flex-grow flex flex-col gap-4 min-h-[200px]">
-            {error && (
-                <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-                </Alert>
-            )}
-
-            {isPending ? (
-                <div className="space-y-4">
-                <Skeleton className="h-6 w-1/2" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                </div>
-            ) : summary ? (
-                <div className="prose prose-sm sm:prose-base dark:prose-invert bg-muted/50 p-6 rounded-lg">
-                <p>{summary}</p>
-                </div>
-            ) : (
-                <div className="flex flex-col items-center justify-center gap-4 text-center text-muted-foreground flex-grow p-8 border-2 border-dashed rounded-lg">
-                <Sparkles className="w-16 h-16" />
-                <h3 className="text-xl font-semibold">Ready to Analyze</h3>
-                <p>Click the button below to generate a summary of financial activity for the selected period.</p>
-                </div>
-            )}
-            </CardContent>
-            <CardFooter>
-            <Button onClick={handleGenerateSummary} disabled={isPending || !hasData}>
-                {isPending ? 'Generating...' : 'Generate Summary'}
-            </Button>
-            {!isLoaded && <p className="text-sm text-muted-foreground ml-4">Loading transactions...</p>}
-            {isLoaded && !hasData && <p className="text-sm text-muted-foreground ml-4">No data for selected period.</p>}
-            </CardFooter>
-        </Card>
       </div>
     </div>
   );

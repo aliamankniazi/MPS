@@ -52,7 +52,8 @@ export interface SaleReturn {
   timestamp: string;
 }
 
-export type ExpenseCategory = 'Utilities' | 'Salaries' | 'Maintenance' | 'Other';
+/** The four offered on the form. Stored records may carry any text (older entries, salary postings), so the field is text. */
+export type ExpenseCategory = 'Utilities' | 'Salaries' | 'Maintenance' | 'Other' | (string & {});
 
 export interface Expense {
   id: string;
@@ -62,7 +63,7 @@ export interface Expense {
   timestamp: string;
 }
 
-export type OtherIncomeCategory = 'Service Station' | 'Tire Shop' | 'Tuck Shop' | 'Other';
+export type OtherIncomeCategory = 'Service Station' | 'Tire Shop' | 'Tuck Shop' | 'Other' | (string & {});
 
 export interface OtherIncome {
     id: string;
@@ -148,6 +149,7 @@ export interface SupplierPayment {
   supplierName: string;
   amount: number;
   paymentMethod: PaymentMethod;
+  notes?: string;
   timestamp: string;
 }
 

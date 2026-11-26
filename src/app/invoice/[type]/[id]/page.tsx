@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Printer } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useDatabase } from '@/hooks/use-database';
+import { balanceAfterRow, balanceBeforeRow, ledgerOf } from '@/lib/customer-ledger';
 import React, { useMemo, use } from 'react';
 import { isValid } from 'date-fns';
 
@@ -16,7 +17,7 @@ export default function InvoicePage(props: { params: Promise<{ type: string, id:
   const { 
     transactions, purchases, customers, suppliers, bankAccounts, isLoaded, 
     customerPayments, cashAdvances, supplierPayments, machineReadings, 
-    expenses, investments, otherIncomes 
+    expenses, investments, otherIncomes, customerLedgerBook 
   } = useDatabase();
 
   const invoiceData = useMemo(() => {
@@ -32,23 +33,11 @@ export default function InvoicePage(props: { params: Promise<{ type: string, id:
         let closingBalance = 0;
 
         if (customer) {
-            const customerOpening = customer.openingBalance || 0;
-            const transactionTimestamp = new Date(transaction.timestamp).getTime();
-
-            const previousTransactions = transactions
-                .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < transactionTimestamp)
-                .reduce((sum, tx) => sum + tx.totalAmount, 0);
-
-            const previousPayments = customerPayments
-                .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < transactionTimestamp)
-                .reduce((sum, p) => sum + p.amount, 0);
-            
-            const previousCashAdvances = cashAdvances
-                .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < transactionTimestamp)
-                .reduce((sum, ca) => sum + ca.amount, 0);
-
-            openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
-            closingBalance = openingBalance + transaction.totalAmount;
+            // The one calculation (lib/customer-ledger.ts): the balance just before and just after this row
+            // on the customer's ledger, so the slip and the ledger can never state the debt two ways.
+            const ledger = ledgerOf(customerLedgerBook, customer.id);
+            openingBalance = balanceBeforeRow(ledger, 'transactions', transaction.id) ?? ledger.closingBalance;
+            closingBalance = balanceAfterRow(ledger, 'transactions', transaction.id) ?? ledger.closingBalance;
         }
 
         return {
@@ -133,23 +122,9 @@ export default function InvoicePage(props: { params: Promise<{ type: string, id:
           let closingBalance = 0;
 
           if (customer) {
-              const customerOpening = customer.openingBalance || 0;
-              const paymentTimestamp = new Date(payment.timestamp).getTime();
-
-              const previousTransactions = transactions
-                  .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < paymentTimestamp)
-                  .reduce((sum, tx) => sum + tx.totalAmount, 0);
-
-              const previousPayments = customerPayments
-                  .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < paymentTimestamp)
-                  .reduce((sum, p) => sum + p.amount, 0);
-              
-              const previousCashAdvances = cashAdvances
-                  .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < paymentTimestamp)
-                  .reduce((sum, ca) => sum + ca.amount, 0);
-
-              openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
-              closingBalance = openingBalance - payment.amount;
+              const ledger = ledgerOf(customerLedgerBook, customer.id);
+              openingBalance = balanceBeforeRow(ledger, 'customerPayments', payment.id) ?? ledger.closingBalance;
+              closingBalance = balanceAfterRow(ledger, 'customerPayments', payment.id) ?? ledger.closingBalance;
           }
 
           return {
@@ -185,23 +160,9 @@ export default function InvoicePage(props: { params: Promise<{ type: string, id:
             let closingBalance = 0;
 
             if (customer) {
-                const customerOpening = customer.openingBalance || 0;
-                const advanceTimestamp = new Date(advance.timestamp).getTime();
-
-                const previousTransactions = transactions
-                    .filter(tx => tx.customerId === customer.id && new Date(tx.timestamp).getTime() < advanceTimestamp)
-                    .reduce((sum, tx) => sum + tx.totalAmount, 0);
-
-                const previousPayments = customerPayments
-                    .filter(p => p.customerId === customer.id && new Date(p.timestamp).getTime() < advanceTimestamp)
-                    .reduce((sum, p) => sum + p.amount, 0);
-                
-                const previousCashAdvances = cashAdvances
-                    .filter(ca => ca.customerId === customer.id && new Date(ca.timestamp).getTime() < advanceTimestamp)
-                    .reduce((sum, ca) => sum + ca.amount, 0);
-
-                openingBalance = customerOpening + previousTransactions + previousCashAdvances - previousPayments;
-                closingBalance = openingBalance + advance.amount;
+                const ledger = ledgerOf(customerLedgerBook, customer.id);
+                openingBalance = balanceBeforeRow(ledger, 'cashAdvances', advance.id) ?? ledger.closingBalance;
+                closingBalance = balanceAfterRow(ledger, 'cashAdvances', advance.id) ?? ledger.closingBalance;
             }
 
             return {
@@ -319,7 +280,7 @@ export default function InvoicePage(props: { params: Promise<{ type: string, id:
         }
     }
     return null;
-  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts, customerPayments, cashAdvances, supplierPayments, machineReadings, expenses, investments, otherIncomes]);
+  }, [isLoaded, type, id, transactions, purchases, customers, suppliers, bankAccounts, customerPayments, cashAdvances, supplierPayments, machineReadings, expenses, investments, otherIncomes, customerLedgerBook]);
 
   return (
     <div className="bg-gray-100 dark:bg-gray-800 min-h-screen p-4 sm:p-8">

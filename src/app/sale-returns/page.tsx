@@ -22,6 +22,7 @@ import { TransactionNav } from '@/components/transaction-nav';
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const saleReturnSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -58,7 +59,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -85,7 +86,8 @@ export default function SaleReturnsPage() {
 
   const selectedCustomerId = watch('customerId');
   const refundAmount = watch('totalRefund');
-  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId === 'walkin' ? null : selectedCustomerId);
+  // A return being edited is left out of the balance, so "new balance" takes it off once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId === 'walkin' ? null : selectedCustomerId, { excluding: { source: 'saleReturns', id: editId } });
   const newBalance = useMemo(() => customerBalance - (Number(refundAmount) || 0), [customerBalance, refundAmount]);
   
   const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);

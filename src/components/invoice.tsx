@@ -35,6 +35,9 @@ interface InvoiceData {
   notes?: string;
 }
 
+/** A figure a record may not carry (a sale with no quantity): nothing, never a crash. */
+const n = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0);
+
 const companyDetails = {
     name: 'Mianwali Petroleum Service',
     branch: 'Ballo Khel Road Opposite Assistant Commisioner House Mianwali',
@@ -184,7 +187,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
              {data.notes && <p className="text-[10px] mt-1 italic border-l-2 pl-2">Remarks: {data.notes}</p>}
         </div>
         <div className="text-right">
-            <p><span className="font-semibold text-red-600">Date:</span> <span className="text-red-600">{isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Invalid Date'}</span></p>
+            <p><span className="font-semibold text-red-600">Date:</span> <span className="text-red-600">{isValidInvoiceDate ? format(new Date(data.date), 'dd-MMM-yyyy') : 'Date not recorded'}</span></p>
             <p className="font-semibold text-blue-600 text-[10px]">{currentTime}</p>
         </div>
       </section>
@@ -208,9 +211,9 @@ export function Invoice({ data }: { data: InvoiceData }) {
                             item.name.toLowerCase().includes('diesel') && 'text-green-700',
                             (item.name.toLowerCase().includes('unleaded') || item.name.toLowerCase().includes('premium')) && 'text-red-700'
                         )}>{item.name}</td>
-                        <td className="p-2 text-right">{item.quantity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
-                        {data.type !== 'Meter Reading' && <td className="p-2 text-right">{item.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
-                        {data.type !== 'Meter Reading' && <td className="p-2 text-right font-bold">{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
+                        <td className="p-2 text-right">{n(item.quantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
+                        {data.type !== 'Meter Reading' && <td className="p-2 text-right">{n(item.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
+                        {data.type !== 'Meter Reading' && <td className="p-2 text-right font-bold">{n(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>}
                     </tr>
                 ))}
             </tbody>
@@ -218,9 +221,9 @@ export function Invoice({ data }: { data: InvoiceData }) {
               <tfoot className="font-bold bg-gray-50">
                   <tr className="border-b-2 border-gray-800">
                       <td colSpan={2} className="p-2 text-left uppercase">Total Volume / Units</td>
-                      <td className="p-2 text-right">{data.items.reduce((s, i) => s + i.quantity, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
+                      <td className="p-2 text-right">{data.items.reduce((s, i) => s + n(i.quantity), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 3 })}</td>
                       <td className="p-2 text-right">TOTAL</td>
-                      <td className="p-2 text-right text-red-600">PKR {data.totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="p-2 text-right text-red-600">PKR {n(data.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                   </tr>
               </tfoot>
             )}
@@ -228,7 +231,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                <tfoot className="font-bold bg-gray-50">
                 <tr className="border-b-2 border-gray-800">
                     <td colSpan={2} className="p-2 text-left uppercase">Total Dispensed Volume</td>
-                    <td className="p-2 text-right text-blue-700 text-lg">{data.totalAmount.toLocaleString()} Ltr</td>
+                    <td className="p-2 text-right text-blue-700 text-lg">{n(data.totalAmount).toLocaleString()} Ltr</td>
                 </tr>
             </tfoot>
             )}
@@ -258,7 +261,7 @@ export function Invoice({ data }: { data: InvoiceData }) {
                     {data.type !== 'Meter Reading' && (
                       <>
                         <span className="font-semibold">Sub Total:</span>
-                        <span className="font-bold text-red-600">RS {data.totalAmount.toLocaleString()}</span>
+                        <span className="font-bold text-red-600">RS {n(data.totalAmount).toLocaleString()}</span>
                         
                         <div className="col-span-2 border-t border-dashed my-1"></div>
                       </>

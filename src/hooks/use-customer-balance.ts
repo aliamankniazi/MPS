@@ -1,43 +1,41 @@
-
 'use client';
 
 import { useMemo } from 'react';
 import { useDatabase } from '@/hooks/use-database';
+import { balanceAsOf, balanceWithout, ledgerOf, type CustomerLedger, type LedgerSource } from '@/lib/customer-ledger';
+
+type Options = {
+  /**
+   * The record an edit screen has open. It is left out of the balance, so the screen's
+   * "previous balance + this entry" does not count the same record twice.
+   */
+  excluding?: { source: LedgerSource; id: string | null | undefined } | null;
+  /** The balance at the end of this day instead of now. */
+  asOf?: Date | null;
+};
 
 /**
- * A custom hook to calculate the current balance for a specific customer.
- * It sums up all their credit transactions and cash advances (debits) and subtracts
- * all their payments (credits).
- * @param customerId The ID of the customer to calculate the balance for.
- * @returns An object containing the calculated balance and a loading state.
+ * A customer's balance. Every screen that shows one asks here, and this asks the one calculation
+ * (lib/customer-ledger.ts): closing = opening + debits - credits, every record once.
+ *
+ * `isLoaded` is false until every collection has arrived; show a placeholder until then, never the 0.
  */
-export function useCustomerBalance(customerId: string | null) {
-  const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+export function useCustomerBalance(customerId: string | null | undefined, options?: Options) {
+  const { customerLedgerBook, isLoaded } = useDatabase();
+  const excludingSource = options?.excluding?.source;
+  const excludingId = options?.excluding?.id;
+  const asOfTime = options?.asOf ? options.asOf.getTime() : null;
+
+  const ledger: CustomerLedger = useMemo(
+    () => ledgerOf(customerLedgerBook, customerId && customerId !== 'walkin' ? customerId : null),
+    [customerLedgerBook, customerId]
+  );
 
   const balance = useMemo(() => {
-    if (!customerId || !isLoaded) {
-      return 0;
-    }
+    if (!customerId || !isLoaded) return 0;
+    if (excludingSource && excludingId) return balanceWithout(ledger, excludingSource, excludingId);
+    return asOfTime === null ? ledger.closingBalance : balanceAsOf(ledger, new Date(asOfTime));
+  }, [customerId, isLoaded, ledger, excludingSource, excludingId, asOfTime]);
 
-    const customer = customers.find(c => c.id === customerId);
-    const openingBalance = customer?.openingBalance || 0;
-
-    // Only count transactions with 'Credit' payment method towards outstanding balance
-    const customerTransactions = transactions
-      .filter(tx => tx.customerId === customerId && tx.paymentMethod === 'Credit')
-      .reduce((sum, tx) => sum + tx.totalAmount, 0);
-
-    const customerCashAdvances = cashAdvances
-      .filter(ca => ca.customerId === customerId)
-      .reduce((sum, ca) => sum + ca.amount, 0);
-
-    const customerPaymentsReceived = customerPayments
-      .filter(p => p.customerId === customerId)
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    return openingBalance + customerTransactions + customerCashAdvances - customerPaymentsReceived;
-
-  }, [customerId, customers, transactions, customerPayments, cashAdvances, isLoaded]);
-
-  return { balance, isLoaded };
+  return { balance, ledger, isLoaded };
 }

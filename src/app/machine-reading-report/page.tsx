@@ -92,7 +92,7 @@ export default function MachineReadingReportPage() {
 
             const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
             
-            const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
+            const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map((machineName): ProcessedReading | null => {
                 const machine = machines.find(m => m.name === machineName);
                 if (!machine) return null;
 

@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useDatabase } from '@/hooks/use-database';
+import { lastActivity, ledgerOf } from '@/lib/customer-ledger';
 import Link from 'next/link';
 import { UserX, BookText, Search, Printer } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -31,7 +32,7 @@ const WhatsAppIcon = (props: React.SVGProps<SVGSVGElement>) => (
 );
 
 export default function DefaulterReportPage() {
-    const { customers, transactions, customerPayments, cashAdvances, isLoaded } = useDatabase();
+    const { customers, customerLedgerBook, isLoaded } = useDatabase();
     const [searchTerm, setSearchTerm] = useState('');
 
     const defaulterList = useMemo(() => {
@@ -40,26 +41,12 @@ export default function DefaulterReportPage() {
         const defaulters: DefaulterInfo[] = [];
 
         customers.forEach(customer => {
-            const openingBalance = customer.openingBalance || 0;
-            const totalSales = transactions.filter(tx => tx.customerId === customer.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
-            const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === customer.id).reduce((sum, ca) => sum + ca.amount, 0);
-            const totalPayments = customerPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
-            
-            const balance = openingBalance + totalSales + totalCashAdvances - totalPayments;
+            // The one calculation (lib/customer-ledger.ts), so this report and the customer's ledger agree.
+            const ledger = ledgerOf(customerLedgerBook, customer.id);
+            const balance = ledger.closingBalance;
 
             if (balance > 0) {
-                const allEntries = [
-                    ...transactions.filter(tx => tx.customerId === customer.id),
-                    ...customerPayments.filter(p => p.customerId === customer.id),
-                    ...cashAdvances.filter(ca => ca.customerId === customer.id)
-                ];
-
-                const lastActivityDate = allEntries.length > 0
-                    ? allEntries
-                        .map(e => new Date(e.timestamp))
-                        .filter(d => isValid(d))
-                        .sort((a,b) => b.getTime() - a.getTime())[0] || null
-                    : null;
+                const lastActivityDate = lastActivity(ledger);
                 
                 defaulters.push({
                     id: customer.id,
@@ -73,7 +60,7 @@ export default function DefaulterReportPage() {
         
         return defaulters.sort((a,b) => b.balance - a.balance);
 
-    }, [isLoaded, customers, transactions, customerPayments, cashAdvances]);
+    }, [isLoaded, customers, customerLedgerBook]);
 
     const filteredDefaulters = useMemo(() => {
         if (!searchTerm) return defaulterList;

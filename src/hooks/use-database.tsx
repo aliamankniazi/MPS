@@ -56,9 +56,12 @@ import {
 import { isValid, startOfMonth, endOfMonth, startOfDay, endOfToday, startOfToday } from 'date-fns';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { buildLedgerBook, type CustomerLedgerBook } from '@/lib/customer-ledger';
+import { AS_STORED, normaliseRecord } from '@/lib/normalise-record';
+import { buildSupplierBook, type SupplierLedgerBook } from '@/lib/supplier-ledger';
 
 // Centralized paths
-const FIRESTORE_PATHS = {
+export const FIRESTORE_PATHS = {
     transactions: 'transactions',
     purchases: 'purchases',
     purchaseReturns: 'purchaseReturns',
@@ -123,7 +126,6 @@ interface AppSettings {
 }
 
 interface DatabaseState {
-    [key: string]: any; // Allow any key
     transactions: Transaction[];
     purchases: Purchase[];
     purchaseReturns: PurchaseReturn[];
@@ -158,70 +160,73 @@ interface ProcessedDatabaseState extends Omit<DatabaseState, 'isLoaded' | 'setti
     colorSettings: Record<string, string>;
 }
 
+/** A new record as a screen hands it over: the id is assigned here, and a record given no time is stamped by the server. */
+type New<T> = Omit<T, 'id' | 'timestamp'> & { timestamp?: string };
+
 interface DatabaseActions {
-    addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction | null>;
+    addTransaction: (transaction: New<Transaction>) => Promise<Transaction | null>;
     updateTransaction: (id: string, updates: Partial<Transaction>) => void;
     deleteTransaction: (id: string) => void;
-    addPurchase: (purchase: Omit<Purchase, 'id'>) => Promise<Purchase | null>;
+    addPurchase: (purchase: New<Purchase>) => Promise<Purchase | null>;
     updatePurchase: (id: string, updates: Partial<Purchase>) => void;
     deletePurchase: (id: string) => void;
-    addPurchaseReturn: (pr: Omit<PurchaseReturn, 'id'>) => Promise<PurchaseReturn | null>;
+    addPurchaseReturn: (pr: New<PurchaseReturn>) => Promise<PurchaseReturn | null>;
     updatePurchaseReturn: (id: string, updates: Partial<PurchaseReturn>) => void;
     deletePurchaseReturn: (id: string) => void;
-    addSaleReturn: (sr: Omit<SaleReturn, 'id'>) => Promise<SaleReturn | null>;
+    addSaleReturn: (sr: New<SaleReturn>) => Promise<SaleReturn | null>;
     updateSaleReturn: (id: string, updates: Partial<SaleReturn>) => void;
     deleteSaleReturn: (id: string) => void;
-    addExpense: (expense: Omit<Expense, 'id'>) => Promise<Expense | null>;
+    addExpense: (expense: New<Expense>) => Promise<Expense | null>;
     updateExpense: (id: string, updates: Partial<Expense>) => void;
     deleteExpense: (id: string) => void;
-    addOtherIncome: (income: Omit<OtherIncome, 'id'>) => Promise<OtherIncome | null>;
+    addOtherIncome: (income: New<OtherIncome>) => Promise<OtherIncome | null>;
     updateOtherIncome: (id: string, updates: Partial<OtherIncome>) => void;
     deleteOtherIncome: (id: string) => void;
-    addCustomer: (customer: Omit<Customer, 'id'>) => Promise<Customer | null>;
+    addCustomer: (customer: New<Customer>) => Promise<Customer | null>;
     updateCustomer: (id: string, updates: Partial<Customer>) => void;
     deleteCustomer: (id: string) => void;
-    addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<Supplier | null>;
+    addSupplier: (supplier: New<Supplier>) => Promise<Supplier | null>;
     updateSupplier: (id: string, updates: Partial<Supplier>) => void;
     deleteSupplier: (id: string) => void;
-    addBankAccount: (account: Omit<BankAccount, 'id'>) => Promise<BankAccount | null>;
+    addBankAccount: (account: New<BankAccount>) => Promise<BankAccount | null>;
     updateBankAccount: (id: string, updates: Partial<BankAccount>) => void;
     deleteBankAccount: (id: string) => void;
-    addEmployee: (employee: Omit<Employee, 'id'>) => Promise<Employee | null>;
+    addEmployee: (employee: New<Employee>) => Promise<Employee | null>;
     updateEmployee: (id: string, updates: Partial<Employee> & { terminationDate?: string | null }) => void;
     deleteEmployee: (id: string) => void;
-    addCustomerPayment: (payment: Omit<CustomerPayment, 'id'>) => Promise<CustomerPayment | null>;
+    addCustomerPayment: (payment: New<CustomerPayment>) => Promise<CustomerPayment | null>;
     updateCustomerPayment: (id: string, updates: Partial<CustomerPayment>) => void;
     deleteCustomerPayment: (id: string) => void;
-    addSupplierPayment: (payment: Omit<SupplierPayment, 'id'>) => Promise<SupplierPayment | null>;
+    addSupplierPayment: (payment: New<SupplierPayment>) => Promise<SupplierPayment | null>;
     updateSupplierPayment: (id: string, updates: Partial<SupplierPayment>) => void;
     deleteSupplierPayment: (id: string) => void;
-    addCashAdvance: (advance: Omit<CashAdvance, 'id'>) => Promise<CashAdvance | null>;
+    addCashAdvance: (advance: New<CashAdvance>) => Promise<CashAdvance | null>;
     updateCashAdvance: (id: string, updates: Partial<CashAdvance>) => void;
     deleteCashAdvance: (id: string) => void;
-    addMachine: (machine: Omit<Machine, 'id'>) => Promise<Machine | null>;
+    addMachine: (machine: New<Machine>) => Promise<Machine | null>;
     deleteMachine: (id: string) => void;
-    addMachineReading: (reading: Omit<MachineReading, 'id'>) => Promise<MachineReading | null>;
+    addMachineReading: (reading: New<MachineReading>) => Promise<MachineReading | null>;
     updateMachineReading: (id: string, updates: Partial<MachineReading>) => void;
     deleteMachineReading: (id: string) => void;
-    addInvestment: (investment: Omit<Investment, 'id'>) => Promise<Investment | null>;
+    addInvestment: (investment: New<Investment>) => Promise<Investment | null>;
     updateInvestment: (id: string, updates: Partial<Investment>) => void;
     deleteInvestment: (id: string) => void;
-    addBusinessPartner: (partner: Omit<BusinessPartner, 'id'>) => Promise<void>;
+    addBusinessPartner: (partner: New<BusinessPartner>) => Promise<void>;
     updateBusinessPartner: (id: string, updates: Partial<BusinessPartner>) => void;
     deleteBusinessPartner: (id: string) => void;
     addStockAdjustment: (adjustment: Omit<StockAdjustment, 'id' | 'value'>) => void;
     updateStockAdjustment: (id: string, updates: Partial<StockAdjustment>) => void;
     deleteStockAdjustment: (id: string) => void;
-    addAttendance: (record: Omit<AttendanceRecord, 'id'>) => void;
+    addAttendance: (record: New<AttendanceRecord>) => void;
     setFuelStock: (fuelType: FuelType, newStock: number) => void;
     updateFuelPrice: (fuelType: FuelType, newPrice: number) => void;
     updateInitialStock: (fuelType: FuelType, newStock: number) => void;
     updateInitialStockSettings: (newStockSettings: Record<FuelType, number>, oldName?: string) => Promise<void>;
     updateColorSetting: (key: string, color: string) => void;
-    addProduct: (product: Omit<Product, 'id' | 'currentStock' | 'createdAt'>) => Promise<Product | null>;
+    addProduct: (product: Omit<Product, 'id' | 'currentStock' | 'createdAt' | 'openingStock'> & { openingStock?: number }) => Promise<Product | null>;
     updateProduct: (id: string, updates: Partial<Product>) => void;
     deleteProduct: (id: string) => void;
-    addDictionaryEntry: (entry: Omit<DictionaryEntry, 'id'>) => Promise<DictionaryEntry | null>;
+    addDictionaryEntry: (entry: New<DictionaryEntry>) => Promise<DictionaryEntry | null>;
     updateDictionaryEntry: (id: string, updates: Partial<DictionaryEntry>) => void;
     deleteDictionaryEntry: (id: string) => void;
     clearAllData: () => void;
@@ -234,6 +239,12 @@ type DatabaseContextType = ProcessedDatabaseState & DatabaseActions & {
     fuelStock: Record<string, number>, 
     isLoaded: boolean,
     dateRange: DateRange | undefined,
+    /** Every customer's ledger and balance, worked out once (lib/customer-ledger.ts). The ONLY source of a customer balance. */
+    customerLedgerBook: CustomerLedgerBook,
+    /** Every supplier's ledger and what is owed to them (lib/supplier-ledger.ts). The ONLY source of a supplier balance. */
+    supplierLedgerBook: SupplierLedgerBook,
+    /** True while the figures on screen come from this device's saved copy and the server has not answered yet. */
+    isFromCache: boolean,
 };
 
 const DatabaseContext = createContext<DatabaseContextType | undefined>(undefined);
@@ -255,6 +266,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     });
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [initialDateRangeSet, setInitialDateRangeSet] = useState(false);
+    const [isFromCache, setIsFromCache] = useState(false);
     
     useEffect(() => {
         if (state.isLoaded && !initialDateRangeSet) {
@@ -296,20 +308,30 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         const subscriptions: (() => void)[] = [];
         const dataCollections = Object.keys(FIRESTORE_PATHS).filter(k => k !== 'settings') as (keyof typeof FIRESTORE_PATHS)[];
         const totalPaths = dataCollections.length + 1; // +1 for settings
-        let loadedCount = 0;
 
-        const handleLoad = () => {
-            loadedCount++;
-            if (loadedCount >= totalPaths) {
-                if (!state.isLoaded) {
-                    setState(s => ({ ...s, isLoaded: true }));
-                }
+        /*
+         * "Loaded" means every collection has answered at least once. This used to COUNT answers, and one
+         * collection answers twice (the saved copy, then the server), so the count was reached while others
+         * had not arrived: a balance was shown from the sales with the payments still missing. It is also
+         * reset here, because "loaded" was left true from the sign-in page, so the first screen after
+         * signing in worked every balance out from empty lists.
+         */
+        const loadedKeys = new Set<string>();
+        setState(s => (s.isLoaded ? { ...s, isLoaded: false } : s));
+
+        const handleLoad = (key: string) => {
+            if (loadedKeys.has(key)) return;
+            loadedKeys.add(key);
+            if (loadedKeys.size >= totalPaths) {
+                setState(s => (s.isLoaded ? s : { ...s, isLoaded: true }));
             }
         };
 
         // Subscribe to settings document
         const settingsDocRef = doc(firestore, FIRESTORE_PATHS.settings, 'app-settings');
-        const settingsUnsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+        const settingsUnsubscribe = onSnapshot(settingsDocRef, { includeMetadataChanges: true }, (docSnap) => {
+            // One small document tells whether the server has answered: its saved copy is "from cache".
+            setIsFromCache(docSnap.metadata.fromCache);
             if (docSnap.exists()) {
                 const data = docSnap.data() as AppSettings;
                 setState(prevState => ({ ...prevState, settings: data }));
@@ -319,20 +341,24 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                     initialFuelStock: DEFAULT_INITIAL_STOCK,
                     colorSettings: DEFAULT_COLOR_SETTINGS,
                 }}));
-                // Optionally create the document with defaults if it doesn't exist
-                setDoc(settingsDocRef, {
-                    fuelPrices: DEFAULT_FUEL_PRICES,
-                    initialFuelStock: DEFAULT_INITIAL_STOCK,
-                    colorSettings: DEFAULT_COLOR_SETTINGS,
-                }).catch(e => console.error("Could not create default settings", e));
+                // Create the document with defaults only when the SERVER says it does not exist. An empty saved
+                // copy on a device that is offline says nothing, and writing defaults then would replace the
+                // real prices and opening stock with zeros as soon as the device came back online.
+                if (!docSnap.metadata.fromCache) {
+                    setDoc(settingsDocRef, {
+                        fuelPrices: DEFAULT_FUEL_PRICES,
+                        initialFuelStock: DEFAULT_INITIAL_STOCK,
+                        colorSettings: DEFAULT_COLOR_SETTINGS,
+                    }).catch(e => console.error("Could not create default settings", e));
+                }
             }
-            handleLoad();
+            handleLoad('settings');
         }, (error) => {
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 operation: 'get',
                 path: settingsDocRef.path,
             }));
-            handleLoad();
+            handleLoad('settings');
         });
         subscriptions.push(settingsUnsubscribe);
 
@@ -359,17 +385,18 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
                         });
                     }
                     
-                    return { id: doc.id, ...docData };
+                    // Figures stored as text become numbers here, once, for every screen (lib/normalise-record.ts).
+                    return normaliseRecord({ id: doc.id, ...docData });
                 }) as any[];
                 setState(prevState => ({ ...prevState, [key]: data }));
-                handleLoad();
+                handleLoad(key);
             }, (error) => {
                 const contextualError = new FirestorePermissionError({
                     operation: 'list',
                     path: path,
                 });
                 errorEmitter.emit('permission-error', contextualError);
-                handleLoad();
+                handleLoad(key);
             });
             subscriptions.push(unsubscribe);
         });
@@ -466,7 +493,23 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [state.isLoaded, state.settings.initialFuelStock, processedState.products, processedState.purchases, processedState.transactions, processedState.purchaseReturns, processedState.saleReturns, processedState.stockAdjustments]);
     
 
-    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id'> & { timestamp?: any }): Promise<T | null> => {
+    // Every customer's ledger, built once here so no screen adds a balance up for itself.
+    const customerLedgerBook = useMemo(() => buildLedgerBook({
+        customers: state.customers,
+        transactions: state.transactions,
+        customerPayments: state.customerPayments,
+        cashAdvances: state.cashAdvances,
+        saleReturns: state.saleReturns,
+    }), [state.customers, state.transactions, state.customerPayments, state.cashAdvances, state.saleReturns]);
+
+    const supplierLedgerBook = useMemo(() => buildSupplierBook({
+        suppliers: state.suppliers,
+        purchases: state.purchases,
+        supplierPayments: state.supplierPayments,
+        purchaseReturns: state.purchaseReturns,
+    }), [state.suppliers, state.purchases, state.supplierPayments, state.purchaseReturns]);
+
+    const addEntity = useCallback(<T extends { id: string }>(path: string, entity: Omit<T, 'id' | 'timestamp'> & { timestamp?: any }): Promise<T | null> => {
         if (!firestore) {
             console.error("Firestore is not initialized.");
             return Promise.resolve(null);
@@ -477,7 +520,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         // Remove undefined fields which Firestore doesn't like
         Object.keys(entity).forEach(key => {
             const val = (entity as any)[key];
-            if (val !== undefined) {
+            if (val !== undefined && key !== AS_STORED) {
                 dataToSend[key] = val;
             }
         });
@@ -492,7 +535,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             addDoc(collection(firestore, path), dataToSend)
                 .then(docRef => {
                     const optimisticTimestamp = (entity as any).timestamp || new Date().toISOString();
-                    resolve({ ...entity, id: docRef.id, timestamp: optimisticTimestamp } as T);
+                    resolve({ ...entity, id: docRef.id, timestamp: optimisticTimestamp } as unknown as T);
                 })
                 .catch(error => {
                     errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -516,7 +559,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         // Sanitize: skip undefined values
         Object.keys(updates).forEach(key => {
             const val = (updates as any)[key];
-            if (val !== undefined) {
+            if (val !== undefined && key !== AS_STORED) {
                 dataToSend[key] = val;
             }
         });
@@ -616,66 +659,66 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     }, [firestore]);
     
     // Specific Actions
-    const addTransaction = (t: Omit<Transaction, 'id'>) => addEntity<Transaction>(FIRESTORE_PATHS.transactions, t);
+    const addTransaction = (t: New<Transaction>) => addEntity<Transaction>(FIRESTORE_PATHS.transactions, t);
     const updateTransaction = (id: string, u: Partial<Transaction>) => updateEntity(FIRESTORE_PATHS.transactions, id, u);
     const deleteTransaction = (id: string) => deleteEntity(FIRESTORE_PATHS.transactions, id);
     
-    const addPurchase = (p: Omit<Purchase, 'id'>) => addEntity<Purchase>(FIRESTORE_PATHS.purchases, p);
+    const addPurchase = (p: New<Purchase>) => addEntity<Purchase>(FIRESTORE_PATHS.purchases, p);
     const updatePurchase = (id: string, u: Partial<Purchase>) => updateEntity(FIRESTORE_PATHS.purchases, id, u);
     const deletePurchase = (id: string) => deleteEntity(FIRESTORE_PATHS.purchases, id);
 
-    const addPurchaseReturn = (pr: Omit<PurchaseReturn, 'id'>) => addEntity<PurchaseReturn>(FIRESTORE_PATHS.purchaseReturns, pr);
+    const addPurchaseReturn = (pr: New<PurchaseReturn>) => addEntity<PurchaseReturn>(FIRESTORE_PATHS.purchaseReturns, pr);
     const updatePurchaseReturn = (id: string, u: Partial<PurchaseReturn>) => updateEntity(FIRESTORE_PATHS.purchaseReturns, id, u);
     const deletePurchaseReturn = (id: string) => deleteEntity(FIRESTORE_PATHS.purchaseReturns, id);
 
-    const addSaleReturn = (sr: Omit<SaleReturn, 'id'>) => addEntity<SaleReturn>(FIRESTORE_PATHS.saleReturns, sr);
+    const addSaleReturn = (sr: New<SaleReturn>) => addEntity<SaleReturn>(FIRESTORE_PATHS.saleReturns, sr);
     const updateSaleReturn = (id: string, u: Partial<SaleReturn>) => updateEntity(FIRESTORE_PATHS.saleReturns, id, u);
     const deleteSaleReturn = (id: string) => deleteEntity(FIRESTORE_PATHS.saleReturns, id);
 
-    const addExpense = (e: Omit<Expense, 'id'>) => addEntity<Expense>(FIRESTORE_PATHS.expenses, e);
+    const addExpense = (e: New<Expense>) => addEntity<Expense>(FIRESTORE_PATHS.expenses, e);
     const updateExpense = (id: string, u: Partial<Expense>) => updateEntity(FIRESTORE_PATHS.expenses, id, u);
     const deleteExpense = (id: string) => deleteEntity(FIRESTORE_PATHS.expenses, id);
 
-    const addOtherIncome = (i: Omit<OtherIncome, 'id'>) => addEntity<OtherIncome>(FIRESTORE_PATHS.otherIncomes, i);
+    const addOtherIncome = (i: New<OtherIncome>) => addEntity<OtherIncome>(FIRESTORE_PATHS.otherIncomes, i);
     const updateOtherIncome = (id: string, u: Partial<OtherIncome>) => updateEntity(FIRESTORE_PATHS.otherIncomes, id, u);
     const deleteOtherIncome = (id: string) => deleteEntity(FIRESTORE_PATHS.otherIncomes, id);
 
-    const addCustomer = (c: Omit<Customer, 'id'>) => addEntity<Customer>(FIRESTORE_PATHS.customers, c);
+    const addCustomer = (c: New<Customer>) => addEntity<Customer>(FIRESTORE_PATHS.customers, c);
     const updateCustomer = (id: string, u: Partial<Customer>) => updateEntity(FIRESTORE_PATHS.customers, id, u);
     const deleteCustomer = (id: string) => deleteEntity(FIRESTORE_PATHS.customers, id);
     
-    const addSupplier = (s: Omit<Supplier, 'id'>) => addEntity<Supplier>(FIRESTORE_PATHS.suppliers, s);
+    const addSupplier = (s: New<Supplier>) => addEntity<Supplier>(FIRESTORE_PATHS.suppliers, s);
     const updateSupplier = (id: string, u: Partial<Supplier>) => updateEntity(FIRESTORE_PATHS.suppliers, id, u);
     const deleteSupplier = (id: string) => deleteEntity(FIRESTORE_PATHS.suppliers, id);
 
-    const addBankAccount = (a: Omit<BankAccount, 'id'>) => addEntity<BankAccount>(FIRESTORE_PATHS.bankAccounts, a);
+    const addBankAccount = (a: New<BankAccount>) => addEntity<BankAccount>(FIRESTORE_PATHS.bankAccounts, a);
     const updateBankAccount = (id: string, u: Partial<BankAccount>) => updateEntity(FIRESTORE_PATHS.bankAccounts, id, u);
     const deleteBankAccount = (id: string) => deleteEntity(FIRESTORE_PATHS.bankAccounts, id);
 
-    const addEmployee = (e: Omit<Employee, 'id'>) => addEntity<Employee>(FIRESTORE_PATHS.employees, e);
+    const addEmployee = (e: New<Employee>) => addEntity<Employee>(FIRESTORE_PATHS.employees, e);
     const updateEmployee = (id: string, u: Partial<Employee> & { terminationDate?: string | null }) => updateEntity(FIRESTORE_PATHS.employees, id, u);
     const deleteEmployee = (id: string) => deleteEntity(FIRESTORE_PATHS.employees, id);
 
-    const addCustomerPayment = (p: Omit<CustomerPayment, 'id'>) => addEntity<CustomerPayment>(FIRESTORE_PATHS.customerPayments, p);
+    const addCustomerPayment = (p: New<CustomerPayment>) => addEntity<CustomerPayment>(FIRESTORE_PATHS.customerPayments, p);
     const updateCustomerPayment = (id: string, u: Partial<CustomerPayment>) => updateEntity(FIRESTORE_PATHS.customerPayments, id, u);
     const deleteCustomerPayment = (id: string) => deleteEntity(FIRESTORE_PATHS.customerPayments, id);
 
-    const addSupplierPayment = (p: Omit<SupplierPayment, 'id'>) => addEntity<SupplierPayment>(FIRESTORE_PATHS.supplierPayments, p);
+    const addSupplierPayment = (p: New<SupplierPayment>) => addEntity<SupplierPayment>(FIRESTORE_PATHS.supplierPayments, p);
     const updateSupplierPayment = (id: string, u: Partial<SupplierPayment>) => updateEntity(FIRESTORE_PATHS.supplierPayments, id, u);
     const deleteSupplierPayment = (id: string) => deleteEntity(FIRESTORE_PATHS.supplierPayments, id);
 
-    const addCashAdvance = (a: Omit<CashAdvance, 'id'>) => addEntity<CashAdvance>(FIRESTORE_PATHS.cashAdvances, a);
+    const addCashAdvance = (a: New<CashAdvance>) => addEntity<CashAdvance>(FIRESTORE_PATHS.cashAdvances, a);
     const updateCashAdvance = (id: string, u: Partial<CashAdvance>) => updateEntity(FIRESTORE_PATHS.cashAdvances, id, u);
     const deleteCashAdvance = (id: string) => deleteEntity(FIRESTORE_PATHS.cashAdvances, id);
     
-    const addMachine = (m: Omit<Machine, 'id'>) => addEntity<Machine>(FIRESTORE_PATHS.machines, m);
+    const addMachine = (m: New<Machine>) => addEntity<Machine>(FIRESTORE_PATHS.machines, m);
     const deleteMachine = (id: string) => deleteEntity(FIRESTORE_PATHS.machines, id);
 
-    const addMachineReading = (r: Omit<MachineReading, 'id'>) => addEntity<MachineReading>(FIRESTORE_PATHS.machineReadings, r);
+    const addMachineReading = (r: New<MachineReading>) => addEntity<MachineReading>(FIRESTORE_PATHS.machineReadings, r);
     const updateMachineReading = (id: string, u: Partial<MachineReading>) => updateEntity(FIRESTORE_PATHS.machineReadings, id, u);
     const deleteMachineReading = (id: string) => deleteEntity(FIRESTORE_PATHS.machineReadings, id);
     
-    const addInvestment = (i: Omit<Investment, 'id'>) => addEntity<Investment>(FIRESTORE_PATHS.investments, i);
+    const addInvestment = (i: New<Investment>) => addEntity<Investment>(FIRESTORE_PATHS.investments, i);
     const updateInvestment = (id: string, u: Partial<Investment>) => updateEntity(FIRESTORE_PATHS.investments, id, u);
     const deleteInvestment = (id: string) => deleteEntity(FIRESTORE_PATHS.investments, id);
 
@@ -690,7 +733,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         
         const value = Math.abs(adj.adjustment) * costPerLitre;
 
-        await addEntity(FIRESTORE_PATHS.stockAdjustments, { ...adj, value });
+        await addEntity<StockAdjustment>(FIRESTORE_PATHS.stockAdjustments, { ...adj, value });
     };
     const updateStockAdjustment = (id: string, u: Partial<StockAdjustment>) => updateEntity(FIRESTORE_PATHS.stockAdjustments, id, u);
     const deleteStockAdjustment = (id: string) => deleteEntity(FIRESTORE_PATHS.stockAdjustments, id);
@@ -723,7 +766,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     const updateProduct = (id: string, u: Partial<Product>) => updateEntity(FIRESTORE_PATHS.products, id, u);
     const deleteProduct = (id: string) => deleteEntity(FIRESTORE_PATHS.products, id);
     
-    const addAttendance = (record: Omit<AttendanceRecord, 'id'>) => {
+    const addAttendance = (record: New<AttendanceRecord>) => {
         const todayStr = record.date.substring(0, 10);
         const existingRecord = processedState.attendance.find(
           a => a.employeeId === record.employeeId && a.date.startsWith(todayStr)
@@ -737,7 +780,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
     };
 
 
-    const addBusinessPartner = async (partner: Omit<BusinessPartner, 'id'>) => {
+    const addBusinessPartner = async (partner: New<BusinessPartner>) => {
         const customerRecord = await addCustomer({
             name: partner.name,
             contact: partner.contact || '',
@@ -831,7 +874,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
             const docSnap = await getDoc(settingsRef);
             const currentSettings = docSnap.exists() ? docSnap.data() as AppSettings : { initialFuelStock: {} };
             
-            const updatedInitialStock = { ...(currentSettings.initialFuelStock || {}), ...newStockSettings };
+            const updatedInitialStock: Record<string, number> = { ...(currentSettings.initialFuelStock || {}), ...newStockSettings };
 
             if (oldName && updatedInitialStock[oldName] !== undefined) {
                 delete updatedInitialStock[oldName];
@@ -883,7 +926,7 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         });
     };
 
-    const addDictionaryEntry = (d: Omit<DictionaryEntry, 'id'>) => addEntity<DictionaryEntry>(FIRESTORE_PATHS.dictionary, d);
+    const addDictionaryEntry = (d: New<DictionaryEntry>) => addEntity<DictionaryEntry>(FIRESTORE_PATHS.dictionary, d);
     const updateDictionaryEntry = (id: string, u: Partial<DictionaryEntry>) => updateEntity(FIRESTORE_PATHS.dictionary, id, u);
     const deleteDictionaryEntry = (id: string) => deleteEntity(FIRESTORE_PATHS.dictionary, id);
 
@@ -892,6 +935,9 @@ export function DatabaseProvider({ children }: { children: ReactNode }) {
         isLoaded: state.isLoaded,
         fuelStock,
         dateRange,
+        customerLedgerBook,
+        supplierLedgerBook,
+        isFromCache,
         addTransaction,
         updateTransaction,
         deleteTransaction,

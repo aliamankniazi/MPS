@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { format, isValid, startOfDay, endOfDay } from 'date-fns';
+import { format, isValid, startOfDay, endOfDay, endOfToday } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Archive, XCircle, Printer, Trash2, AlertTriangle, ListOrdered, Pencil, BookText, Download, ShieldCheck } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
@@ -482,7 +482,7 @@ export default function AllTransactionsPage() {
                                                 <TableHead>Details</TableHead>
                                                 <TableHead>Notes</TableHead>
                                                 <TableHead className="text-right">Amount (PKR)</TableHead>
-                                                <TableHead className="text-right">Balance</TableHead>
+                                                <TableHead className="text-right" title="A running total of every entry listed, not one customer's balance">Running Total</TableHead>
                                                 <TableHead className="text-center">Actions</TableHead>
                                             </TableRow>
                                         </TableHeader>

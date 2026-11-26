@@ -263,7 +263,7 @@ export default function CashCreditSalesReportPage() {
             const dayStart = startOfDay(new Date(dateKey));
             const dayEnd = endOfDay(new Date(dateKey));
 
-            const dailyFuelSummary = summaryByDateAndFuel[dateKey] || {};
+            const dailyFuelSummary: Record<string, SalesSummary> = summaryByDateAndFuel[dateKey] || {};
             
             const movementsForTheDay = allMovements.filter(m => {
                 const moveDate = new Date(m.timestamp);
@@ -316,7 +316,7 @@ export default function CashCreditSalesReportPage() {
 
              const uniqueMachineNamesForDay = [...new Set(readingsOnDay.map(r => r.machineName))];
 
-            const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map(machineName => {
+            const processedReadings: ProcessedReading[] = uniqueMachineNamesForDay.map((machineName): ProcessedReading | null => {
                 const latestReadingForDay = readingsOnDay
                     .filter(r => r.machineName === machineName)
                     .sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];

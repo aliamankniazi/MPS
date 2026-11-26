@@ -25,6 +25,7 @@ import {
   Receipt,
   Droplets,
   BarChart2,
+  ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Permission } from '@/hooks/use-roles';
@@ -99,6 +100,14 @@ const reportList: ReportCardProps[] = [
     href: '/top-customers',
     icon: Users,
     permission: 'view_dashboard',
+  },
+  {
+    title: 'Customer Balance Audit',
+    description: 'Every customer balance proved from the records, with duplicates, orphan entries and a full backup download.',
+    href: '/balance-audit',
+    icon: ShieldCheck,
+    permission: 'view_credit_recovery',
+    isFrequentlyUsed: true,
   },
   {
     title: 'Customer Defaulter Report',

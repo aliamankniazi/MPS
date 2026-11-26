@@ -23,6 +23,7 @@ import { TransactionNav } from '@/components/transaction-nav';
 import { useSupplierBalance } from '@/hooks/use-supplier-balance';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const purchaseReturnSchema = z.object({
   supplierId: z.string().min(1, 'Please select a supplier.'),
@@ -59,7 +60,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -85,7 +86,7 @@ export default function PurchaseReturnsPage() {
   
   const supplierId = watch('supplierId');
   const refundAmount = watch('totalRefund');
-  const { balance: supplierBalance } = useSupplierBalance(supplierId);
+  const { balance: supplierBalance } = useSupplierBalance(supplierId, { excluding: { source: 'purchaseReturns', id: editId } });
   const newBalance = useMemo(() => supplierBalance - (Number(refundAmount) || 0), [supplierBalance, refundAmount]);
 
   const selectedFuelType = watch('fuelType');

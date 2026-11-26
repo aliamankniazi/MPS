@@ -24,11 +24,11 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import Link from 'next/link';
 
-const INCOME_CATEGORIES: OtherIncomeCategory[] = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'];
+const INCOME_CATEGORIES = ['Service Station', 'Tire Shop', 'Tuck Shop', 'Other'] as const;
 
 const incomeSchema = z.object({
   description: z.string().min(1, 'Description is required'),
-  category: z.enum(INCOME_CATEGORIES, { required_error: 'Please select a category.' }),
+  category: z.string({ required_error: 'Please select a category.' }).min(1, 'Please select a category.'),
   amount: z.coerce.number().min(0.01, 'Amount must be greater than 0'),
   date: z.date({ required_error: "A date is required."}),
   pin: z.string().optional(),
@@ -155,7 +155,7 @@ export default function OtherIncomesPage() {
                             <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                         <SelectContent>
-                            {INCOME_CATEGORIES.map(cat => (
+                            {[...INCOME_CATEGORIES, ...(field.value && !(INCOME_CATEGORIES as readonly string[]).includes(field.value) ? [field.value] : [])].map(cat => (
                             <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                             ))}
                         </SelectContent>

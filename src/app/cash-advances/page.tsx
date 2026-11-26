@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useCustomerBalance } from '@/hooks/use-customer-balance';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { SignedInEmail } from '@/components/signed-in-email';
 
 const cashAdvanceSchema = z.object({
   customerId: z.string().min(1, 'Please select a customer.'),
@@ -56,7 +57,7 @@ function PageHeader() {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
             <p className="text-sm font-medium">{currentTime}</p>
             <div className="flex items-center gap-4">
-                <span className="text-sm">ziakniazi@gmail.com</span>
+                <SignedInEmail />
                 <Button variant="ghost" size="icon">
                     <Sun className="h-5 w-5" />
                 </Button>
@@ -85,7 +86,8 @@ export default function CashAdvancesPage() {
   
   const selectedCustomerId = watch('customerId');
   const advanceAmount = watch('amount');
-  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId);
+  // An advance being edited is left out of the balance, so "new balance" adds it once, not twice.
+  const { balance: customerBalance } = useCustomerBalance(selectedCustomerId, { excluding: { source: 'cashAdvances', id: editId } });
   const newBalance = useMemo(() => customerBalance + (Number(advanceAmount) || 0), [customerBalance, advanceAmount]);
   
   const selectedCustomerData = useMemo(() => customers.find(c => c.id === selectedCustomerId), [selectedCustomerId, customers]);
@@ -115,14 +117,14 @@ export default function CashAdvancesPage() {
     recognition.interimResults = false;
     recognition.lang = language;
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEventLike) => {
       const transcript = event.results[0][0].transcript;
       const currentNotes = getValues('notes') || '';
       setValue('notes', currentNotes ? currentNotes + ' ' + transcript : transcript);
       setIsListening(false);
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: any) => {
       console.error('Speech recognition error', event.error);
       toast({
           variant: 'destructive',

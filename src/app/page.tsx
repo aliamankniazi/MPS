@@ -7,11 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHeader, TableRow, TableHead } from '@/components/ui/table';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins, Input as InputIcon } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, ListOrdered, ShoppingCart, Receipt, Fuel, BarChart2, UserX, BookText, Medal, HandCoins } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
+import { lastActivity, ledgerOf } from '@/lib/customer-ledger';
 import Link from 'next/link';
 import { DateRangePicker } from '@/components/date-range-picker';
-import type { DateRange, FuelType, Purchase } from '@/lib/types';
+import type { DateRange, FuelType, Purchase, Transaction } from '@/lib/types';
 import {
   Accordion,
   AccordionContent,
@@ -118,7 +119,7 @@ const getNextRamadanInfo = (currentDate: Date) => {
 
 
 export default function DashboardPage() {
-  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange, fuelPrices, updateFuelPrice } = useDatabase();
+  const { transactions, purchases, expenses, otherIncomes, stockAdjustments, products, customers, customerPayments, cashAdvances, fuelStock, isLoaded, dateRange, setDateRange, fuelPrices, updateFuelPrice, customerLedgerBook } = useDatabase();
   const [currentTime, setCurrentTime] = useState('');
   const [islamicDateString, setIslamicDateString] = useState('');
   const [ramadanCountdown, setRamadanCountdown] = useState('');
@@ -440,7 +441,7 @@ export default function DashboardPage() {
   
   const topCustomers = useMemo(() => {
     if (!isLoaded) return [];
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
     const customerTotals = filteredTransactions.reduce((acc, tx) => {
         if (tx.customerId && tx.customerName && tx.customerName !== 'Walk-in Customer') {
             acc[tx.customerId] = {
@@ -458,18 +459,11 @@ export default function DashboardPage() {
     if (!isLoaded || !customers || !transactions || !customerPayments || !cashAdvances) return [];
     const thirtyDaysAgo = subDays(now, 30);
     const allCustomersWithDetails = customers.map(customer => {
-        const openingBalance = customer.openingBalance || 0;
-        const totalSales = transactions.filter(tx => tx.customerId === customer.id).reduce((sum, tx) => sum + tx.totalAmount, 0);
-        const totalCashAdvances = cashAdvances.filter(ca => ca.customerId === customer.id).reduce((sum, ca) => sum + ca.amount, 0);
-        const totalPayments = customerPayments.filter(p => p.customerId === customer.id).reduce((sum, p) => sum + p.amount, 0);
-        const balance = openingBalance + totalSales + totalCashAdvances - totalPayments;
+        // The one calculation (lib/customer-ledger.ts), so the dashboard and the customer's ledger agree.
+        const ledger = ledgerOf(customerLedgerBook, customer.id);
+        const balance = ledger.closingBalance;
         if (balance <= 0 && !customer.isBlacklisted) return null;
-        const allTimestamps = [
-            ...transactions.filter(tx => tx.customerId === customer.id).map(tx => new Date(tx.timestamp)),
-            ...cashAdvances.filter(ca => ca.customerId === customer.id).map(ca => new Date(ca.timestamp)),
-            ...customerPayments.filter(p => p.customerId === customer.id).map(p => new Date(p.timestamp)),
-        ].filter(d => isValid(d));
-        const lastActivityDate = allTimestamps.length > 0 ? new Date(Math.max.apply(null, allTimestamps as any)) : null;
+        const lastActivityDate = lastActivity(ledger);
         const isDefaulter = balance > 0 && lastActivityDate && lastActivityDate < thirtyDaysAgo;
         if (customer.isBlacklisted || isDefaulter) {
             return { ...customer, balance, lastActivityDate, isDefaulter: isDefaulter, isTrulyBlacklisted: customer.isBlacklisted };
@@ -477,11 +471,11 @@ export default function DashboardPage() {
         return null;
     });
     return allCustomersWithDetails.filter((c): c is NonNullable<typeof c> => c !== null);
-  }, [isLoaded, customers, transactions, customerPayments, cashAdvances, now]);
+  }, [isLoaded, customers, customerLedgerBook, now]);
 
-  const dailyProductSales = useMemo(() => {
+  const dailyProductSales = useMemo((): Record<string, Record<string, { totalVolume: number; totalAmount: number; unit: string }>> => {
     if (!isLoaded || !products) return {};
-    const { transactions: filteredTransactions } = filteredData;
+    const filteredTransactions: Transaction[] = filteredData.transactions;
     const salesByDayAndProduct = filteredTransactions.reduce((acc, tx) => {
         if (tx.timestamp && isValid(new Date(tx.timestamp))) {
             const date = format(new Date(tx.timestamp), 'yyyy-MM-dd');

@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format, isValid, startOfDay, endOfDay, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { BookUser, ArrowLeft, Trash2, Printer, Pencil, ShieldCheck, Briefcase, Calendar as CalendarIcon } from 'lucide-react';
+import { BookUser, ArrowLeft, Trash2, Printer, Pencil, ShieldCheck, Briefcase, Calendar as CalendarIcon, Download } from 'lucide-react';
 import { useDatabase } from '@/hooks/use-database';
 import { Skeleton } from '@/components/ui/skeleton';
 import Link from 'next/link';
@@ -28,6 +28,11 @@ import type { DateRange } from '@/lib/types';
 import { DateRangePicker } from '@/components/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/use-auth';
+import { describeRow, ledgerOf, rowTypeLabel, statementFor, toPaisa, type CustomerLedgerRow } from '@/lib/customer-ledger';
+import { describeSupplierRow, supplierLedgerOf, supplierStatement } from '@/lib/supplier-ledger';
+import * as XLSX from 'xlsx';
+
+const NO_DATE = 'no-date';
 
 type LedgerEntry = {
   id: string;
@@ -51,7 +56,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     customers, suppliers, businessPartners, employees, transactions, customerPayments, 
     cashAdvances, purchases, supplierPayments, investments, saleReturns,
     deleteTransaction, deletePurchase, deleteCustomerPayment, deleteCashAdvance, 
-    deleteSupplierPayment, deleteInvestment, deleteSaleReturn, isLoaded,
+    deleteSupplierPayment, deleteInvestment, deleteSaleReturn, deletePurchaseReturn, isLoaded, customerLedgerBook, supplierLedgerBook,
   } = useDatabase();
   
   const { isPinVerified, confirmPin } = useAuth();
@@ -80,103 +85,87 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     return { entity: resolvedEntity, entityType: type, employeeData: employee };
   }, [entityId, customers, suppliers, businessPartners, employees, isLoaded]);
 
-  const { entries, totalDebit, totalCredit, finalBalance } = useMemo(() => {
-    if (!entity) return { entries: [], totalDebit: 0, totalCredit: 0, finalBalance: 0 };
+  const { entries, totalDebit, totalCredit, openingBalance: periodOpening, finalBalance, currentBalance } = useMemo(() => {
+    if (!entity) return { entries: [], totalDebit: 0, totalCredit: 0, openingBalance: 0, finalBalance: 0, currentBalance: 0 };
     const combined: Omit<LedgerEntry, 'balance'>[] = [];
 
     if (entityType === 'Customer') {
-        const customerTransactions = transactions.filter(tx => tx.customerId === entityId);
-        const customerPaymentsReceived = customerPayments.filter(p => p.customerId === entityId);
-        const customerCashAdvances = cashAdvances.filter(ca => ca.customerId === entityId);
-        const customerSaleReturns = saleReturns.filter(sr => sr.customerId === entityId);
-
-        customerTransactions.forEach(tx => {
-          const isWalkIn = tx.isWalkIn ?? (!tx.customerId || tx.customerId === 'walkin');
-          let debit = tx.totalAmount;
-          let credit = isWalkIn ? tx.totalAmount : 0;
-
-          combined.push({
-            id: `tx-${tx.id}`,
-            timestamp: tx.timestamp,
-            description: tx.volume ? `${tx.volume.toFixed(2)}L of ${tx.fuelType}` : (tx.product || 'General Sale'),
-            type: isWalkIn ? 'Cash Sale' : 'Credit Sale',
-            debit,
-            credit,
-            original: tx,
-            category: 'FUEL SALE',
-            notes: tx.notes,
-            entityId: tx.customerId
-          });
+        /*
+         * The one calculation (lib/customer-ledger.ts). This page used to add the rows up for itself, and
+         * came to a different figure than the sale screen, the customers list and the reports. Now the rows,
+         * the running balance beside each, the opening and the closing all come out of the same pass that
+         * every other screen reads.
+         */
+        const ledger = ledgerOf(customerLedgerBook, entityId);
+        const statement = statementFor(ledger, { from: dateRange?.from ?? null, to: dateRange?.to ?? dateRange?.from ?? null });
+        const PREFIX = { transactions: 'tx', customerPayments: 'pay', cashAdvances: 'adv', saleReturns: 'sr' } as const;
+        const CATEGORY = { 'credit-sale': 'FUEL SALE', 'cash-sale': 'CASH SALE · PAID AT THE TIME', payment: 'PAYMENT', salary: 'STAFF PAYROLL', 'cash-advance': 'CASH ADVANCE', 'sale-return': 'RETURN' } as const;
+        const toEntry = (row: CustomerLedgerRow): LedgerEntry => ({
+          id: `${PREFIX[row.source]}-${row.sourceId}`,
+          timestamp: row.dated ? new Date(row.time).toISOString() : '',
+          description: describeRow(row),
+          type: rowTypeLabel(row),
+          debit: row.debit,
+          credit: row.credit,
+          balance: row.balance,
+          original: row.original,
+          category: CATEGORY[row.kind],
+          notes: row.kind === 'sale-return' ? row.original?.reason : row.original?.notes,
+          entityId: row.customerId,
         });
-
-        customerPaymentsReceived.forEach(p => {
-            const isSalary = p.paymentMethod === 'Salary';
-            combined.push({
-              id: `pay-${p.id}`,
-              timestamp: p.timestamp,
-              description: p.notes || (isSalary ? `Salary payment` : `Payment Received`),
-              type: isSalary ? 'Salary' : 'Payment',
-              debit: 0,
-              credit: p.amount,
-              original: p,
-              category: isSalary ? 'STAFF PAYROLL' : 'PAYMENT',
-              notes: p.notes,
-              entityId: p.customerId
-            })
-        });
-        
-        customerCashAdvances.forEach(ca => {
-            combined.push({
-              id: `adv-${ca.id}`,
-              timestamp: ca.timestamp,
-              description: ca.notes || 'Cash Advance',
-              type: 'Cash Advance',
-              debit: ca.amount,
-              credit: 0,
-              original: ca,
-              category: 'CASH ADVANCE',
-              notes: ca.notes,
-              entityId: ca.customerId
-            })
-        });
-        
-        customerSaleReturns.forEach(sr => combined.push({
-          id: `sr-${sr.id}`,
-          timestamp: sr.timestamp,
-          description: `Return: ${sr.volume.toFixed(2)}L of ${sr.fuelType}`,
-          type: 'Sale Return',
-          debit: 0,
-          credit: sr.totalRefund, 
-          original: sr,
-          category: 'RETURN',
-          notes: sr.reason,
-          entityId: sr.customerId
-        }));
+        const all = statement.rows.map(toEntry);
+        const term = searchTerm.toLowerCase();
+        const shown = term
+          ? all.filter(e => e.description.toLowerCase().includes(term) || (e.notes && String(e.notes).toLowerCase().includes(term)))
+          : all;
+        // A search narrows the rows shown and their two totals. The balances never follow a search:
+        // each row keeps its true running balance and the cards keep the period's true opening and closing.
+        const debit = shown.reduce((sum, e) => sum + toPaisa(e.debit), 0) / 100;
+        const credit = shown.reduce((sum, e) => sum + toPaisa(e.credit), 0) / 100;
+        return {
+          entries: [...shown].reverse(),
+          totalDebit: debit,
+          totalCredit: credit,
+          openingBalance: statement.openingBalance,
+          finalBalance: statement.closingBalance,
+          currentBalance: ledger.closingBalance,
+        };
 
     } else if (entityType === 'Supplier') {
-        purchases.filter(p => p.supplierId === entityId).forEach(p => combined.push({
-            id: `pur-${p.id}`,
-            timestamp: p.timestamp,
-            description: `${p.volume.toFixed(2)}L of ${p.fuelType}`,
-            type: 'Purchase',
-            credit: p.totalCost,
-            debit: 0,
-            original: p,
-            category: 'PURCHASE',
-            entityId: p.supplierId
+        /*
+         * The one supplier calculation (lib/supplier-ledger.ts). This page listed purchases and payments and
+         * left purchase returns out altogether, so it disagreed with the purchase-return screen and the report.
+         */
+        const ledger = supplierLedgerOf(supplierLedgerBook, entityId);
+        const statement = supplierStatement(ledger, { from: dateRange?.from ?? null, to: dateRange?.to ?? dateRange?.from ?? null });
+        const PREFIX = { purchases: 'pur', supplierPayments: 'spay', purchaseReturns: 'pr' } as const;
+        const TYPE = { purchase: 'Purchase', payment: 'Supplier Payment', 'purchase-return': 'Purchase Return' } as const;
+        const CATEGORY = { purchase: 'PURCHASE', payment: 'PAYMENT', 'purchase-return': 'RETURN' } as const;
+        const all: LedgerEntry[] = statement.rows.map(row => ({
+          id: `${PREFIX[row.source]}-${row.sourceId}`,
+          timestamp: row.dated ? new Date(row.time).toISOString() : '',
+          description: describeSupplierRow(row),
+          type: TYPE[row.kind],
+          debit: row.debit,
+          credit: row.credit,
+          balance: row.balance,
+          original: row.original,
+          category: CATEGORY[row.kind],
+          notes: row.original?.notes ?? row.original?.reason,
+          entityId: row.supplierId,
         }));
-
-        supplierPayments.filter(sp => sp.supplierId === entityId).forEach(sp => combined.push({
-            id: `spay-${sp.id}`,
-            timestamp: sp.timestamp,
-            description: `Payment Made (${sp.paymentMethod})`,
-            type: 'Supplier Payment',
-            debit: sp.amount,
-            credit: 0,
-            original: sp,
-            category: 'PAYMENT',
-            entityId: sp.supplierId
-        }));
+        const term = searchTerm.toLowerCase();
+        const shown = term
+          ? all.filter(e => e.description.toLowerCase().includes(term) || (e.notes && String(e.notes).toLowerCase().includes(term)))
+          : all;
+        return {
+          entries: [...shown].reverse(),
+          totalDebit: shown.reduce((sum, e) => sum + toPaisa(e.debit), 0) / 100,
+          totalCredit: shown.reduce((sum, e) => sum + toPaisa(e.credit), 0) / 100,
+          openingBalance: statement.openingBalance,
+          finalBalance: statement.closingBalance,
+          currentBalance: ledger.closingBalance,
+        };
     } else if (entityType === 'Partner') {
         investments.filter(inv => inv.partnerId === entityId).forEach(inv => {
             combined.push({
@@ -231,20 +220,21 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
     const debit = filteredEntries.reduce((s, e) => s + e.debit, 0);
     const credit = filteredEntries.reduce((s, e) => s + e.credit, 0);
 
-    return { entries: entriesWithBalance.reverse(), totalDebit: debit, totalCredit: credit, finalBalance: runningBalance };
-  }, [entity, entityType, transactions, customerPayments, cashAdvances, saleReturns, purchases, supplierPayments, investments, entityId, dateRange, searchTerm]);
+    return { entries: entriesWithBalance.reverse(), totalDebit: debit, totalCredit: credit, openingBalance: rangeFrom ? balanceBeforeRange : openingBalance, finalBalance: runningBalance, currentBalance: runningBalance };
+  }, [entity, entityType, customerLedgerBook, supplierLedgerBook, investments, entityId, dateRange, searchTerm]);
 
   const groupedEntries = useMemo(() => {
     const groups: Record<string, LedgerEntry[]> = {};
     entries.forEach(entry => {
-      const dateKey = format(new Date(entry.timestamp), 'yyyy-MM-dd');
+      const dateKey = isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'yyyy-MM-dd') : NO_DATE;
       if (!groups[dateKey]) groups[dateKey] = [];
       groups[dateKey].push(entry);
     });
     return groups;
   }, [entries]);
 
-  const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()), [groupedEntries]);
+  // Newest day first; rows whose date was never recorded are the oldest thing on the account, so last.
+  const sortedDateKeys = useMemo(() => Object.keys(groupedEntries).sort((a, b) => (a === NO_DATE ? 1 : b === NO_DATE ? -1 : new Date(b).getTime() - new Date(a).getTime())), [groupedEntries]);
 
   const handleQuickPeriod = (value: string) => {
     const now = new Date();
@@ -271,11 +261,38 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         else if (prefix === 'sr') deleteSaleReturn(id);
         else if (prefix === 'pur') deletePurchase(id);
         else if (prefix === 'spay') deleteSupplierPayment(id);
+        else if (prefix === 'pr') deletePurchaseReturn(id);
         else if (prefix === 'inv') deleteInvestment(id);
         toast({ title: 'Entry Deleted' });
     } catch (e) { toast({ variant: 'destructive', title: 'Error' }); }
     setEntryToDelete(null);
     setDeletePin('');
+  };
+
+  const periodEnd = dateRange?.to ?? dateRange?.from ?? null;
+
+  // The statement as a spreadsheet: the same rows and the same figures as the screen and the print.
+  const handleExportExcel = () => {
+    if (!entity) return;
+    const money = (n: number) => Math.round(n * 100) / 100;
+    const oldestFirst = [...entries].reverse();
+    const rows: Record<string, string | number>[] = [
+      { Date: dateRange?.from ? `Before ${format(dateRange.from, 'dd MMM yyyy')}` : '', Description: 'Opening Balance', Type: '', Notes: '', Debit: '', Credit: '', Balance: money(periodOpening) },
+      ...oldestFirst.map(e => ({
+        Date: isValid(new Date(e.timestamp)) ? format(new Date(e.timestamp), 'dd MMM yyyy hh:mm a') : 'Date not recorded',
+        Description: e.description,
+        Type: e.type,
+        Notes: e.notes || '',
+        Debit: e.debit > 0 ? money(e.debit) : '',
+        Credit: e.credit > 0 ? money(e.credit) : '',
+        Balance: money(e.balance),
+      })),
+      { Date: periodEnd ? `As of ${format(periodEnd, 'dd MMM yyyy')}` : '', Description: 'Closing Balance', Type: '', Notes: '', Debit: money(totalDebit), Credit: money(totalCredit), Balance: money(finalBalance) },
+    ];
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Statement');
+    XLSX.writeFile(workbook, `${String(entity.name).replace(/[^\w\- ]+/g, '').trim() || 'Account'} - Statement.xlsx`);
   };
 
   if (!isLoaded) return <div className="p-8"><Skeleton className="h-96 w-full" /></div>;
@@ -291,6 +308,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
         case 'sr': return `/sale-returns?edit=${id}`;
         case 'inv': return `/investments?edit=${id}`;
         case 'spay': return `/supplier-payments?edit=${id}`;
+        case 'pr': return `/purchase-returns?edit=${id}`;
         default: return '#';
     }
   };
@@ -328,14 +346,16 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
           </Select>
           <DateRangePicker date={dateRange} onDateChange={setDateRange} />
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Print</Button>
+          <Button variant="outline" onClick={handleExportExcel}><Download className="mr-2 h-4 w-4" /> Excel</Button>
           <Button asChild variant="outline"><Link href="/customers"><ArrowLeft className="mr-2 h-4 w-4" />Back</Link></Button>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3 mb-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+          <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Opening Balance{dateRange?.from ? ` (before ${format(dateRange.from, 'dd MMM yyyy')})` : ''}</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(periodOpening))}>PKR {periodOpening.toLocaleString()}</div></CardContent></Card>
           <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Debit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-destructive">PKR {totalDebit.toLocaleString()}</div></CardContent></Card>
           <Card className="bg-muted/50"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Total Credit</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold text-green-800">PKR {totalCredit.toLocaleString()}</div></CardContent></Card>
-          <Card className="bg-muted/50 border-2 border-primary/20"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Account Balance</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(finalBalance))}>PKR {finalBalance.toLocaleString()}</div></CardContent></Card>
+          <Card className="bg-muted/50 border-2 border-primary/20"><CardHeader className="py-2"><CardTitle className="text-xs uppercase">Closing Balance{periodEnd ? ` (${format(periodEnd, 'dd MMM yyyy')})` : ''}</CardTitle></CardHeader><CardContent><div className={cn("text-2xl font-bold", balanceColor(finalBalance))}>PKR {finalBalance.toLocaleString()}</div>{Math.abs(currentBalance - finalBalance) >= 0.005 && <p className="text-xs text-muted-foreground mt-1">Balance today, with entries dated after this period: <span className={cn("font-bold", balanceColor(currentBalance))}>PKR {currentBalance.toLocaleString()}</span></p>}</CardContent></Card>
       </div>
 
       <div className="rounded-md border overflow-hidden">
@@ -355,7 +375,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
               <TableBody>
                 {sortedDateKeys.map((dateKey) => {
                   const dayEntries = groupedEntries[dateKey];
-                  const displayDate = format(new Date(dateKey), 'EEEE, dd MMMM yyyy');
+                  const displayDate = dateKey === NO_DATE ? 'Date not recorded' : format(new Date(dateKey), 'EEEE, dd MMMM yyyy');
                   
                   return (
                       <React.Fragment key={dateKey}>
@@ -370,7 +390,7 @@ export default function CustomerLedgerPage(props: { params: Promise<{ id: string
                               return (
                               <TableRow key={entry.id} className={cn("group", isSalary && "bg-pink-50 dark:bg-pink-900/10")}>
                                   <TableCell className="text-xs font-mono text-muted-foreground">{serialNo}</TableCell>
-                                  <TableCell className="font-medium whitespace-nowrap">{format(new Date(entry.timestamp), 'hh:mm a')}</TableCell>
+                                  <TableCell className="font-medium whitespace-nowrap">{isValid(new Date(entry.timestamp)) ? format(new Date(entry.timestamp), 'hh:mm a') : '-'}</TableCell>
                                   <TableCell>
                                       <div className="flex flex-col">
                                           <span className={cn("font-bold", isSalary ? "text-pink-600" : "text-red-600")}>{entry.description}</span>
