@@ -20,7 +20,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Sparkles, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck } from 'lucide-react';
+import { FileText, Settings, LayoutDashboard, ShoppingCart, BookOpen, Users, Package, DollarSign, ArrowRightLeft, LogOut, Fuel, FileBarChart, HandCoins, History, Redo, Contact, PiggyBank, Box, Cog, Wrench, Receipt, Landmark, Truck, BrainCircuit, Shield, Trash2, BookKey, Droplets, Briefcase, Clock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useDatabase } from '@/hooks/use-database';
 import { Button } from './ui/button';
@@ -93,7 +93,6 @@ const navGroups = [
         icon: Cog,
         links: [
             { href: '/tasks', label: 'Task Automation', icon: BrainCircuit },
-            { href: '/ai-summary', label: 'AI Summary', icon: Sparkles },
             { href: '/roles', label: 'Role Management', icon: Shield },
             { href: '/dictionary', label: 'Dictionary', icon: BookKey },
             { href: '/recycle-bin', label: 'Recycle Bin', icon: Trash2 },

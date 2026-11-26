@@ -30,8 +30,6 @@ routes.push(
     if (m.type() !== 'error') return;
     const t = m.text();
     if (/favicon|Failed to load resource|net::ERR|Download the React DevTools/i.test(t)) return;
-    // The AI summary needs a Google API key; without one the page shows its own error card. Not a fault of the screen.
-    if (current === '/ai-summary' && /Server Components render/.test(t)) return;
     problems.push({ route: current, kind: 'console', text: t.slice(0, 300) });
   });
   await page.goto(`${BASE}/login`);
